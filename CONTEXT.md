@@ -74,6 +74,10 @@ _Avoid_: association strength (use only when citing van Eck & Waltman), affinity
 **Minimum Months Filter**:
 A **Tag Network** control that drops games whose **Months Observed** is below the threshold from the loaded dataset before the network is built. It never re-ranks or backfills.
 
+**Network State**:
+Everything that fixes one **Tag Network** result: the loaded **Top-100 Dataset** and its **Build**, the **Minimum Months Filter**, the minimum games per tag and minimum shared games, the hidden and removed **Tags**, the **Clustering Weight**, the clustering algorithm, the resolution, the seed and the number of null-model replicates. The same Network State always gives the same **Clusters** and metrics. The graph layout is not part of it.
+_Avoid_: view, session, configuration, state (unqualified)
+
 **Analysis Report mode**:
 The **Tag Network** app's second mode: one scrolling page of numbered sections over the same state as the graph workbench. Distinct from the generated feature-analysis report.
 _Avoid_: report (unqualified)
