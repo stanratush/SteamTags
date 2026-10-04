@@ -64,8 +64,16 @@ How much the **Tag Network**'s clustering changes when one **Tag** is hypothetic
 _Avoid_: node sensitivity, influence, importance
 
 **Seed-Noise Floor**:
-How much the clustering varies across random seeds on the unchanged **Tag Network**. A **Removal Sensitivity** smaller than this cannot be told apart from seed noise.
-_Avoid_: error bar, confidence interval
+How much the clustering varies across random seeds on the unchanged **Tag Network**: each extra seed's **Clusters** compared with the ones shown. Part of every **Network State**'s result, not only of a **Removal Sensitivity** run. A **Removal Sensitivity** smaller than this cannot be told apart from seed noise.
+_Avoid_: error bar, confidence interval, seed stability
+
+**Membership Stability**:
+How consistently one **Tag** is put with the same other **Tags** across the seeds of the **Seed-Noise Floor**: 1 means its **Cluster** never changes. A **Cluster** has the mean over its members. Describes how much a tag's assignment depends on the seed, never whether a tag or **Cluster** is real or important.
+_Avoid_: confidence, certainty, robustness, core-ness
+
+**Resolution Sweep**:
+The feature-analysis report's clustering repeated at a fixed set of resolution values, everything else unchanged, and compared with the reported **Clusters**. Shows how much the result depends on the chosen resolution. Part of the **Build** only, not of the app.
+_Avoid_: γ stability test, robustness check
 
 **Lift**:
 For two tags: how often they share games, divided by how often they would if tags were assigned independently (observed ÷ expected co-occurrence), counted over the games the network is built from (the loaded **Top-100 Dataset** after the **Minimum Months Filter**). Above 1 = they occur together more than chance would predict. A frequency-corrected measure of association, not a cause.
@@ -75,7 +83,7 @@ _Avoid_: association strength (use only when citing van Eck & Waltman), affinity
 A **Tag Network** control that drops games whose **Months Observed** is below the threshold from the loaded dataset before the network is built. It never re-ranks or backfills.
 
 **Network State**:
-Everything that fixes one **Tag Network** result: the loaded **Top-100 Dataset** and its **Build**, the **Minimum Months Filter**, the minimum games per tag and minimum shared games, the hidden and removed **Tags**, the **Clustering Weight**, the clustering algorithm, the resolution, the seed and the number of null-model replicates. The same Network State always gives the same **Clusters** and metrics. The graph layout is not part of it.
+Everything that fixes one **Tag Network** result: the loaded **Top-100 Dataset** and its **Build**, the **Minimum Months Filter**, the minimum games per tag and minimum shared games, the hidden and removed **Tags**, the **Clustering Weight**, the clustering algorithm, the resolution, the seed, the number of null-model replicates and the number of noise seeds. The same Network State always gives the same **Clusters** and metrics. The graph layout is not part of it.
 _Avoid_: view, session, configuration, state (unqualified)
 
 **Analysis Report mode**:
