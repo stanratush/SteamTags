@@ -1,0 +1,1228 @@
+{
+ "source": "Archived Steamworks tag table (research/04-steam-tag-taxonomy.md, S2), category per tag name",
+ "categories": {
+  "1980s": [
+   "Themes & Moods"
+  ],
+  "1990's": [
+   "Themes & Moods"
+  ],
+  "2.5D": [
+   "Visuals & Viewpoint"
+  ],
+  "2D": [
+   "Visuals & Viewpoint"
+  ],
+  "2D Fighter": [
+   "Sub-Genres"
+  ],
+  "2D Platformer": [
+   "Sub-Genres"
+  ],
+  "360 Video": [
+   "Visuals & Viewpoint"
+  ],
+  "3D": [
+   "Visuals & Viewpoint"
+  ],
+  "3D Fighter": [
+   "Sub-Genres"
+  ],
+  "3D Platformer": [
+   "Sub-Genres"
+  ],
+  "3D Vision": [
+   "Visuals & Viewpoint"
+  ],
+  "4 Player Local": [
+   "Players"
+  ],
+  "4X": [
+   "Sub-Genres"
+  ],
+  "6DOF": [
+   "Features"
+  ],
+  "ATV": [
+   "Features"
+  ],
+  "Abstract": [
+   "Visuals & Viewpoint"
+  ],
+  "Action": [
+   "Top-Level Genres"
+  ],
+  "Action RPG": [
+   "Genres"
+  ],
+  "Action Roguelike": [
+   "Sub-Genres"
+  ],
+  "Action-Adventure": [
+   "Genres"
+  ],
+  "Addictive": [
+   "Assessments"
+  ],
+  "Adventure": [
+   "Top-Level Genres"
+  ],
+  "Agriculture": [
+   "Themes & Moods"
+  ],
+  "Aliens": [
+   "Themes & Moods"
+  ],
+  "Alternate History": [
+   "Themes & Moods"
+  ],
+  "America": [
+   "Themes & Moods"
+  ],
+  "Animation & Modeling": [
+   "Software"
+  ],
+  "Anime": [
+   "Visuals & Viewpoint"
+  ],
+  "Arcade": [
+   "Genres"
+  ],
+  "Archery": [
+   "Features"
+  ],
+  "Arena Shooter": [
+   "Sub-Genres"
+  ],
+  "Artificial Intelligence": [
+   "Features"
+  ],
+  "Assassin": [
+   "Themes & Moods"
+  ],
+  "Asymmetric VR": [
+   "Features"
+  ],
+  "Asynchronous Multiplayer": [
+   "Players"
+  ],
+  "Atmospheric": [
+   "Themes & Moods"
+  ],
+  "Audio Production": [
+   "Software"
+  ],
+  "Auto Battler": [
+   "Genres"
+  ],
+  "Automation": [
+   "Features"
+  ],
+  "Automobile Sim": [
+   "Genres"
+  ],
+  "BMX": [
+   "Genres"
+  ],
+  "Base Building": [
+   "Genres",
+   "Features"
+  ],
+  "Baseball": [
+   "Genres"
+  ],
+  "Based on a Novel": [
+   "Other Tags"
+  ],
+  "Basketball": [
+   "Genres"
+  ],
+  "Batman": [
+   "Other Tags"
+  ],
+  "Battle Royale": [
+   "Genres"
+  ],
+  "Beat 'em up": [
+   "Sub-Genres"
+  ],
+  "Beautiful": [
+   "Assessments"
+  ],
+  "Benchmark": [
+   "Software"
+  ],
+  "Bikes": [
+   "Themes & Moods"
+  ],
+  "Blood": [
+   "Ratings etc"
+  ],
+  "Board Game": [
+   "Genres"
+  ],
+  "Bowling": [
+   "Genres"
+  ],
+  "Boxing": [
+   "Features"
+  ],
+  "Building": [
+   "Genres",
+   "Features"
+  ],
+  "Bullet Hell": [
+   "Sub-Genres"
+  ],
+  "Bullet Time": [
+   "Features"
+  ],
+  "CRPG": [
+   "Sub-Genres"
+  ],
+  "Capitalism": [
+   "Themes & Moods"
+  ],
+  "Card Battler": [
+   "Sub-Genres"
+  ],
+  "Card Game": [
+   "Genres"
+  ],
+  "Cartoon": [
+   "Visuals & Viewpoint"
+  ],
+  "Cartoony": [
+   "Visuals & Viewpoint"
+  ],
+  "Casual": [
+   "Top-Level Genres"
+  ],
+  "Cats": [
+   "Themes & Moods"
+  ],
+  "Character Action Game": [
+   "Genres"
+  ],
+  "Character Customization": [
+   "Features"
+  ],
+  "Chess": [
+   "Genres"
+  ],
+  "Choices Matter": [
+   "Features"
+  ],
+  "Choose Your Own Adventure": [
+   "Sub-Genres"
+  ],
+  "Cinematic": [
+   "Visuals & Viewpoint"
+  ],
+  "City Builder": [
+   "Sub-Genres"
+  ],
+  "Class-Based": [
+   "Features"
+  ],
+  "Classic": [
+   "Assessments"
+  ],
+  "Clicker": [
+   "Genres"
+  ],
+  "Co-op": [
+   "Players"
+  ],
+  "Co-op Campaign": [
+   "Players"
+  ],
+  "Cold War": [
+   "Themes & Moods"
+  ],
+  "Collectathon": [
+   "Sub-Genres"
+  ],
+  "Colony Sim": [
+   "Sub-Genres"
+  ],
+  "Colorful": [
+   "Visuals & Viewpoint"
+  ],
+  "Combat": [
+   "Features"
+  ],
+  "Combat Racing": [
+   "Sub-Genres"
+  ],
+  "Comedy": [
+   "Assessments"
+  ],
+  "Comic Book": [
+   "Visuals & Viewpoint",
+   "Themes & Moods"
+  ],
+  "Competitive": [
+   "Assessments"
+  ],
+  "Conspiracy": [
+   "Themes & Moods"
+  ],
+  "Controller": [
+   "Hardware / Input"
+  ],
+  "Conversation": [
+   "Features"
+  ],
+  "Crafting": [
+   "Features"
+  ],
+  "Crime": [
+   "Themes & Moods"
+  ],
+  "Crowdfunded": [
+   "Funding etc."
+  ],
+  "Cult Classic": [
+   "Assessments"
+  ],
+  "Cute": [
+   "Visuals & Viewpoint"
+  ],
+  "Cyberpunk": [
+   "Themes & Moods"
+  ],
+  "Cycling": [
+   "Genres"
+  ],
+  "Dark": [
+   "Themes & Moods"
+  ],
+  "Dark Comedy": [
+   "Assessments"
+  ],
+  "Dark Fantasy": [
+   "Themes & Moods"
+  ],
+  "Dating Sim": [
+   "Sub-Genres"
+  ],
+  "Deckbuilding": [
+   "Features"
+  ],
+  "Demons": [
+   "Themes & Moods"
+  ],
+  "Design & Illustration": [
+   "Software"
+  ],
+  "Destruction": [
+   "Themes & Moods"
+  ],
+  "Detective": [
+   "Themes & Moods"
+  ],
+  "Difficult": [
+   "Assessments"
+  ],
+  "Dinosaurs": [
+   "Themes & Moods"
+  ],
+  "Diplomacy": [
+   "Genres",
+   "Themes & Moods"
+  ],
+  "Documentary": [
+   "Other Tags"
+  ],
+  "Dog": [
+   "Themes & Moods"
+  ],
+  "Dragons": [
+   "Themes & Moods"
+  ],
+  "Drama": [
+   "Other Tags"
+  ],
+  "Driving": [
+   "Features"
+  ],
+  "Dungeon Crawler": [
+   "Sub-Genres"
+  ],
+  "Dungeons & Dragons": [
+   "Other Tags"
+  ],
+  "Dynamic Narration": [
+   "Themes & Moods"
+  ],
+  "Early Access": [
+   "Funding etc."
+  ],
+  "Economy": [
+   "Themes & Moods"
+  ],
+  "Education": [
+   "Sub-Genres",
+   "Themes & Moods"
+  ],
+  "Emotional": [
+   "Assessments"
+  ],
+  "Epic": [
+   "Assessments"
+  ],
+  "Episodic": [
+   "Other Tags"
+  ],
+  "Experience": [
+   "Other Tags"
+  ],
+  "Experimental": [
+   "Top-Level Genres",
+   "Genres"
+  ],
+  "Exploration": [
+   "Genres"
+  ],
+  "FMV": [
+   "Visuals & Viewpoint",
+   "Features"
+  ],
+  "FPS": [
+   "Sub-Genres"
+  ],
+  "Faith": [
+   "Themes & Moods"
+  ],
+  "Family Friendly": [
+   "Themes & Moods"
+  ],
+  "Fantasy": [
+   "Themes & Moods"
+  ],
+  "Farming Sim": [
+   "Genres"
+  ],
+  "Fast-Paced": [
+   "Assessments"
+  ],
+  "Feature Film": [
+   "Other Tags"
+  ],
+  "Female Protagonist": [
+   "Features"
+  ],
+  "Fighting": [
+   "Genres"
+  ],
+  "First-Person": [
+   "Visuals & Viewpoint"
+  ],
+  "Fishing": [
+   "Features"
+  ],
+  "Flight": [
+   "Sub-Genres",
+   "Features"
+  ],
+  "Football": [
+   "Genres"
+  ],
+  "Foreign": [
+   "Themes & Moods"
+  ],
+  "Free to Play": [
+   "Funding etc."
+  ],
+  "Funny": [
+   "Assessments"
+  ],
+  "Futuristic": [
+   "Themes & Moods"
+  ],
+  "Gambling": [
+   "Themes & Moods"
+  ],
+  "Game Development": [
+   "Themes & Moods"
+  ],
+  "GameMaker": [
+   "Software"
+  ],
+  "Games Workshop": [
+   "Other Tags"
+  ],
+  "Gaming": [
+   "Software"
+  ],
+  "God Game": [
+   "Genres"
+  ],
+  "Golf": [
+   "Genres"
+  ],
+  "Gore": [
+   "Ratings etc"
+  ],
+  "Gothic": [
+   "Themes & Moods"
+  ],
+  "Grand Strategy": [
+   "Sub-Genres"
+  ],
+  "Great Soundtrack": [
+   "Assessments"
+  ],
+  "Grid-Based Movement": [
+   "Features"
+  ],
+  "Gun Customization": [
+   "Features"
+  ],
+  "Hack and Slash": [
+   "Sub-Genres",
+   "Features"
+  ],
+  "Hacking": [
+   "Genres",
+   "Features"
+  ],
+  "Hand-drawn": [
+   "Visuals & Viewpoint"
+  ],
+  "Hardware": [
+   "Hardware / Input"
+  ],
+  "Heist": [
+   "Sub-Genres",
+   "Themes & Moods"
+  ],
+  "Hero Shooter": [
+   "Sub-Genres"
+  ],
+  "Hex Grid": [
+   "Features"
+  ],
+  "Hidden Object": [
+   "Genres"
+  ],
+  "Historical": [
+   "Themes & Moods"
+  ],
+  "Hockey": [
+   "Genres"
+  ],
+  "Horror": [
+   "Sub-Genres"
+  ],
+  "Horses": [
+   "Themes & Moods"
+  ],
+  "Hunting": [
+   "Features"
+  ],
+  "Idler": [
+   "Genres"
+  ],
+  "Illuminati": [
+   "Themes & Moods"
+  ],
+  "Immersive Sim": [
+   "Sub-Genres"
+  ],
+  "Indie": [
+   "Other Tags"
+  ],
+  "Intentionally Awkward Controls": [
+   "Features"
+  ],
+  "Interactive Fiction": [
+   "Genres"
+  ],
+  "Inventory Management": [
+   "Features"
+  ],
+  "Investigation": [
+   "Sub-Genres",
+   "Themes & Moods"
+  ],
+  "Isometric": [
+   "Visuals & Viewpoint"
+  ],
+  "JRPG": [
+   "Sub-Genres"
+  ],
+  "Jet": [
+   "Themes & Moods"
+  ],
+  "Kickstarter": [
+   "Funding etc."
+  ],
+  "LEGO": [
+   "Other Tags"
+  ],
+  "LGBTQ+": [
+   "Themes & Moods"
+  ],
+  "Lara Croft": [
+   "Other Tags"
+  ],
+  "Lemmings": [
+   "Themes & Moods"
+  ],
+  "Level Editor": [
+   "Features"
+  ],
+  "Life Sim": [
+   "Sub-Genres"
+  ],
+  "Linear": [
+   "Features"
+  ],
+  "Local Co-Op": [
+   "Players"
+  ],
+  "Local Multiplayer": [
+   "Players"
+  ],
+  "Logic": [
+   "Themes & Moods"
+  ],
+  "Loot": [
+   "Themes & Moods"
+  ],
+  "Looter Shooter": [
+   "Sub-Genres"
+  ],
+  "Lore-Rich": [
+   "Assessments"
+  ],
+  "Lovecraftian": [
+   "Themes & Moods"
+  ],
+  "MMORPG": [
+   "Genres"
+  ],
+  "MOBA": [
+   "Genres"
+  ],
+  "Magic": [
+   "Themes & Moods"
+  ],
+  "Management": [
+   "Genres",
+   "Themes & Moods"
+  ],
+  "Mars": [
+   "Themes & Moods"
+  ],
+  "Martial Arts": [
+   "Features"
+  ],
+  "Massively Multiplayer": [
+   "Players"
+  ],
+  "Masterpiece": [
+   "Assessments"
+  ],
+  "Match 3": [
+   "Genres"
+  ],
+  "Mature": [
+   "Ratings etc"
+  ],
+  "Mechs": [
+   "Themes & Moods"
+  ],
+  "Medical Sim": [
+   "Genres"
+  ],
+  "Medieval": [
+   "Themes & Moods"
+  ],
+  "Memes": [
+   "Themes & Moods"
+  ],
+  "Metroidvania": [
+   "Sub-Genres"
+  ],
+  "Military": [
+   "Themes & Moods"
+  ],
+  "Mini Golf": [
+   "Genres"
+  ],
+  "Minigames": [
+   "Features"
+  ],
+  "Minimalist": [
+   "Visuals & Viewpoint"
+  ],
+  "Mining": [
+   "Genres",
+   "Features"
+  ],
+  "Mod": [
+   "Other Tags"
+  ],
+  "Moddable": [
+   "Features"
+  ],
+  "Modern": [
+   "Themes & Moods"
+  ],
+  "Motocross": [
+   "Genres"
+  ],
+  "Motorbike": [
+   "Themes & Moods"
+  ],
+  "Mouse only": [
+   "Hardware / Input"
+  ],
+  "Movie": [
+   "Other Tags"
+  ],
+  "Multiplayer": [
+   "Players"
+  ],
+  "Multiple Endings": [
+   "Features"
+  ],
+  "Music": [
+   "Other Tags"
+  ],
+  "Music-Based Procedural Generation": [
+   "Features"
+  ],
+  "Mystery": [
+   "Themes & Moods"
+  ],
+  "Mystery Dungeon": [
+   "Sub-Genres"
+  ],
+  "Mythology": [
+   "Themes & Moods"
+  ],
+  "NSFW": [
+   "Ratings etc"
+  ],
+  "Narration": [
+   "Features"
+  ],
+  "Nature": [
+   "Themes & Moods"
+  ],
+  "Naval": [
+   "Themes & Moods"
+  ],
+  "Naval Combat": [
+   "Features"
+  ],
+  "Ninja": [
+   "Themes & Moods"
+  ],
+  "Noir": [
+   "Visuals & Viewpoint"
+  ],
+  "Nonlinear": [
+   "Features"
+  ],
+  "Nudity": [
+   "Ratings etc"
+  ],
+  "Offroad": [
+   "Themes & Moods"
+  ],
+  "Old School": [
+   "Themes & Moods"
+  ],
+  "On-Rails Shooter": [
+   "Sub-Genres"
+  ],
+  "Online Co-Op": [
+   "Players"
+  ],
+  "Open World": [
+   "Genres",
+   "Features"
+  ],
+  "Open World Survival Craft": [
+   "Sub-Genres"
+  ],
+  "Otome": [
+   "Themes & Moods"
+  ],
+  "Outbreak Sim": [
+   "Genres"
+  ],
+  "Parkour": [
+   "Themes & Moods"
+  ],
+  "Party-Based RPG": [
+   "Genres"
+  ],
+  "Perma Death": [
+   "Features"
+  ],
+  "Philosophical": [
+   "Themes & Moods"
+  ],
+  "Photo Editing": [
+   "Software"
+  ],
+  "Physics": [
+   "Features"
+  ],
+  "Pinball": [
+   "Genres"
+  ],
+  "Pirates": [
+   "Themes & Moods"
+  ],
+  "Pixel Graphics": [
+   "Visuals & Viewpoint"
+  ],
+  "Platformer": [
+   "Genres"
+  ],
+  "Point & Click": [
+   "Genres"
+  ],
+  "Political": [
+   "Themes & Moods"
+  ],
+  "Political Sim": [
+   "Sub-Genres"
+  ],
+  "Politics": [
+   "Themes & Moods"
+  ],
+  "Pool": [
+   "Themes & Moods"
+  ],
+  "Post-apocalyptic": [
+   "Themes & Moods"
+  ],
+  "Precision Platformer": [
+   "Sub-Genres"
+  ],
+  "Procedural Generation": [
+   "Features"
+  ],
+  "Programming": [
+   "Sub-Genres",
+   "Themes & Moods"
+  ],
+  "Psychedelic": [
+   "Visuals & Viewpoint"
+  ],
+  "Psychological": [
+   "Assessments"
+  ],
+  "Puzzle": [
+   "Top-Level Genres"
+  ],
+  "PvE": [
+   "Features"
+  ],
+  "PvP": [
+   "Features"
+  ],
+  "Quick-Time Events": [
+   "Features"
+  ],
+  "RPG": [
+   "Top-Level Genres"
+  ],
+  "RPGMaker": [
+   "Software"
+  ],
+  "RTS": [
+   "Genres"
+  ],
+  "Racing": [
+   "Top-Level Genres"
+  ],
+  "Real Time Tactics": [
+   "Sub-Genres"
+  ],
+  "Real-Time": [
+   "Other Tags"
+  ],
+  "Real-Time with Pause": [
+   "Other Tags"
+  ],
+  "Realistic": [
+   "Visuals & Viewpoint"
+  ],
+  "Relaxing": [
+   "Assessments"
+  ],
+  "Remake": [
+   "Other Tags"
+  ],
+  "Replay Value": [
+   "Assessments"
+  ],
+  "Resource Management": [
+   "Features"
+  ],
+  "Retro": [
+   "Themes & Moods"
+  ],
+  "Rhythm": [
+   "Genres"
+  ],
+  "Robots": [
+   "Themes & Moods"
+  ],
+  "Roguelike": [
+   "Genres"
+  ],
+  "Roguelite": [
+   "Sub-Genres"
+  ],
+  "Roguevania": [
+   "Sub-Genres"
+  ],
+  "Romance": [
+   "Themes & Moods"
+  ],
+  "Rome": [
+   "Themes & Moods"
+  ],
+  "Runner": [
+   "Sub-Genres"
+  ],
+  "Sailing": [
+   "Features"
+  ],
+  "Sandbox": [
+   "Genres"
+  ],
+  "Satire": [
+   "Themes & Moods"
+  ],
+  "Sci-fi": [
+   "Themes & Moods"
+  ],
+  "Science": [
+   "Themes & Moods"
+  ],
+  "Score Attack": [
+   "Features"
+  ],
+  "Sequel": [
+   "Other Tags"
+  ],
+  "Sexual Content": [
+   "Ratings etc"
+  ],
+  "Shoot 'Em Up": [
+   "Sub-Genres"
+  ],
+  "Shooter": [
+   "Genres"
+  ],
+  "Short": [
+   "Assessments"
+  ],
+  "Side Scroller": [
+   "Sub-Genres"
+  ],
+  "Silent Protagonist": [
+   "Features"
+  ],
+  "Simulation": [
+   "Top-Level Genres"
+  ],
+  "Singleplayer": [
+   "Players"
+  ],
+  "Skateboarding": [
+   "Genres"
+  ],
+  "Skating": [
+   "Genres"
+  ],
+  "Skiing": [
+   "Genres"
+  ],
+  "Sniper": [
+   "Themes & Moods"
+  ],
+  "Snow": [
+   "Themes & Moods"
+  ],
+  "Snowboarding": [
+   "Genres"
+  ],
+  "Soccer": [
+   "Genres"
+  ],
+  "Software": [
+   "Software"
+  ],
+  "Software Training": [
+   "Software"
+  ],
+  "Sokoban": [
+   "Sub-Genres"
+  ],
+  "Solitaire": [
+   "Sub-Genres"
+  ],
+  "Souls-like": [
+   "Sub-Genres"
+  ],
+  "Soundtrack": [
+   "Other Tags"
+  ],
+  "Space": [
+   "Themes & Moods"
+  ],
+  "Space Sim": [
+   "Genres"
+  ],
+  "Spectacle fighter": [
+   "Sub-Genres"
+  ],
+  "Spelling": [
+   "Sub-Genres"
+  ],
+  "Split Screen": [
+   "Visuals & Viewpoint"
+  ],
+  "Sports": [
+   "Top-Level Genres"
+  ],
+  "Star Wars": [
+   "Other Tags"
+  ],
+  "Stealth": [
+   "Genres",
+   "Themes & Moods",
+   "Features"
+  ],
+  "Steam Machine": [
+   "Hardware / Input"
+  ],
+  "Steampunk": [
+   "Themes & Moods"
+  ],
+  "Story Rich": [
+   "Features"
+  ],
+  "Strategy": [
+   "Top-Level Genres"
+  ],
+  "Strategy RPG": [
+   "Genres"
+  ],
+  "Stylized": [
+   "Visuals & Viewpoint"
+  ],
+  "Submarine": [
+   "Themes & Moods"
+  ],
+  "Superhero": [
+   "Themes & Moods"
+  ],
+  "Supernatural": [
+   "Themes & Moods"
+  ],
+  "Surreal": [
+   "Themes & Moods"
+  ],
+  "Survival": [
+   "Genres",
+   "Themes & Moods"
+  ],
+  "Survival Horror": [
+   "Sub-Genres"
+  ],
+  "Swordplay": [
+   "Themes & Moods"
+  ],
+  "Tabletop": [
+   "Top-Level Genres",
+   "Features"
+  ],
+  "Tactical": [
+   "Themes & Moods"
+  ],
+  "Tactical RPG": [
+   "Sub-Genres"
+  ],
+  "Tanks": [
+   "Themes & Moods"
+  ],
+  "Team-Based": [
+   "Features"
+  ],
+  "Tennis": [
+   "Genres"
+  ],
+  "Text-Based": [
+   "Visuals & Viewpoint",
+   "Features"
+  ],
+  "Third Person": [
+   "Visuals & Viewpoint"
+  ],
+  "Third-Person Shooter": [
+   "Sub-Genres"
+  ],
+  "Thriller": [
+   "Themes & Moods"
+  ],
+  "Time Attack": [
+   "Other Tags"
+  ],
+  "Time Management": [
+   "Sub-Genres"
+  ],
+  "Time Manipulation": [
+   "Features"
+  ],
+  "Time Travel": [
+   "Themes & Moods"
+  ],
+  "Top-Down": [
+   "Visuals & Viewpoint"
+  ],
+  "Top-Down Shooter": [
+   "Sub-Genres"
+  ],
+  "Touch-Friendly": [
+   "Hardware / Input"
+  ],
+  "Tower Defense": [
+   "Genres"
+  ],
+  "TrackIR": [
+   "Hardware / Input"
+  ],
+  "Trading": [
+   "Sub-Genres",
+   "Features"
+  ],
+  "Trading Card Game": [
+   "Sub-Genres"
+  ],
+  "Traditional Roguelike": [
+   "Sub-Genres"
+  ],
+  "Trains": [
+   "Themes & Moods"
+  ],
+  "Transhumanism": [
+   "Themes & Moods"
+  ],
+  "Transportation": [
+   "Themes & Moods"
+  ],
+  "Trivia": [
+   "Genres"
+  ],
+  "Turn-Based": [
+   "Other Tags"
+  ],
+  "Turn-Based Combat": [
+   "Features"
+  ],
+  "Turn-Based Strategy": [
+   "Genres"
+  ],
+  "Turn-Based Tactics": [
+   "Sub-Genres",
+   "Features"
+  ],
+  "Tutorial": [
+   "Features"
+  ],
+  "Twin Stick Shooter": [
+   "Sub-Genres"
+  ],
+  "Typing": [
+   "Sub-Genres"
+  ],
+  "Underground": [
+   "Themes & Moods"
+  ],
+  "Underwater": [
+   "Themes & Moods"
+  ],
+  "Unforgiving": [
+   "Assessments"
+  ],
+  "Utilities": [
+   "Software"
+  ],
+  "VR": [
+   "Visuals & Viewpoint"
+  ],
+  "Vampire": [
+   "Themes & Moods"
+  ],
+  "Vehicular Combat": [
+   "Features"
+  ],
+  "Video Production": [
+   "Software"
+  ],
+  "Villain Protagonist": [
+   "Features"
+  ],
+  "Violent": [
+   "Ratings etc"
+  ],
+  "Visual Novel": [
+   "Genres"
+  ],
+  "Voice Control": [
+   "Hardware / Input"
+  ],
+  "Voxel": [
+   "Visuals & Viewpoint"
+  ],
+  "Walking Simulator": [
+   "Genres"
+  ],
+  "War": [
+   "Themes & Moods"
+  ],
+  "Wargame": [
+   "Sub-Genres"
+  ],
+  "Warhammer 40K": [
+   "Other Tags"
+  ],
+  "Web Publishing": [
+   "Software"
+  ],
+  "Werewolves": [
+   "Themes & Moods"
+  ],
+  "Western": [
+   "Themes & Moods"
+  ],
+  "Word Game": [
+   "Genres"
+  ],
+  "World War I": [
+   "Themes & Moods"
+  ],
+  "World War II": [
+   "Themes & Moods"
+  ],
+  "Wrestling": [
+   "Genres"
+  ],
+  "eSports": [
+   "Genres"
+  ]
+ }
+}

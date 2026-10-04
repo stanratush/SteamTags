@@ -561,6 +561,101 @@ def stacked(app_file: str) -> FileSchema:
     return STACKED[app_file]
 
 
+_DATASET = C("dataset", "str", "Dataset key.")
+_BASELINE = (
+    C("baseline_count", "int", "Games in the Eligible Pool (Top 100 included) that have it."),
+    C("baseline_share", "float", "baseline_count / Eligible Pool size."),
+    C("share_ratio", "float",
+      "share / baseline_share: over 1 = more common in the Top 100 than in its Eligible Pool; its ceiling is "
+      "Eligible Pool size / 100."),
+)
+
+TAG_FREQUENCY = declare(
+    "tag_frequency.csv",
+    "Every tag on at least one game of a full Top-100 Dataset, against the Eligible Pool. Sorted by count, then name.",
+    [
+        _DATASET,
+        C("tag_id", "int", "Steam tag id."),
+        C("tag", "str", "Tag name."),
+        C("count", "int", "Games in the Top 100 that have the tag (anywhere in the displayed list)."),
+        C("share", "float", "count / number of games in the dataset."),
+        C("median_position", "float", "Median position of the tag in the store tag list among the games that have it."),
+        C("defining_tag", "bool", "Whether the tag defines the dataset (then it is on every game)."),
+        *_BASELINE,
+        C("archived_category", "str", "Category in the archived Steamworks tag table (' / ' between several); "
+                                      "information only, empty when the tag has none."),
+    ],
+    group="analysis",
+)
+
+GENRE_FREQUENCY = declare(
+    "genre_frequency.csv",
+    "Every store-genre value on at least one game of a full Top-100 Dataset, against the Eligible Pool.",
+    [
+        _DATASET,
+        C("genre_id", "int", "Steam store genre id."),
+        C("genre", "str", "Genre description."),
+        C("kind", "str", "Config kind: genre, business or software (unmapped when genres.toml has no entry)."),
+        C("count", "int", "Games in the Top 100 with this store genre."),
+        C("share", "float", "count / number of games in the dataset."),
+        *_BASELINE,
+    ],
+    group="analysis",
+)
+
+COMBINATIONS = declare(
+    "combinations.csv",
+    "Tag combinations (2 up to max_itemset_size tags) with at least min_support games; defining tag excluded.",
+    [
+        _DATASET,
+        C("size", "int", "Number of tags in the combination (k)."),
+        C("tag_ids", "int_list", "Member tag ids, sorted by tag_id."),
+        C("tags", "str_list", "Member tag names, matching tag_ids."),
+        C("support_count", "int", "Games that have every member tag."),
+        C("support_share", "float", "support_count / number of games in the dataset."),
+        C("lift", "float", "support_count x N^(k-1) / product of the member tags' counts; 1 = as often as "
+                           "independent tags would; a high triple lift may be inherited from one strong pair."),
+        C("confidence_a_to_b", "float", "Pairs only: share of the first tag's games that also have the second."),
+        C("confidence_b_to_a", "float", "Pairs only: share of the second tag's games that also have the first."),
+    ],
+    group="analysis",
+)
+
+ASSOCIATIONS = declare(
+    "associations.csv",
+    "Every pair of tags that each reach min_support, including pairs that never co-occur: a descriptive screen.",
+    [
+        _DATASET,
+        C("tag_id_a", "int", "The lower tag id."),
+        C("tag_a", "str", "Name of tag_id_a."),
+        C("tag_id_b", "int", "The higher tag id."),
+        C("tag_b", "str", "Name of tag_id_b."),
+        C("count_a", "int", "Games with tag a."),
+        C("count_b", "int", "Games with tag b."),
+        C("count_ab", "int", "Games with both."),
+        C("phi", "float", "Phi coefficient (-1..1; 0 = independence); empty when either tag is on every game."),
+        C("lift", "float", "count_ab x N / (count_a x count_b); 1 = independence."),
+        C("jaccard", "float", "count_ab / (count_a + count_b - count_ab)."),
+        C("fisher_p", "float", "Two-sided Fisher exact p for the 2x2 table within this dataset."),
+        C("bh_q", "float", "Benjamini-Hochberg q within this dataset: co-occurrence unlikely under independence "
+                           "within this dataset, not evidence about Steam in general."),
+    ],
+    group="analysis",
+)
+
+CONTENT_FLAG_GAMES = declare(
+    "content_flags.csv",
+    "One row per dataset, Content Flag and flagged game (long form).",
+    [
+        _DATASET,
+        C("flag", "str", "Content Flag code."),
+        C("appid", "int", "Steam AppID."),
+        C("name", "str", "Game name."),
+        C("rank", "int", "Rank in the dataset."),
+    ],
+    group="analysis",
+)
+
 RESOLUTION_SWEEP = declare(
     "resolution_sweep.csv",
     "The report's clustering repeated at each resolution of the grid, everything else unchanged; one row per "

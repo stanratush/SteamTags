@@ -83,7 +83,12 @@ def test_analysis_json(built):
     overall = a["datasets"]["overall"]
     assert overall["n_games"] == 100 and overall["eligible_pool"] == 120
     assert set(overall["seed_noise_floor"]) >= {"seed_ari_min", "seed_ari_mean", "seed_k_min", "seed_k_max"}
-    assert "network_nodes.csv" in a["columns"]
+    assert "network_nodes.csv" in a["columns"] and "tag_frequency.csv" in a["columns"]
+    assert overall["content_flag_counts"] == {"desktop_companion": 0, "sexual_content_tag": 0}
+    assert a["datasets"]["puzzle"]["genre_note"].startswith("Puzzle is not a Steam store genre")
+    puzzle_freq = [r for r in result.rows("analysis/tag_frequency.csv") if r["dataset"] == "puzzle"]
+    assert puzzle_freq[0]["tag_id"] == 1664 and puzzle_freq[0]["defining_tag"] is True and puzzle_freq[0]["share"] == 1.0
+    assert all(1664 not in r["tag_ids"] for r in result.rows("analysis/combinations.csv") if r["dataset"] == "puzzle")
 
 
 def test_build_json_records_clustering_library_versions(built):
