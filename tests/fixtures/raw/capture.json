@@ -1,0 +1,205 @@
+{
+  "steamcharts/top/pass-1/p-0001.html.gz": {
+    "url": "https://steamcharts.com/top/p.1",
+    "status": 200,
+    "final_url": "https://steamcharts.com/top/p.1",
+    "redirects": [],
+    "content_type": "text/html; charset=utf-8"
+  },
+  "steamcharts/app/698670.html.gz": {
+    "url": "https://steamcharts.com/app/698670",
+    "status": 200,
+    "final_url": "https://steamcharts.com/app/698670",
+    "redirects": [],
+    "content_type": "text/html; charset=utf-8"
+  },
+  "steamcharts/app/1401150.html.gz": {
+    "url": "https://steamcharts.com/app/1401150",
+    "status": 500,
+    "final_url": "https://steamcharts.com/app/1401150",
+    "redirects": [],
+    "content_type": "text/html; charset=utf-8"
+  },
+  "steamcharts/app/749110.html.gz": {
+    "url": "https://steamcharts.com/app/749110",
+    "status": 500,
+    "final_url": "https://steamcharts.com/app/749110",
+    "redirects": [],
+    "content_type": "text/html; charset=utf-8"
+  },
+  "steamcharts/app/413150.html.gz": {
+    "url": "https://steamcharts.com/app/413150",
+    "status": 200,
+    "final_url": "https://steamcharts.com/app/413150",
+    "redirects": [],
+    "content_type": "text/html; charset=utf-8"
+  },
+  "steamcharts/app/1086940.html.gz": {
+    "url": "https://steamcharts.com/app/1086940",
+    "status": 200,
+    "final_url": "https://steamcharts.com/app/1086940",
+    "redirects": [],
+    "content_type": "text/html; charset=utf-8"
+  },
+  "steamcharts/app/2888870.html.gz": {
+    "url": "https://steamcharts.com/app/2888870",
+    "status": 500,
+    "final_url": "https://steamcharts.com/app/2888870",
+    "redirects": [],
+    "content_type": "text/html; charset=utf-8"
+  },
+  "steamcharts/app/3419430.html.gz": {
+    "url": "https://steamcharts.com/app/3419430",
+    "status": 200,
+    "final_url": "https://steamcharts.com/app/3419430",
+    "redirects": [],
+    "content_type": "text/html; charset=utf-8"
+  },
+  "steamcharts/app/2923300.html.gz": {
+    "url": "https://steamcharts.com/app/2923300",
+    "status": 200,
+    "final_url": "https://steamcharts.com/app/2923300",
+    "redirects": [],
+    "content_type": "text/html; charset=utf-8"
+  },
+  "steamcharts/app/1818750.html.gz": {
+    "url": "https://steamcharts.com/app/1818750",
+    "status": 200,
+    "final_url": "https://steamcharts.com/app/1818750",
+    "redirects": [],
+    "content_type": "text/html; charset=utf-8"
+  },
+  "steamcharts/app/999999990.html.gz": {
+    "url": "https://steamcharts.com/app/999999990",
+    "status": 404,
+    "final_url": "https://steamcharts.com/app/999999990",
+    "redirects": [],
+    "content_type": "text/html; charset=utf-8"
+  },
+  "store/page/413150.html.gz": {
+    "url": "https://store.steampowered.com/app/413150/?l=english",
+    "status": 200,
+    "final_url": "https://store.steampowered.com/app/413150/?l=english",
+    "redirects": [],
+    "content_type": "text/html; charset=UTF-8"
+  },
+  "store/appdetails/413150.json.gz": {
+    "url": "https://store.steampowered.com/api/appdetails?appids=413150&l=english",
+    "status": 200,
+    "final_url": "https://store.steampowered.com/api/appdetails?appids=413150&l=english",
+    "redirects": [],
+    "content_type": "application/json; charset=utf-8"
+  },
+  "store/page/1086940.html.gz": {
+    "url": "https://store.steampowered.com/app/1086940/?l=english",
+    "status": 200,
+    "final_url": "https://store.steampowered.com/app/1086940/?l=english",
+    "redirects": [],
+    "content_type": "text/html; charset=UTF-8"
+  },
+  "store/appdetails/1086940.json.gz": {
+    "url": "https://store.steampowered.com/api/appdetails?appids=1086940&l=english",
+    "status": 200,
+    "final_url": "https://store.steampowered.com/api/appdetails?appids=1086940&l=english",
+    "redirects": [],
+    "content_type": "application/json; charset=utf-8"
+  },
+  "store/page/3419430.html.gz": {
+    "url": "https://store.steampowered.com/app/3419430/?l=english",
+    "status": 200,
+    "final_url": "https://store.steampowered.com/app/3419430/?l=english",
+    "redirects": [],
+    "content_type": "text/html; charset=UTF-8"
+  },
+  "store/appdetails/3419430.json.gz": {
+    "url": "https://store.steampowered.com/api/appdetails?appids=3419430&l=english",
+    "status": 200,
+    "final_url": "https://store.steampowered.com/api/appdetails?appids=3419430&l=english",
+    "redirects": [],
+    "content_type": "application/json; charset=utf-8"
+  },
+  "store/page/2923300.html.gz": {
+    "url": "https://store.steampowered.com/app/2923300/?l=english",
+    "status": 200,
+    "final_url": "https://store.steampowered.com/app/2923300/?l=english",
+    "redirects": [],
+    "content_type": "text/html; charset=UTF-8"
+  },
+  "store/appdetails/2923300.json.gz": {
+    "url": "https://store.steampowered.com/api/appdetails?appids=2923300&l=english",
+    "status": 200,
+    "final_url": "https://store.steampowered.com/api/appdetails?appids=2923300&l=english",
+    "redirects": [],
+    "content_type": "application/json; charset=utf-8"
+  },
+  "store/page/1818750.html.gz": {
+    "url": "https://store.steampowered.com/app/1818750/?l=english",
+    "status": 200,
+    "final_url": "https://store.steampowered.com/app/1818750/?l=english",
+    "redirects": [],
+    "content_type": "text/html; charset=UTF-8"
+  },
+  "store/appdetails/1818750.json.gz": {
+    "url": "https://store.steampowered.com/api/appdetails?appids=1818750&l=english",
+    "status": 200,
+    "final_url": "https://store.steampowered.com/api/appdetails?appids=1818750&l=english",
+    "redirects": [],
+    "content_type": "application/json; charset=utf-8"
+  },
+  "store/page/698670.html.gz": {
+    "url": "https://store.steampowered.com/app/698670/?l=english",
+    "status": 200,
+    "final_url": "https://store.steampowered.com/app/698670/?l=english",
+    "redirects": [],
+    "content_type": "text/html; charset=UTF-8"
+  },
+  "store/appdetails/698670.json.gz": {
+    "url": "https://store.steampowered.com/api/appdetails?appids=698670&l=english",
+    "status": 200,
+    "final_url": "https://store.steampowered.com/api/appdetails?appids=698670&l=english",
+    "redirects": [],
+    "content_type": "application/json; charset=utf-8"
+  },
+  "store/page/1619750.html.gz": {
+    "url": "https://store.steampowered.com/app/1619750/?l=english",
+    "status": 200,
+    "final_url": "https://store.steampowered.com/app/1619750/?l=english",
+    "redirects": [],
+    "content_type": "text/html; charset=UTF-8"
+  },
+  "store/appdetails/1619750.json.gz": {
+    "url": "https://store.steampowered.com/api/appdetails?appids=1619750&l=english",
+    "status": 200,
+    "final_url": "https://store.steampowered.com/api/appdetails?appids=1619750&l=english",
+    "redirects": [],
+    "content_type": "application/json; charset=utf-8"
+  },
+  "store/page/431960.html.gz": {
+    "url": "https://store.steampowered.com/app/431960/?l=english",
+    "status": 200,
+    "final_url": "https://store.steampowered.com/app/431960/?l=english",
+    "redirects": [],
+    "content_type": "text/html; charset=UTF-8"
+  },
+  "store/appdetails/431960.json.gz": {
+    "url": "https://store.steampowered.com/api/appdetails?appids=431960&l=english",
+    "status": 200,
+    "final_url": "https://store.steampowered.com/api/appdetails?appids=431960&l=english",
+    "redirects": [],
+    "content_type": "application/json; charset=utf-8"
+  },
+  "steam_api/GetTagList.json": {
+    "url": "https://api.steampowered.com/IStoreService/GetTagList/v1/?language=english",
+    "status": 200,
+    "final_url": "https://api.steampowered.com/IStoreService/GetTagList/v1/?language=english",
+    "redirects": [],
+    "content_type": "application/json; charset=UTF-8"
+  },
+  "steamcharts/app/1401150-500.html.gz": {
+    "url": "https://steamcharts.com/app/1401150",
+    "status": 500,
+    "final_url": "https://steamcharts.com/app/1401150",
+    "redirects": [],
+    "content_type": "text/html"
+  }
+}

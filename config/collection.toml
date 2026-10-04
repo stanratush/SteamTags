@@ -2,7 +2,7 @@
 
 [contact]
 # Descriptive User-Agent with the researcher's contact details, sent on every request.
-user_agent = "steamstudy/0.1 (academic research on Steam tag co-occurrence; contact: ciberiyc@gmail.com)"
+user_agent = "steamstudy/0.1 (academic research on Steam tag co-occurrence; contact: <fill in before collecting>)"
 
 [listing]
 passes = 2                      # full /top listing passes, unioned by AppID (minimum 1)

@@ -51,8 +51,25 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _collect(args: argparse.Namespace) -> int:
-    print("collect: not implemented yet", file=sys.stderr)
-    return 2
+    from steamstudy.collect.fetcher import HardStop
+    from steamstudy.collect.run import CollectRefused, run_collect
+    from steamstudy.config import ConfigError, load_config
+
+    log = logging.getLogger("steamstudy.collect")
+    if args.stage == "steamdb" or args.repair is not None:
+        log.error("not implemented yet")
+        return 2
+    try:
+        config = load_config(args.config)
+        snapshot_id = run_collect(args.root, config, mode=args.mode, snapshot_id=args.snapshot, stage=args.stage)
+    except (CollectRefused, ConfigError) as exc:
+        log.error("collection refused: %s", exc)
+        return 2
+    except HardStop as exc:
+        log.error("HARD STOP: %s. Rerun the same command to resume.", exc)
+        return 3
+    log.info("Snapshot %s: done", snapshot_id)
+    return 0
 
 
 def _build(args: argparse.Namespace) -> int:

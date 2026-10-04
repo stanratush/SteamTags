@@ -27,3 +27,7 @@ Thumbs.db
 desktop.ini
 .vscode/
 .idea/
+
+# Collected data and Builds (raw responses are never redistributed)
+/snapshots/
+/builds/

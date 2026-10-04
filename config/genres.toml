@@ -4,7 +4,7 @@ genre_tags = [
     { id = 19, name = "Action" },
     { id = 21, name = "Adventure" },
     { id = 597, name = "Casual" },
-    { id = 844, name = "Experimental" },
+    { id = 13782, name = "Experimental" },
     { id = 1664, name = "Puzzle" },
     { id = 699, name = "Racing" },
     { id = 122, name = "RPG" },
