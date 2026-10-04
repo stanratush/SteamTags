@@ -17,3 +17,7 @@ Spec: [Steam Success Study spec](../../steam-success-study/spec.md): "Network" (
 - [ ] Edge inspector: `shared_games`, `lift`, and the games (AppID, name, rank) computed on click.
 - [ ] Cluster inspector: members ranked by `medoid_score`, with intra-cluster strength (active first), `within_z` and `participation`; plus center, `center_medoid_score`, `top_strength_tag`, `center_is_top_strength` and `connected`.
 - [ ] Hand-built tests: the medoid with a tie, the two-tag n/a rule, `within_z` against a hand calculation, participation with a One-Tag Cluster neighbour.
+
+## Comments
+
+- 2026-10-05 (agent): the network computation and the Build tables for this ticket are done (steamstudy.network, analysis/network_*.csv); the app parts come with the app work.

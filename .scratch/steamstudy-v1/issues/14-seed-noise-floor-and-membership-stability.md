@@ -15,3 +15,7 @@ Spec: [Steam Success Study spec](../../steam-success-study/spec.md): "Network" (
 - [ ] The app shows the seed-noise line in the Cluster-quality row, and Membership Stability in the node inspector and the Nodes/Clusters tables. No graph overlay.
 - [ ] `export.json` method constants gain K and the noise seeds. `analysis.json` gains the per-dataset network-level noise summary. `schema_version` is bumped, and the equality test still passes.
 - [ ] Hand-built tests: Membership Stability values worked out on paper, the isolated-tag n/a, and the seed stream separation.
+
+## Comments
+
+- 2026-10-05 (agent): the network computation and the Build tables for this ticket are done (steamstudy.network, analysis/network_*.csv); the app parts come with the app work.

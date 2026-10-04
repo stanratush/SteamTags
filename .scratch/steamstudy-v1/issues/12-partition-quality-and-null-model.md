@@ -23,3 +23,7 @@ Spec: [Steam Success Study spec](../../steam-success-study/spec.md): "Network" (
 - [ ] The app shows the Cluster-quality row (never `modularity_z` alone) and a Clusters tab. A disconnected cluster triggers a warning suggesting Leiden.
 - [ ] The Build writes the stacked `network_cluster_quality.csv`, `network_cluster_connections.csv` and `network_null_model.csv`. `export.json` method constants gain R, the replicate seeds and `"silhouette": "jaccard_game_set"`. `schema_version` is bumped, and the equality test still passes.
 - [ ] Hand-built network tests: the silhouette n/a rules, the null model preserving degrees, conductance for connected and isolated One-Tag Clusters, and coverage + inter share = 1.
+
+## Comments
+
+- 2026-10-05 (agent): the network computation and the Build tables for this ticket are done (steamstudy.network, analysis/network_*.csv); the app parts come with the app work.

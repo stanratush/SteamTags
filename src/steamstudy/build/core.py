@@ -79,6 +79,8 @@ class BuildResult:
     ranked: dict[str, RankedDataset] = field(default_factory=dict)
     scores: dict[int, Score] = field(default_factory=dict)
     games: dict[int, Game] = field(default_factory=dict)
+    network_states: dict[str, Any] = field(default_factory=dict)
+    analysis_json: dict[str, Any] = field(default_factory=dict)
 
     def add(self, path: str, schema: FileSchema, rows: list[dict[str, Any]]) -> None:
         self.tables[path] = (schema, rows)
@@ -161,6 +163,10 @@ def build(
     result.ranked = ranked
     result.scores = scores
     result.games = games
+
+    from steamstudy.analysis.run import run_analysis
+
+    run_analysis(result, config)
     return result
 
 

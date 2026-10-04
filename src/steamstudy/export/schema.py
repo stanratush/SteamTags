@@ -74,13 +74,15 @@ class Registry:
     files: dict[str, FileSchema] = field(default_factory=dict)
 
     def declare(self, schema: FileSchema) -> FileSchema:
-        if schema.name in self.files:
-            raise ValueError(f"file {schema.name} declared twice")
-        self.files[schema.name] = schema
+        key = f"{schema.group}/{schema.name}"
+        if key in self.files:
+            raise ValueError(f"file {key} declared twice")
+        self.files[key] = schema
         return schema
 
-    def __getitem__(self, name: str) -> FileSchema:
-        return self.files[name]
+    def __getitem__(self, key: str) -> FileSchema:
+        """A file by `<group>/<name>`."""
+        return self.files[key]
 
     def __iter__(self):
         return iter(self.files.values())
@@ -93,8 +95,9 @@ def declare(name: str, description: str, columns: list[Column] | tuple[Column, .
     return REGISTRY.declare(FileSchema(name, description, tuple(columns), group))
 
 
-def file(name: str) -> FileSchema:
-    return REGISTRY[name]
+def file(key: str) -> FileSchema:
+    """A declared file by `<group>/<name>`, e.g. `app_export/nodes.csv`."""
+    return REGISTRY[key]
 
 
 def columns_block(schemas: list[FileSchema] | tuple[FileSchema, ...]) -> dict[str, dict[str, dict[str, str]]]:
@@ -332,4 +335,247 @@ MANUAL_METADATA = declare(
         C("retrieved", "str", "Retrieval date of the source."),
     ],
     group="build_reports",
+)
+
+# ----------------------------------------------------------------------------- app export (one Network State)
+
+SIL_STATUS = "Why silhouette is empty: fewer_than_2_multi_tag_clusters or one_tag_cluster."
+
+NODES = declare(
+    "nodes.csv",
+    "One row per Tag Network node (tag), sorted by cluster, medoid_score, tag_id.",
+    [
+        C("tag_id", "int", "Steam tag id."),
+        C("tag", "str", "Tag name."),
+        C("cluster", "str", "Cluster label C1…, numbered by size; never a semantic name."),
+        C("n_games", "int", "Games having the tag among the N games the network is built from."),
+        C("is_isolated", "bool", "True when no edge reaches the minimum shared games (degree 0)."),
+        C("degree", "int", "Number of edges (unweighted)."),
+        C("degree_intra", "int", "Number of edges to tags in the same cluster."),
+        C("strength_shared", "float", "Sum of shared-game counts over the tag's edges."),
+        C("strength_lift", "float", "Sum of lift values over the tag's edges."),
+        C("strength_shared_intra", "float", "strength_shared over edges inside the tag's cluster."),
+        C("strength_lift_intra", "float", "strength_lift over edges inside the tag's cluster."),
+        C("silhouette", "float", "Jaccard game-set silhouette of the tag (-1..1); descriptive diagnostic."),
+        C("silhouette_status", "str", SIL_STATUS),
+        C("medoid_score", "float",
+          "Mean Jaccard distance to the other members of the cluster (0..1); empty in One-Tag Clusters."),
+        C("is_center", "bool", "Whether the tag is its cluster's Cluster Center (Jaccard medoid, clusters of 3+ tags)."),
+        C("within_z", "float",
+          "Within-cluster strength z-score on the active weight (population SD); its cap in an n-tag cluster is "
+          "sqrt(n-1); empty in One-Tag Clusters or when every member has the same strength."),
+        C("participation", "float",
+          "1 - sum over clusters of (strength to the cluster / total strength)^2 on the active weight; empty at zero strength."),
+        C("membership_stability", "float",
+          "Mean Jaccard overlap (0..1) of the tag's cluster across the noise seeds; empty for isolated tags."),
+        C("x_global", "float", "Global layout x position (renderer units)."),
+        C("y_global", "float", "Global layout y position (renderer units)."),
+        C("x_cluster_separated", "float", "Cluster-separated layout x position."),
+        C("y_cluster_separated", "float", "Cluster-separated layout y position."),
+    ],
+    group="app_export",
+)
+
+EDGES = declare(
+    "edges.csv",
+    "One row per edge (pair of tags with at least the minimum shared games), sorted by source, target.",
+    [
+        C("source_tag_id", "int", "The lower tag id of the pair."),
+        C("source_tag", "str", "Name of source_tag_id."),
+        C("target_tag_id", "int", "The higher tag id of the pair."),
+        C("target_tag", "str", "Name of target_tag_id."),
+        C("shared_games", "int", "Edge weight: games having both tags; drives thresholds and edge thickness."),
+        C("lift", "float", "shared_games x N / (n_source x n_target); 1 = as often as independent tags would."),
+        C("source_cluster", "str", "Cluster of the source tag."),
+        C("target_cluster", "str", "Cluster of the target tag."),
+        C("is_intra_cluster", "bool", "Whether both tags are in the same cluster."),
+        C("appids", "int_list", "AppIDs of the games having both tags, in dataset rank order."),
+    ],
+    group="app_export",
+)
+
+CLUSTERS = declare(
+    "clusters.csv",
+    "One row per cluster, sorted by label.",
+    [
+        C("cluster", "str", "Cluster label C1…."),
+        C("kind", "str", "multi_tag (2+ tags) or one_tag."),
+        C("size", "int", "Number of tags."),
+        C("member_tag_ids", "int_list", "Member tag ids by medoid_score, then the center tie-break."),
+        C("members", "str_list", "Member tag names, matching member_tag_ids."),
+        C("connected", "bool", "Whether the cluster's tags form one connected group (false: try Leiden)."),
+        C("internal_edges", "int", "Edges inside the cluster."),
+        C("internal_weight", "float", "Summed active weight of the edges inside the cluster."),
+        C("edge_density", "float", "internal_edges / (n(n-1)/2); empty for size 1."),
+        C("weighted_density", "float", "internal_weight / (n(n-1)/2); empty for size 1."),
+        C("cut_weight", "float", "Summed active weight of edges leaving the cluster."),
+        C("conductance", "float", "cut_weight / min(volume of cluster, volume of the rest); 0..1."),
+        C("conductance_status", "str", "Why conductance is empty: isolated_tag or no_edges_outside_cluster."),
+        C("mean_silhouette", "float", "Mean silhouette of the members (Multi-Tag Clusters)."),
+        C("silhouette_status", "str", SIL_STATUS),
+        C("center_tag_id", "int", "The Cluster Center's tag id (clusters of 3+ tags)."),
+        C("center", "str", "The Cluster Center: the member whose games overlap most with the others' (Jaccard medoid)."),
+        C("center_medoid_score", "float", "The center's medoid_score."),
+        C("center_status", "str", "Why there is no center: one_tag_cluster or two_tag_cluster."),
+        C("top_strength_tag_id", "int", "Tag id of the member with the highest intra-cluster strength (active weight)."),
+        C("top_strength_tag", "str", "Name of top_strength_tag_id: the frequency-driven alternative to the center."),
+        C("center_is_top_strength", "bool", "Whether the center and the top-strength tag are the same tag."),
+        C("mean_membership_stability", "float", "Mean Membership Stability of the members; empty for isolated tags."),
+    ],
+    group="app_export",
+)
+
+CLUSTER_QUALITY = declare(
+    "cluster_quality.csv",
+    "One row: the partition's quality, against its null model and the Seed-Noise Floor.",
+    [
+        C("n_dataset_games", "int", "N: games after the Minimum Months Filter."),
+        C("n_nodes", "int", "Tags in the network."),
+        C("n_edges", "int", "Edges in the network."),
+        C("total_weight", "float", "Summed active weight of all edges."),
+        C("modularity", "float", "Weighted modularity Q at the optimised resolution; 0 = no better than random."),
+        C("modularity_status", "str", "Why modularity is empty: no_edges."),
+        C("q_null_mean", "float", "Mean Q of the game-tag shuffle null networks."),
+        C("q_null_sd", "float", "Sample SD of the null networks' Q."),
+        C("modularity_z", "float", "(Q - q_null_mean) / q_null_sd; never read alone; empty when the SD is 0."),
+        C("q_excess", "float", "Q - q_null_mean."),
+        C("null_n_edges_mean", "float", "Mean edge count of the null networks (compare n_edges)."),
+        C("coverage", "float", "Share of the total weight inside clusters (0..1)."),
+        C("inter_cluster_weight_share", "float", "1 - coverage."),
+        C("n_multi_tag_clusters", "int", "Clusters with 2+ tags (k)."),
+        C("n_one_tag_clusters", "int", "One-Tag Clusters (s)."),
+        C("n_disconnected_clusters", "int", "Clusters whose tags do not form one connected group."),
+        C("mean_silhouette", "float", "Mean silhouette over Multi-Tag Cluster members; a descriptive diagnostic."),
+        C("silhouette_status", "str", SIL_STATUS),
+        C("seed_ari_min", "float", "Lowest ARI of a noise seed's partition against the shown one."),
+        C("seed_ari_mean", "float", "Mean ARI of the noise seeds' partitions against the shown one."),
+        C("seed_modularity_sd", "float", "Sample SD of Q across the noise seeds."),
+        C("seed_silhouette_sd", "float", "Sample SD of mean silhouette across the noise seeds that have one."),
+        C("seed_silhouette_status", "str", "Why seed_silhouette_sd is empty: fewer_than_2_seeds_with_silhouette."),
+        C("seed_k_min", "int", "Fewest Multi-Tag Clusters among the noise seeds."),
+        C("seed_k_max", "int", "Most Multi-Tag Clusters among the noise seeds."),
+    ],
+    group="app_export",
+)
+
+CLUSTER_CONNECTIONS = declare(
+    "cluster_connections.csv",
+    "Edges between clusters: every unordered pair of Multi-Tag Clusters, plus pairs with the pooled One-Tag Clusters.",
+    [
+        C("cluster_a", "str", "First cluster (or one_tag_pool)."),
+        C("cluster_b", "str", "Second cluster (or one_tag_pool)."),
+        C("edge_count", "int", "Edges between the two."),
+        C("weight", "float", "Summed active weight of those edges."),
+    ],
+    group="app_export",
+)
+
+NULL_MODEL = declare(
+    "null_model.csv",
+    "One row per null-model replicate (game-tag shuffle, rebuilt and reclustered).",
+    [
+        C("replicate", "int", "Replicate number, 1..R."),
+        C("seed", "int", "The replicate's seed (shuffle and clustering)."),
+        C("modularity", "float", "Q of the null network; empty when it has no edges."),
+        C("n_edges", "int", "Edges of the null network."),
+    ],
+    group="app_export",
+)
+
+SEED_NOISE = declare(
+    "seed_noise.csv",
+    "One row per noise seed: the same clustering on the unchanged network, compared with the shown partition.",
+    [
+        C("noise_seed_index", "int", "1..K."),
+        C("seed", "int", "The noise seed."),
+        C("modularity", "float", "Q of the seed's partition."),
+        C("silhouette", "float", "Mean silhouette of the seed's partition."),
+        C("silhouette_status", "str", SIL_STATUS),
+        C("ari_vs_main", "float", "ARI against the shown partition (1 = identical, about 0 = chance)."),
+        C("n_multi_tag_clusters", "int", "Multi-Tag Clusters in the seed's partition."),
+        C("n_one_tag_clusters", "int", "One-Tag Clusters in the seed's partition."),
+    ],
+    group="app_export",
+)
+
+NOT_IN_NETWORK = declare(
+    "not_in_network.csv",
+    "One row per tag on at least one game of the dataset that is not a node, with every reason.",
+    [
+        C("tag_id", "int", "Steam tag id."),
+        C("tag", "str", "Tag name."),
+        C("n_games", "int", "Games having the tag after the Minimum Months Filter (0 if emptied)."),
+        C("reasons", "str_list", "removed;defining_tag_hidden;genre_tag_hidden;below_min_games, in that order."),
+    ],
+    group="app_export",
+)
+
+REMOVAL_SENSITIVITY = declare(
+    "removal_sensitivity.csv",
+    "One row per tested tag, in run order: how the clustering changes when the tag is hypothetically removed.",
+    [
+        C("run_order", "int", "Position in the run (active strength desc, then tag_id)."),
+        C("tag_id", "int", "The removed tag."),
+        C("tag", "str", "Tag name."),
+        C("cluster", "str", "The tag's cluster in the shown partition."),
+        C("is_center", "bool", "Whether the tag is a Cluster Center."),
+        C("active_strength", "float", "The tag's strength on the active weight."),
+        C("rc_delta_modularity", "float", "Reclustered: Q after - Q before (also reflects the lost edge weight)."),
+        C("rc_silhouette_after", "float", "Reclustered: mean silhouette after the removal."),
+        C("rc_silhouette_after_status", "str", SIL_STATUS),
+        C("rc_delta_silhouette", "float", "Reclustered: silhouette after - before; empty when either is n/a."),
+        C("rc_delta_k", "int", "Reclustered: change in the number of Multi-Tag Clusters."),
+        C("rc_delta_s", "int", "Reclustered: change in the number of One-Tag Clusters."),
+        C("rc_ari", "float", "Reclustered: ARI against the shown partition over the remaining tags."),
+        C("rc_centers_lost_tag_ids", "int_list", "Current Cluster Centers (other than the tag) that are no longer centers."),
+        C("rc_centers_lost", "str_list", "Names of rc_centers_lost_tag_ids."),
+        C("rc_ari_beyond_noise", "bool", "rc_ari < seed_ari_min: a screening flag, not a significance test."),
+        C("fp_delta_modularity", "float", "Partition fixed: Q after - Q before."),
+        C("fp_silhouette_after", "float", "Partition fixed: mean silhouette after the removal."),
+        C("fp_silhouette_after_status", "str", SIL_STATUS),
+        C("fp_delta_silhouette", "float", "Partition fixed: silhouette after - before; empty when either is n/a."),
+    ],
+    group="app_export",
+)
+
+APP_TABLES = (NODES, EDGES, CLUSTERS, CLUSTER_QUALITY, CLUSTER_CONNECTIONS, NULL_MODEL, SEED_NOISE, NOT_IN_NETWORK,
+              REMOVAL_SENSITIVITY)
+
+# ----------------------------------------------------------------------------- Build: analysis/ network tables
+
+_STACK_PREFIX = (C("dataset", "str", "Dataset key."),
+                 C("state_id", "str", "Network State id (12 hex characters) of the report's state for this dataset."))
+
+
+def _build_name(app_name: str) -> str:
+    return app_name if app_name == "removal_sensitivity.csv" else f"network_{app_name}"
+
+
+STACKED = {s.name: declare(_build_name(s.name), s.description + " Five datasets stacked.",
+                           (*_STACK_PREFIX, *s.columns), group="analysis")
+           for s in APP_TABLES}
+
+
+def stacked(app_file: str) -> FileSchema:
+    """The Build's stacked version of an app export table (`dataset`, `state_id` first)."""
+    return STACKED[app_file]
+
+
+RESOLUTION_SWEEP = declare(
+    "resolution_sweep.csv",
+    "The report's clustering repeated at each resolution of the grid, everything else unchanged; one row per "
+    "dataset and resolution.",
+    [
+        C("dataset", "str", "Dataset key."),
+        C("resolution", "float", "The resolution γ of this row."),
+        C("n_multi_tag_clusters", "int", "Multi-Tag Clusters at this γ."),
+        C("n_one_tag_clusters", "int", "One-Tag Clusters at this γ."),
+        C("modularity", "float", "Q at this γ; not comparable across rows."),
+        C("mean_silhouette", "float", "Mean silhouette over Multi-Tag Cluster members at this γ."),
+        C("silhouette_status", "str", SIL_STATUS),
+        C("ari_vs_report", "float", "ARI of this γ's partition against the report's partition."),
+        C("seed_ari_min", "float", "Lowest noise-seed ARI at this γ."),
+        C("seed_ari_mean", "float", "Mean noise-seed ARI at this γ."),
+    ],
+    group="analysis",
 )
