@@ -102,3 +102,46 @@ def columns_block(schemas: list[FileSchema] | tuple[FileSchema, ...]) -> dict[st
     return {
         s.name: {c.name: {"type": c.type, "description": c.description} for c in s.columns} for s in schemas
     }
+
+
+# ============================================================================= declarations
+
+C = Column
+
+# ----------------------------------------------------------------------------- Build: reports/
+
+PARSE_ERRORS = declare(
+    "parse_errors.csv",
+    "Every parse error in the Snapshot. Any row fails the Build unless --allow-parse-errors was passed.",
+    [
+        C("appid", "int", "Steam AppID; empty for a listing page."),
+        C("source", "str", "Which response: top_page, steamcharts_app, store_page or appdetails."),
+        C("request_key", "str", "The response's path in the Snapshot's raw archive."),
+        C("error", "str", "What the parser could not read."),
+    ],
+    group="build_reports",
+)
+
+PLACEHOLDER_ROWS = declare(
+    "placeholder_rows.csv",
+    "Every Placeholder Row (Avg. Players 0.00 and Peak 0) in the Candidate Pool, treated as an absent row.",
+    [
+        C("appid", "int", "Steam AppID."),
+        C("month", "str", "The row's month, YYYY-MM."),
+        C("position", "str", "leading (before the Release Month), interior or trailing (after the last data row)."),
+    ],
+    group="build_reports",
+)
+
+COMPLETENESS = declare(
+    "completeness.csv",
+    "Counts that show how complete the Candidate Pool and the datasets are, one count per row.",
+    [
+        C("section", "str", "Group of the count: listing, scoring, exclusions_overlapping, exclusions_primary, depth_check."),
+        C("item", "str", "What is counted."),
+        C("dataset", "str", "Dataset key for per-dataset counts; empty otherwise."),
+        C("value", "int", "The count (or rank, for depth-check ranks)."),
+        C("note", "str", "How to read the count."),
+    ],
+    group="build_reports",
+)

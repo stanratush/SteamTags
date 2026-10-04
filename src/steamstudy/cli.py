@@ -73,8 +73,42 @@ def _collect(args: argparse.Namespace) -> int:
 
 
 def _build(args: argparse.Namespace) -> int:
-    print("build: not implemented yet", file=sys.stderr)
-    return 2
+    from steamstudy.build.core import BuildFailed, build, new_build_id
+    from steamstudy.build.writer import write_build, write_failed_parse_errors
+    from steamstudy.collect.run import latest_snapshot_id, snapshots_dir
+    from steamstudy.config import ConfigError, load_config
+    from steamstudy.snapshot import Snapshot
+
+    log = logging.getLogger("steamstudy.build")
+    try:
+        config = load_config(args.config)
+    except ConfigError as exc:
+        log.error("config: %s", exc)
+        return 2
+    snapshot_id = args.snapshot or latest_snapshot_id(args.root)
+    if snapshot_id is None:
+        log.error("no Snapshot found under %s", snapshots_dir(args.root))
+        return 2
+    snapshot = Snapshot(snapshots_dir(args.root) / snapshot_id)
+    if not snapshot.meta.get("closed"):
+        log.warning("Snapshot %s is not closed: collection has not finished", snapshot_id)
+    build_id = new_build_id(config)
+    try:
+        result = build(snapshot, config, build_id, allow_parse_errors=args.allow_parse_errors)
+    except BuildFailed as exc:
+        if exc.parse_errors:
+            path = write_failed_parse_errors(args.root, snapshot_id, build_id, exc.parse_errors)
+            log.error("Build failed: %s (written to %s)", exc, path)
+        else:
+            log.error("Build failed: %s", exc)
+        return 1
+    for warning in result.warnings:
+        log.warning("%s", warning)
+    folder = write_build(result, args.root)
+    log.info("Build written to %s", folder)
+    if args.allow_parse_errors:
+        log.warning("built with --allow-parse-errors: this Build must never be published")
+    return 0
 
 
 def _app(args: argparse.Namespace) -> int:
