@@ -1,0 +1,51 @@
+# Collection settings (Collect only). Hashed into `collection_config_hash`; never changes dataset output.
+
+[contact]
+# Descriptive User-Agent with the researcher's contact details, sent on every request.
+user_agent = "steamstudy/0.1 (academic research on Steam tag co-occurrence; contact: ciberiyc@gmail.com)"
+
+[listing]
+passes = 2                      # full /top listing passes, unioned by AppID (minimum 1)
+
+[rates]
+steamcharts_per_second = 3.0    # sequential, one kept-alive connection
+store_seconds_per_request = 2.0 # store pages and appdetails share one connection
+steamdb_seconds_per_request = 2.0
+
+[timeouts]
+connect_seconds = 10
+read_seconds = 30
+
+[retry]
+schedule_seconds = [10, 30, 90] # timeouts, connection resets, other 5xx; then hard stop
+parse_failures_in_a_row = 5     # hard stop after this many parse-structure failures in a row
+
+[test_mode]
+listing_pages = 4
+# Edge-case AppIDs added to the test Snapshot (spec "Test Snapshot").
+edge_case_appids = [
+    698670,   # Scorn: leading Placeholder Row
+    1401150,  # Black Hole Simulator: no month rows
+    749110,   # Bold Blade: interior Placeholder Row
+    413150,   # Stardew Valley: tiny pre-launch rows; Dating Sim farming game
+    1086940,  # Baldur's Gate 3: Early Access gap between Release Month and store date
+    2888870,  # Dadish 3D: only "Last 30 Days"
+    3419430,  # Bongo Cat: Desktop Companion; also a Software tag
+    2923300,  # Banana: Dating Sim joke vote; manual_exclusion candidate
+    1818750,  # MultiVersus: delisted candidate (confirm it has no store page)
+]
+
+# Pre-run obligations. `--mode full` refuses to start until both have a reference and a date.
+[gate.operator_reply]
+reference = ""
+date = ""
+publish_monthly_players = ""    # the operator's answer on publishing monthly_players.csv
+
+[gate.ethics_check]
+reference = ""
+date = ""
+
+[steamdb]
+# The SteamDB cross-check refuses to run until a permission reference is recorded.
+permission_reference = ""
+permission_date = ""

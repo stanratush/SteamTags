@@ -1,0 +1,25 @@
+# The five Top-100 Datasets. Defining tag ids are checked against the GetTagList snapshot.
+
+[[dataset]]
+key = "overall"
+label = "Overall"
+
+[[dataset]]
+key = "puzzle"
+label = "Puzzle"
+defining_tag = { id = 1664, name = "Puzzle" }
+
+[[dataset]]
+key = "rpg"
+label = "RPG"
+defining_tag = { id = 122, name = "RPG" }
+
+[[dataset]]
+key = "strategy"
+label = "Strategy"
+defining_tag = { id = 9, name = "Strategy" }
+
+[[dataset]]
+key = "simulation"
+label = "Simulation"
+defining_tag = { id = 599, name = "Simulation" }

@@ -1,0 +1,11 @@
+# Feature-analysis settings.
+
+max_itemset_size = 3
+min_support = 10
+
+# The Build fails if a rendered report contains any of these (case-insensitive, whole words).
+# "..." matches any words in between within one sentence ("makes ... successful").
+causal_words = ["drives", "leads to", "makes ... successful", "key to success", "predicts", "because", "effect"]
+
+# release_month_check.csv threshold, in months.
+release_month_check = 3

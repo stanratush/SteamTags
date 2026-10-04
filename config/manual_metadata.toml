@@ -1,0 +1,16 @@
+# Manual Metadata Entries. Every field is { value, source_url, retrieved }.
+# kind = "full": a game with no store data. Requires name, tags, app_type, genres, is_free,
+#   release_date and adult_only.
+# kind = "tags_only": a `no_tags` game; only `tags`, other details come from the store.
+# An entry for an app the store does provide fails the Build.
+#
+# [[entry]]
+# appid = 1818750
+# kind = "full"
+# name = { value = "...", source_url = "https://...", retrieved = "2026-10-05" }
+# tags = { value = [{ id = 19, name = "Action" }], source_url = "https://...", retrieved = "2026-10-05" }
+# app_type = { value = "game", source_url = "https://...", retrieved = "2026-10-05" }
+# genres = { value = [{ id = 1, name = "Action" }], source_url = "https://...", retrieved = "2026-10-05" }
+# is_free = { value = true, source_url = "https://...", retrieved = "2026-10-05" }
+# release_date = { value = "28 May, 2024", source_url = "https://...", retrieved = "2026-10-05" }
+# adult_only = { value = false, source_url = "https://...", retrieved = "2026-10-05" }

@@ -1,0 +1,39 @@
+# Genre Tags: tags that can be hidden from the Tag Network (never from datasets).
+# The 11 archived Top-Level Genres. Ids are checked against the GetTagList snapshot (warning if missing).
+genre_tags = [
+    { id = 19, name = "Action" },
+    { id = 21, name = "Adventure" },
+    { id = 597, name = "Casual" },
+    { id = 844, name = "Experimental" },
+    { id = 1664, name = "Puzzle" },
+    { id = 699, name = "Racing" },
+    { id = 122, name = "RPG" },
+    { id = 599, name = "Simulation" },
+    { id = 701, name = "Sports" },
+    { id = 9, name = "Strategy" },
+    { id = 17389, name = "Tabletop" },
+]
+
+# Store-genre `kind` map: appdetails genre id -> "genre" / "business" / "software".
+# Every observed genre is reported; an id missing from this map gets kind "unmapped".
+[genre_kind]
+"1" = "genre"      # Action
+"2" = "genre"      # Strategy
+"3" = "genre"      # RPG
+"4" = "genre"      # Casual
+"9" = "genre"      # Racing
+"18" = "genre"     # Sports
+"23" = "business"  # Indie
+"25" = "genre"     # Adventure
+"28" = "genre"     # Simulation
+"29" = "business"  # Massively Multiplayer
+"37" = "business"  # Free To Play
+"51" = "software"  # Animation & Modeling
+"53" = "software"  # Design & Illustration
+"54" = "software"  # Education
+"55" = "software"  # Photo Editing
+"57" = "software"  # Utilities
+"58" = "software"  # Video Production
+"59" = "software"  # Web Publishing
+"60" = "software"  # Game Development
+"70" = "business"  # Early Access

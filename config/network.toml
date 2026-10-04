@@ -1,0 +1,18 @@
+# Shared network defaults, read by both the app and the feature-analysis report.
+
+min_games_per_tag = 8
+min_shared_games = 8
+min_months = 0
+
+hide_genre_tags = true
+hide_defining_tag = true
+
+clustering_weight = "shared_games"  # or "lift"
+algorithm = "louvain"               # or "leiden"
+resolution = 1.0
+seed = 20261003
+
+null_replicates = 20                # must be >= 2
+noise_seeds = 10                    # must be >= 2
+
+resolution_sweep = [0.50, 0.75, 1.00, 1.25, 1.50]

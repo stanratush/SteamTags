@@ -1,0 +1,9 @@
+# Exclusion Overrides: a specific game is not excluded by a specific rule it matches. Published.
+#
+# [[override]]
+# appid = 413150
+# name = "Stardew Valley"
+# rule = "dating_sim_tag"
+# reason = "..."
+# evidence = [{ url = "https://...", retrieved = "2026-10-05" }]
+# added = "2026-10-05"

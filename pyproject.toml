@@ -1,0 +1,57 @@
+[project]
+name = "steamstudy"
+version = "0.1.0"
+description = "Steam Success Study: polite collection, deterministic Build and an offline Tag Network app."
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    # App stack. Any upgrade of dash, dash-cytoscape or dash-ag-grid re-runs the Windows spike checklist first.
+    "dash>=4.4,<5",
+    "dash-cytoscape==1.0.2",
+    "dash-ag-grid>=35.3,<36",
+    "diskcache>=5.6",
+    "multiprocess>=0.70.19",
+    "psutil>=7.2",
+    # Clustering: both algorithms are always installed; versions pinned for determinism.
+    "networkx==3.7",
+    "leidenalg==0.12.0",
+    "python-igraph==1.0.0",
+    # Numerics.
+    "numpy>=2.5",
+    "scipy>=1.18",
+    "scikit-learn>=1.8",
+    "pandas>=3.0",
+    # Collection and parsing.
+    "requests>=2.34",
+    "lxml>=6.0",
+    # Report rendering.
+    "markdown>=3.9",
+]
+
+[project.scripts]
+steamstudy = "steamstudy.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=9.0", "mypy>=1.20"]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/steamstudy"]
+
+[tool.uv]
+# Spawned background jobs start ~2.5 s slower per job without bytecode (ticket 22 spike).
+compile-bytecode = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Run as: uv run python -W default -X faulthandler -m pytest   (never -X dev on this machine)
+filterwarnings = ["default"]
+addopts = "-p no:dash"
+
+[tool.mypy]
+python_version = "3.14"
+files = ["src/steamstudy"]
+ignore_missing_imports = true
+warn_unused_ignores = true

@@ -1,0 +1,8 @@
+# Manual exclusions: one entry per game, with a written reason and evidence.
+#
+# [[exclusion]]
+# appid = 2923300
+# name = "Banana"
+# reason = "..."
+# evidence = [{ url = "https://...", retrieved = "2026-10-05" }]
+# added = "2026-10-05"
