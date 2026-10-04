@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from steamstudy.build.parse import ParseError, parse_top_page
-from steamstudy.snapshot import StoredResponse
+from steamstudy.snapshot import LogEntry, StoredResponse
 
 _PASS_KEY = re.compile(r"^steamcharts/top/pass-(\d+)/p-(\d+)\.html\.gz$")
 
@@ -19,6 +19,8 @@ class SnapshotLike(Protocol):
     def keys(self, prefix: str = "") -> list[str]: ...
 
     def response(self, key: str) -> StoredResponse | None: ...
+
+    def entry(self, key: str) -> LogEntry | None: ...
 
 
 @dataclass

@@ -160,6 +160,9 @@ class SnapshotStore:
         ).fetchone()
         return LogEntry(*row) if row else None
 
+    def entry(self, key: str) -> LogEntry | None:
+        return self.latest(key)
+
     def log(self, entry: LogEntry) -> None:
         self._db.execute(
             "INSERT INTO requests (request_key, url, status, final_url, timestamp, sha256, outcome, detail, batch) "

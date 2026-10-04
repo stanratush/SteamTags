@@ -230,3 +230,26 @@ def _doc(body: bytes):
         return lxml_html.fromstring(body)
     except (ValueError, lxml_html.etree.ParserError) as exc:
         raise ParseError(f"not HTML: {exc}") from exc
+
+
+# ----------------------------------------------------------------------------- SteamDB (cross-check only)
+
+_STEAMDB_TAG = re.compile(r"^/tag/(\d+)/?$")
+
+
+def parse_steamdb_app(body: bytes) -> list[tuple[int, str]]:
+    """Tags on a SteamDB app page as (tag id, name), in page order.
+
+    Assumption (unverified, since SteamDB pages were never fetched without permission): the page links each
+    tag as `<a href="/tag/<id>/">name</a>`. Replace the synthetic fixture with a page saved by hand once
+    permission is granted, and adjust this parser to it.
+    """
+    doc = _doc(body)
+    seen: dict[int, str] = {}
+    for a in doc.xpath("//a[@href]"):
+        m = _STEAMDB_TAG.match(a.get("href", "").split("?")[0])
+        if m and int(m.group(1)) not in seen:
+            seen[int(m.group(1))] = " ".join(a.text_content().split())
+    if not seen:
+        raise ParseError("no tag links found on the SteamDB page")
+    return list(seen.items())

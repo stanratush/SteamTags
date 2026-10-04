@@ -33,7 +33,13 @@ from steamstudy.build.games import (
     read_vocabulary,
     validate_manual_entries,
 )
-from steamstudy.build.parse import MonthlyHistory, ParseError, TagVocabulary, parse_steamcharts_app
+from steamstudy.build.parse import (
+    MonthlyHistory,
+    ParseError,
+    TagVocabulary,
+    parse_steamcharts_app,
+    parse_steamdb_app,
+)
 from steamstudy.build.pool import Listing, SnapshotLike, read_listing
 from steamstudy.build.score import Score, Window, placeholder_rows, score, unscored_reason
 from steamstudy.config import Config
@@ -146,6 +152,10 @@ def build(
     result.add("reports/release_month_check.csv", S.RELEASE_MONTH_CHECK,
                A.release_month_check_rows(t, config.analysis.release_month_check))
     result.add("reports/manual_metadata.csv", S.MANUAL_METADATA, A.manual_metadata_rows(games))
+    if snapshot.keys("steamdb/"):
+        result.add("reports/steamdb_crosscheck.csv", S.STEAMDB_CROSSCHECK,
+                   _steamdb_rows(snapshot, games, A.members(t), parse_errors_allowed=allow_parse_errors,
+                                 warnings=result.warnings))
     completeness = _completeness(snapshot, listing, apps, window)
     completeness += _exclusion_counts(games, evaluations)
     completeness += A.depth_check_rows(t)
@@ -176,6 +186,31 @@ def build(
     except CausalLanguageError as exc:
         raise BuildFailed(str(exc)) from exc
     return result
+
+
+def _steamdb_rows(snapshot: SnapshotLike, games: dict[int, Game], members: list[int], *,
+                  parse_errors_allowed: bool, warnings: list[str]) -> list[dict[str, Any]]:
+    rows = []
+    for appid in members:
+        resp = snapshot.response(f"steamdb/app/{appid}.html.gz")
+        if resp is None or resp.outcome != "ok":
+            continue
+        try:
+            steamdb = parse_steamdb_app(resp.body or b"")
+        except ParseError as exc:
+            warnings.append(f"SteamDB page for appid {appid} not readable: {exc}")
+            continue
+        store_ids = [t.tag_id for t in games[appid].tags]
+        steamdb_ids = [t for t, _ in steamdb]
+        entry = snapshot.entry(f"steamdb/app/{appid}.html.gz")
+        rows.append({
+            "appid": appid, "name": games[appid].name, "steamdb_batch": entry.batch if entry else "",
+            "store_tag_ids": store_ids, "steamdb_tag_ids": steamdb_ids, "steamdb_tags": [n for _, n in steamdb],
+            "only_store_tag_ids": [t for t in store_ids if t not in steamdb_ids],
+            "only_steamdb_tag_ids": [t for t in steamdb_ids if t not in store_ids],
+            "same_tag_set": set(store_ids) == set(steamdb_ids),
+        })
+    return rows
 
 
 def _apply_manual_metadata(config: Config, games: dict[int, Game], result: BuildResult) -> None:

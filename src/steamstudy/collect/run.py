@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from collections import Counter
 import logging
 import platform
 from collections.abc import Callable
@@ -434,5 +435,58 @@ def run_repair(
         meta["repairs"].append(repair)
         store.save_meta(meta)
         return repair
+    finally:
+        store.close()
+
+
+# ----------------------------------------------------------------------------- SteamDB cross-check
+
+STEAMDB = "https://steamdb.info"
+
+
+def run_steamdb(
+    root: Path,
+    config: Config,
+    build_id: str,
+    *,
+    transport: Transport | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """Fetch SteamDB pages for one Build's Top-100 members only, as a logged batch of that Build's Snapshot.
+
+    Refuses before any request unless `collection.toml` records a SteamDB permission reference.
+    SteamDB values never enter a dataset; the next Build writes reports/steamdb_crosscheck.csv.
+    """
+    permission = config.collection.steamdb_permission
+    if not permission.reference.strip():
+        raise CollectRefused("collection.toml records no SteamDB permission reference: the cross-check is disabled")
+    if UA_PLACEHOLDER in config.collection.user_agent:
+        raise CollectRefused("collection.toml: fill in the contact details in contact.user_agent first")
+    from steamstudy.build.writer import resolve_build
+    from steamstudy.export import schema as S
+    from steamstudy.export.writer import read_typed_csv
+
+    folder = resolve_build(root, build_id)
+    snapshot_id = folder.parent.name
+    members: set[int] = set()
+    for key in S.DATASET_KEYS:
+        path = folder / "datasets" / f"top100_{key}.csv"
+        if path.is_file():
+            members.update(int(r["appid"]) for r in read_typed_csv(path, S.TOP100))
+    store = SnapshotStore(snapshots_dir(root) / snapshot_id)
+    meta = store.load_meta()
+    try:
+        batch = f"steamdb-{len(meta['steamdb']['batches']) + 1}"
+        fetcher = make_fetcher(store, config, meta, transport=transport, clock=clock, batch=batch)
+        started = utc_now()
+        outcomes: Counter[str] = Counter()
+        for appid in sorted(members):
+            outcomes[fetcher.fetch(f"steamdb/app/{appid}.html.gz", f"{STEAMDB}/app/{appid}/", force=True).outcome] += 1
+        record = {"batch": batch, "build_id": folder.name, "permission_reference": permission.reference,
+                  "permission_date": permission.date, "started": started, "ended": utc_now(),
+                  "apps": len(members), "outcomes": dict(outcomes)}
+        meta["steamdb"]["batches"].append(record)
+        store.save_meta(meta)
+        return record
     finally:
         store.close()

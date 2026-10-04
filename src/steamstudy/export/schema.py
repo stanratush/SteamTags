@@ -337,6 +337,24 @@ MANUAL_METADATA = declare(
     group="build_reports",
 )
 
+STEAMDB_CROSSCHECK = declare(
+    "steamdb_crosscheck.csv",
+    "Store vs SteamDB tags for each Top-100 game with a SteamDB page in the Snapshot. A cross-check only: "
+    "SteamDB values never enter a dataset.",
+    [
+        C("appid", "int", "Steam AppID."),
+        C("name", "str", "Game name."),
+        C("steamdb_batch", "str", "The SteamDB batch the page comes from."),
+        C("store_tag_ids", "int_list", "Displayed store tag ids, in display order."),
+        C("steamdb_tag_ids", "int_list", "Tag ids on the SteamDB page, in page order."),
+        C("steamdb_tags", "str_list", "Tag names on the SteamDB page, matching steamdb_tag_ids."),
+        C("only_store_tag_ids", "int_list", "Tags on the store list but not on SteamDB."),
+        C("only_steamdb_tag_ids", "int_list", "Tags on SteamDB but not on the store list."),
+        C("same_tag_set", "bool", "Whether both list the same tags."),
+    ],
+    group="build_reports",
+)
+
 # ----------------------------------------------------------------------------- app export (one Network State)
 
 SIL_STATUS = "Why silhouette is empty: fewer_than_2_multi_tag_clusters or one_tag_cluster."

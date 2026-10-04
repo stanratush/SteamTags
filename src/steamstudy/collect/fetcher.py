@@ -210,6 +210,9 @@ def classify(request_key: str, raw: RawResponse) -> tuple[str, str]:
     elif kind == "steamcharts_app":
         if status == 404:
             return "not_found", "HTTP 404"
+    elif kind == "steamdb":
+        if status == 404:
+            return "not_found", "HTTP 404"
     elif kind == "store_page":
         if "/agecheck/" in raw.final_url:
             return "age_gate", "redirected to the age check"
