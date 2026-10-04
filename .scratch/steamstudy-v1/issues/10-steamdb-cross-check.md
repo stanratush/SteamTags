@@ -1,0 +1,15 @@
+# 10: SteamDB cross-check collector
+
+**What to build:** Once SteamDB grants permission, the researcher runs `steamstudy collect steamdb --build <id>` to fetch SteamDB pages for that Build's Top-100 members only. The next Build then reports store vs SteamDB tags per game. Until permission is recorded the collector refuses to run, and it is developed only against pages saved by hand. SteamDB values never enter a dataset.
+
+**Blocked by:** 04
+
+**Status:** ready-for-agent
+
+Spec: [Steam Success Study spec](../../steam-success-study/spec.md): "Collect" (SteamDB cross-check), "Commands".
+
+- [ ] `collect steamdb --build <id>` refuses to run without a permission reference in `collection.toml`.
+- [ ] With permission, it fetches only that Build's Top-100 members through the Fetcher, into the Snapshot's `steamdb` area, as its own logged batch recorded in `snapshot.json`. The rate follows the permission terms, defaulting to the store rule.
+- [ ] A pure SteamDB page parser is tested only on pages saved by hand.
+- [ ] A Build on a Snapshot with SteamDB batches writes `reports/steamdb_crosscheck.csv` (store vs SteamDB tags per game). No dataset value changes.
+- [ ] A test confirms that no request reaches a SteamDB host when the permission reference is absent.
