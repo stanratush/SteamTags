@@ -164,9 +164,17 @@ def build(
     result.scores = scores
     result.games = games
 
+    from steamstudy.analysis.report import report_html
     from steamstudy.analysis.run import run_analysis
+    from steamstudy.analysis.templates import CausalLanguageError
+    from steamstudy.build.summary import reports_html
 
     run_analysis(result, config)
+    try:
+        result.texts["analysis/report.html"] = report_html(result, config)
+        result.texts["reports/reports.html"] = reports_html(result, config)
+    except CausalLanguageError as exc:
+        raise BuildFailed(str(exc)) from exc
     return result
 
 

@@ -55,12 +55,18 @@ def _collect(args: argparse.Namespace) -> int:
     from steamstudy.collect.run import CollectRefused, run_collect
     from steamstudy.config import ConfigError, load_config
 
+    from steamstudy.collect.run import run_repair
+
     log = logging.getLogger("steamstudy.collect")
-    if args.stage == "steamdb" or args.repair is not None:
+    if args.stage == "steamdb":
         log.error("not implemented yet")
         return 2
     try:
         config = load_config(args.config)
+        if args.repair is not None:
+            repair = run_repair(args.root, config, args.repair, args.reason or "", snapshot_id=args.snapshot)
+            log.info("repaired AppID %s: %s", args.repair, repair["outcomes"])
+            return 0
         snapshot_id = run_collect(args.root, config, mode=args.mode, snapshot_id=args.snapshot, stage=args.stage)
     except (CollectRefused, ConfigError) as exc:
         log.error("collection refused: %s", exc)

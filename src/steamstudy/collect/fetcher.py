@@ -100,14 +100,15 @@ class Fetcher:
     network_requests: int = 0
 
     def fetch(
-        self, request_key: str, url: str, *, check: Callable[[bytes], bool] | None = None
+        self, request_key: str, url: str, *, check: Callable[[bytes], bool] | None = None, force: bool = False
     ) -> StoredResponse:
         """Fetch `url` into `request_key`, or return the archived response if it has a final outcome.
 
         `check` is the stage's parser: a response that fails it is a parse-structure failure.
+        `force` refetches even a final outcome (only `--repair` uses it).
         """
         previous = self.store.latest(request_key)
-        if previous is not None and previous.is_final:
+        if previous is not None and previous.is_final and not force:
             return self.store.response(request_key)  # type: ignore[return-value]
 
         source = source_of(request_key)

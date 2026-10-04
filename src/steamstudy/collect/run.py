@@ -387,3 +387,52 @@ STAGE_FUNCTIONS: dict[str, Callable[[Context], None]] = {
     "store": stage_store,
     "taglist": stage_taglist,
 }
+
+
+# ----------------------------------------------------------------------------- repair
+
+
+def run_repair(
+    root: Path,
+    config: Config,
+    appid: int,
+    reason: str,
+    *,
+    snapshot_id: str | None = None,
+    transport: Transport | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """Refetch one app into a closed Snapshot (its Steam Charts page, and its store data if it is scored),
+    logged as a repair in `snapshot.json`. The only change a closed Snapshot accepts besides SteamDB batches."""
+    if not reason or not reason.strip():
+        raise CollectRefused("--repair needs a written --reason")
+    snapshot_id = snapshot_id or latest_snapshot_id(root)
+    if snapshot_id is None or not (snapshots_dir(root) / snapshot_id / "snapshot.json").is_file():
+        raise CollectRefused("no Snapshot to repair")
+    store = SnapshotStore(snapshots_dir(root) / snapshot_id)
+    meta = store.load_meta()
+    try:
+        if not meta.get("closed"):
+            raise CollectRefused(f"Snapshot {snapshot_id} is still open: rerun collect to resume instead of repairing")
+        if appid not in pool_appids(store):
+            raise CollectRefused(f"AppID {appid} is not in Snapshot {snapshot_id}'s Candidate Pool")
+        batch = f"repair-{len(meta['repairs']) + 1}"
+        fetcher = make_fetcher(store, config, meta, transport=transport, clock=clock, batch=batch)
+        started = utc_now()
+        outcomes: dict[str, str] = {}
+        history = fetcher.fetch(f"steamcharts/app/{appid}.html.gz", f"{STEAMCHARTS}/app/{appid}",
+                                check=_parses(parse_steamcharts_app), force=True)
+        outcomes[history.request_key] = history.outcome
+        if appid in scored_appids(store, meta) or store.latest(f"store/page/{appid}.html.gz") is not None:
+            for key, url, check in (
+                (f"store/page/{appid}.html.gz", f"{STORE}/app/{appid}/?l=english", _parses(parse_store_page)),
+                (f"store/appdetails/{appid}.json.gz", f"{STORE}/api/appdetails?appids={appid}&l=english", None),
+            ):
+                outcomes[key] = fetcher.fetch(key, url, check=check, force=True).outcome
+        repair = {"appid": appid, "reason": reason.strip(), "batch": batch, "started": started, "ended": utc_now(),
+                  "outcomes": outcomes}
+        meta["repairs"].append(repair)
+        store.save_meta(meta)
+        return repair
+    finally:
+        store.close()

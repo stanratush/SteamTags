@@ -31,9 +31,13 @@ edge_case_appids = [
     1086940,  # Baldur's Gate 3: Early Access gap between Release Month and store date
     2888870,  # Dadish 3D: only "Last 30 Days"
     3419430,  # Bongo Cat: Desktop Companion; also a Software tag
-    2923300,  # Banana: Dating Sim joke vote; manual_exclusion candidate
-    1818750,  # MultiVersus: delisted candidate (confirm it has no store page)
+    2923300,  # Banana: Dating Sim joke vote; manual_exclusion candidate; free to play
+    1818750,  # MultiVersus: declined after 2022; still has a store page (checked 2026-10-04), so not delisted
+    1619750,  # Karryn's Prison: Adult Only notice and content descriptor 3
+    431960,   # Wallpaper Engine: software app with type "game" (Utilities, Software tags)
 ]
+# Still to find: a delisted app with no store page, and a region-locked or login-only app.
+# None is confirmed in the research notes yet; add them here once one is checked.
 
 # Pre-run obligations. `--mode full` refuses to start until both have a reference and a date.
 [gate.operator_reply]
