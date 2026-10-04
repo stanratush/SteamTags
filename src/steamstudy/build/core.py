@@ -13,12 +13,32 @@ from importlib import metadata
 from typing import Any
 
 from steamstudy import __version__
-from steamstudy.build.parse import MonthlyHistory, ParseError, parse_steamcharts_app
+from steamstudy.build import assemble as A
+from steamstudy.build.assemble import GameTable
+from steamstudy.build.datasets import TOP_N, RankedDataset, rank_dataset
+from steamstudy.build.exclusion import (
+    RULES,
+    ExclusionListError,
+    configured_tag_ids,
+    content_flags,
+    evaluate,
+    validate_manual_exclusions,
+    validate_overrides,
+)
+from steamstudy.build.games import (
+    Game,
+    ManualMetadataError,
+    apply_manual_entry,
+    read_game,
+    read_vocabulary,
+    validate_manual_entries,
+)
+from steamstudy.build.parse import MonthlyHistory, ParseError, TagVocabulary, parse_steamcharts_app
 from steamstudy.build.pool import Listing, SnapshotLike, read_listing
 from steamstudy.build.score import Score, Window, placeholder_rows, score, unscored_reason
 from steamstudy.config import Config
 from steamstudy.export import schema as S
-from steamstudy.export.schema import FileSchema
+from steamstudy.export.schema import DATASET_KEYS, FileSchema
 
 ATTRIBUTION = "Player data: Steam Charts; tags/metadata: Steam store"
 SOURCE_SUBSTITUTIONS = [
@@ -55,6 +75,10 @@ class BuildResult:
     texts: dict[str, str] = field(default_factory=dict)  # path -> text file content
     build_json: dict[str, Any] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
+    # In-memory results for later Build stages (network tables, feature analysis); not written.
+    ranked: dict[str, RankedDataset] = field(default_factory=dict)
+    scores: dict[int, Score] = field(default_factory=dict)
+    games: dict[int, Game] = field(default_factory=dict)
 
     def add(self, path: str, schema: FileSchema, rows: list[dict[str, Any]]) -> None:
         self.tables[path] = (schema, rows)
@@ -76,15 +100,119 @@ def build(
         parse_errors.append({"appid": None, "source": "top_page", "request_key": key, "error": error})
 
     apps = _read_histories(snapshot, listing, window, parse_errors)
+    scores = {a: r.score for a, r in apps.items() if r.score is not None}
+    games = {a: read_game(snapshot, a, apps[a].listing_name or "", parse_errors) for a in scores}
 
     if parse_errors and not allow_parse_errors:
         raise BuildFailed(f"{len(parse_errors)} parse error(s); see parse_errors.csv", parse_errors)
 
+    vocabulary = read_vocabulary(snapshot)
+    result.warnings += _vocabulary_warnings(config, vocabulary)
+    _apply_manual_metadata(config, games, result)
+    try:
+        manual_exclusions = validate_manual_exclusions(config.manual_exclusions)
+        overrides = validate_overrides(config.exclusion_overrides)
+    except ExclusionListError as exc:
+        raise BuildFailed(str(exc)) from exc
+    evaluations = {a: evaluate(games[a], config.exclusions, manual_exclusions, overrides) for a in sorted(games)}
+    excluded = {a for a, ev in evaluations.items() if ev.excluded}
+    flags = {a: content_flags(games[a], config.exclusions) for a in games}
+
+    if tuple(d.key for d in config.datasets) != DATASET_KEYS:
+        raise BuildFailed(f"datasets.toml must define exactly {DATASET_KEYS}")
+    ranked = {d.key: rank_dataset(d, scores, games, excluded) for d in config.datasets}
+    for r in ranked.values():
+        if len(r.top) < TOP_N:
+            result.warnings.append(f"dataset {r.key} has only {len(r.top)} eligible games (fewer than {TOP_N})")
+    _check_list_names(games, ranked)
+
+    histories = {a: apps[a].history for a in scores if apps[a].history is not None}
+    t = GameTable(scores, games, histories, listing.best_rank, ranked, flags)  # type: ignore[arg-type]
+    excluded_evals = {a: ev for a, ev in evaluations.items() if ev.excluded}
+    for key, r in ranked.items():
+        result.add(f"datasets/top100_{key}.csv", S.TOP100, A.top100_rows(t, r))
+    result.add("datasets/monthly_players.csv", S.MONTHLY_PLAYERS, A.monthly_players_rows(t, window))
     result.add("reports/parse_errors.csv", S.PARSE_ERRORS, parse_errors)
     result.add("reports/placeholder_rows.csv", S.PLACEHOLDER_ROWS, _placeholder_rows(apps))
-    result.add("reports/completeness.csv", S.COMPLETENESS, _completeness(snapshot, listing, apps, window))
+    result.add("reports/ties.csv", S.TIES, A.ties_rows(t))
+    result.add("reports/exclusions.csv", S.EXCLUSIONS, A.exclusion_rows(t, excluded_evals))
+    result.add("reports/impact_removals.csv", S.IMPACT_REMOVALS, A.impact_removal_rows(t, excluded_evals))
+    result.add("reports/impact_near_misses.csv", S.IMPACT_NEAR_MISSES, A.near_miss_rows(t, evaluations))
+    result.add("reports/impact_adult_signals.csv", S.IMPACT_ADULT_SIGNALS, A.adult_signal_rows(t, evaluations))
+    result.add("reports/impact_unexcluded.csv", S.IMPACT_UNEXCLUDED, A.unexcluded_rows(t, config.genre_kind))
+    result.add("reports/tag_vocabulary.csv", S.TAG_VOCABULARY, A.tag_vocabulary_rows(games, vocabulary))
+    result.add("reports/release_month_check.csv", S.RELEASE_MONTH_CHECK,
+               A.release_month_check_rows(t, config.analysis.release_month_check))
+    result.add("reports/manual_metadata.csv", S.MANUAL_METADATA, A.manual_metadata_rows(games))
+    completeness = _completeness(snapshot, listing, apps, window)
+    completeness += _exclusion_counts(games, evaluations)
+    completeness += A.depth_check_rows(t)
+    result.add("reports/completeness.csv", S.COMPLETENESS, completeness)
+
     result.build_json = _build_json(snapshot, config, build_id, allow_parse_errors, len(parse_errors))
+    result.build_json["manual_metadata_entries"] = [
+        {"appid": a, "kind": g.manual_entry["kind"]} for a, g in sorted(games.items()) if g.manual_entry]
+    result.build_json["exclusion_overrides_applied"] = [
+        {"appid": a, "rule": rule, "reason": overrides[(a, rule)]["reason"]}
+        for a, ev in evaluations.items() for rule in ev.overridden]
+    result.build_json["dataset_sizes"] = {k: {"rows": len(r.top), "eligible_pool": len(r.eligible)}
+                                          for k, r in ranked.items()}
+    result.build_json["warnings"] = list(result.warnings)
+    result.ranked = ranked
+    result.scores = scores
+    result.games = games
     return result
+
+
+def _apply_manual_metadata(config: Config, games: dict[int, Game], result: BuildResult) -> None:
+    try:
+        entries = validate_manual_entries(config.manual_metadata)
+        for appid, entry in sorted(entries.items()):
+            if appid not in games:
+                result.warnings.append(f"Manual Metadata Entry for appid {appid} not used: the app has no score")
+                continue
+            apply_manual_entry(games[appid], entry)
+    except ManualMetadataError as exc:
+        raise BuildFailed(str(exc)) from exc
+
+
+def _vocabulary_warnings(config: Config, vocabulary: TagVocabulary | None) -> list[str]:
+    if vocabulary is None:
+        return ["no GetTagList snapshot: configured tag ids could not be checked"]
+    named = configured_tag_ids(config.exclusions)
+    named += [("genres.genre_tags", t.id, t.name) for t in config.genre_tags]
+    named += [(f"datasets.{d.key}.defining_tag", d.defining_tag.id, d.defining_tag.name)
+              for d in config.datasets if d.defining_tag]
+    return [f"{where}: tag id {tag_id} ({name}) is not in the GetTagList snapshot"
+            for where, tag_id, name in named if tag_id not in vocabulary.tags]
+
+
+def _check_list_names(games: dict[int, Game], ranked: dict[str, RankedDataset]) -> None:
+    for appid in sorted({a for r in ranked.values() for a in r.top}):
+        g = games[appid]
+        for name in [t.name for t in g.tags] + [x.name for x in g.genres]:
+            if ";" in name:
+                raise BuildFailed(f"appid {appid}: tag or genre name {name!r} contains ';', which the list format cannot hold")
+
+
+def _exclusion_counts(games: dict[int, Game], evaluations: dict[int, Any]) -> list[dict[str, Any]]:
+    rows = [{"section": "scoring", "item": "scored_game_apps",
+             "dataset": "", "value": sum(g.app_type == "game" for g in games.values() if g.has_data),
+             "note": "scored apps whose app type is game"}]
+    overlapping = {rule: 0 for rule in RULES}
+    primary = {rule: 0 for rule in RULES}
+    for ev in evaluations.values():
+        for m in ev.matches:
+            overlapping[m.rule] += 1
+        if ev.primary_reason:
+            primary[ev.primary_reason] += 1
+    rows += [{"section": "exclusions_overlapping", "item": rule, "dataset": "", "value": n,
+              "note": "excluded games matching this rule (a game can match several)"} for rule, n in overlapping.items()]
+    rows += [{"section": "exclusions_primary", "item": rule, "dataset": "", "value": n,
+              "note": "excluded games whose primary_reason is this rule"} for rule, n in primary.items()]
+    rows.append({"section": "exclusions_primary", "item": "excluded_games", "dataset": "",
+                 "value": sum(primary.values()), "note": "scored games excluded by any rule"})
+    return rows
 
 
 # ----------------------------------------------------------------------------- histories and scores
@@ -231,7 +359,6 @@ def _build_json(
         },
         "software_versions": software_versions(),
         "manual_metadata_entries": [],
-        "monthly_players_publishable": False,
     }
 
 

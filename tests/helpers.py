@@ -104,6 +104,72 @@ def appdetails(appid: int, *, app_type: str = "game", name: str = "Derived", is_
     return json.dumps({str(appid): {"success": True, "data": data}}).encode("utf-8")
 
 
+def mini_store_page(appid: int, tags: list[tuple[int, str]], *, adult_only: bool = False) -> bytes:
+    """A small synthetic store page with just the structures the parser reads (for large synthetic pools)."""
+    items = json.dumps([{"tagid": t, "name": n, "count": 100 - i, "browseable": True} for i, (t, n) in enumerate(tags)])
+    notice = ("<div class=\"mature_content_notice\">This game is marked as 'Adult Only'. You are seeing this game "
+              "because you have agreed to continue to this page.</div>") if adult_only else ""
+    return (f'<html><body><div id="application_config" data-config="{{&quot;COUNTRY&quot;:&quot;BG&quot;}}"></div>'
+            f'{notice}<div class="apphub_AppName">App {appid}</div>'
+            f'<script>InitAppTagModal( {appid},\n\t\t{items},\n\t\t[], "x" );</script></body></html>').encode("utf-8")
+
+
+class World:
+    """A synthetic Candidate Pool, written as a Snapshot: listing pages, histories and store responses."""
+
+    def __init__(self) -> None:
+        self.responses: dict[str, tuple[str, bytes | None]] = {}
+        self.listing: list[tuple[int, str]] = []
+
+    def add(self, appid: int, *, avg: float = 100.0, months: int = 12, history: bytes | None = None,
+            tags: list[tuple[int, str]] = ((19, "Action"),), app_type: str = "game", is_free: bool = False,
+            genres: list[tuple[int, str]] = ((1, "Action"),), release_date: str = "1 Jan, 2024",
+            adult_only: bool = False, descriptors: list[int] = (), page: str = "ok", details: str = "ok",
+            name: str | None = None, listed: bool = True, page_body: bytes | None = None,
+            details_body: bytes | None = None) -> "World":
+        name = name or f"Game {appid}"
+        if listed:
+            self.listing.append((appid, name))
+        if history is None:
+            rows = [(_month_back("2026-09", i), avg, int(avg) + 1) for i in range(months)]
+            history = steamcharts_page(rows, name=name)
+        self.responses[f"steamcharts/app/{appid}.html.gz"] = ("ok", history)
+        if page != "skip":
+            body = page_body if page_body is not None else mini_store_page(appid, list(tags), adult_only=adult_only)
+            self.responses[f"store/page/{appid}.html.gz"] = (page, body if page == "ok" else b"")
+        if details != "skip":
+            body = details_body if details_body is not None else appdetails(
+                appid, app_type=app_type, name=name, is_free=is_free, genres=list(genres), release_date=release_date,
+                descriptors=list(descriptors), success=details == "ok")
+            self.responses[f"store/appdetails/{appid}.json.gz"] = (details, body)
+        return self
+
+    def real(self, appid: int, *, history: bytes | None = None) -> "World":
+        """A game from the real fixtures (store page, appdetails and, if captured, the Steam Charts page)."""
+        key = f"steamcharts/app/{appid}.html.gz"
+        hist = history if history is not None else raw(key)
+        self.listing.append((appid, f"Real {appid}"))
+        self.responses[key] = ("ok", hist)
+        self.responses[f"store/page/{appid}.html.gz"] = ("ok", raw(f"store/page/{appid}.html.gz"))
+        self.responses[f"store/appdetails/{appid}.json.gz"] = ("ok", raw(f"store/appdetails/{appid}.json.gz"))
+        return self
+
+    def snapshot(self, path: Path, **kw) -> Path:
+        responses = dict(self.responses)
+        for page in range(0, max(1, len(self.listing)), 25):
+            chunk = self.listing[page:page + 25]
+            rows = [(page + i + 1, appid, name) for i, (appid, name) in enumerate(chunk)]
+            responses[f"steamcharts/top/pass-1/p-{page // 25 + 1:04d}.html.gz"] = ("ok", top_page(rows))
+        responses["steam_api/GetTagList.json"] = ("ok", raw("steam_api/GetTagList.json"))
+        return make_snapshot(path, responses, **kw)
+
+
+def _month_back(month: str, n: int) -> str:
+    year, m = (int(x) for x in month.split("-"))
+    index = year * 12 + (m - 1) - n
+    return f"{index // 12:04d}-{index % 12 + 1:02d}"
+
+
 # ----------------------------------------------------------------------------- fixture Snapshot
 
 
