@@ -59,6 +59,14 @@ _Avoid_: singleton, unclustered tag, noise
 The member of a **Multi-Tag Cluster** of three or more **Tags** whose games overlap most with the other members' games (the smallest mean Jaccard distance between game sets). It marks the cluster's most typical **Tag**, not its most frequent or most important one. A **One-Tag Cluster** or a two-tag cluster has none.
 _Avoid_: hub, leader, representative tag, core tag
 
+**Removal Sensitivity**:
+How much the **Tag Network**'s clustering changes when one **Tag** is hypothetically removed: once with the network reclustered, once with every other tag kept in its **Cluster**. A what-if measure: it never removes the tag from the network the user is looking at. Read against the **Seed-Noise Floor**; describes dependence of the clustering on a tag, never a tag's importance or effect.
+_Avoid_: node sensitivity, influence, importance
+
+**Seed-Noise Floor**:
+How much the clustering varies across random seeds on the unchanged **Tag Network**. A **Removal Sensitivity** smaller than this cannot be told apart from seed noise.
+_Avoid_: error bar, confidence interval
+
 **Lift**:
 For two tags: how often they share games, divided by how often they would if tags were assigned independently (observed ÷ expected co-occurrence), counted over the games the network is built from (the loaded **Top-100 Dataset** after the **Minimum Months Filter**). Above 1 = they occur together more than chance would predict. A frequency-corrected measure of association, not a cause.
 _Avoid_: association strength (use only when citing van Eck & Waltman), affinity

@@ -22,4 +22,7 @@ Settled by [Cluster center and centrality measures](11-cluster-center-centrality
 Surfaced by [Dash spike re-run on Python 3.14](22-dash-spike-python-314.md):
 - Fixed per-callback overhead is 7–9 ms for an empty response when the page is opened at `http://127.0.0.1:<port>`, but ~270–450 ms at `http://localhost:<port>` (Windows name resolution). The turnaround budget assumes `127.0.0.1`. Python 3.14 changes nothing else here: build + Louvain was 19–113 ms per change on the spike graph, and the worst-case `elements` update is still ~800 KB with AppIDs inline (the payload without them has not been measured).
 
+Settled by [Node-removal sensitivity method](12-node-removal-sensitivity.md):
+- Removal Sensitivity stays outside the turnaround budget (button-only background job). Its cache key is the full network-state key decided here + K (`sensitivity_noise_seeds`) + a method-version string, stored in `<build>/app_cache/`; returning to an earlier state must show its cached results as current, so the network-state key must be stable and canonical (e.g. sorted hidden/removed tag lists). Partial (cancelled) runs and single-tag runs are cached too; eviction decided here must not drop a partial run that the UI offers to Continue without also clearing that offer.
+
 ## Answer
