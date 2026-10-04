@@ -1,0 +1,745 @@
+{
+ "synthetic": true,
+ "dataset": {
+  "games": 100,
+  "distinct_tags_used": 327,
+  "tags_per_game_mean": 18.82,
+  "tags_per_game_min": 7,
+  "games_with_20_tags": 83,
+  "top5_tag_share": [
+   [
+    "syn_tag_001",
+    0.95
+   ],
+   [
+    "syn_tag_002",
+    0.79
+   ],
+   [
+    "syn_tag_003",
+    0.69
+   ],
+   [
+    "syn_tag_004",
+    0.59
+   ],
+   [
+    "syn_tag_005",
+    0.45
+   ]
+  ],
+  "tags_on_1_game": 76,
+  "tags_on_ge8_games": 55,
+  "mmf13_games_kept": 78
+ },
+ "env": {
+  "python": "3.14.8",
+  "gil_enabled": true,
+  "platform": "Windows-11-10.0.26200-SP0",
+  "cpu": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+  "cpu_count": 12,
+  "versions": {
+   "networkx": "3.7",
+   "numpy": "2.5.3",
+   "scipy": "1.18.1",
+   "scikit-learn": "1.9.1",
+   "python-igraph": "1.0.0",
+   "igraph": "1.0.0",
+   "leidenalg": "0.12.0",
+   "plotly": "7.1.0"
+  },
+  "import_ms_in_process_sequential": {
+   "numpy": 114.89770002663136,
+   "scipy": 53.57649992220104,
+   "networkx": 325.1335999229923,
+   "sklearn.metrics": 1517.8508000681177,
+   "igraph": 84.28319997619838,
+   "leidenalg": 9.406299912370741,
+   "plotly.io.json": 12.683300068601966,
+   "_total_to_ready": 2290.2020999463275
+  },
+  "bare_interpreter_start_ms_median": 84.92119994480163
+ },
+ "args": {
+  "reps": 30,
+  "null_reps": 20,
+  "R": 20,
+  "trades_per_game": 10,
+  "mmf": 13,
+  "stats_only": false
+ },
+ "settings": {
+  "8/8": {
+   "null": {
+    "R": 20,
+    "trades_per_replicate": 1000,
+    "Q": 0.08734838711844192,
+    "Q_null_mean": 0.08175790253116834,
+    "Q_null_sd": 0.010952759193709909,
+    "z": 0.5104179219501291,
+    "last_run_breakdown_ms": {
+     "shuffle": 183.90299973543733,
+     "build": 44.89980032667518,
+     "cluster": 58.72810003347695,
+     "Q": 4.786600009538233
+    },
+    "per_replicate_median_ms": 14.839032501913607
+   },
+   "payload_bytes": {
+    "no_appids_short_edge_ids": 24453,
+    "no_appids_json_dumps_default_separators": 31490,
+    "no_appids": 28667,
+    "no_appids_gzip": 2598,
+    "with_appids": 56131,
+    "with_appids_gzip": 6682
+   },
+   "edge_lookup_us": {
+    "median": 1.5,
+    "p95": 4.1,
+    "max": 14.8,
+    "n": 648
+   },
+   "memory": {
+    "tracemalloc_bytes_incl_tag_game_sets": 425852,
+    "jaccard_bytes": 24200,
+    "pickle_bytes_excl_tag_game_sets": 41986,
+    "pickle_bytes_tag_game_sets": 14945
+   },
+   "graph": {
+    "nodes": 55,
+    "edges": 216,
+    "isolated": 3,
+    "louvain_shared": [
+     2,
+     3
+    ],
+    "leiden_shared": [
+     2,
+     3
+    ],
+    "louvain_lift": [
+     3,
+     3
+    ],
+    "disconnected_louvain_clusters": 0,
+    "Q_louvain_shared": 0.08734838711844192,
+    "coverage": 0.5913255956017105,
+    "seed_noise_ARI_mean": 0.863957283667745,
+    "seed_noise_ARI_min": 0.7715351534501858
+   },
+   "timings_ms": {
+    "1_build": {
+     "first": 2.335399971343577,
+     "median": 2.147749939467758,
+     "p95": 2.468499937094748
+    },
+    "2_louvain_shared": {
+     "first": 5.828000023029745,
+     "median": 2.9464499675668776,
+     "p95": 4.014699952676892
+    },
+    "3a_igraph_build": {
+     "first": 0.25569996796548367,
+     "median": 0.12834998778998852,
+     "p95": 0.15609990805387497
+    },
+    "3b_leiden_partition_only": {
+     "first": 1.1978999245911837,
+     "median": 0.8856499916873872,
+     "p95": 1.0540999937802553
+    },
+    "3_leiden_build+partition": {
+     "first": 1.1400999501347542,
+     "median": 1.06004998087883,
+     "p95": 1.643999945372343
+    },
+    "4_louvain_lift": {
+     "first": 4.460600088350475,
+     "median": 2.950149995740503,
+     "p95": 3.4530999837443233
+    },
+    "5a_jaccard_per_state_numpy": {
+     "first": 0.4237999673932791,
+     "median": 0.2604500041343272,
+     "p95": 0.30839990358799696
+    },
+    "5b_jaccard_subset_of_full": {
+     "first": 0.0771000050008297,
+     "median": 0.02180004958063364,
+     "p95": 0.025799963623285294
+    },
+    "5c_jaccard_per_state_python_sets": {
+     "first": 1.1233000550419092,
+     "median": 1.0912999860011041,
+     "p95": 1.8119999440386891
+    },
+    "5d_silhouette_score": {
+     "first": 10.949300020001829,
+     "median": 0.6347500602714717,
+     "p95": 0.7764999754726887
+    },
+    "5e_silhouette_samples": {
+     "first": 0.5763999652117491,
+     "median": 0.5979500128887594,
+     "p95": 0.9911999804899096
+    },
+    "6_metrics_all": {
+     "first": 2.8382999589666724,
+     "median": 0.8793000597506762,
+     "p95": 1.2756000505760312
+    },
+    "6a_nx_modularity_only": {
+     "first": 0.2101999707520008,
+     "median": 0.19295007223263383,
+     "p95": 0.3065000055357814
+    },
+    "7_null_R20_louvain": {
+     "first": 299.42639998625964,
+     "median": 296.78065003827214,
+     "p95": 314.0923000173643
+    },
+    "7b_null_R20_leiden": {
+     "first": null,
+     "median": 260.57330006733537,
+     "p95": 271.9590999186039
+    },
+    "7c_curveball_1000_trades": {
+     "first": 9.935899986885488,
+     "median": 9.359800023958087,
+     "p95": 11.250499985180795
+    },
+    "9_cluster_layout": {
+     "first": 9.349199943244457,
+     "median": 8.300650049932301,
+     "p95": 9.897800046019256
+    },
+    "10_seed_noise_K10": {
+     "first": 46.341000008396804,
+     "median": 39.67164998175576,
+     "p95": 48.9847999997437
+    },
+    "11a_elements_build+to_json_plotly": {
+     "first": 2.723700017668307,
+     "median": 0.5884999991394579,
+     "p95": 0.906099914573133
+    },
+    "11b_same_with_appids": {
+     "first": 1.313400105573237,
+     "median": 1.3306000037118793,
+     "p95": 2.212399966083467
+    },
+    "E1_full_recompute_louvain_cachedJ": {
+     "first": 16.606300021521747,
+     "median": 16.64130005519837,
+     "p95": 21.65069989860058
+    },
+    "E2_full_recompute_louvain_perstateJ": {
+     "first": 16.85310003813356,
+     "median": 17.77674996992573,
+     "p95": 23.45710003282875
+    },
+    "E3_full_recompute_leiden_cachedJ": {
+     "first": 14.801800018176436,
+     "median": 14.494200004264712,
+     "p95": 17.417000024579465
+    },
+    "E4_full_recompute_louvain_lift_cachedJ": {
+     "first": 17.423199955374002,
+     "median": 17.856049991678447,
+     "p95": 26.47929999511689
+    },
+    "E5_recluster_only_louvain": {
+     "first": 15.511699952185154,
+     "median": 15.871150011662394,
+     "p95": 18.52909999433905
+    },
+    "E6_recluster_only_leiden": {
+     "first": 12.081500026397407,
+     "median": 13.186600001063198,
+     "p95": 16.382599947974086
+    }
+   }
+  },
+  "3/3": {
+   "null": {
+    "R": 20,
+    "trades_per_replicate": 1000,
+    "Q": 0.05913195180324854,
+    "Q_null_mean": 0.06718772906472288,
+    "Q_null_sd": 0.0033504830457863647,
+    "z": -2.404362938533729,
+    "last_run_breakdown_ms": {
+     "shuffle": 288.4904000675306,
+     "build": 184.9147998727858,
+     "cluster": 290.49240017775446,
+     "Q": 25.06249991711229
+    },
+    "per_replicate_median_ms": 39.25647999858484
+   },
+   "payload_bytes": {
+    "no_appids_short_edge_ids": 127340,
+    "no_appids_json_dumps_default_separators": 166316,
+    "no_appids": 151796,
+    "no_appids_gzip": 11856,
+    "with_appids": 223993,
+    "with_appids_gzip": 23829
+   },
+   "edge_lookup_us": {
+    "median": 0.8,
+    "p95": 2.1,
+    "max": 18.4,
+    "n": 3891
+   },
+   "memory": {
+    "tracemalloc_bytes_incl_tag_game_sets": 1051456,
+    "jaccard_bytes": 253472,
+    "pickle_bytes_excl_tag_game_sets": 335747,
+    "pickle_bytes_tag_game_sets": 14945
+   },
+   "graph": {
+    "nodes": 178,
+    "edges": 1297,
+    "isolated": 0,
+    "louvain_shared": [
+     5,
+     0
+    ],
+    "leiden_shared": [
+     4,
+     0
+    ],
+    "louvain_lift": [
+     9,
+     0
+    ],
+    "disconnected_louvain_clusters": 0,
+    "Q_louvain_shared": 0.05913195180324854,
+    "coverage": 0.2873380914618028,
+    "seed_noise_ARI_mean": 0.3246007298399869,
+    "seed_noise_ARI_min": 0.2338453635177173
+   },
+   "timings_ms": {
+    "1_build": {
+     "first": 7.651499938219786,
+     "median": 7.82729999627918,
+     "p95": 8.446299936622381
+    },
+    "2_louvain_shared": {
+     "first": 12.345599941909313,
+     "median": 12.44540000334382,
+     "p95": 16.80580002721399
+    },
+    "3a_igraph_build": {
+     "first": 1.657600048929453,
+     "median": 0.6792500498704612,
+     "p95": 0.8682999759912491
+    },
+    "3b_leiden_partition_only": {
+     "first": 4.449900006875396,
+     "median": 4.369749978650361,
+     "p95": 5.3746000630781054
+    },
+    "3_leiden_build+partition": {
+     "first": 5.504800006747246,
+     "median": 5.151800054591149,
+     "p95": 7.038600044324994
+    },
+    "4_louvain_lift": {
+     "first": 15.870600007474422,
+     "median": 15.662449994124472,
+     "p95": 19.151599961332977
+    },
+    "5a_jaccard_per_state_numpy": {
+     "first": 59.15300000924617,
+     "median": 0.8219500305131078,
+     "p95": 34.24850001465529
+    },
+    "5b_jaccard_subset_of_full": {
+     "first": 0.16920000780373812,
+     "median": 0.11560006532818079,
+     "p95": 0.13409997336566448
+    },
+    "5c_jaccard_per_state_python_sets": {
+     "first": 7.605199934914708,
+     "median": 7.458649983163923,
+     "p95": 8.132699993439019
+    },
+    "5d_silhouette_score": {
+     "first": 1.3973000459372997,
+     "median": 0.9489000076428056,
+     "p95": 1.3324000174179673
+    },
+    "5e_silhouette_samples": {
+     "first": 0.9229000424966216,
+     "median": 0.9002999868243933,
+     "p95": 1.1802000226452947
+    },
+    "6_metrics_all": {
+     "first": 4.890299984253943,
+     "median": 4.269500030204654,
+     "p95": 5.504500004462898
+    },
+    "6a_nx_modularity_only": {
+     "first": 0.9665000252425671,
+     "median": 0.9341000113636255,
+     "p95": 1.2154999421909451
+    },
+    "7_null_R20_louvain": {
+     "first": 832.2737000416964,
+     "median": 785.1295999716967,
+     "p95": 874.1331999190152
+    },
+    "7b_null_R20_leiden": {
+     "first": null,
+     "median": 586.5370000246912,
+     "p95": 712.6016999827698
+    },
+    "7c_curveball_1000_trades": {
+     "first": 13.782099937088788,
+     "median": 13.9765499625355,
+     "p95": 15.430800034664571
+    },
+    "9_cluster_layout": {
+     "first": 31.71519993338734,
+     "median": 27.59405004326254,
+     "p95": 30.425300006754696
+    },
+    "10_seed_noise_K10": {
+     "first": 150.72449995204806,
+     "median": 154.627550044097,
+     "p95": 173.44390007201582
+    },
+    "11a_elements_build+to_json_plotly": {
+     "first": 3.380299895070493,
+     "median": 3.381350019481033,
+     "p95": 4.502400057390332
+    },
+    "11b_same_with_appids": {
+     "first": 6.124299950897694,
+     "median": 5.592300032731146,
+     "p95": 7.945700082927942
+    },
+    "E1_full_recompute_louvain_cachedJ": {
+     "first": 61.26780004706234,
+     "median": 61.07234995579347,
+     "p95": 74.80420009233057
+    },
+    "E2_full_recompute_louvain_perstateJ": {
+     "first": 92.28360000997782,
+     "median": 70.59369998751208,
+     "p95": 115.49910006579012
+    },
+    "E3_full_recompute_leiden_cachedJ": {
+     "first": 56.08579993713647,
+     "median": 60.26469997595996,
+     "p95": 75.71829995140433
+    },
+    "E4_full_recompute_louvain_lift_cachedJ": {
+     "first": 65.92930003535002,
+     "median": 69.04989999020472,
+     "p95": 80.01459995284677
+    },
+    "E5_recluster_only_louvain": {
+     "first": 61.44990003667772,
+     "median": 55.63730001449585,
+     "p95": 67.00099993031472
+    },
+    "E6_recluster_only_leiden": {
+     "first": 48.24679996818304,
+     "median": 48.36765001527965,
+     "p95": 56.4940000185743
+    }
+   }
+  },
+  "1/1": {
+   "null": {
+    "R": 20,
+    "trades_per_replicate": 1000,
+    "Q": 0.09189845188647067,
+    "Q_null_mean": 0.08936596869646785,
+    "Q_null_sd": 0.002598150651838773,
+    "z": 0.974725306329147,
+    "last_run_breakdown_ms": {
+     "shuffle": 327.5107000954449,
+     "build": 605.4463000036776,
+     "cluster": 1895.0098002096638,
+     "Q": 153.2409997889772
+    },
+    "per_replicate_median_ms": 147.31595749908593
+   },
+   "payload_bytes": {
+    "no_appids_short_edge_ids": 811419,
+    "no_appids_json_dumps_default_separators": 1074287,
+    "no_appids": 983547,
+    "no_appids_gzip": 67160,
+    "with_appids": 1219790,
+    "with_appids_gzip": 98126
+   },
+   "edge_lookup_us": {
+    "median": 0.5,
+    "p95": 1.0,
+    "max": 40.9,
+    "n": 28503
+   },
+   "memory": {
+    "tracemalloc_bytes_incl_tag_game_sets": 3892832,
+    "jaccard_bytes": 855432,
+    "pickle_bytes_excl_tag_game_sets": 1269642,
+    "pickle_bytes_tag_game_sets": 14945
+   },
+   "graph": {
+    "nodes": 327,
+    "edges": 9501,
+    "isolated": 0,
+    "louvain_shared": [
+     7,
+     0
+    ],
+    "leiden_shared": [
+     5,
+     0
+    ],
+    "louvain_lift": [
+     14,
+     0
+    ],
+    "disconnected_louvain_clusters": 0,
+    "Q_louvain_shared": 0.09189845188647067,
+    "coverage": 0.25878798442856316,
+    "seed_noise_ARI_mean": 0.23510097204488192,
+    "seed_noise_ARI_min": 0.14850293885322563
+   },
+   "timings_ms": {
+    "1_build": {
+     "first": 69.78949997574091,
+     "median": 22.95770007185638,
+     "p95": 78.02580005954951
+    },
+    "2_louvain_shared": {
+     "first": 84.95030004996806,
+     "median": 90.09885002160445,
+     "p95": 109.55110006034374
+    },
+    "3a_igraph_build": {
+     "first": 6.261500064283609,
+     "median": 4.93219995405525,
+     "p95": 6.273900042288005
+    },
+    "3b_leiden_partition_only": {
+     "first": 18.216000054962933,
+     "median": 17.43990002432838,
+     "p95": 21.018799976445735
+    },
+    "3_leiden_build+partition": {
+     "first": 25.20959998946637,
+     "median": 24.18495004530996,
+     "p95": 27.289299992844462
+    },
+    "4_louvain_lift": {
+     "first": 103.28160005155951,
+     "median": 105.13884999090806,
+     "p95": 116.70599994249642
+    },
+    "5a_jaccard_per_state_numpy": {
+     "first": 36.643599974922836,
+     "median": 2.071700000669807,
+     "p95": 16.29589998628944
+    },
+    "5b_jaccard_subset_of_full": {
+     "first": 0.6580000044777989,
+     "median": 0.3412499791011214,
+     "p95": 0.4005000228062272
+    },
+    "5c_jaccard_per_state_python_sets": {
+     "first": 22.409999975934625,
+     "median": 23.07065000059083,
+     "p95": 29.89280002657324
+    },
+    "5d_silhouette_score": {
+     "first": 2.105400082655251,
+     "median": 1.456499972846359,
+     "p95": 1.8708000425249338
+    },
+    "5e_silhouette_samples": {
+     "first": 1.4804999809712172,
+     "median": 1.4823999954387546,
+     "p95": 2.178099937736988
+    },
+    "6_metrics_all": {
+     "first": 26.74140001181513,
+     "median": 24.727050040382892,
+     "p95": 28.939299983903766
+    },
+    "6a_nx_modularity_only": {
+     "first": 9.315400035120547,
+     "median": 6.865749950520694,
+     "p95": 11.88529992941767
+    },
+    "7_null_R20_louvain": {
+     "first": 2912.3098000418395,
+     "median": 2946.3191499817185,
+     "p95": 3006.5070999553427
+    },
+    "7b_null_R20_leiden": {
+     "first": null,
+     "median": 1573.8718999782577,
+     "p95": 1582.2601999389008
+    },
+    "7c_curveball_1000_trades": {
+     "first": 15.812399913556874,
+     "median": 15.681450022384524,
+     "p95": 16.806299914605916
+    },
+    "9_cluster_layout": {
+     "first": 67.36980006098747,
+     "median": 58.561300043947995,
+     "p95": 66.27960002515465
+    },
+    "10_seed_noise_K10": {
+     "first": 990.1737000327557,
+     "median": 1001.703699992504,
+     "p95": 1030.0004000309855
+    },
+    "11a_elements_build+to_json_plotly": {
+     "first": 21.384599967859685,
+     "median": 21.355349977966398,
+     "p95": 74.75219992920756
+    },
+    "11b_same_with_appids": {
+     "first": 32.40240004379302,
+     "median": 34.10175000317395,
+     "p95": 88.38850003667176
+    },
+    "E1_full_recompute_louvain_cachedJ": {
+     "first": 216.061900020577,
+     "median": 244.82589995022863,
+     "p95": 323.19159992039204
+    },
+    "E2_full_recompute_louvain_perstateJ": {
+     "first": 269.93619999848306,
+     "median": 271.39760000864044,
+     "p95": 337.5555999809876
+    },
+    "E3_full_recompute_leiden_cachedJ": {
+     "first": 166.23730002902448,
+     "median": 165.84410006180406,
+     "p95": 235.19609996583313
+    },
+    "E4_full_recompute_louvain_lift_cachedJ": {
+     "first": 231.25419998541474,
+     "median": 258.4047499112785,
+     "p95": 342.79819997027516
+    },
+    "E5_recluster_only_louvain": {
+     "first": 211.751600028947,
+     "median": 212.87339995615184,
+     "p95": 282.93059999123216
+    },
+    "E6_recluster_only_leiden": {
+     "first": 131.56470004469156,
+     "median": 136.2143499427475,
+     "p95": 213.037500041537
+    }
+   }
+  }
+ },
+ "layout": {
+  "global_spring_50it": [
+   225.15650000423193,
+   214.89159995689988,
+   258.2026000600308
+  ],
+  "relayout_from_pos_50it": [
+   218.2696999516338,
+   219.0006500459276,
+   254.69210010487586
+  ],
+  "relayout_from_pos_10it": [
+   47.26470005698502,
+   49.2575999815017,
+   56.16319994442165
+  ],
+  "global_spring_lift_50it": [
+   216.03299991693348,
+   215.5466999975033,
+   239.75460010115057
+  ]
+ },
+ "jaccard_full_all_tags": {
+  "tags": 327,
+  "timing": [
+   37.309000035747886,
+   2.05735006602481,
+   5.148599972017109
+  ],
+  "bytes": 855432
+ },
+ "mmf": {
+  "min_months": 13,
+  "games": 78,
+  "global_layout": [
+   183.86029999237508,
+   182.31975001981482,
+   205.26950003113598
+  ],
+  "jaccard_full": [
+   36.07549995649606,
+   1.6099500353448093,
+   17.7734000608325
+  ],
+  "8/8": {
+   "nodes": 42,
+   "edges": 153,
+   "louvain_shared": [
+    3,
+    2
+   ],
+   "full_recompute_louvain_cachedJ": [
+    14.480400015600026,
+    14.772800030186772,
+    17.622100072912872
+   ],
+   "null_R20_louvain": [
+    null,
+    219.95489997789264,
+    228.1520999968052
+   ]
+  },
+  "3/3": {
+   "nodes": 142,
+   "edges": 973,
+   "louvain_shared": [
+    5,
+    2
+   ],
+   "full_recompute_louvain_cachedJ": [
+    53.25019999872893,
+    49.8924499261193,
+    58.49949992261827
+   ],
+   "null_R20_louvain": [
+    null,
+    568.5482999542728,
+    578.13709997572
+   ]
+  },
+  "1/1": {
+   "nodes": 304,
+   "edges": 7891,
+   "louvain_shared": [
+    7,
+    0
+   ],
+   "full_recompute_louvain_cachedJ": [
+    253.05270007811487,
+    191.9970500166528,
+    270.40190005209297
+   ],
+   "null_R20_louvain": [
+    null,
+    2490.407400066033,
+    2518.8120999373496
+   ]
+  }
+ }
+}

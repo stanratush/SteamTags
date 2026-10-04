@@ -15,3 +15,7 @@ Graduated from the map's fog after [Node-removal sensitivity method](12-node-rem
 - Removal Sensitivity rows (identity, reclustered ΔQ/Δsilhouette/Δk/Δs/ARI/centers lost, fixed-partition ΔQ/Δsilhouette, `beyond_noise`, silhouette n/a transitions) and metadata (noise-floor values, K, derived seeds, partial flag n of N, method version, state key): [Node-removal sensitivity method](12-node-removal-sensitivity.md).
 
 Blocked by [Recompute turnaround and caching](23-recompute-budget-caching.md), which defines the network-state key exports must record.
+
+Settled by [Recompute turnaround and caching](23-recompute-budget-caching.md):
+- Network-state key: canonical JSON of `build_id`, `dataset`, `min_months`, `min_games_per_tag`, `min_shared_games`, `hidden_tagids`, `removed_tagids` (both sorted), `clustering_weight`, `algorithm`, `resolution` (`"1.00"`), `seed`, `null_replicates`, `key_version`; `state_id` = first 12 hex characters of its SHA-256. Every app export stores the full JSON and the `state_id`.
+- Positions: the network export records `layout_source = "default" | "relayout"`. Q_null and z are always present (the null model runs inside every recompute), so no "pending" value is needed.
