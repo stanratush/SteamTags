@@ -16,3 +16,7 @@ Graduated from [User Guide metric reference](26-user-guide-metric-reference.md) 
 7. **Unstated conventions**: the sign of every Δ column (after − before?); population or sample SD for `within_z`, `q_null_sd` and the `seed_*_sd` values; whether `months_apart` in `release_month_check.csv` is signed; the reason code(s) for `seed_silhouette_status`, missing from the status list in [Export schemas for the app and the feature analysis](24-export-schemas.md).
 
 Any answer that changes a column or status is declared in `steamstudy.export.schema` and bumps `schema_version`, per [Export schemas for the app and the feature analysis](24-export-schemas.md).
+
+## Comments
+
+- 2026-10-04, from [User Guide metric wording and interpretation bands](27-user-guide-wording-bands.md): the inspector shows `within_z` with its maximum for the cluster size, so the population/sample SD choice here also fixes that cap (√(n−1) or (n−1)/√n). That ticket also bumps `schema_version` (`rc_ari_beyond_noise`, `q_excess`, `null_n_edges_mean`); a status-code change here can share the bump.
