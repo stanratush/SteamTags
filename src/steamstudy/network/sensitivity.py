@@ -92,6 +92,7 @@ def removal_sensitivity(
     skip: set[int] | frozenset[int] = frozenset(),
     progress: Callable[[int, int], None] | None = None,
     should_stop: Callable[[], bool] | None = None,
+    on_row: Callable[[dict[str, Any]], None] | None = None,
 ) -> list[dict[str, Any]]:
     """Rows for the given tags (default: every node) in run order; stops early when `should_stop()` is true."""
     order = run_order(state)
@@ -101,7 +102,10 @@ def removal_sensitivity(
     for done, tag in enumerate(todo, start=1):
         if should_stop is not None and should_stop():
             break
-        rows.append(removal_row(state, tag, position[tag]))
+        row = removal_row(state, tag, position[tag])
+        rows.append(row)
+        if on_row is not None:
+            on_row(row)
         if progress is not None:
             progress(done, len(todo))
     return rows

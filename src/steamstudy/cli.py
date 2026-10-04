@@ -122,8 +122,24 @@ def _build(args: argparse.Namespace) -> int:
 
 
 def _app(args: argparse.Namespace) -> int:
-    print("app: not implemented yet", file=sys.stderr)
-    return 2
+    from steamstudy.app import rs_cache
+    from steamstudy.build.writer import resolve_build
+
+    log = logging.getLogger("steamstudy.app")
+    try:
+        folder = resolve_build(args.root, args.build, args.snapshot)
+    except FileNotFoundError as exc:
+        log.error("%s", exc)
+        return 2
+    if args.clear_cache:
+        removed = rs_cache.clear(folder / "app_cache")
+        log.info("cleared %d cached Removal Sensitivity result(s) in %s", removed, folder / "app_cache")
+        return 0
+    from steamstudy.app.server import run
+
+    log.info("opening Build %s", folder)
+    run(folder, port=args.port, open_browser=not args.no_browser)
+    return 0
 
 
 if __name__ == "__main__":

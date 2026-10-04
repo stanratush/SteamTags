@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from steamstudy.config import Config, DatasetDef
+from steamstudy.network.defaults import default_settings
 from steamstudy.network.model import Settings, TagContext, games_from_rows
 from steamstudy.network.sensitivity import METHOD_VERSION, expected_chance_flags, removal_sensitivity
 from steamstudy.network.state import NetworkState, compute_state
@@ -19,19 +20,8 @@ from steamstudy.network.tables import stack, state_tables
 
 def report_settings(config: Config, build_id: str, dataset: DatasetDef) -> tuple[Settings, TagContext]:
     """The shared network defaults with the defining tag out: the feature-analysis report's Network State."""
-    n = config.network
-    genre_ids = frozenset(t.id for t in config.genre_tags)
     defining = dataset.defining_tag.id if dataset.defining_tag else None
-    hidden = set(genre_ids) if n.hide_genre_tags else set()
-    if defining is not None and n.hide_defining_tag:
-        hidden.add(defining)
-    settings = Settings(
-        build_id=build_id, dataset=dataset.key, min_months=n.min_months, min_games_per_tag=n.min_games_per_tag,
-        min_shared_games=n.min_shared_games, hidden_tag_ids=tuple(sorted(hidden)), removed_tag_ids=(),
-        clustering_weight=n.clustering_weight, algorithm=n.algorithm, resolution=n.resolution, seed=n.seed,
-        null_replicates=n.null_replicates, noise_seeds=n.noise_seeds,
-    )
-    return settings, TagContext(defining_tag_id=defining, genre_tag_ids=genre_ids)
+    return default_settings(build_id, dataset.key, defining, (t.id for t in config.genre_tags), config.network)
 
 
 @dataclass

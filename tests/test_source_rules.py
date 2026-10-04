@@ -34,6 +34,8 @@ def _offenders(paths):
             name = func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else ""
             if name not in TEXT_IO_CALLS:
                 continue
+            if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) and func.value.id == "webbrowser":
+                continue  # webbrowser.open(url) opens a URL, not a file
             if name in ("open", "TextIOWrapper") and "b" in _mode(node):
                 continue
             if not any(kw.arg == "encoding" for kw in node.keywords):
