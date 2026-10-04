@@ -1,0 +1,21 @@
+# Steam Success Study: User Guide
+
+This guide is for researchers who read and use the study's results: the Top-100 Datasets, the feature analysis and the Tag Network app. It assumes no training in network analysis. To install and run the pipeline itself, see the [Running Guide](../running-guide.md).
+
+Domain terms (Tag, Cluster, Network State, …) are used as defined in the project glossary, [CONTEXT.md](../../CONTEXT.md).
+
+## Contents
+
+0. [Three rules](00-three-rules.md)
+1. [Getting started](01-getting-started.md)
+2. [App controls](02-app-controls.md)
+3. [Metric reference](03-metric-reference.md)
+4. [What's in each file](04-files.md)
+5. [Citing and reproducing a Network State](05-citing-and-reproducing.md)
+6. [Known limitations](06-known-limitations.md)
+
+Appendices
+
+- A. [Published rules of thumb and why this guide does not use them](appendix-a-rules-of-thumb.md)
+- B. [Column index](appendix-b-column-index.md) (generated from the export schema)
+- C. [References](appendix-c-references.md)

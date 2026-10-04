@@ -92,7 +92,19 @@ REGISTRY = Registry()
 
 
 def declare(name: str, description: str, columns: list[Column] | tuple[Column, ...], group: str = "") -> FileSchema:
-    return REGISTRY.declare(FileSchema(name, description, tuple(columns), group))
+    """Declare a file; each column gets its guide entry, app panel and report section (see guide_index)."""
+    return REGISTRY.declare(FileSchema(name, description, tuple(_annotate(name, group, c) for c in columns), group))
+
+
+def _annotate(file_name: str, group: str, column: Column) -> Column:
+    from steamstudy.export import guide_index as G
+
+    return replace(
+        column,
+        guide_entry=column.guide_entry or G.guide_entry(file_name, column.name),
+        app_panel=column.app_panel or G.app_panel(file_name, group),
+        report_section=column.report_section or G.report_section(file_name, column.name),
+    )
 
 
 def file(key: str) -> FileSchema:

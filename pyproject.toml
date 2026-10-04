@@ -40,6 +40,10 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/steamstudy"]
 
+[tool.hatch.build.targets.wheel.force-include]
+# The User Guide ships as package data for the app's offline "?" help.
+"docs/user-guide" = "steamstudy/guide"
+
 [tool.uv]
 # Spawned background jobs start ~2.5 s slower per job without bytecode (ticket 22 spike).
 compile-bytecode = true

@@ -116,6 +116,9 @@ def _build(args: argparse.Namespace) -> int:
         log.warning("%s", warning)
     folder = write_build(result, args.root)
     log.info("Build written to %s", folder)
+    for key, size in result.build_json["dataset_sizes"].items():
+        if args.dataset is None or args.dataset == key:
+            print(f"{key}: {size['rows']} games (Eligible Pool {size['eligible_pool']})")
     if args.allow_parse_errors:
         log.warning("built with --allow-parse-errors: this Build must never be published")
     return 0

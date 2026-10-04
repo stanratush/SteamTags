@@ -407,6 +407,8 @@ def run_repair(
     logged as a repair in `snapshot.json`. The only change a closed Snapshot accepts besides SteamDB batches."""
     if not reason or not reason.strip():
         raise CollectRefused("--repair needs a written --reason")
+    if UA_PLACEHOLDER in config.collection.user_agent:
+        raise CollectRefused("collection.toml: fill in the contact details in contact.user_agent first")
     snapshot_id = snapshot_id or latest_snapshot_id(root)
     if snapshot_id is None or not (snapshots_dir(root) / snapshot_id / "snapshot.json").is_file():
         raise CollectRefused("no Snapshot to repair")

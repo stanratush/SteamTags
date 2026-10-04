@@ -12,9 +12,9 @@ from pathlib import Path
 PANEL_SECTIONS: dict[str, tuple[str, str]] = {
     "controls": ("02-app-controls.md", "control-reference"),
     "dataset": ("01-getting-started.md", "load-a-dataset"),
-    "filters": ("02-app-controls.md", "control-reference"),
+    "filters": ("03-metric-reference.md", "tags-not-in-the-network"),
     "network": ("03-metric-reference.md", "the-tag-network"),
-    "inspector": ("03-metric-reference.md", "node-metrics"),
+    "inspector": ("01-getting-started.md", "inspect-a-node-an-edge-or-a-cluster"),
     "quality": ("03-metric-reference.md", "clusters-and-partition-quality"),
     "clusters": ("03-metric-reference.md", "cluster-center"),
     "removal": ("03-metric-reference.md", "removal-sensitivity"),

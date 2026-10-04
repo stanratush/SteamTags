@@ -1,0 +1,100 @@
+"""The User Guide is kept in step with the export schema and the app (ticket 23), and follows its rules."""
+
+from __future__ import annotations
+
+import re
+
+import pytest
+
+from conftest import REPO
+from steamstudy.app.guide import PANEL_SECTIONS, headings, help_markdown, slug
+from steamstudy.export.column_index import INDEX_FILE, render
+from steamstudy.export.schema import REGISTRY
+
+GUIDE = REPO / "docs" / "user-guide"
+
+
+def _text(name: str) -> str:
+    return (GUIDE / name).read_text(encoding="utf-8")
+
+
+def _anchors(name: str) -> set[str]:
+    return {anchor for _, _, anchor in headings(_text(name))}
+
+
+def test_committed_column_index_is_not_stale():
+    assert _text(INDEX_FILE) == render(), "run: python -m steamstudy.export.column_index"
+
+
+def test_every_column_has_a_guide_entry_with_a_heading():
+    anchors = _anchors("03-metric-reference.md")
+    missing = sorted({(s.name, c.name, c.guide_entry) for s in REGISTRY for c in s.columns
+                      if not c.guide_entry or c.guide_entry not in anchors})
+    assert missing == []
+
+
+def test_every_column_names_its_app_panel_and_report_section():
+    assert all(c.app_panel and c.report_section for s in REGISTRY for c in s.columns)
+
+
+def test_every_declared_file_has_a_paragraph_in_chapter_4():
+    anchors = _anchors("04-files.md")
+    missing = sorted({s.name for s in REGISTRY if slug(f"`{s.name}`") not in anchors})
+    assert missing == []
+    for meta in ("snapshot.json", "build.json", "export.json", "analysis.json"):
+        assert slug(f"`{meta}`") in anchors
+
+
+@pytest.mark.parametrize("panel", sorted(PANEL_SECTIONS))
+def test_every_in_app_help_anchor_has_a_guide_heading(panel):
+    file, anchor = PANEL_SECTIONS[panel]
+    assert anchor in _anchors(file)
+    assert help_markdown(panel).startswith("#")
+
+
+def test_three_rules_and_running_guide_link():
+    rules = _text("00-three-rules.md")
+    for heading in ("No number shows a cause", "Clusters carry no meaning", "Quote the `state_id` with every network number"):
+        assert f"## {heading}" in rules
+    assert "../running-guide.md" in _text("README.md")
+
+
+def test_every_metric_entry_ends_with_one_exact_definition():
+    text = _text("03-metric-reference.md")
+    entries = re.split(r"^### ", text, flags=re.M)[1:]
+    assert len(entries) > 60
+    for entry in entries:
+        body = entry.split("\n## ")[0]
+        assert body.count("**Exact definition:**") == 1, entry.splitlines()[0]
+        assert "*Example.*" in body and "*Bounds.*" in body and "*Compare with.*" in body, entry.splitlines()[0]
+
+
+def test_no_interpretation_bands_in_the_metric_reference():
+    text = _text("03-metric-reference.md").lower()
+    for phrase in ("excellent", "strong structure", "weak structure", "good division", "moderate recovery",
+                   "highly stable", "is significant"):
+        assert phrase not in text
+
+
+def test_unverified_sources_are_never_cited():
+    everything = "\n".join(p.read_text(encoding="utf-8") for p in GUIDE.glob("*.md"))
+    for name in ("Kaufman", "Steinley", "Shiffler", "Hubert, L.", "Hubert & Arabie", "Rousseeuw 1987",
+                 "Rousseeuw, P. J. (1987)"):
+        assert name not in everything
+
+
+def test_required_statements_in_the_metric_reference():
+    text = _text("03-metric-reference.md")
+    for required in ("0.5 but a member of a twenty-tag cluster only 0.05", "√(n − 1)", "not comparable",
+                     "pulled towards 1", "inherited from one strong pair", "mechanical", "n / (K + 1)",
+                     "Karrer, Levina & Newman 2008, §I", "Q = 0.414", "0.150"):
+        assert required in text, required
+
+
+def test_known_limitations_chapter_holds_the_full_list():
+    text = _text("06-known-limitations.md")
+    for item in ("current snapshot", "ranked selection", "coverage gaps", "Delisted games", "under 10,000",
+                 "Ties at rank 100", "joke votes", "ids 3 and 4", "Dating Sim rank", "country", "allow-parse-errors",
+                 "pre-launch", "Early Access", "not optimised", "screening aid", "single run", "K = 10",
+                 "fixed γ grid"):
+        assert item in text, item
