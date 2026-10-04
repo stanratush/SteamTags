@@ -60,6 +60,7 @@ An **implementation-ready spec** for (1) a resumable Steam data-collection pipel
 - [Seed stability reporting and consensus clustering](issues/25-clustering-stability.md): the Seed-Noise Floor is now part of every Network State: K = `noise_seeds` (default 10, config only) is computed on every recompute and added to the state key, and Removal Sensitivity reuses it. New `seed_*` columns in Cluster quality and an always-written `seed_noise.csv`. New per-tag Membership Stability (mean Jaccard overlap of a tag's cluster across seeds). Numbers only, no stable/unstable labels. New Build-only Resolution Sweep (γ 0.50–1.50, `resolution_sweep.csv`). No consensus clustering in v1.
 - [User Guide metric reference](issues/26-user-guide-metric-reference.md): draft metric reference for non-specialists in [research](research/26-user-guide-metric-reference.md): 63 entries with the six requested headings, worked examples and a settings table; literature bands recorded but not adopted (no published values for Steam tag networks); twelve open issues split into [Metric definition gaps](issues/28-metric-definition-gaps.md) and [User Guide metric wording and interpretation bands](issues/27-user-guide-wording-bands.md).
 - [User Guide metric wording and interpretation bands](issues/27-user-guide-wording-bands.md): no rule-of-thumb bands anywhere, only bounds, reference points and the project's own comparisons, plus an appendix on why published bands don't apply; prose and a worked example first, an "Exact definition" line last; concept order plus an alphabetical column index; spec changes: `beyond_noise` on ARI only (`rc_ari_beyond_noise`), expected chance flags stated, `q_excess` + `null_n_edges_mean` with Q shown against its null, Membership Stability n/a for isolated tags, `within_z` shown with its size cap; `share_ratio` baseline unchanged.
+- [Metric definition gaps](issues/28-metric-definition-gaps.md): combination lift = support × N^(k−1) / product of tag counts (Brin et al. extension); `cluster_quality.csv` `n_games` → `n_dataset_games`, other shared names kept with descriptions; density empty for size 1, new `conductance_status` (`isolated_tag`, `no_edges_outside_cluster`), connected One-Tag Cluster conductance 1.0; phi empty for a tag on all 100 games; Δ = after − before, `months_apart` signed; `within_z` population SD (cap √(n−1)), null/seed SDs sample SD; `fewer_than_2_seeds_with_silhouette`, `noise_seeds` and `null_replicates` ≥ 2; shares the earlier schema bump.
 
 ## Not yet specified
 
@@ -86,6 +87,11 @@ An **implementation-ready spec** for (1) a resumable Steam data-collection pipel
   - the expected-chance-flags wording in the Removal Sensitivity report sentence and table footer;
   - the `within_z` cap in the inspector;
   - the Eligible Pool size in the frequency tables.
+
+  Then apply [Metric definition gaps](issues/28-metric-definition-gaps.md), sharing the same `schema_version` bump:
+  - `cluster_quality.csv` `n_games` becomes `n_dataset_games`.
+  - `clusters.csv` gains `conductance_status`; the n/a lists gain `seed_silhouette_status`'s code, density at size 1 and phi at count 100.
+  - The lift formula for triples, the Δ sign, signed `months_apart`, the SD conventions and the `noise_seeds` / `null_replicates` ≥ 2 validation go into the column descriptions and config validation.
 
 ## Out of scope
 
