@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "spike17-dash",
+      "runtimeExecutable": "C:/Users/Lenovo/AppData/Local/Temp/claude/C--Users-Lenovo-Desktop-Claude-SteamTags/d3187752-ba5d-4669-af2a-6399e8d28c35/scratchpad/spikeenv/Scripts/python.exe",
+      "runtimeArgs": [".scratch/steam-success-study/prototypes/17-dash-cytoscape-spike/app.py"],
+      "port": 8050
+    },
+    {
+      "name": "spike22-dash-py314",
+      "runtimeExecutable": "C:/Users/Lenovo/AppData/Local/Temp/claude/C--Users-Lenovo-Desktop-Claude-SteamTags/f94b8b8c-e148-4033-9584-9fbd427f2ede/scratchpad/spike314/.venv/Scripts/python.exe",
+      "runtimeArgs": ["C:/Users/Lenovo/AppData/Local/Temp/claude/C--Users-Lenovo-Desktop-Claude-SteamTags/f94b8b8c-e148-4033-9584-9fbd427f2ede/scratchpad/spike314/app.py"],
+      "port": 8050
+    }
+  ]
+}

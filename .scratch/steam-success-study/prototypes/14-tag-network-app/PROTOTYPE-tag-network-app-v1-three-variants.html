@@ -1,0 +1,648 @@
+<!doctype html>
+<!--
+  PROTOTYPE, throwaway. Ticket: "Tag network app interaction prototype" (issues/14-tag-network-app-prototype.md)
+  Plan: three structurally different layouts of the Tag Network app, switchable via ?variant=A|B|C
+  (floating bottom bar or the left/right arrow keys). Mock data only; clustering, metrics and sensitivity run live in the browser
+  so the shared network defaults (min games per tag, min shared games, Genre Tags hidden/shown) can be tuned.
+  Placeholders for still-open tickets: edge weight = raw count (Edge weight ticket), center = max intra-cluster weighted
+  degree (Cluster center ticket), silhouette = Jaccard on game sets (Silhouette ticket), sensitivity = remove-and-recluster (Sensitivity ticket).
+  Run: double-click this file (needs internet for Cytoscape.js from jsDelivr).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PROTOTYPE Tag Network App</title>
+<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+<style>
+  :root { --bg:#f6f7f9; --panel:#fff; --line:#e2e5ea; --ink:#1d2330; --mute:#6b7280; --acc:#2563eb; --warn:#b45309; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif; color:var(--ink); background:var(--bg); }
+  button { font:inherit; border:1px solid var(--line); background:#fff; border-radius:6px; padding:3px 9px; cursor:pointer; }
+  button:hover { border-color:#9aa3b2; }
+  button.primary { background:var(--acc); color:#fff; border-color:var(--acc); }
+  h3 { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--mute); margin:14px 0 6px; }
+  .proto { background:#fde68a; color:#78350f; font-size:11px; font-weight:600; padding:2px 7px; border-radius:4px; white-space:nowrap; }
+  .note { color:var(--mute); font-size:11px; }
+  .open { color:var(--warn); font-size:11px; }
+  .chip { display:inline-flex; align-items:center; gap:3px; border:1px solid var(--line); border-radius:12px; padding:1px 7px; margin:2px; font-size:12px; background:#fff; }
+  .swatch { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:4px; vertical-align:middle; }
+  a.lnk { color:var(--acc); cursor:pointer; text-decoration:none; }
+  a.lnk:hover { text-decoration:underline; }
+
+  /* shared widgets */
+  .controls .ctl { margin-bottom:10px; }
+  .controls label { display:block; font-weight:500; }
+  .controls input[type=range] { width:100%; }
+  .controls details { margin-top:4px; }
+  .controls details .chip { font-weight:400; }
+  .controls.compact { display:flex; flex-wrap:wrap; gap:4px 16px; align-items:flex-end; }
+  .controls.compact .ctl { margin:0; min-width:130px; }
+  .controls.compact details { position:relative; }
+  .controls.compact details[open] > div { position:absolute; z-index:50; background:#fff; border:1px solid var(--line); padding:8px; width:320px; border-radius:8px; box-shadow:0 8px 24px #0002; }
+  .file { font-weight:400 !important; color:var(--acc); cursor:pointer; margin-top:4px; }
+  .file input { display:none; }
+  .summary { display:flex; flex-wrap:wrap; gap:4px 14px; align-items:center; }
+  .summary .m b { font-size:14px; }
+  .summary .m span { color:var(--mute); margin-left:3px; }
+  table { border-collapse:collapse; width:100%; font-size:12px; }
+  th, td { text-align:left; padding:3px 6px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { position:sticky; top:0; background:#f1f3f6; cursor:pointer; user-select:none; font-weight:600; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  tr.click:hover td { background:#eef4ff; cursor:pointer; }
+  .tblwrap { overflow:auto; }
+  .tblfilter { width:200px; margin:4px 0; padding:3px 6px; border:1px solid var(--line); border-radius:6px; }
+  .kv { display:grid; grid-template-columns:auto 1fr; gap:2px 10px; margin:6px 0; }
+  .kv div:nth-child(odd) { color:var(--mute); }
+  .bar { height:6px; background:#e5e7eb; border-radius:3px; overflow:hidden; }
+  .bar > div { height:100%; background:var(--acc); }
+  [data-tabs] > nav { display:flex; gap:2px; border-bottom:1px solid var(--line); }
+  [data-tabs] > nav button { border:none; border-bottom:2px solid transparent; border-radius:0; background:none; padding:6px 10px; color:var(--mute); }
+  [data-tabs] > nav button.on { border-bottom-color:var(--acc); color:var(--ink); font-weight:600; }
+  .graph { background:#fff; }
+  .legend .chip { cursor:pointer; }
+
+  /* ---------- Variant A: workbench (everything visible at once) ---------- */
+  .vA { display:grid; height:100vh; grid-template-columns:270px 1fr 340px; grid-template-rows:auto 1fr 300px;
+        grid-template-areas:"hdr hdr hdr" "ctl graph insp" "ctl tbl insp"; }
+  .vA > header { grid-area:hdr; display:flex; gap:14px; align-items:center; padding:8px 14px; background:var(--panel); border-bottom:1px solid var(--line); }
+  .vA > .left { grid-area:ctl; overflow:auto; padding:4px 14px 60px; background:var(--panel); border-right:1px solid var(--line); }
+  .vA > .center { grid-area:graph; position:relative; }
+  .vA > .center .graph { position:absolute; inset:0; }
+  .vA > .center .legend { position:absolute; left:8px; bottom:8px; background:#fffe; padding:4px; border-radius:6px; max-width:70%; }
+  .vA > .right { grid-area:insp; overflow:auto; padding:4px 14px 60px; background:var(--panel); border-left:1px solid var(--line); }
+  .vA > .bottom { grid-area:tbl; background:var(--panel); border-top:1px solid var(--line); display:flex; flex-direction:column; min-height:0; }
+  .vA > .bottom > div { flex:1; overflow:auto; padding:4px 10px 50px; }
+
+  /* ---------- Variant B: graph-first canvas (chrome floats over a full-screen graph) ---------- */
+  .vB { position:relative; height:100vh; overflow:hidden; }
+  .vB .graph { position:absolute; inset:0; }
+  .vB .top { position:absolute; top:10px; left:10px; right:10px; display:flex; flex-direction:column; align-items:flex-start; gap:6px; z-index:10; pointer-events:none; }
+  .vB .top > * { pointer-events:auto; }
+  .vB .toolbar { align-self:stretch; background:#fffffff2; border:1px solid var(--line); border-radius:10px; padding:8px 12px;
+                 display:flex; gap:16px; align-items:flex-end; box-shadow:0 4px 16px #0001; z-index:10; }
+  .vB .toolbar .title { display:flex; flex-direction:column; gap:3px; }
+  .vB .toolbar .acts { margin-left:auto; display:flex; gap:6px; align-items:flex-end; }
+  .vB .menu { position:relative; }
+  .vB .menu > summary { list-style:none; border:1px solid var(--line); border-radius:6px; padding:3px 9px; cursor:pointer; background:#fff; }
+  .vB .menu[open] > div { position:absolute; right:0; top:28px; width:240px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:8px; box-shadow:0 8px 24px #0002; }
+  .vB .hud { background:#fffffff2; border:1px solid var(--line); border-radius:8px; padding:6px 10px; max-width:560px; }
+  .vB .hud2 { position:absolute; left:10px; bottom:60px; z-index:5; max-width:50%; }
+  .vB .hud2:empty { display:none; }
+  .vB .legend { position:absolute; right:10px; bottom:60px; z-index:5; background:#fffffff2; border:1px solid var(--line); border-radius:8px; padding:6px; max-width:300px; }
+  .vB .drawer { position:absolute; top:150px; right:10px; bottom:110px; width:360px; background:#fff; border:1px solid var(--line); border-radius:10px; padding:4px 14px 20px;
+                overflow:auto; box-shadow:0 8px 28px #0002; z-index:20; transform:translateX(420px); transition:transform .15s; }
+  .vB .drawer.show { transform:none; }
+  .vB .drawer .x { position:sticky; top:6px; float:right; }
+  .vB .sheet { position:absolute; left:0; right:0; bottom:0; height:52vh; background:#fff; border-top:1px solid var(--line); box-shadow:0 -8px 24px #0002;
+               z-index:30; display:flex; flex-direction:column; transform:translateY(100%); transition:transform .18s; }
+  .vB .sheet.show { transform:none; }
+  .vB .sheet > div { flex:1; overflow:auto; padding:4px 12px 60px; }
+  .vB .sheet nav .x { margin-left:auto; border:none; }
+
+  /* ---------- Variant C: analysis report (numbered, scrolling, explained) ---------- */
+  .vC { max-width:1240px; margin:0 auto; padding:16px 20px 120px; }
+  .vC header h1 { margin:0 0 4px; font-size:22px; }
+  .vC section { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px 16px; margin:14px 0; }
+  .vC section > h2 { margin:0 0 4px; font-size:16px; }
+  .vC section > h2 .n { display:inline-block; width:22px; height:22px; line-height:22px; text-align:center; border-radius:50%; background:var(--ink); color:#fff; font-size:12px; margin-right:6px; }
+  .vC section > p.lead { margin:0 0 10px; color:var(--mute); }
+  .vC .two { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .vC .two > *, .vC .netgrid > * { min-width:0; }
+  .vC .netgrid { display:grid; grid-template-columns:1fr 340px; gap:12px; }
+  .vC .netgrid .graph { height:620px; border:1px solid var(--line); border-radius:8px; }
+  .vC .netgrid .side { max-height:620px; overflow:auto; }
+  .vC .controls { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:6px 24px; }
+  .vC .tblwrap { max-height:420px; }
+
+  /* switcher (not part of the design) */
+  #switcher { position:fixed; left:50%; bottom:14px; transform:translateX(-50%); z-index:1000; display:flex; align-items:center; gap:4px;
+              background:#111827; color:#fff; border-radius:999px; padding:4px 6px; box-shadow:0 6px 20px #0005; font-weight:600; }
+  #switcher button { background:none; color:#fff; border:none; font-size:16px; padding:2px 10px; }
+  #switcher span { min-width:210px; text-align:center; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="switcher"><button id="sw-prev" title="Previous variant (←)">‹</button><span id="sw-label"></span><button id="sw-next" title="Next variant (→)">›</button></div>
+
+<script>
+// ============================================================ mock data
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function shuffle(arr,rng){for(let i=arr.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]]}return arr}
+
+const GENRE_TAGS=['Action','Adventure','Casual','Experimental','Puzzle','Racing','RPG','Simulation','Sports','Strategy','Tabletop'];
+const GENERIC={Singleplayer:.75,Multiplayer:.5,Action:.45,Indie:.3,Atmospheric:.35,'3D':.4,'Great Soundtrack':.3,'Early Access':.08,'Co-op':.3,
+  'Online Co-Op':.22,PvP:.18,'Open World':.22,Adventure:.4,'Story Rich':.22,Colorful:.15,Funny:.15,Difficult:.18,'Replay Value':.2,Realistic:.15,
+  Fantasy:.2,'Sci-fi':.15,'First-Person':.22,'Third Person':.22,Controller:.3,Moddable:.1,Exploration:.22,Casual:.18,Simulation:.15,Strategy:.12,RPG:.2};
+const ARCH={
+  shooter:{FPS:.9,Shooter:.95,'First-Person':.8,Tactical:.4,Military:.4,'Team-Based':.5,Competitive:.5,PvP:.7,'Hero Shooter':.2,'Battle Royale':.25,'Looter Shooter':.15,War:.3,Gore:.3,Violent:.3,Realistic:.3,Action:.9},
+  survival:{Survival:.95,Crafting:.9,'Open World Survival Craft':.8,'Base Building':.7,Sandbox:.7,Building:.5,'Open World':.7,'Co-op':.6,'Online Co-Op':.5,Exploration:.7,'Post-apocalyptic':.3,Zombies:.3,'Resource Management':.4,Hunting:.2,Horror:.2},
+  rpg:{RPG:.95,'Action RPG':.5,'Open World':.6,Fantasy:.7,'Character Customization':.6,'Story Rich':.6,'Choices Matter':.4,Loot:.5,'Dark Fantasy':.3,'Souls-like':.25,'Third Person':.5,'Party-Based RPG':.2,CRPG:.15,'Turn-Based Combat':.2,JRPG:.15,Medieval:.3,Magic:.4,Exploration:.5},
+  strategy:{Strategy:.95,'Grand Strategy':.3,'4X':.3,RTS:.3,'Turn-Based Strategy':.4,Historical:.4,War:.4,Military:.3,Diplomacy:.3,Wargame:.25,'Real-Time':.3,Tactical:.4,Economy:.4,Simulation:.3,'Base Building':.2,'Turn-Based':.4,Space:.2},
+  sim:{Simulation:.95,Management:.6,Building:.6,'City Builder':.3,Economy:.5,Automation:.3,'Base Building':.3,Sandbox:.5,Relaxing:.4,Realistic:.4,Driving:.2,'Farming Sim':.2,'Life Sim':.2,'Resource Management':.5,'Colony Sim':.2,Physics:.3,Space:.2},
+  puzzle:{Puzzle:.95,Logic:.5,'Puzzle Platformer':.3,Physics:.3,Relaxing:.4,Casual:.6,Minimalist:.3,Cute:.3,'2D':.5,'Co-op':.3,'Local Co-Op':.3,Short:.3,'Point & Click':.2,'Hidden Object':.1,'Family Friendly':.4,Colorful:.5},
+  moba:{MOBA:.8,Competitive:.9,PvP:.9,eSports:.7,'Team-Based':.9,Strategy:.5,'Action RTS':.4,Multiplayer:.95,'Hero Shooter':.2,'Card Game':.2,Fantasy:.4},
+  roguelike:{Roguelike:.7,Roguelite:.8,'Procedural Generation':.8,'Action Roguelike':.5,Deckbuilding:.3,'Card Game':.25,Difficult:.6,'Pixel Graphics':.4,'2D':.6,'Replay Value':.8,'Dungeon Crawler':.4,Indie:.8,'Top-Down':.4,'Bullet Hell':.3},
+  horror:{Horror:.95,'Psychological Horror':.6,'Survival Horror':.5,Dark:.7,Atmospheric:.8,'Co-op':.4,'Online Co-Op':.4,'First-Person':.6,Mystery:.4,Thriller:.3,Gore:.3,Zombies:.2},
+  racing:{Racing:.6,Sports:.5,Driving:.6,'Automobile Sim':.3,Simulation:.5,Realistic:.6,'Football (Soccer)':.2,Competitive:.4,Arcade:.3,Controller:.6,Physics:.3},
+  sandbox:{Sandbox:.9,Building:.8,Crafting:.7,'Open World':.6,Survival:.5,Voxel:.4,Multiplayer:.7,'Family Friendly':.4,Exploration:.6,'Procedural Generation':.5}
+};
+const RARE=['Anime','Cartoony','Stylized','Cyberpunk','Steampunk','Pirates','Ninja','Vampire','Mechs','Robots','Aliens','Dinosaurs','Dragons','Cats','Underwater',
+  'Naval','Trains','Flight','Space Sim','Hacking','Stealth','Parkour','Hack and Slash','Beat \'em up','Fighting','Martial Arts','Platformer','Metroidvania','Side Scroller',
+  'Isometric','Top-Down Shooter','Twin Stick Shooter','Rhythm','Music','Narration','Detective','Investigation','Noir','Comedy','Satire','Memes','Philosophical','Emotional',
+  'Lore-Rich','Nonlinear','Multiple Endings','Time Manipulation','Inventory Management','Trading','Capitalism','Political','Alternate History','World War II','Cold War',
+  'Medieval','Mythology','Lovecraftian','Supernatural','Psychedelic','Surreal','Dark Humor','Mature','Blood','Cinematic','Photo Mode','Level Editor','Asynchronous Multiplayer',
+  'Split Screen','4 Player Local','Massively Multiplayer','Social Deduction','Party Game','Board Game','Chess','Tower Defense','Idler','Clicker','Hex Grid','Grid-Based Movement'];
+const MIX={
+  Overall:{shooter:3,survival:2,rpg:2.5,strategy:1,sim:1,puzzle:.3,moba:1,roguelike:1,horror:1,racing:.7,sandbox:1},
+  Puzzle:{puzzle:6,horror:.6,roguelike:.6,sim:.5,sandbox:.3},
+  RPG:{rpg:6,survival:1,roguelike:1,strategy:.5,shooter:.5,sandbox:.3},
+  Strategy:{strategy:6,sim:1.5,moba:.7,roguelike:.5,rpg:.5},
+  Simulation:{sim:6,racing:1.5,survival:1,sandbox:1,strategy:.5}
+};
+const DEFINING={Overall:null,Puzzle:'Puzzle',RPG:'RPG',Strategy:'Strategy',Simulation:'Simulation'};
+const DS_NAMES=Object.keys(MIX);
+
+function pickWeighted(rng,obj){const e=Object.entries(obj);let r=rng()*e.reduce((a,x)=>a+x[1],0);for(const [k,w] of e){r-=w;if(r<=0)return k}return e[e.length-1][0]}
+function genDataset(name,seed){
+  const rng=mulberry32(seed),games=[];
+  for(let r=1;r<=100;r++){
+    const a1=pickWeighted(rng,MIX[name]),archs=[a1];
+    if(rng()<.35){const a2=pickWeighted(rng,MIX[name]);if(a2!==a1)archs.push(a2)}
+    const isFree=rng()<(archs.includes('moba')?.8:.15);
+    const sc=new Map(),add=(t,s)=>{if(!sc.has(t)||sc.get(t)<s)sc.set(t,s)};
+    archs.forEach((a,i)=>{for(const [t,p] of Object.entries(ARCH[a]))if(rng()<p)add(t,(i?1.2:1.6)*p*(.5+rng()))});
+    for(const [t,p] of Object.entries(GENERIC))if(rng()<p)add(t,p*(.3+rng()));
+    const nr=Math.floor(rng()*5);for(let k=0;k<nr;k++)add(RARE[Math.floor(rng()*RARE.length)],.2*rng());
+    if(isFree)add('Free to Play',.3+1.5*rng());
+    const def=DEFINING[name];if(def)add(def,.5+rng());
+    let tags=[...sc.entries()].sort((x,y)=>y[1]-x[1]).map(x=>x[0]);
+    if(def&&tags.indexOf(def)>=20){tags.splice(tags.indexOf(def),1);tags.splice(19,0,def)}
+    tags=tags.slice(0,20);
+    games.push({appid:900000+seed*1000+r,name:`Mock Game ${name[0]}${String(r).padStart(3,'0')}`,rank:r,
+      mmp:Math.round(250000*Math.exp(-(r-1)/18))+900-r,months:rng()<.72?60:2+Math.floor(rng()*58),is_free:isFree,tags});
+  }
+  return games;
+}
+const DATA={};DS_NAMES.forEach((n,i)=>DATA[n]=genDataset(n,i+1));
+
+// ============================================================ graph algorithms
+function louvain(n,edges,seed,gamma=1){
+  const rng=mulberry32(seed);
+  let adj=Array.from({length:n},()=>new Map());
+  for(const e of edges){adj[e.s].set(e.t,(adj[e.s].get(e.t)||0)+e.w);adj[e.t].set(e.s,(adj[e.t].get(e.s)||0)+e.w)}
+  let mem=[...Array(n).keys()];
+  for(;;){
+    const N=adj.length,k=adj.map(m=>{let s=0;for(const v of m.values())s+=v;return s}),m2=k.reduce((a,b)=>a+b,0);
+    if(!m2)break;
+    const comm=[...Array(N).keys()],tot=k.slice(),order=[...Array(N).keys()];
+    let movedAny=false,moved=true,guard=0;
+    while(moved&&guard++<100){
+      moved=false;shuffle(order,rng);
+      for(const i of order){
+        const ci=comm[i],kin=new Map();
+        for(const [j,w] of adj[i]){if(j!==i)kin.set(comm[j],(kin.get(comm[j])||0)+w)}
+        tot[ci]-=k[i];
+        let best=ci,bg=(kin.get(ci)||0)-gamma*tot[ci]*k[i]/m2;
+        for(const [c,w] of kin){const g=w-gamma*tot[c]*k[i]/m2;if(g>bg+1e-10){bg=g;best=c}}
+        tot[best]+=k[i];comm[i]=best;
+        if(best!==ci){moved=true;movedAny=true}
+      }
+    }
+    if(!movedAny)break;
+    const map=new Map();comm.forEach(c=>{if(!map.has(c))map.set(c,map.size)});
+    const na=Array.from({length:map.size},()=>new Map());
+    for(let i=0;i<N;i++){const a=map.get(comm[i]);for(const [j,w] of adj[i]){const b=map.get(comm[j]);na[a].set(b,(na[a].get(b)||0)+w)}}
+    mem=mem.map(x=>map.get(comm[x]));adj=na;
+  }
+  return mem;
+}
+function modularity(n,edges,comm,gamma=1){
+  const k=new Array(n).fill(0);let m=0;const inW=new Map(),tot=new Map();
+  for(const e of edges){k[e.s]+=e.w;k[e.t]+=e.w;m+=e.w;if(comm[e.s]===comm[e.t])inW.set(comm[e.s],(inW.get(comm[e.s])||0)+e.w)}
+  if(!m)return null;
+  for(let i=0;i<n;i++)tot.set(comm[i],(tot.get(comm[i])||0)+k[i]);
+  let Q=0;for(const [c,t] of tot)Q+=(inW.get(c)||0)/m-gamma*(t/(2*m))**2;return Q;
+}
+// silhouette over Jaccard distance of game sets; idx maps local -> row of D (size N)
+function silhouette(idx,comm,D,N){
+  const groups=new Map();idx.forEach((g,i)=>{const c=comm[i];if(!groups.has(c))groups.set(c,[]);groups.get(c).push(i)});
+  const per=new Array(idx.length).fill(null);
+  let singles=0;for(const g of groups.values())if(g.length===1)singles++;
+  if(groups.size-singles<1||groups.size<2)return{value:null,status:groups.size<2?'unavailable: fewer than 2 clusters':'unavailable: all clusters are singletons',singletons:singles,per};
+  const gl=[...groups.entries()];let sum=0,cnt=0;
+  for(let i=0;i<idx.length;i++){
+    const own=groups.get(comm[i]);if(own.length<2)continue;
+    const row=idx[i]*N;let a=0;for(const j of own)if(j!==i)a+=D[row+idx[j]];a/=own.length-1;
+    let b=Infinity;for(const [c,mem] of gl){if(c===comm[i])continue;let s=0;for(const j of mem)s+=D[row+idx[j]];b=Math.min(b,s/mem.length)}
+    const s=(b-a)/Math.max(a,b)||0;per[i]=s;sum+=s;cnt++;
+  }
+  return{value:cnt?sum/cnt:null,status:'ok',singletons:singles,per};
+}
+
+// ============================================================ state + network build
+const S={dataset:'Overall',minGames:5,minShared:3,minMonths:0,hideGenre:true,hiddenGenre:new Set(GENRE_TAGS),hideDefining:true,
+  keepIsolates:true,seed:42,removed:new Set(),selection:null,sens:null,sensJob:null};
+let NET=null;
+const PALETTE=['#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f','#edc948','#b07aa1','#ff9da7','#9c755f','#86bcb6','#d37295','#8cd17d'];
+
+function netKey(){return JSON.stringify([S.dataset,S.minGames,S.minShared,S.minMonths,S.hideGenre,[...S.hiddenGenre].sort(),S.hideDefining,S.keepIsolates,S.seed,[...S.removed].sort()])}
+
+function buildNetwork(){
+  const games=DATA[S.dataset].filter(g=>g.months>=S.minMonths);
+  const tagGames=new Map();games.forEach(g=>g.tags.forEach(t=>{if(!tagGames.has(t))tagGames.set(t,[]);tagGames.get(t).push(g)}));
+  const def=DEFINING[S.dataset],dropped=[];let cand=[];
+  for(const [t,gs] of tagGames){
+    const c=gs.length;
+    if(S.removed.has(t))dropped.push({tag:t,count:c,reason:'removed manually'});
+    else if(def&&S.hideDefining&&t===def)dropped.push({tag:t,count:c,reason:'defining tag hidden'});
+    else if(S.hideGenre&&S.hiddenGenre.has(t))dropped.push({tag:t,count:c,reason:'Genre Tag hidden'});
+    else if(c<S.minGames)dropped.push({tag:t,count:c,reason:'below min games per tag'});
+    else cand.push(t);
+  }
+  cand.sort();
+  let idx=new Map(cand.map((t,i)=>[t,i]));const pair=new Map();
+  for(const g of games){
+    const ts=g.tags.filter(t=>idx.has(t)).map(t=>idx.get(t)).sort((a,b)=>a-b);
+    for(let i=0;i<ts.length;i++)for(let j=i+1;j<ts.length;j++){const k=ts[i]*100000+ts[j];if(!pair.has(k))pair.set(k,[]);pair.get(k).push(g)}
+  }
+  let edges=[];for(const [k,apps] of pair)if(apps.length>=S.minShared)edges.push({s:Math.floor(k/100000),t:k%100000,w:apps.length,apps});
+  let tags=cand;
+  if(!S.keepIsolates){
+    const has=new Set();edges.forEach(e=>{has.add(e.s);has.add(e.t)});
+    tags=cand.filter((t,i)=>{if(has.has(i))return true;dropped.push({tag:t,count:tagGames.get(t).length,reason:'no edge ≥ min shared'});return false});
+    const re=new Map(tags.map((t,i)=>[t,i]));edges=edges.map(e=>({...e,s:re.get(cand[e.s]),t:re.get(cand[e.t])}));
+  }
+  const n=tags.length;
+  // Jaccard distance on game sets
+  const sets=tags.map(t=>new Set(tagGames.get(t).map(g=>g.appid)));
+  const D=new Float32Array(n*n);
+  for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){let inter=0;for(const a of sets[i])if(sets[j].has(a))inter++;const d=1-inter/(sets[i].size+sets[j].size-inter);D[i*n+j]=D[j*n+i]=d}
+  const raw=louvain(n,edges,S.seed);
+  const wdeg=new Array(n).fill(0),deg=new Array(n).fill(0),intra=new Array(n).fill(0);
+  for(const e of edges){wdeg[e.s]+=e.w;wdeg[e.t]+=e.w;deg[e.s]++;deg[e.t]++;if(raw[e.s]===raw[e.t]){intra[e.s]+=e.w;intra[e.t]+=e.w}}
+  const groups=new Map();raw.forEach((c,i)=>{if(!groups.has(c))groups.set(c,[]);groups.get(c).push(i)});
+  const count=i=>tagGames.get(tags[i]).length;
+  let clusters=[...groups.values()].map(members=>{
+    const center=members.slice().sort((a,b)=>intra[b]-intra[a]||count(b)-count(a)||tags[a].localeCompare(tags[b]))[0];
+    return{members,center};
+  });
+  clusters.sort((a,b)=>b.members.length-a.members.length||tags[a.center].localeCompare(tags[b.center]));
+  const comm=new Array(n);
+  clusters.forEach((c,ci)=>{c.label='C'+(ci+1);c.color=c.members.length>1?(PALETTE[ci]||'#9ca3af'):'#d1d5db';c.members.forEach(m=>comm[m]=ci);
+    c.members.sort((a,b)=>intra[b]-intra[a]||tags[a].localeCompare(tags[b]))});
+  const Q=modularity(n,edges,comm);
+  const sil=silhouette([...Array(n).keys()],comm,D,n);
+  clusters.forEach(c=>{
+    let iw=0,ie=0;for(const e of edges)if(comm[e.s]===comm[e.t]&&comm[e.s]===clusters.indexOf(c)){iw+=e.w;ie++}
+    const sz=c.members.length;c.intraW=iw;c.density=sz>1?ie/(sz*(sz-1)/2):null;
+    const ss=c.members.map(m=>sil.per[m]).filter(x=>x!==null);c.meanSil=ss.length?ss.reduce((a,b)=>a+b,0)/ss.length:null;
+  });
+  let tw=0,iw=0;edges.forEach(e=>{tw+=e.w;if(comm[e.s]===comm[e.t])iw+=e.w});
+  NET={key:netKey(),games,tagGames,tags,n,edges,comm,clusters,Q,sil,wdeg,deg,intra,D,coverage:tw?iw/tw:null,
+    dropped:dropped.sort((a,b)=>b.count-a.count),totalTags:tagGames.size,isolates:deg.filter(d=>d===0).length,
+    tagIndex:new Map(tags.map((t,i)=>[t,i]))};
+  // drop a selection that no longer exists
+  const sel=S.selection;
+  if(sel&&((sel.type==='node'&&!NET.tagIndex.has(sel.id))||(sel.type==='edge'&&!findEdge(sel.id))||(sel.type==='cluster'&&!NET.clusters.find(c=>c.label===sel.id))))S.selection=null;
+}
+const edgeId=e=>NET.tags[e.s]+' — '+NET.tags[e.t];
+function findEdge(id){return NET.edges.find(e=>edgeId(e)===id)}
+
+// ============================================================ sensitivity (remove-and-recluster, on demand)
+async function runSensitivity(){
+  const net=NET,job={done:0,total:net.n,cancel:false,stage:'seed-noise floor'};S.sensJob=job;fill('sens');
+  const qs=[],ss=[];
+  for(let k=1;k<=10;k++){const c=louvain(net.n,net.edges,S.seed+k);qs.push(modularity(net.n,net.edges,c));ss.push(silhouette([...Array(net.n).keys()],c,net.D,net.n).value);await tick()}
+  const sd=a=>{a=a.filter(x=>x!==null);if(a.length<2)return null;const m=a.reduce((x,y)=>x+y,0)/a.length;return Math.sqrt(a.reduce((x,y)=>x+(y-m)**2,0)/(a.length-1))};
+  const noise={q:sd(qs),s:sd(ss)};job.stage='removing nodes';
+  const rows=[];
+  for(let v=0;v<net.n;v++){
+    if(job.cancel)break;
+    const keep=[...Array(net.n).keys()].filter(i=>i!==v),re=new Map(keep.map((g,i)=>[g,i]));
+    const es=net.edges.filter(e=>e.s!==v&&e.t!==v).map(e=>({s:re.get(e.s),t:re.get(e.t),w:e.w}));
+    const c=louvain(keep.length,es,S.seed),Q=modularity(keep.length,es,c),sl=silhouette(keep,c,net.D,net.n).value;
+    const k=new Set(c).size;
+    rows.push({tag:net.tags[v],cluster:net.clusters[net.comm[v]].label,dSil:sl===null||net.sil.value===null?null:sl-net.sil.value,
+      dQ:Q===null||net.Q===null?null:Q-net.Q,dK:k-net.clusters.length});
+    job.done=v+1;if(v%2===0){fill('sens');await tick()}
+  }
+  rows.forEach(r=>{r.beyond=(noise.s!==null&&r.dSil!==null&&Math.abs(r.dSil)>2*noise.s)||(noise.q!==null&&r.dQ!==null&&Math.abs(r.dQ)>2*noise.q)});
+  S.sens={key:net.key,rows,noise,complete:!job.cancel,at:new Date().toISOString()};S.sensJob=null;refresh();
+}
+const tick=()=>new Promise(r=>setTimeout(r,0));
+
+// ============================================================ shared widgets (each variant decides where they go)
+const fmt=(x,d=3)=>x===null||x===undefined?'—':typeof x==='number'?(Number.isInteger(x)?x.toLocaleString():x.toFixed(d)):x;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const tagLink=t=>`<a class="lnk" data-sel="node" data-id="${esc(t)}">${esc(t)}</a>`;
+const clLink=ci=>{const c=NET.clusters[ci];return`<a class="lnk" data-sel="cluster" data-id="${c.label}"><span class="swatch" style="background:${c.color}"></span>${c.label}</a>`};
+
+const SORT={};
+function table(el,key,cols,rows,{onRow,filter=true,height}={}){
+  const st=SORT[key]||(SORT[key]={col:null,dir:-1,q:''});
+  el.innerHTML=(filter?`<input class="tblfilter" placeholder="Filter…" value="${esc(st.q)}">`:'')+`<div class="tblwrap" ${height?`style="max-height:${height}"`:''}><table></table></div>`;
+  const tbl=el.querySelector('table');
+  const draw=()=>{
+    let rs=rows;
+    if(st.q){const q=st.q.toLowerCase();rs=rs.filter(r=>cols.some(c=>String(r[c.k]??'').toLowerCase().includes(q)))}
+    if(st.col){const c=cols.find(c=>c.k===st.col);rs=rs.slice().sort((a,b)=>{const x=a[st.col],y=b[st.col];if(x===null)return 1;if(y===null)return-1;return(typeof x==='number'?x-y:String(x).localeCompare(String(y)))*st.dir})}
+    tbl.innerHTML=`<thead><tr>${cols.map(c=>`<th class="${c.num?'num':''}" data-k="${c.k}">${c.label}${st.col===c.k?(st.dir>0?' ▲':' ▼'):''}</th>`).join('')}</tr></thead><tbody>${
+      rs.map((r,i)=>`<tr class="${onRow?'click':''}" data-i="${rows.indexOf(r)}">${cols.map(c=>`<td class="${c.num?'num':''}">${c.html?c.html(r):esc(fmt(r[c.k],c.d))}</td>`).join('')}</tr>`).join('')}</tbody>`;
+    tbl.querySelectorAll('th').forEach(th=>th.onclick=()=>{const k=th.dataset.k;if(st.col===k)st.dir*=-1;else{st.col=k;st.dir=-1}draw()});
+    if(onRow)tbl.querySelectorAll('tbody tr').forEach(tr=>tr.onclick=ev=>{if(ev.target.closest('a'))return;onRow(rows[+tr.dataset.i])});
+  };
+  if(filter)el.querySelector('.tblfilter').oninput=e=>{st.q=e.target.value;draw()};
+  draw();
+}
+
+const FILL={
+  controls(el){
+    const part=el.dataset.part||'all',compact=el.dataset.compact==='1',show=p=>part==='all'||part===p,def=DEFINING[S.dataset];
+    el.className='controls'+(compact?' compact':'');
+    el.innerHTML=[
+      show('dataset')&&`<div class="ctl"><label>Dataset</label><select id="c-ds">${DS_NAMES.map(n=>`<option ${n===S.dataset?'selected':''}>${n}</option>`).join('')}</select>
+        <label class="file">⤒ Load Top-100 export CSV…<input type="file" accept=".csv" id="c-file"></label></div>`,
+      show('filters')&&`<div class="ctl"><label>Min games per tag: <b id="v-mg">${S.minGames}</b></label><input type="range" min="1" max="40" value="${S.minGames}" id="c-mg"></div>
+       <div class="ctl"><label>Min shared games (edge): <b id="v-ms">${S.minShared}</b></label><input type="range" min="1" max="30" value="${S.minShared}" id="c-ms"></div>
+       <div class="ctl"><label>Minimum Months Filter: <b id="v-mm">${S.minMonths}</b></label><input type="range" min="0" max="60" value="${S.minMonths}" id="c-mm"></div>
+       <div class="ctl"><label><input type="checkbox" id="c-hg" ${S.hideGenre?'checked':''}> Hide Genre Tags</label>
+         <details><summary class="note">${S.hiddenGenre.size} of ${GENRE_TAGS.length} in the list</summary><div>${GENRE_TAGS.map(t=>`<label class="chip"><input type="checkbox" data-gt="${t}" ${S.hiddenGenre.has(t)?'checked':''}>${t}</label>`).join('')}</div></details></div>
+       ${def?`<div class="ctl"><label><input type="checkbox" id="c-hd" ${S.hideDefining?'checked':''}> Hide defining tag (${def})</label></div>`:''}
+       <div class="ctl"><label><input type="checkbox" id="c-iso" ${S.keepIsolates?'checked':''}> Keep isolated tags</label></div>`,
+      show('cluster')&&`<div class="ctl"><label>Louvain seed</label><input type="number" id="c-seed" value="${S.seed}" style="width:80px"> <button id="c-rerun">Re-cluster</button>
+         <div class="note">γ = 1 (open: Silhouette/quality ticket)</div></div>`
+    ].filter(Boolean).join('');
+    const $=id=>el.querySelector('#'+id);
+    const slider=(id,key,lab)=>{const r=$(id);if(!r)return;r.oninput=()=>{S[key]=+r.value;$(lab).textContent=r.value;recomputeSoon()}};
+    slider('c-mg','minGames','v-mg');slider('c-ms','minShared','v-ms');slider('c-mm','minMonths','v-mm');
+    if($('c-ds'))$('c-ds').onchange=e=>{S.dataset=e.target.value;S.removed.clear();S.selection=null;recompute(true)};
+    if($('c-file'))$('c-file').onchange=()=>alert('Prototype: loading is stubbed. The real loader accepts only the pipeline\'s own Top-100 export CSV and validates its schema.');
+    if($('c-hg'))$('c-hg').onchange=e=>{S.hideGenre=e.target.checked;recompute()};
+    el.querySelectorAll('[data-gt]').forEach(cb=>cb.onchange=()=>{cb.checked?S.hiddenGenre.add(cb.dataset.gt):S.hiddenGenre.delete(cb.dataset.gt);recompute()});
+    if($('c-hd'))$('c-hd').onchange=e=>{S.hideDefining=e.target.checked;recompute()};
+    if($('c-iso'))$('c-iso').onchange=e=>{S.keepIsolates=e.target.checked;recompute()};
+    if($('c-rerun'))$('c-rerun').onclick=()=>{S.seed=+$('c-seed').value||0;recompute()};
+  },
+  summary(el){
+    const N=NET,singles=N.clusters.filter(c=>c.members.length===1).length,by=r=>N.dropped.filter(d=>d.reason===r).length;
+    el.innerHTML=`<div class="summary">
+      <span class="m"><b>${N.games.length}</b><span>/ 100 games</span></span>
+      <span class="m"><b>${N.n}</b><span>of ${N.totalTags} tags</span></span>
+      <span class="m"><b>${N.edges.length.toLocaleString()}</b><span>edges</span></span>
+      <span class="m"><b>${N.clusters.length-singles}</b><span>clusters${singles?` + ${singles} singleton${singles>1?'s':''}`:''}</span></span>
+      <span class="m"><b>${fmt(N.Q)}</b><span>modularity</span></span>
+      <span class="m"><b>${fmt(N.sil.value)}</b><span>silhouette</span></span>
+    </div><div class="note">Not shown: ${by('below min games per tag')} below min games · ${by('Genre Tag hidden')} genre · ${by('defining tag hidden')} defining · ${by('removed manually')} removed${S.keepIsolates?` · ${N.isolates} isolated shown`:` · ${by('no edge ≥ min shared')} isolated`}</div>`;
+  },
+  removed(el){
+    el.innerHTML=S.removed.size?`${[...S.removed].map(t=>`<span class="chip">${esc(t)} <a class="lnk" data-restore="${esc(t)}" title="Restore">↺</a></span>`).join('')} <button id="r-reset">Reset all</button>`
+      :(el.closest('.vB')?'':'<div class="note">None. Remove a node from the inspector.</div>');
+    el.querySelectorAll('[data-restore]').forEach(a=>a.onclick=()=>{S.removed.delete(a.dataset.restore);recompute()});
+    const rb=el.querySelector('#r-reset');if(rb)rb.onclick=()=>{S.removed.clear();recompute()};
+  },
+  legend(el){
+    el.innerHTML=`<div class="legend">${NET.clusters.filter(c=>c.members.length>1).map(c=>`<a class="chip lnk" data-sel="cluster" data-id="${c.label}"><span class="swatch" style="background:${c.color}"></span>${c.label} · ${c.members.length} · ◆ ${esc(NET.tags[c.center])}</a>`).join('')}
+      <div class="note">◆ = cluster center · node size = games with tag · edge width = shared games (raw)</div></div>`;
+  },
+  inspector(el){
+    const sel=S.selection,N=NET;
+    if(!sel){el.innerHTML='<div class="note" style="margin-top:10px">Click a node, edge or cluster to inspect it.</div>';return}
+    const gamesTbl=(gs,key)=>{const d=document.createElement('div');table(d,key,[{k:'rank',label:'#',num:1},{k:'name',label:'Game'},{k:'appid',label:'AppID',num:1},{k:'mmp',label:'Mean monthly',num:1},{k:'months',label:'Months',num:1},{k:'free',label:'Free'}],
+      gs.map(g=>({rank:g.rank,name:g.name,appid:g.appid,mmp:g.mmp,months:g.months,free:g.is_free?'yes':''})),{filter:gs.length>12,height:'260px'});return d};
+    if(sel.type==='node'){
+      const i=N.tagIndex.get(sel.id),gs=N.tagGames.get(sel.id),c=N.clusters[N.comm[i]],sr=S.sens&&S.sens.key===N.key?S.sens.rows.find(r=>r.tag===sel.id):null;
+      const nb=N.edges.filter(e=>e.s===i||e.t===i).map(e=>({tag:N.tags[e.s===i?e.t:e.s],w:e.w,id:edgeId(e)})).sort((a,b)=>b.w-a.w);
+      el.innerHTML=`<h2 style="margin:8px 0 2px">${esc(sel.id)} ${c.center===i?'<span class="chip">◆ center</span>':''}</h2>
+        <div class="kv"><div>Cluster</div><div>${clLink(N.comm[i])}</div><div>Games</div><div>${gs.length} of ${N.games.length} (${(100*gs.length/N.games.length).toFixed(0)}%)</div>
+        <div>Degree</div><div>${N.deg[i]} (weighted ${N.wdeg[i]})</div><div>Intra-cluster wdeg</div><div>${N.intra[i]}</div>
+        <div>Silhouette</div><div>${fmt(N.sil.per[i])}</div>
+        <div>Sensitivity</div><div>${sr?`Δsil ${fmt(sr.dSil)} · ΔQ ${fmt(sr.dQ)} · Δk ${sr.dK}`:'<span class="note">not computed</span>'}</div></div>
+        <button id="i-rm">Remove node</button>
+        <h3>Strongest connections</h3><div>${nb.slice(0,12).map(x=>`<span class="chip"><a class="lnk" data-sel="edge" data-id="${esc(x.id)}">${esc(x.tag)}</a> ${x.w}</span>`).join('')||'<span class="note">isolated</span>'}</div>
+        <h3>Games with this tag</h3>`;
+      el.appendChild(gamesTbl(gs,'insp-node'));
+      el.querySelector('#i-rm').onclick=()=>{S.removed.add(sel.id);S.selection=null;recompute()};
+    }else if(sel.type==='edge'){
+      const e=findEdge(sel.id),A=N.tags[e.s],B=N.tags[e.t];
+      el.innerHTML=`<h2 style="margin:8px 0 2px">${tagLink(A)} — ${tagLink(B)}</h2>
+        <div class="kv"><div>Shared games</div><div><b>${e.w}</b> (edge weight, raw)</div><div>Games with ${esc(A)}</div><div>${N.tagGames.get(A).length}</div>
+        <div>Games with ${esc(B)}</div><div>${N.tagGames.get(B).length}</div><div>Jaccard</div><div>${fmt(1-N.D[e.s*N.n+e.t])}</div>
+        <div>Clusters</div><div>${clLink(N.comm[e.s])} / ${clLink(N.comm[e.t])}</div></div><h3>The ${e.w} games having both tags</h3>`;
+      el.appendChild(gamesTbl(e.apps,'insp-edge'));
+    }else{
+      const ci=N.clusters.findIndex(c=>c.label===sel.id),c=N.clusters[ci];
+      el.innerHTML=`<h2 style="margin:8px 0 2px">${clLink(ci)}</h2>
+        <div class="kv"><div>Tags</div><div>${c.members.length}</div><div>Center</div><div>◆ ${tagLink(N.tags[c.center])} <span class="open">placeholder measure</span></div>
+        <div>Intra weight</div><div>${c.intraW}</div><div>Density</div><div>${fmt(c.density)}</div><div>Mean silhouette</div><div>${fmt(c.meanSil)}</div></div>
+        <h3>Member tags (by intra-cluster weighted degree)</h3><div></div>`;
+      const d=el.lastElementChild;
+      table(d,'insp-cl',[{k:'tag',label:'Tag',html:r=>tagLink(r.tag)},{k:'games',label:'Games',num:1},{k:'intra',label:'Intra wdeg',num:1},{k:'sil',label:'Silhouette',num:1}],
+        c.members.map(m=>({tag:N.tags[m],games:N.tagGames.get(N.tags[m]).length,intra:N.intra[m],sil:N.sil.per[m]})),{filter:false});
+    }
+  },
+  quality(el){
+    const N=NET,singles=N.clusters.filter(c=>c.members.length===1).length;
+    el.innerHTML=`<div class="kv" style="max-width:520px">
+      <div>Algorithm</div><div>Louvain, γ = 1, seed ${S.seed}</div>
+      <div>Clusters</div><div>${N.clusters.length-singles} (+ ${singles} singletons)</div>
+      <div>Modularity Q</div><div><b>${fmt(N.Q)}</b></div>
+      <div>Silhouette (Jaccard on game sets)</div><div><b>${fmt(N.sil.value)}</b> ${N.sil.status!=='ok'?`<span class="open">${N.sil.status}</span>`:`<span class="note">singletons excluded from mean</span>`}</div>
+      <div>Coverage (intra / total weight)</div><div>${fmt(N.coverage)}</div>
+      <div>Nodes / edges</div><div>${N.n} / ${N.edges.length}</div></div>
+      <div class="open">Metric set and definitions are placeholders until "Silhouette space and cluster-quality metrics" resolves.</div>`;
+  },
+  clusters(el){
+    const N=NET;
+    table(el,'clusters',[{k:'label',label:'Cluster',html:r=>clLink(r.ci)},{k:'size',label:'Tags',num:1},{k:'center',label:'Center ◆',html:r=>tagLink(r.center)},
+      {k:'intraW',label:'Intra weight',num:1},{k:'density',label:'Density',num:1},{k:'meanSil',label:'Mean sil.',num:1},{k:'members',label:'Members'}],
+      N.clusters.map((c,ci)=>({ci,label:c.label,size:c.members.length,center:N.tags[c.center],intraW:c.intraW,density:c.density,meanSil:c.meanSil,
+        members:c.members.slice(0,8).map(m=>N.tags[m]).join(', ')+(c.members.length>8?' …':'')})),{onRow:r=>select('cluster',r.label)});
+  },
+  nodes(el){
+    const N=NET;
+    table(el,'nodes',[{k:'tag',label:'Tag'},{k:'games',label:'Games',num:1},{k:'share',label:'Share',num:1,d:2},{k:'cluster',label:'Cluster'},{k:'center',label:'Center'},
+      {k:'deg',label:'Degree',num:1},{k:'wdeg',label:'Weighted deg.',num:1},{k:'sil',label:'Silhouette',num:1}],
+      N.tags.map((t,i)=>({tag:t,games:N.tagGames.get(t).length,share:N.tagGames.get(t).length/N.games.length,cluster:N.clusters[N.comm[i]].label,
+        center:N.clusters[N.comm[i]].center===i?'◆':'',deg:N.deg[i],wdeg:N.wdeg[i],sil:N.sil.per[i]})),{onRow:r=>select('node',r.tag)});
+  },
+  edges(el){
+    const N=NET;
+    table(el,'edges',[{k:'a',label:'Tag A'},{k:'b',label:'Tag B'},{k:'w',label:'Shared games',num:1},{k:'j',label:'Jaccard',num:1}],
+      N.edges.map(e=>({id:edgeId(e),a:N.tags[e.s],b:N.tags[e.t],w:e.w,j:1-N.D[e.s*N.n+e.t]})),{onRow:r=>select('edge',r.id)});
+  },
+  dropped(el){
+    table(el,'dropped',[{k:'tag',label:'Tag'},{k:'count',label:'Games',num:1},{k:'reason',label:'Why not in the network'}],NET.dropped,{});
+  },
+  dsinfo(el){
+    const g=DATA[S.dataset],full=g.filter(x=>x.months===60).length;
+    el.innerHTML=`<div class="kv"><div>Dataset</div><div><b>${S.dataset}</b> Top 100 (mock export, snapshot 2026-10-02, config hash 3f9a…)</div>
+      <div>Defining tag</div><div>${DEFINING[S.dataset]||'none (Overall)'}</div>
+      <div>Months observed</div><div>${full} games with all 60 months, ${100-full} fewer (min ${Math.min(...g.map(x=>x.months))})</div>
+      <div>Free-to-play</div><div>${g.filter(x=>x.is_free).length} games flagged is_free</div>
+      <div>Distinct tags</div><div>${new Set(g.flatMap(x=>x.tags)).size}</div></div>`;
+  },
+  sens(el){
+    const N=NET,job=S.sensJob,res=S.sens,stale=res&&res.key!==N.key;
+    let h=`<div style="display:flex;gap:8px;align-items:center;margin:6px 0">`;
+    if(job)h+=`<span>${job.stage}: ${job.done}/${job.total}</span><div class="bar" style="width:200px"><div style="width:${100*job.done/job.total}%"></div></div><button id="s-cancel">Cancel</button>`;
+    else h+=`<button class="primary" id="s-run">${res?'Re-run':'Run'} node sensitivity (${N.n} reclusterings)</button>`;
+    h+=`<span class="note">remove each node → recluster with seed ${S.seed} → Δ vs. current. On demand, not on every filter change.</span></div>`;
+    if(stale)h+=`<div class="open">These results are for earlier settings; re-run to update.</div>`;
+    if(res)h+=`<div class="note">Seed-noise floor (SD over 10 other seeds, unchanged graph): Q ±${fmt(res.noise.q)} · silhouette ±${fmt(res.noise.s)}. "Beyond noise" = |Δ| > 2 SD. ${res.complete?'':'<b>Cancelled: partial results.</b>'}</div><div></div>`;
+    el.innerHTML=h;
+    if(res)table(el.lastElementChild,'sens',[{k:'tag',label:'Removed tag'},{k:'cluster',label:'Cluster'},{k:'dSil',label:'Δ silhouette',num:1},{k:'dQ',label:'Δ modularity',num:1},
+      {k:'dK',label:'Δ clusters',num:1},{k:'beyondTxt',label:'Beyond noise'}],res.rows.map(r=>({...r,beyondTxt:r.beyond?'yes':''})),{onRow:stale?null:r=>select('node',r.tag)});
+    const r=el.querySelector('#s-run');if(r)r.onclick=runSensitivity;
+    const c=el.querySelector('#s-cancel');if(c)c.onclick=()=>{job.cancel=true};
+  },
+  exports(el){
+    const items=[['network.json','Network (JSON)'],['nodes.csv','Node stats (CSV)'],['edges.csv','Edges + AppIDs (CSV)'],['clusters.csv','Cluster summary (CSV)'],
+      ['quality.json','Cluster quality (JSON)'],['sensitivity.csv','Node sensitivity (CSV)'],['dropped.csv','Tags not in network (CSV)']];
+    el.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:4px">${items.map(([f,l])=>`<button data-exp="${f}">${l}</button>`).join('')}</div>
+      <div class="note" style="margin-top:4px">Every file carries dataset, thresholds, hidden/removed tags, seed and timestamp (schemas: open, see map fog).</div>`;
+    el.querySelectorAll('[data-exp]').forEach(b=>b.onclick=()=>doExport(b.dataset.exp));
+  }
+};
+
+// ============================================================ exports
+function meta(){return{prototype:true,mock_data:true,exported_at:new Date().toISOString(),dataset:S.dataset,algorithm:'louvain',gamma:1,seed:S.seed,
+  min_games_per_tag:S.minGames,min_shared_games:S.minShared,min_months:S.minMonths,hide_genre_tags:S.hideGenre,genre_tag_list:[...S.hiddenGenre],
+  hide_defining_tag:S.hideDefining,keep_isolates:S.keepIsolates,removed_nodes:[...S.removed],edge_weight:'raw shared-game count'}}
+function csv(rows){if(!rows.length)return'';const k=Object.keys(rows[0]),q=v=>{v=v===null||v===undefined?'':String(v);return/[",\n;]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  return[k.join(','),...rows.map(r=>k.map(x=>q(r[x])).join(','))].join('\n')}
+function doExport(f){
+  const N=NET,m=meta();let txt;
+  const nodes=N.tags.map((t,i)=>({tag:t,games:N.tagGames.get(t).length,cluster:N.clusters[N.comm[i]].label,is_center:N.clusters[N.comm[i]].center===i,degree:N.deg[i],weighted_degree:N.wdeg[i],silhouette:N.sil.per[i]}));
+  if(f==='network.json')txt=JSON.stringify({metadata:m,nodes,edges:N.edges.map(e=>({source:N.tags[e.s],target:N.tags[e.t],weight:e.w,appids:e.apps.map(g=>g.appid)}))},null,1);
+  else if(f==='quality.json')txt=JSON.stringify({metadata:m,modularity:N.Q,silhouette:N.sil.value,silhouette_status:N.sil.status,singletons:N.sil.singletons,coverage:N.coverage,clusters:N.clusters.length},null,1);
+  else{
+    const rows={'nodes.csv':nodes,'edges.csv':N.edges.map(e=>({tag_a:N.tags[e.s],tag_b:N.tags[e.t],shared_games:e.w,appids:e.apps.map(g=>g.appid).join(';')})),
+      'clusters.csv':N.clusters.map(c=>({cluster:c.label,size:c.members.length,center:N.tags[c.center],intra_weight:c.intraW,density:c.density,mean_silhouette:c.meanSil,members:c.members.map(x=>N.tags[x]).join(';')})),
+      'sensitivity.csv':S.sens&&S.sens.key===N.key?S.sens.rows.map(r=>({removed_tag:r.tag,cluster:r.cluster,d_silhouette:r.dSil,d_modularity:r.dQ,d_clusters:r.dK,beyond_noise:r.beyond})):null,
+      'dropped.csv':N.dropped}[f];
+    if(!rows){alert('Run node sensitivity for the current settings first.');return}
+    txt='# '+JSON.stringify(m)+'\n'+csv(rows);
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'}));a.download=`PROTOTYPE_${S.dataset}_${f}`;a.click();
+}
+
+// ============================================================ graph view (Cytoscape.js; same JSON works in dash-cytoscape or a Panel JSComponent)
+let cy=null,cyEl=null;const POS=new Map();
+function updateGraph(relayout){
+  const el=document.querySelector('[data-slot=graph]');if(!el||typeof cytoscape==='undefined')return;
+  const N=NET;
+  if(!cy||cyEl!==el){
+    if(cy)cy.destroy();cyEl=el;relayout=true;
+    cy=cytoscape({container:el,wheelSensitivity:.25,minZoom:.15,maxZoom:4});
+    cy.on('tap','node',e=>select('node',e.target.id()));
+    cy.on('tap','edge',e=>select('edge',e.target.id()));
+    cy.on('tap',e=>{if(e.target===cy)select(null)});
+  }
+  if(relayout){
+    const cnt=N.tags.map(t=>N.tagGames.get(t).length),cmin=Math.min(...cnt,1),cmax=Math.max(...cnt,2),ws=N.edges.map(e=>e.w),wmax=Math.max(...ws,1),wmin=Math.min(...ws,1);
+    const sc=(v,a,b,lo,hi)=>b>a?lo+(hi-lo)*(v-a)/(b-a):(lo+hi)/2;
+    cy.batch(()=>{
+      cy.elements().remove();
+      cy.add(N.tags.map((t,i)=>{const c=N.clusters[N.comm[i]],isC=c.center===i&&c.members.length>1;
+        return{group:'nodes',data:{id:t,label:t,color:c.color,size:sc(cnt[i],cmin,cmax,14,52)},classes:isC?'center':''}}));
+      cy.add(N.edges.map(e=>({group:'edges',data:{id:edgeId(e),source:N.tags[e.s],target:N.tags[e.t],width:sc(e.w,wmin,wmax,.6,7)}})));
+    });
+    cy.style([
+      {selector:'node',style:{'background-color':'data(color)',width:'data(size)',height:'data(size)',label:'data(label)','font-size':9,'min-zoomed-font-size':7,
+        'text-valign':'bottom','text-margin-y':2,color:'#333','border-width':1,'border-color':'#fff'}},
+      {selector:'node.center',style:{shape:'diamond','border-width':3,'border-color':'#111','font-size':12,'font-weight':'bold','z-index':10,'min-zoomed-font-size':0}},
+      {selector:'edge',style:{width:'data(width)','line-color':'#9aa3b2',opacity:.28,'curve-style':'haystack'}},
+      {selector:'.faded',style:{opacity:.07}},
+      {selector:'edge.hl',style:{opacity:.9,'line-color':'#334155'}},
+      {selector:'node.hl',style:{opacity:1}},
+      {selector:'node.sel',style:{'border-width':4,'border-color':'#2563eb'}},
+      {selector:'edge.sel',style:{'line-color':'#2563eb',opacity:1}}
+    ]);
+    const rng=mulberry32(S.seed);
+    cy.nodes().forEach(n=>n.position(POS.get(n.id())||{x:rng()*900,y:rng()*700}));
+    const lay=cy.layout({name:'cose',randomize:false,animate:false,fit:false,nodeRepulsion:()=>9000,idealEdgeLength:()=>70,gravity:.5,numIter:1200,componentSpacing:60,nodeOverlap:10});
+    lay.one('layoutstop',()=>{cy.nodes().forEach(n=>POS.set(n.id(),{...n.position()}));cy.resize();cy.fit(undefined,30)});
+    lay.run();
+  }
+  cy.elements().removeClass('faded hl sel');
+  const sel=S.selection;if(!sel)return;
+  let keep;
+  if(sel.type==='node'){const n=cy.getElementById(sel.id);n.addClass('sel');keep=n.closedNeighborhood()}
+  else if(sel.type==='edge'){const e=cy.getElementById(sel.id);e.addClass('sel');keep=e.union(e.connectedNodes())}
+  else{const c=NET.clusters.find(c=>c.label===sel.id);const ns=cy.collection(c.members.map(m=>cy.getElementById(NET.tags[m])));keep=ns.union(ns.edgesWith(ns))}
+  cy.elements().difference(keep).addClass('faded');keep.addClass('hl');
+}
+
+// ============================================================ variants (layouts only; widgets above are shared)
+const TABS=[['quality','Cluster quality'],['clusters','Clusters'],['sens','Node sensitivity'],['nodes','Nodes'],['edges','Edges'],['dropped','Not in network']];
+const tabsHtml=extra=>`<nav>${TABS.map(([k,l],i)=>`<button data-tab="${k}" class="${i?'':'on'}">${l}</button>`).join('')}${extra||''}</nav>${TABS.map(([k],i)=>`<div data-panel="${k}" data-slot="${k}" ${i?'hidden':''}></div>`).join('')}`;
+const VARIANTS={
+  A:{name:'Workbench',html:`<div class="vA">
+      <header><b style="font-size:15px">Tag Network</b><span class="proto">PROTOTYPE · MOCK DATA</span><div data-slot="summary"></div></header>
+      <aside class="left"><h3>Dataset &amp; filters</h3><div data-slot="controls"></div><h3>Removed nodes</h3><div data-slot="removed"></div><h3>Export</h3><div data-slot="exports"></div></aside>
+      <main class="center"><div class="graph" data-slot="graph"></div><div data-slot="legend"></div></main>
+      <aside class="right"><h3>Inspector</h3><div data-slot="inspector"></div></aside>
+      <section class="bottom" data-tabs>${tabsHtml()}</section></div>`},
+  B:{name:'Graph-first canvas',html:`<div class="vB">
+      <div class="graph" data-slot="graph"></div>
+      <div class="top"><div class="toolbar"><div class="title"><b style="font-size:15px">Tag Network</b><span class="proto">PROTOTYPE · MOCK DATA</span></div>
+        <div data-slot="controls" data-compact="1"></div>
+        <div class="acts"><button id="b-tables">Tables ▴</button><details class="menu"><summary>Export ▾</summary><div data-slot="exports"></div></details></div></div>
+      <div class="hud" data-slot="summary"></div></div>
+      <div class="hud2" data-slot="removed"></div>
+      <div data-slot="legend"></div>
+      <aside class="drawer" id="b-drawer"><button class="x" id="b-x">×</button><div data-slot="inspector"></div></aside>
+      <section class="sheet" id="b-sheet" data-tabs>${tabsHtml('<button class="x" id="b-close">close ▾</button>')}</section></div>`,
+    after(){document.getElementById('b-tables').onclick=()=>document.getElementById('b-sheet').classList.toggle('show');
+      document.getElementById('b-close').onclick=()=>document.getElementById('b-sheet').classList.remove('show');
+      document.getElementById('b-x').onclick=()=>select(null)},
+    refresh(){document.getElementById('b-drawer').classList.toggle('show',!!S.selection)}},
+  C:{name:'Analysis report',html:`<div class="vC">
+      <header><h1>Tag Network <span class="proto">PROTOTYPE · MOCK DATA</span></h1><p class="note">Read top to bottom: what was loaded, what was filtered out, the network, how good the clustering is, which tags it hinges on, then export.</p></header>
+      <section><h2><span class="n">1</span>Dataset</h2><p class="lead">The pipeline's Top-100 export. Never modified here.</p><div class="two"><div data-slot="controls" data-part="dataset"></div><div data-slot="dsinfo"></div></div></section>
+      <section><h2><span class="n">2</span>Filters</h2><p class="lead">Which games and tags enter the network. Every tag left out is listed with its reason.</p>
+        <div data-slot="controls" data-part="filters"></div><div data-slot="summary" style="margin:8px 0"></div>
+        <details><summary>Tags not in the network</summary><div data-slot="dropped"></div></details><h3>Removed nodes</h3><div data-slot="removed"></div></section>
+      <section><h2><span class="n">3</span>Network</h2><p class="lead">Louvain clusters (colours, never named) with their centers (◆). Click anything to inspect it.</p>
+        <div data-slot="controls" data-part="cluster"></div>
+        <div class="netgrid"><div><div class="graph" data-slot="graph"></div><div data-slot="legend"></div></div><div class="side" data-slot="inspector"></div></div></section>
+      <section><h2><span class="n">4</span>Cluster quality</h2><p class="lead">Computed after every clustering.</p><div class="two"><div data-slot="quality"></div><div data-slot="clusters"></div></div></section>
+      <section><h2><span class="n">5</span>Node sensitivity</h2><p class="lead">How much the clustering depends on each tag.</p><div data-slot="sens"></div></section>
+      <section><h2><span class="n">6</span>All nodes and edges</h2><details><summary>Nodes</summary><div data-slot="nodes"></div></details><details><summary>Edges</summary><div data-slot="edges"></div></details></section>
+      <section><h2><span class="n">7</span>Export</h2><div data-slot="exports"></div></section></div>`}
+};
+
+// ============================================================ wiring
+function fill(slot){document.querySelectorAll(`[data-slot="${slot}"]`).forEach(el=>FILL[slot]&&FILL[slot](el))}
+function refresh(opts={}){
+  document.querySelectorAll('[data-slot]').forEach(el=>{const s=el.dataset.slot;if(s==='graph'||(s==='controls'&&!opts.controls))return;FILL[s]&&FILL[s](el)});
+  updateGraph(opts.relayout);
+  const v=VARIANTS[cur()];if(v.refresh)v.refresh();
+  document.querySelectorAll('[data-sel]').forEach(a=>a.onclick=()=>select(a.dataset.sel,a.dataset.id));
+}
+function recompute(controls){buildNetwork();refresh({relayout:true,controls})}
+let timer;function recomputeSoon(){clearTimeout(timer);timer=setTimeout(()=>recompute(false),180)}
+function select(type,id){S.selection=type?{type,id}:null;refresh()}
+function wireTabs(root){root.querySelectorAll('[data-tabs]').forEach(t=>{const bs=t.querySelectorAll(':scope > nav [data-tab]');
+  bs.forEach(b=>b.onclick=()=>{bs.forEach(x=>x.classList.toggle('on',x===b));t.querySelectorAll(':scope > [data-panel]').forEach(p=>p.hidden=p.dataset.panel!==b.dataset.tab)})})}
+
+const KEYS=Object.keys(VARIANTS);
+const cur=()=>{const v=new URLSearchParams(location.search).get('variant');return KEYS.includes(v)?v:'A'};
+function mount(){
+  const v=VARIANTS[cur()],app=document.getElementById('app');
+  app.innerHTML=v.html;wireTabs(app);if(v.after)v.after();
+  document.getElementById('sw-label').textContent=`${cur()} · ${v.name}`;
+  if(cy){cy.destroy();cy=null}
+  refresh({relayout:true,controls:true});
+}
+function go(d){const i=(KEYS.indexOf(cur())+d+KEYS.length)%KEYS.length,u=new URL(location.href);u.searchParams.set('variant',KEYS[i]);history.replaceState(null,'',u);mount()}
+document.getElementById('sw-prev').onclick=()=>go(-1);
+document.getElementById('sw-next').onclick=()=>go(1);
+addEventListener('keydown',e=>{if(e.target.closest('input,textarea,select,[contenteditable]'))return;if(e.key==='ArrowLeft')go(-1);if(e.key==='ArrowRight')go(1)});
+
+buildNetwork();mount();
+</script>
+</body>
+</html>
