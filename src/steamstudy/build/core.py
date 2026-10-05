@@ -112,7 +112,8 @@ def build(
     apps = _read_histories(snapshot, listing, window, parse_errors)
     scores = {a: r.score for a, r in apps.items() if r.score is not None}
     tag_source = T.of(meta)
-    games = {a: read_game(snapshot, a, apps[a].listing_name or "", parse_errors, tag_source) for a in scores}
+    games = {a: read_game(snapshot, a, apps[a].listing_name or "", parse_errors, tag_source, result.warnings)
+             for a in scores}
 
     if parse_errors and not allow_parse_errors:
         raise BuildFailed(f"{len(parse_errors)} parse error(s); see parse_errors.csv", parse_errors)
@@ -199,7 +200,8 @@ def _steamdb_rows(snapshot: SnapshotLike, games: dict[int, Game], members: list[
                   parse_errors_allowed: bool, warnings: list[str]) -> list[dict[str, Any]]:
     rows = []
     for appid in members:
-        resp = snapshot.response(f"steamdb/app/{appid}.html.gz")
+        key = T.steamdb_request(appid).request_key
+        resp = snapshot.response(key)
         if resp is None or resp.outcome != "ok":
             continue
         try:
@@ -207,10 +209,9 @@ def _steamdb_rows(snapshot: SnapshotLike, games: dict[int, Game], members: list[
         except ParseError as exc:
             warnings.append(f"SteamDB page for appid {appid} not readable: {exc}")
             continue
-        game = games[appid]
-        store_ids = [t.tag_id for t in (game.page.tags if game.page is not None else game.tags)]
+        store_ids = [t.tag_id for t in games[appid].store_tags]
         steamdb_ids = [t for t, _ in steamdb]
-        entry = snapshot.entry(f"steamdb/app/{appid}.html.gz")
+        entry = snapshot.entry(key)
         rows.append({
             "appid": appid, "name": games[appid].name, "steamdb_batch": entry.batch if entry else "",
             "store_tag_ids": store_ids, "steamdb_tag_ids": steamdb_ids, "steamdb_tags": [n for _, n in steamdb],

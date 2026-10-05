@@ -121,10 +121,11 @@ def run_collect(
             raise CollectRefused("no open Snapshot to run this stage on; start one with --mode test|full")
         if mode is None:
             raise CollectRefused("--mode test|full is required to start a new Snapshot")
+        tag_source = tag_source or T.STEAM
         _check_gate(config, mode)
-        _check_tag_source(config, tag_source or T.STEAM)
+        _check_tag_source(config, tag_source)
         store, meta = _create(root, config, mode, snapshot_id, today or dt.datetime.now(dt.UTC).date(), now,
-                              tag_source or T.STEAM)
+                              tag_source)
     else:
         store = SnapshotStore(store_path)
         meta = store.load_meta()
@@ -135,7 +136,7 @@ def run_collect(
                 raise CollectRefused(f"Snapshot {meta['id']} is closed; only --repair and collect steamdb may change it")
             if tag_source is not None and T.of(meta) != tag_source:
                 raise CollectRefused(f"Snapshot {meta['id']} takes its tags from {T.of(meta)}, not {tag_source}; "
-                                     "the tag source is fixed when a Snapshot is created")
+                                     "the Tag Source is fixed when a Snapshot is created")
             _check_gate(config, meta["mode"])
             _check_tag_source(config, T.of(meta))
         except CollectRefused:
@@ -193,7 +194,7 @@ def _check_gate(config: Config, mode: str) -> None:
 def _check_tag_source(config: Config, source: str) -> None:
     if source == T.STEAMDB and not config.collection.steamdb_permission.reference.strip():
         raise CollectRefused("collection.toml records no SteamDB permission reference: "
-                             "the steamdb tag source is disabled")
+                             "the steamdb Tag Source is disabled")
 
 
 def _create(
@@ -574,7 +575,8 @@ def run_steamdb(
         started = utc_now()
         outcomes: Counter[str] = Counter()
         for appid in sorted(members):
-            outcomes[fetcher.fetch(T.steamdb_key(appid), f"{T.STEAMDB_URL}/app/{appid}/", force=True).outcome] += 1
+            request = T.steamdb_request(appid)
+            outcomes[fetcher.fetch(request.request_key, request.url, force=True).outcome] += 1
         record = {"batch": batch, "build_id": folder.name, "permission_reference": permission.reference,
                   "permission_date": permission.date, "started": started, "ended": utc_now(),
                   "apps": len(members), "outcomes": dict(outcomes)}

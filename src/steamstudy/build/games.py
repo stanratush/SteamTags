@@ -58,6 +58,11 @@ class Game:
         return self.has_store_data or self.metadata_source == "manual"
 
     @property
+    def store_tags(self) -> tuple[StoreTag, ...]:
+        """The tags the store page displays, whatever the Tag Source (manual tags when there is no page)."""
+        return self.page.tags if self.page is not None else self.tags
+
+    @property
     def tag_ids(self) -> set[int]:
         return {t.tag_id for t in self.tags}
 
@@ -77,7 +82,7 @@ def read_vocabulary(snapshot: SnapshotLike) -> TagVocabulary | None:
 
 
 def read_game(snapshot: SnapshotLike, appid: int, fallback_name: str, parse_errors: list[dict[str, Any]],
-              tag_source: str = T.STEAM) -> Game:
+              tag_source: str, warnings: list[str]) -> Game:
     page_key, details_key = f"store/page/{appid}.html.gz", f"store/appdetails/{appid}.json.gz"
     page_resp, details_resp = snapshot.response(page_key), snapshot.response(details_key)
     game = Game(appid, fallback_name, page_resp.outcome if page_resp else "missing",
@@ -98,7 +103,7 @@ def read_game(snapshot: SnapshotLike, appid: int, fallback_name: str, parse_erro
         except ParseError as exc:
             game.details_outcome = "parse_error"
             parse_errors.append({"appid": appid, "source": "appdetails", "request_key": details_key, "error": str(exc)})
-    game.tags = T.read_tags(snapshot, appid, tag_source, game.page, parse_errors)
+    game.tags = T.read_tags(snapshot, appid, tag_source, game.page, parse_errors, warnings)
     if game.page is not None:
         game.adult_only = game.page.adult_only
     if game.details is not None:

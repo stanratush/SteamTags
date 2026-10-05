@@ -10,7 +10,7 @@ from pathlib import Path
 from steamstudy import __version__
 
 STAGES = ("pool", "history", "store", "taglist")
-TAG_SOURCES = ("steam", "steamdb")
+TAG_SOURCES = ("steam", "steamdb")  # = tag_source.TAG_SOURCES, kept here so --help imports nothing heavy
 
 
 def _parser() -> argparse.ArgumentParser:

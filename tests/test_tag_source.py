@@ -156,6 +156,7 @@ def test_an_app_without_a_steamdb_page_has_no_tags(tmp_path, config):
     snap = _steamdb_snapshot(tmp_path / "snap", steamdb_outcomes={2: "not_found"})
     result = build(Snapshot(snap), config, "B-steamdb")
     assert result.games[2].tags == ()
+    assert "no SteamDB page for appid 2 (not_found): it has no tags" in result.warnings
     rows = {r["reason"]: r for r in result.rows("reports/exclusions.csv") if r["appid"] == 2}
     assert "SteamDB" in rows["no_tags"]["detail"]
 

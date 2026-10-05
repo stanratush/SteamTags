@@ -35,26 +35,27 @@ def of(meta: Mapping[str, Any]) -> str:
     return str(meta.get("tag_source") or STEAM)
 
 
-def steamdb_key(appid: int) -> str:
-    return f"steamdb/app/{appid}.html.gz"
+def steamdb_request(appid: int) -> TagRequest:
+    """An app's SteamDB page: the Tag Source page of a `steamdb` Snapshot, and the cross-check's page."""
+    return TagRequest(f"steamdb/app/{appid}.html.gz", f"{STEAMDB_URL}/app/{appid}/", parse_steamdb_app)
 
 
 def tag_request(source: str, appid: int) -> TagRequest | None:
     """What Collect fetches for this app's tags beyond the store page (nothing for `steam`)."""
-    if source == STEAMDB:
-        return TagRequest(steamdb_key(appid), f"{STEAMDB_URL}/app/{appid}/", parse_steamdb_app)
-    return None
+    return steamdb_request(appid) if source == STEAMDB else None
 
 
 def read_tags(snapshot: SnapshotLike, appid: int, source: str, page: StorePage | None,
-              parse_errors: list[dict[str, Any]]) -> tuple[StoreTag, ...]:
+              parse_errors: list[dict[str, Any]], warnings: list[str]) -> tuple[StoreTag, ...]:
     """The app's tags from its Tag Source, in display order; () when the source shows none.
-    An unreadable SteamDB page is added to `parse_errors`."""
+    An unreadable SteamDB page is added to `parse_errors`; a SteamDB page that was never collected
+    (not found, skipped, missing) adds a warning, since the app then has no tags."""
     if source != STEAMDB:
         return page.tags if page is not None else ()
-    key = steamdb_key(appid)
+    key = steamdb_request(appid).request_key
     resp = snapshot.response(key)
     if resp is None or resp.outcome not in ("ok", "parse_failure"):
+        warnings.append(f"no SteamDB page for appid {appid} ({resp.outcome if resp else 'missing'}): it has no tags")
         return ()
     try:
         if resp.outcome == "parse_failure":
