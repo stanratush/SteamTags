@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from steamstudy import tag_source as T
 from steamstudy.build.parse import (
     AppDetails,
     Genre,
@@ -44,6 +45,7 @@ class Game:
     adult_only: bool = False
     descriptor_ids: tuple[int, ...] = ()
     metadata_source: str = "store"
+    tag_source: str = T.STEAM  # the Snapshot's Tag Source (manual entries replace its tags, not this)
     manual_entry: dict[str, Any] | None = None
     citations: list[dict[str, Any]] = field(default_factory=list)
 
@@ -74,11 +76,12 @@ def read_vocabulary(snapshot: SnapshotLike) -> TagVocabulary | None:
     return parse_tag_list(resp.body)
 
 
-def read_game(snapshot: SnapshotLike, appid: int, fallback_name: str, parse_errors: list[dict[str, Any]]) -> Game:
+def read_game(snapshot: SnapshotLike, appid: int, fallback_name: str, parse_errors: list[dict[str, Any]],
+              tag_source: str = T.STEAM) -> Game:
     page_key, details_key = f"store/page/{appid}.html.gz", f"store/appdetails/{appid}.json.gz"
     page_resp, details_resp = snapshot.response(page_key), snapshot.response(details_key)
     game = Game(appid, fallback_name, page_resp.outcome if page_resp else "missing",
-                details_resp.outcome if details_resp else "missing")
+                details_resp.outcome if details_resp else "missing", tag_source=tag_source)
     if page_resp is not None and page_resp.outcome == "ok":
         try:
             game.page = parse_store_page(page_resp.body or b"")
@@ -95,8 +98,8 @@ def read_game(snapshot: SnapshotLike, appid: int, fallback_name: str, parse_erro
         except ParseError as exc:
             game.details_outcome = "parse_error"
             parse_errors.append({"appid": appid, "source": "appdetails", "request_key": details_key, "error": str(exc)})
+    game.tags = T.read_tags(snapshot, appid, tag_source, game.page, parse_errors)
     if game.page is not None:
-        game.tags = game.page.tags
         game.adult_only = game.page.adult_only
     if game.details is not None:
         d = game.details
@@ -175,8 +178,8 @@ def apply_manual_entry(game: Game, entry: dict[str, Any]) -> None:
     else:
         if not (game.has_store_data and not game.tags):
             raise ManualMetadataError(
-                f"tags-only Manual Metadata Entry for appid {game.appid}: allowed only for a game whose store page "
-                f"shows no tags ({game.store_detail()}, {len(game.tags)} tags)")
+                f"tags-only Manual Metadata Entry for appid {game.appid}: allowed only for a game whose "
+                f"{T.LABELS[game.tag_source]} shows no tags ({game.store_detail()}, {len(game.tags)} tags)")
         game.tags = tuple(StoreTag(int(t["id"]), str(t["name"]), 0, i)
                           for i, t in enumerate(entry["tags"]["value"], start=1))
         game.metadata_source = "manual_tags"

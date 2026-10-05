@@ -10,6 +10,7 @@ from pathlib import Path
 from steamstudy import __version__
 
 STAGES = ("pool", "history", "store", "taglist")
+TAG_SOURCES = ("steam", "steamdb")
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -24,6 +25,11 @@ def _parser() -> argparse.ArgumentParser:
         "stage", nargs="?", choices=(*STAGES, "steamdb"), help="run one stage only, or the SteamDB cross-check"
     )
     c.add_argument("--mode", choices=("test", "full"), help="test or full Snapshot (required for a new Snapshot)")
+    c.add_argument(
+        "--tag-source", choices=TAG_SOURCES,
+        help="where a new Snapshot takes its tags from: the Steam store page (steam, the default) or SteamDB "
+             "(steamdb, needs the SteamDB permission reference); fixed once the Snapshot exists",
+    )
     c.add_argument("--snapshot", help="Snapshot id to resume (default: the latest)")
     c.add_argument("--build", help="Build id (collect steamdb only)")
     c.add_argument("--repair", type=int, metavar="APPID", help="refetch one app into a closed Snapshot")
@@ -71,7 +77,8 @@ def _collect(args: argparse.Namespace) -> int:
             repair = run_repair(args.root, config, args.repair, args.reason or "", snapshot_id=args.snapshot)
             log.info("repaired AppID %s: %s", args.repair, repair["outcomes"])
             return 0
-        snapshot_id = run_collect(args.root, config, mode=args.mode, snapshot_id=args.snapshot, stage=args.stage)
+        snapshot_id = run_collect(args.root, config, mode=args.mode, snapshot_id=args.snapshot, stage=args.stage,
+                                  tag_source=args.tag_source)
     except (CollectRefused, ConfigError) as exc:
         log.error("collection refused: %s", exc)
         return 2

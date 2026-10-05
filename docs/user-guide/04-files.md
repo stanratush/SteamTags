@@ -70,7 +70,7 @@ One row is one field of one Manual Metadata Entry, with the supplied value, its 
 
 ### `steamdb_crosscheck.csv`
 
-One row is one Top-100 game with a SteamDB page in the Snapshot, comparing its store tags with the SteamDB tags. It exists only after a permitted SteamDB batch, joins by `appid`, and is a cross-check only: SteamDB values never enter a dataset.
+One row is one Top-100 game with a SteamDB page in the Snapshot, comparing its store tags with the SteamDB tags. It exists only after a permitted SteamDB batch or in a Snapshot whose tag source is SteamDB, and joins by `appid`. With the store page as tag source it is a cross-check only: SteamDB values never enter a dataset. With SteamDB as tag source, the datasets use the SteamDB tags and this file shows what the store page would have given.
 
 ### `reports.html`
 
@@ -188,11 +188,11 @@ The zip's metadata: `schema_version`, the full Network State key and its `state_
 
 ### `snapshot.json`
 
-In `snapshots/<snapshot_id>/`: what was collected and how. The id and mode, collection date and Observation Window, per-stage and per-pass times and counts, the request rates actually used, the User-Agent, the age-check birth date, the store-reported country, the `GetTagList` `version_hash`, the collection config hash, the operator-reply and ethics-check references, SteamDB permission and batches, repairs and software versions.
+In `snapshots/<snapshot_id>/`: what was collected and how. The id and mode, collection date and Observation Window, per-stage and per-pass times and counts, the request rates actually used, the User-Agent, the age-check birth date, the store-reported country, the tag source (`steam` or `steamdb`), the `GetTagList` `version_hash`, the collection config hash, the operator-reply and ethics-check references, SteamDB permission and batches, repairs and software versions.
 
 ### `build.json`
 
-In a Build's `datasets/`: the Snapshot id and `build_id`, the build config hash with a copy of every config file the Build read and the config changelog, the Source Substitutions used, the attribution line, the network defaults and seed, software versions, the mode, whether parse errors were allowed (and how many), the Manual Metadata Entries and Exclusion Overrides used, dataset sizes and any warnings.
+In a Build's `datasets/`: the Snapshot id and `build_id`, the build config hash with a copy of every config file the Build read and the config changelog, the Source Substitutions used, the Snapshot's tag source, the attribution line, the network defaults and seed, software versions, the mode, whether parse errors were allowed (and how many), the Manual Metadata Entries and Exclusion Overrides used, dataset sizes and any warnings.
 
 ### `analysis.json`
 

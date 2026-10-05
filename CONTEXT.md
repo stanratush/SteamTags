@@ -31,7 +31,11 @@ _Avoid_: launch date, store release date (stored only as metadata)
 The number of post-release months inside the **Observation Window** that have a **Monthly Avg. Players** value. Reported for every game; no minimum is applied when ranking.
 
 **Tag**:
-A user-defined Steam tag. A game **has** a tag if the tag appears anywhere in its displayed store tag list (Steam displays at most 20), regardless of rank or votes.
+A user-defined Steam tag. A game **has** a tag if the tag appears anywhere in the tag list of its **Tag Source** (the store page displays at most 20), regardless of rank or votes.
+
+**Tag Source**:
+Where a **Snapshot** takes every game's tags from, chosen when the Snapshot is created and fixed after: the Steam store page's displayed tag list (`steam`, the default) or the game's SteamDB page (`steamdb`, only with a recorded SteamDB permission). Store details (app type, **Genres**, Adult Only, release date) always come from the Steam store, whatever the Tag Source.
+_Avoid_: tag provider, scraper
 
 **Genre**:
 A value of the Steam store's developer-assigned genre field (e.g. Action, RPG, Strategy). Distinct from a **Tag** with the same name.
@@ -126,7 +130,7 @@ Tags and store details supplied by the researcher for a game the Steam store can
 _Avoid_: manual override, hand-filled data
 
 **Snapshot**:
-Everything collected in one collection: every raw response from Steam Charts and the Steam store, with a fixed collection date (the day collection starts). Fixes the **Observation Window**. Either a test Snapshot (a small subset) or a full Snapshot. Never changed after collection ends, except by a logged repair.
+Everything collected in one collection: every raw response from Steam Charts, the Steam store and (for a SteamDB **Tag Source**) SteamDB, with a fixed collection date (the day collection starts). Fixes the **Observation Window**. Either a test Snapshot (a small subset) or a full Snapshot. Never changed after collection ends, except by a logged repair.
 _Avoid_: run, scrape, crawl
 
 **Build**:

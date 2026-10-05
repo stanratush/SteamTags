@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from steamstudy import tag_source as T
 from steamstudy.build.games import Game
 from steamstudy.build.parse import StoreTag
 from steamstudy.config import ExclusionConfig, TagList
@@ -140,7 +141,7 @@ def evaluate(
         if add(Match("app_type", game.app_type, ((f"app_type={game.app_type}", None),))):
             return Evaluation(tuple(matches), tuple(overridden), (), {})
     if not game.tags:
-        add(Match("no_tags", "the store page displays no tags", (("no_tags", None),)))
+        add(Match("no_tags", f"the {T.LABELS[game.tag_source]} displays no tags", (("no_tags", None),)))
 
     hentai, hentai_near = _tag_rule("adult_content", game, cfg.adult_tags, cfg)
     near_misses += hentai_near

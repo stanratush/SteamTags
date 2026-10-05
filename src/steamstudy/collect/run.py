@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from steamstudy import __version__
+from steamstudy import tag_source as T
 from steamstudy.build.parse import ParseError, parse_steamcharts_app, parse_store_page, parse_tag_list, parse_top_page
 from steamstudy.build.pool import pool_appids, skipped_app_rows
 from steamstudy.collect.progress import Progress
@@ -95,6 +96,7 @@ def run_collect(
     mode: str | None = None,
     snapshot_id: str | None = None,
     stage: str | None = None,
+    tag_source: str | None = None,
     transport: Transport | None = None,
     clock: Clock | None = None,
     today: dt.date | None = None,
@@ -102,10 +104,14 @@ def run_collect(
 ) -> str:
     """Run every stage (or one) on a new or resumed Snapshot; returns the Snapshot id.
 
-    Raises `CollectRefused` before any request, and `HardStop` when collection must stop.
+    `tag_source` (`steam` or `steamdb`) is fixed when the Snapshot is created; None keeps a resumed Snapshot's
+    source, or picks `steam` for a new one. Raises `CollectRefused` before any request, and `HardStop` when
+    collection must stop.
     """
     if UA_PLACEHOLDER in config.collection.user_agent:
         raise CollectRefused("collection.toml: fill in the contact details in contact.user_agent first")
+    if tag_source is not None and tag_source not in T.TAG_SOURCES:
+        raise CollectRefused(f"unknown tag source {tag_source!r}: use one of {', '.join(T.TAG_SOURCES)}")
 
     if snapshot_id is None:
         snapshot_id = latest_snapshot_id(root, mode=mode, open_only=True)
@@ -116,7 +122,9 @@ def run_collect(
         if mode is None:
             raise CollectRefused("--mode test|full is required to start a new Snapshot")
         _check_gate(config, mode)
-        store, meta = _create(root, config, mode, snapshot_id, today or dt.datetime.now(dt.UTC).date(), now)
+        _check_tag_source(config, tag_source or T.STEAM)
+        store, meta = _create(root, config, mode, snapshot_id, today or dt.datetime.now(dt.UTC).date(), now,
+                              tag_source or T.STEAM)
     else:
         store = SnapshotStore(store_path)
         meta = store.load_meta()
@@ -125,7 +133,11 @@ def run_collect(
                 raise CollectRefused(f"Snapshot {meta['id']} is a {meta['mode']} Snapshot, not {mode}")
             if meta.get("closed"):
                 raise CollectRefused(f"Snapshot {meta['id']} is closed; only --repair and collect steamdb may change it")
+            if tag_source is not None and T.of(meta) != tag_source:
+                raise CollectRefused(f"Snapshot {meta['id']} takes its tags from {T.of(meta)}, not {tag_source}; "
+                                     "the tag source is fixed when a Snapshot is created")
             _check_gate(config, meta["mode"])
+            _check_tag_source(config, T.of(meta))
         except CollectRefused:
             store.close()
             raise
@@ -135,9 +147,9 @@ def run_collect(
     ctx = Context(store, fetcher, config, meta)
     ctx.save()
     resumed = bool(meta["stages"])
-    log.info("%s %s Snapshot %s in %s (Observation Window %s to %s)", "Resuming" if resumed else "Starting",
-             meta["mode"], meta["id"], store.path, meta["observation_window"]["first"],
-             meta["observation_window"]["last"])
+    log.info("%s %s Snapshot %s in %s (Observation Window %s to %s, tags from %s)",
+             "Resuming" if resumed else "Starting", meta["mode"], meta["id"], store.path,
+             meta["observation_window"]["first"], meta["observation_window"]["last"], T.of(meta))
     try:
         stages = STAGES if stage is None else (stage,)
         for name in stages:
@@ -178,8 +190,15 @@ def _check_gate(config: Config, mode: str) -> None:
         raise CollectRefused("full-run gate: collection.toml must record " + " and ".join(missing))
 
 
+def _check_tag_source(config: Config, source: str) -> None:
+    if source == T.STEAMDB and not config.collection.steamdb_permission.reference.strip():
+        raise CollectRefused("collection.toml records no SteamDB permission reference: "
+                             "the steamdb tag source is disabled")
+
+
 def _create(
-    root: Path, config: Config, mode: str, snapshot_id: str | None, today: dt.date, now: Callable[[], dt.datetime] | None
+    root: Path, config: Config, mode: str, snapshot_id: str | None, today: dt.date,
+    now: Callable[[], dt.datetime] | None, tag_source: str,
 ) -> tuple[SnapshotStore, dict[str, Any]]:
     started = (now or (lambda: dt.datetime.now(dt.UTC)))()
     snapshot_id = snapshot_id or f"{started.strftime('%Y%m%dT%H%M%SZ')}-{mode}"
@@ -196,6 +215,7 @@ def _create(
         "user_agent": c.user_agent,
         "age_check_birth_date": age_check_birth_date(today).isoformat(),
         "store_country": None,
+        "tag_source": tag_source,
         "taglist_version_hash": None,
         "extra_appids": list(c.edge_case_appids) if mode == "test" else [],
         "stages": {},
@@ -408,7 +428,9 @@ def stage_store(ctx: Context) -> None:
     stage_taglist(ctx)
     _stage_start(ctx, "store")
     appids = scored_appids(ctx.store, ctx.meta)
-    log.info("store: store page and appdetails for each of %s scored apps", f"{len(appids):,}")
+    source = T.of(ctx.meta)
+    log.info("store: store page and appdetails%s for each of %s scored apps",
+             " (and the SteamDB page for its tags)" if source == T.STEAMDB else "", f"{len(appids):,}")
     progress = Progress("store", len(appids))
     outcomes: Counter[str] = Counter()
     for appid in appids:
@@ -422,6 +444,9 @@ def stage_store(ctx: Context) -> None:
                                     f"{STORE}/api/appdetails?appids={appid}&l=english")
         outcomes[f"page {page.outcome}"] += 1
         outcomes[f"appdetails {details.outcome}"] += 1
+        if (request := T.tag_request(source, appid)) is not None:
+            tags = ctx.fetcher.fetch(request.request_key, request.url, check=_parses(request.parser))
+            outcomes[f"{source} {tags.outcome}"] += 1
         progress.step(fetched=ctx.fetcher.network_requests > before)
     progress.finish(_outcome_summary(outcomes))
     _stage_end(ctx, "store", apps=len(appids))
@@ -461,8 +486,9 @@ def run_repair(
     transport: Transport | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
-    """Refetch one app into a closed Snapshot (its Steam Charts page, and its store data if it is scored),
-    logged as a repair in `snapshot.json`. The only change a closed Snapshot accepts besides SteamDB batches."""
+    """Refetch one app into a closed Snapshot (its Steam Charts page, and its store data and Tag Source page
+    if it is scored), logged as a repair in `snapshot.json`. The only change a closed Snapshot accepts besides
+    SteamDB batches."""
     if not reason or not reason.strip():
         raise CollectRefused("--repair needs a written --reason")
     if UA_PLACEHOLDER in config.collection.user_agent:
@@ -477,6 +503,7 @@ def run_repair(
             raise CollectRefused(f"Snapshot {snapshot_id} is still open: rerun collect to resume instead of repairing")
         if appid not in pool_appids(store):
             raise CollectRefused(f"AppID {appid} is not in Snapshot {snapshot_id}'s Candidate Pool")
+        _check_tag_source(config, T.of(meta))
         batch = f"repair-{len(meta['repairs']) + 1}"
         fetcher = make_fetcher(store, config, meta, transport=transport, clock=clock, batch=batch)
         started = utc_now()
@@ -485,10 +512,13 @@ def run_repair(
                                 check=_parses(parse_steamcharts_app), force=True, skip_on_failure=True)
         outcomes[history.request_key] = history.outcome
         if appid in scored_appids(store, meta) or store.latest(f"store/page/{appid}.html.gz") is not None:
-            for key, url, check in (
+            requests: list[tuple[str, str, Callable[[bytes], bool] | None]] = [
                 (f"store/page/{appid}.html.gz", f"{STORE}/app/{appid}/?l=english", _parses(parse_store_page)),
                 (f"store/appdetails/{appid}.json.gz", f"{STORE}/api/appdetails?appids={appid}&l=english", None),
-            ):
+            ]
+            if (request := T.tag_request(T.of(meta), appid)) is not None:
+                requests.append((request.request_key, request.url, _parses(request.parser)))
+            for key, url, check in requests:
                 outcomes[key] = fetcher.fetch(key, url, check=check, force=True).outcome
         repair = {"appid": appid, "reason": reason.strip(), "batch": batch, "started": started, "ended": utc_now(),
                   "outcomes": outcomes}
@@ -502,8 +532,6 @@ def run_repair(
 
 # ----------------------------------------------------------------------------- SteamDB cross-check
 
-STEAMDB = "https://steamdb.info"
-
 
 def run_steamdb(
     root: Path,
@@ -516,7 +544,8 @@ def run_steamdb(
     """Fetch SteamDB pages for one Build's Top-100 members only, as a logged batch of that Build's Snapshot.
 
     Refuses before any request unless `collection.toml` records a SteamDB permission reference.
-    SteamDB values never enter a dataset; the next Build writes reports/steamdb_crosscheck.csv.
+    SteamDB values never enter a dataset; the next Build writes reports/steamdb_crosscheck.csv. Refused for a
+    Snapshot whose Tag Source is SteamDB, which already has a SteamDB page for every scored app.
     """
     permission = config.collection.steamdb_permission
     if not permission.reference.strip():
@@ -537,12 +566,15 @@ def run_steamdb(
     store = SnapshotStore(snapshots_dir(root) / snapshot_id)
     meta = store.load_meta()
     try:
+        if T.of(meta) == T.STEAMDB:
+            raise CollectRefused(f"Snapshot {snapshot_id} already takes its tags from SteamDB: every scored app has "
+                                 "a SteamDB page, and each Build writes the cross-check")
         batch = f"steamdb-{len(meta['steamdb']['batches']) + 1}"
         fetcher = make_fetcher(store, config, meta, transport=transport, clock=clock, batch=batch)
         started = utc_now()
         outcomes: Counter[str] = Counter()
         for appid in sorted(members):
-            outcomes[fetcher.fetch(f"steamdb/app/{appid}.html.gz", f"{STEAMDB}/app/{appid}/", force=True).outcome] += 1
+            outcomes[fetcher.fetch(T.steamdb_key(appid), f"{T.STEAMDB_URL}/app/{appid}/", force=True).outcome] += 1
         record = {"batch": batch, "build_id": folder.name, "permission_reference": permission.reference,
                   "permission_date": permission.date, "started": started, "ended": utc_now(),
                   "apps": len(members), "outcomes": dict(outcomes)}

@@ -130,7 +130,7 @@ PARSE_ERRORS = declare(
     "Every parse error in the Snapshot. Any row fails the Build unless --allow-parse-errors was passed.",
     [
         C("appid", "int", "Steam AppID; empty for a listing page."),
-        C("source", "str", "Which response: top_page, steamcharts_app, store_page or appdetails."),
+        C("source", "str", "Which response: top_page, steamcharts_app, store_page, appdetails or steamdb_page."),
         C("request_key", "str", "The response's path in the Snapshot's raw archive."),
         C("error", "str", "What the parser could not read."),
     ],
@@ -351,8 +351,8 @@ MANUAL_METADATA = declare(
 
 STEAMDB_CROSSCHECK = declare(
     "steamdb_crosscheck.csv",
-    "Store vs SteamDB tags for each Top-100 game with a SteamDB page in the Snapshot. A cross-check only: "
-    "SteamDB values never enter a dataset.",
+    "Store vs SteamDB tags for each Top-100 game with a SteamDB page in the Snapshot. In a Snapshot whose Tag "
+    "Source is the store page it is a cross-check only: SteamDB values never enter a dataset.",
     [
         C("appid", "int", "Steam AppID."),
         C("name", "str", "Game name."),

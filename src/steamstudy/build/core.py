@@ -13,6 +13,7 @@ from importlib import metadata
 from typing import Any
 
 from steamstudy import __version__
+from steamstudy import tag_source as T
 from steamstudy.build import assemble as A
 from steamstudy.build.assemble import GameTable
 from steamstudy.build.datasets import TOP_N, RankedDataset, rank_dataset
@@ -46,7 +47,8 @@ from steamstudy.config import Config
 from steamstudy.export import schema as S
 from steamstudy.export.schema import DATASET_KEYS, FileSchema
 
-ATTRIBUTION = "Player data: Steam Charts; tags/metadata: Steam store"
+ATTRIBUTION = {T.STEAM: "Player data: Steam Charts; tags/metadata: Steam store",
+               T.STEAMDB: "Player data: Steam Charts; tags: SteamDB; metadata: Steam store"}
 SOURCE_SUBSTITUTIONS = [
     {"source": "Steam store page (displayed tag list, Adult Only notice)", "confirmed": "2026-10-03"},
     {"source": "Steam store appdetails (type, name, is_free, genres, release date, content descriptors)",
@@ -109,7 +111,8 @@ def build(
 
     apps = _read_histories(snapshot, listing, window, parse_errors)
     scores = {a: r.score for a, r in apps.items() if r.score is not None}
-    games = {a: read_game(snapshot, a, apps[a].listing_name or "", parse_errors) for a in scores}
+    tag_source = T.of(meta)
+    games = {a: read_game(snapshot, a, apps[a].listing_name or "", parse_errors, tag_source) for a in scores}
 
     if parse_errors and not allow_parse_errors:
         raise BuildFailed(f"{len(parse_errors)} parse error(s); see parse_errors.csv", parse_errors)
@@ -204,7 +207,8 @@ def _steamdb_rows(snapshot: SnapshotLike, games: dict[int, Game], members: list[
         except ParseError as exc:
             warnings.append(f"SteamDB page for appid {appid} not readable: {exc}")
             continue
-        store_ids = [t.tag_id for t in games[appid].tags]
+        game = games[appid]
+        store_ids = [t.tag_id for t in (game.page.tags if game.page is not None else game.tags)]
         steamdb_ids = [t for t, _ in steamdb]
         entry = snapshot.entry(f"steamdb/app/{appid}.html.gz")
         rows.append({
@@ -397,11 +401,12 @@ def _build_json(
         "collection_config_hash": meta.get("collection_config_hash"),
         "taglist_version_hash": meta.get("taglist_version_hash"),
         "store_country": meta.get("store_country"),
+        "tag_source": T.of(meta),
         "build_config_hash": config.build_config_hash,
         "config": {name: config.files[name] for name in sorted(config.files) if name != "collection"},
         "changelog": config.changelog_entries(),
         "source_substitutions": SOURCE_SUBSTITUTIONS,
-        "attribution": ATTRIBUTION,
+        "attribution": ATTRIBUTION[T.of(meta)],
         "network_defaults": {
             "min_games_per_tag": n.min_games_per_tag,
             "min_shared_games": n.min_shared_games,

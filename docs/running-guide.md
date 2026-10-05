@@ -42,13 +42,20 @@ Fill in `contact.user_agent` in `collection.toml` before collecting: Collect ref
 
 ## Collect
 
-Collect fetches every raw response into a Snapshot under `snapshots/<snapshot_id>/`. It runs four stages strictly in order: `pool` (the Steam Charts `/top` listing, N passes), `history` (one Steam Charts page per pool app), `store` (store page and `appdetails`, only for apps that have a score) and `taglist` (`GetTagList`, fetched when the store stage starts).
+Collect fetches every raw response into a Snapshot under `snapshots/<snapshot_id>/`. It runs four stages strictly in order: `pool` (the Steam Charts `/top` listing, N passes), `history` (one Steam Charts page per pool app), `store` (store page and `appdetails`, only for apps that have a score, plus the SteamDB page when the tag source is SteamDB) and `taglist` (`GetTagList`, fetched when the store stage starts).
 
 ```bash
 uv run steamstudy collect --mode test
 ```
 
-runs every stage on a new test Snapshot, or resumes the latest open one. `--snapshot <id>` picks a Snapshot. `uv run steamstudy collect pool` (or `history`, `store`, `taglist`) runs one stage on the open Snapshot; a stage refuses to start before the previous stages have finished.
+runs every stage on a new test Snapshot, or resumes the latest open one. `--snapshot <id>` picks a Snapshot.
+
+**Tag source.** `--tag-source steam` (the default) takes every game's tags from its Steam store page. `--tag-source steamdb` takes them from each scored app's SteamDB page instead, fetched in the store stage at the SteamDB rate; the store page and `appdetails` are still fetched, because app type, genres, the Adult Only notice and the "store data unavailable" rule come from the store. SteamDB shows every tag a game has, not only the store's top 20, so the two sources give different tag sets. The choice is recorded in `snapshot.json` and `build.json` and cannot change once a Snapshot exists: resuming with the other value is refused. `steamdb` is refused before any request unless `collection.toml` records the SteamDB permission reference.
+
+```bash
+uv run steamstudy collect --mode test --tag-source steamdb
+```
+ `uv run steamstudy collect pool` (or `history`, `store`, `taglist`) runs one stage on the open Snapshot; a stage refuses to start before the previous stages have finished.
 
 **Resuming.** Rerun the same command. Requests that already have a final outcome (a page, a 404, a missing store page, an age gate, `success: false`, a parse failure) are skipped; requests that failed or were stopped are fetched again. A run that finishes closes the Snapshot; after that it only changes through `--repair` and SteamDB batches.
 
@@ -66,9 +73,9 @@ runs every stage on a new test Snapshot, or resumes the latest open one. `--snap
 uv run steamstudy collect --repair 413150 --reason "store page was mid-update during collection"
 ```
 
-It refetches the app's Steam Charts page and, if the app is scored, its store page and `appdetails`, records the repair in `snapshot.json` and updates `skipped_apps.csv`.
+It refetches the app's Steam Charts page and, if the app is scored, its store page and `appdetails` (and its SteamDB page when the tag source is SteamDB), records the repair in `snapshot.json` and updates `skipped_apps.csv`.
 
-**SteamDB cross-check.** Disabled until `collection.toml` records a SteamDB permission reference. With permission, it fetches pages only for one Build's Top-100 members, as a logged batch; the next Build writes `reports/steamdb_crosscheck.csv`:
+**SteamDB cross-check.** Disabled until `collection.toml` records a SteamDB permission reference. With permission, it fetches pages only for one Build's Top-100 members, as a logged batch; the next Build writes `reports/steamdb_crosscheck.csv`. It is refused for a Snapshot whose tag source is SteamDB: every scored app already has a SteamDB page there, and each Build writes the cross-check on its own:
 
 ```bash
 uv run steamstudy collect steamdb --build 20261005T120000Z-abcdef12
