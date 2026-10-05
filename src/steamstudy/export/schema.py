@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # 1 + the one shared bump for the ticket 25, 27 and 28 overrides (spec)
 
 # Column types and how the writer renders them:
 #   str        as is
@@ -365,6 +365,29 @@ STEAMDB_CROSSCHECK = declare(
         C("same_tag_set", "bool", "Whether both list the same tags."),
     ],
     group="build_reports",
+)
+
+_SKIPPED_COLUMNS = [
+    C("appid", "int", "Steam AppID."),
+    C("name", "str", "Name in the Steam Charts listing; empty for edge cases added outside the listing."),
+    C("url", "str", "The Steam Charts page that could not be collected."),
+    C("reason", "str", "Why it was skipped: failed to load after every retry (with the last error), or not parseable."),
+    C("last_status", "int", "HTTP status of the last attempt; empty for a timeout or connection failure."),
+    C("timestamp", "str", "When the app was skipped (UTC)."),
+]
+
+SKIPPED_APPS_SNAPSHOT = declare(
+    "skipped_apps.csv",
+    "Steam Charts app pages that kept failing to load or parse during collection, so the app was skipped "
+    "instead of stopping collection. Written next to snapshot.json.",
+    _SKIPPED_COLUMNS, group="snapshot",
+)
+
+SKIPPED_APPS = declare(
+    "skipped_apps.csv",
+    "Apps skipped during collection because their Steam Charts page kept failing to load or parse; they have "
+    "no score and cannot rank.",
+    _SKIPPED_COLUMNS, group="build_reports",
 )
 
 # ----------------------------------------------------------------------------- app export (one Network State)

@@ -69,3 +69,17 @@ def pool_appids(snapshot: SnapshotLike) -> list[int]:
     """Every AppID in the stored listing passes, plus the test-mode edge cases."""
     extra = {int(a) for a in snapshot.meta.get("extra_appids", [])}
     return sorted(set(read_listing(snapshot).best_rank) | extra)
+
+
+def skipped_app_rows(snapshot: SnapshotLike) -> list[dict[str, Any]]:
+    """Steam Charts app pages that kept failing to load or parse, and were skipped (outcome `skipped`)."""
+    names = read_listing(snapshot).names
+    rows = []
+    for key in snapshot.keys("steamcharts/app/"):
+        entry = snapshot.entry(key)
+        if entry is None or entry.outcome != "skipped":
+            continue
+        appid = int(key.rsplit("/", 1)[1].split(".", 1)[0])
+        rows.append({"appid": appid, "name": names.get(appid), "url": entry.url, "reason": entry.detail,
+                     "last_status": entry.status, "timestamp": entry.timestamp})
+    return sorted(rows, key=lambda r: r["appid"])

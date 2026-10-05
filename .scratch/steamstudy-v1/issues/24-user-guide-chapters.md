@@ -29,3 +29,4 @@ Spec: [Steam Success Study spec](../../steam-success-study/spec.md): "User Guide
 ## Comments
 
 - 2026-10-04 (agent): Written: docs/user-guide chapters 0-2, 4-6 and appendices A and C (only research-30-verified sources; Steinley band omitted).
+- 2026-10-05 (agent, audit): Audit: every criterion checked against the code and tests; all met.

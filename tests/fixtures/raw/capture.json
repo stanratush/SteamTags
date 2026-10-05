@@ -22,10 +22,11 @@
   },
   "steamcharts/app/749110.html.gz": {
     "url": "https://steamcharts.com/app/749110",
-    "status": 500,
+    "status": 200,
     "final_url": "https://steamcharts.com/app/749110",
     "redirects": [],
-    "content_type": "text/html; charset=utf-8"
+    "content_type": "text/html",
+    "note": "copied from the researcher's test Snapshot 20261005T062954Z-test (fetched 2026-10-05)"
   },
   "steamcharts/app/413150.html.gz": {
     "url": "https://steamcharts.com/app/413150",

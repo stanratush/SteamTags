@@ -100,12 +100,21 @@ class Fetcher:
     network_requests: int = 0
 
     def fetch(
-        self, request_key: str, url: str, *, check: Callable[[bytes], bool] | None = None, force: bool = False
+        self,
+        request_key: str,
+        url: str,
+        *,
+        check: Callable[[bytes], bool] | None = None,
+        force: bool = False,
+        skip_on_failure: bool = False,
     ) -> StoredResponse:
         """Fetch `url` into `request_key`, or return the archived response if it has a final outcome.
 
         `check` is the stage's parser: a response that fails it is a parse-structure failure.
         `force` refetches even a final outcome (only `--repair` uses it).
+        `skip_on_failure`: when the page keeps failing to load (retries exhausted) or cannot be parsed, record
+        the final outcome `skipped` and carry on instead of stopping. Anti-bot signals (403, 429, 503,
+        challenge pages) always stop, whatever this says.
         """
         previous = self.store.latest(request_key)
         if previous is not None and previous.is_final and not force:
@@ -124,13 +133,15 @@ class Fetcher:
             try:
                 raw = self.transport.get(source, url, headers, self.timeout)
             except TransportError as exc:
-                self._retry_or_stop(request_key, url, attempt, None, str(exc))
+                if self._retry_or_give_up(request_key, url, attempt, None, str(exc), skip_on_failure):
+                    return self._skip(request_key, url, None, f"failed to load after {attempt + 1} attempts: {exc}")
                 attempt += 1
                 continue
 
             outcome, detail = classify(request_key, raw)
             if outcome == "retryable_error":
-                self._retry_or_stop(request_key, url, attempt, raw, detail)
+                if self._retry_or_give_up(request_key, url, attempt, raw, detail, skip_on_failure):
+                    return self._skip(request_key, url, raw, f"failed to load after {attempt + 1} attempts: {detail}")
                 attempt += 1
                 continue
             if outcome == "hard_stop":
@@ -140,6 +151,8 @@ class Fetcher:
             if outcome == "ok" and check is not None:
                 if check(raw.body):
                     self._parse_failures_in_a_row = 0
+                elif skip_on_failure:
+                    return self._skip(request_key, url, raw, "parser could not read the expected structure")
                 else:
                     outcome, detail = "parse_failure", "parser could not read the expected structure"
                     self._parse_failures_in_a_row += 1
@@ -158,20 +171,35 @@ class Fetcher:
                 self.clock.sleep(wait)
         self._last_start[policy.name] = self.clock.monotonic()
 
-    def _retry_or_stop(self, key: str, url: str, attempt: int, raw: RawResponse | None, detail: str) -> None:
+    def _retry_or_give_up(self, key: str, url: str, attempt: int, raw: RawResponse | None, detail: str,
+                          skip: bool) -> bool:
+        """Log and wait for the next retry; True when the retries are used up and the caller may skip.
+        Raises HardStop when they are used up and skipping is not allowed."""
+        status = raw.status if raw is not None else None
         if attempt >= len(self.retry_schedule):
+            if skip:
+                return True
             if raw is not None:
                 self._record(key, url, raw, "hard_stop", detail)
             else:
                 self.store.log(LogEntry(key, url, None, None, utc_now(), None, "hard_stop", detail, self.batch))
             raise HardStop(f"gave up after {attempt + 1} attempts: {detail}", key)
-        status = raw.status if raw is not None else None
         self.store.log(
             LogEntry(key, url, status, raw.final_url if raw else None, utc_now(), None, "retryable_error", detail, self.batch)
         )
         delay = self.retry_schedule[attempt]
-        log.warning("retrying %s in %.0f s: %s", key, delay, detail)
+        log.warning("retrying %s in %.0f s (attempt %d of %d): %s", url, delay, attempt + 2,
+                    len(self.retry_schedule) + 1, detail)
         self.clock.sleep(delay)
+        return False
+
+    def _skip(self, key: str, url: str, raw: RawResponse | None, reason: str) -> StoredResponse:
+        log.warning("skipped %s: %s", url, reason)
+        if raw is not None:
+            return self._record(key, url, raw, "skipped", reason)
+        timestamp = utc_now()
+        self.store.log(LogEntry(key, url, None, None, timestamp, None, "skipped", reason, self.batch))
+        return StoredResponse(key, url, None, None, timestamp, None, "skipped", None)
 
     def _record(self, key: str, url: str, raw: RawResponse, outcome: str, detail: str) -> StoredResponse:
         sha = self.store.write_archive(key, raw.body)
@@ -252,6 +280,8 @@ def classify(request_key: str, raw: RawResponse) -> tuple[str, str]:
         if not isinstance(data, dict) or "tags" not in data.get("response", {}):
             return "hard_stop", "GetTagList structure missing"
         return "ok", ""
+    if kind == "steamdb":
+        return ("ok", "") if b'href="/tag/' in raw.body else ("hard_stop", "SteamDB page structure marker missing")
     return "ok", ""
 
 

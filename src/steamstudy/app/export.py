@@ -128,6 +128,7 @@ class OpenedState:
     relayout_positions: Positions = field(default_factory=dict)
     removal_rows: list[dict[str, Any]] = field(default_factory=list)
     recorded_files: dict[str, Any] = field(default_factory=dict)
+    removal_total: int | None = None  # tags in the full run, from export.json (a partial run has fewer rows)
 
     @property
     def state_id_matches(self) -> bool:
@@ -175,6 +176,9 @@ def open_export(data: bytes, *, build_path: str | Path | None = None) -> OpenedS
         raise OpenRefused(f"the state key cannot be read: {exc}") from exc
     opened = OpenedState(path, settings, recorded, str(export.get("layout_source", "default")),
                          int(export.get("schema_version", 0)), recorded_files=dict(export.get("files", {})))
+    status = export.get("removal_sensitivity")
+    if isinstance(status, dict) and "total" in status:
+        opened.removal_total = int(status["total"])
     if opened.layout_source == "relayout" and "nodes.csv" in files:
         for row in _raw_rows(files["nodes.csv"]):
             if row.get("x_global") and row.get("y_global"):

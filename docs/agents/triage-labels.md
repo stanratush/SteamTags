@@ -9,6 +9,9 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 | `ready-for-agent`          | `ready-for-agent`    | Fully specified, ready for an AFK agent  |
 | `ready-for-human`          | `ready-for-human`    | Requires human implementation            |
 | `wontfix`                  | `wontfix`            | Will not be actioned                     |
+| (closed)                   | `done`               | Implemented; every acceptance criterion checked against code and tests |
+
+`done` is this repo's closed state: use it only when every checkbox is met. A ticket with an unmet criterion keeps an open role (`ready-for-agent` or `ready-for-human`) and says why in its Comments.
 
 Record the role on the issue file's `Status:` line (see `issue-tracker.md`). When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
 

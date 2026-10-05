@@ -21,3 +21,4 @@ Spec: [Steam Success Study spec](../../steam-success-study/spec.md): "Package, r
 ## Comments
 
 - 2026-10-04 (agent): Implemented: uv package (Python 3.14, uv.lock), config loader with hashes, export schema + validated CSV writer, CLI stubs, tests incl. the explicit-encoding AST check. Genre Tag ids for Experimental/Sports/Tabletop are unconfirmed (see config/CHANGELOG.md).
+- 2026-10-05 (agent, audit): Audit: every criterion checked against the code and tests; all met.

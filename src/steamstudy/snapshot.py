@@ -18,9 +18,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-# Request outcomes. Final outcomes are skipped on resume; the rest are fetched again.
+# Request outcomes. Final outcomes are not fetched again on resume; the rest are.
+# `skipped`: a Steam Charts app page that kept failing to load or parse (see skipped_apps.csv).
 FINAL_OUTCOMES = frozenset(
-    {"ok", "not_found", "no_store_page", "age_gate", "no_appdetails", "end_of_listing", "parse_failure"}
+    {"ok", "not_found", "no_store_page", "age_gate", "no_appdetails", "end_of_listing", "parse_failure", "skipped"}
 )
 RETRY_OUTCOMES = frozenset({"retryable_error", "hard_stop"})
 

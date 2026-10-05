@@ -98,7 +98,7 @@ A game's position in one Top-100 Dataset, 1 being the highest score. Ranks are o
 
 *Example.* Two games tie on score at ranks 99–100; the one with more `months_observed` takes rank 99. A third game with the same score but fewer months is listed in `ties.csv` at position 101.
 
-*Bounds.* 1–100 (fewer rows only in a test Build whose Eligible Pool is smaller).
+*Bounds.* 1–100. Every dataset of a full Build has exactly 100 rows; a Build whose Eligible Pool is too small fails. Only a test Build may be shorter, with a warning.
 
 *Compare with.* `ties.csv` for the cut at 100.
 
@@ -178,7 +178,7 @@ Where the game stood in Steam Charts' "Top Games" listing, which is sorted by *c
 
 Columns: `section`, `item`, `dataset`, `value`, `note` in `completeness.csv`.
 
-One count per row, showing what the Top 100 was drawn from and why the rest did not reach it: listing rows per pass and AppIDs seen in only one pass; the Candidate Pool size; scored apps and scored apps of type `game`; unscored apps split into no month rows, only Placeholder Rows, or month rows but none in the window (plus Steam Charts 404s); the Placeholder Row count; exclusion counts per rule, overlapping and partitioned by primary reason; and the depth check. Large unscored counts are expected, since the listing includes demos, tools and long-dead apps.
+One count per row, showing what the Top 100 was drawn from and why the rest did not reach it: listing rows per pass and AppIDs seen in only one pass; the Candidate Pool size; scored apps and scored apps of type `game`; unscored apps split into no month rows, only Placeholder Rows, or month rows but none in the window (plus Steam Charts 404s and skipped pages); the Placeholder Row count; exclusion counts per rule, overlapping and partitioned by primary reason; and the depth check. Large unscored counts are expected, since the listing includes demos, tools and long-dead apps.
 
 *Example.* `scoring, unscored_only_placeholder_rows, , 37` means 37 apps in the pool have nothing but Placeholder Rows.
 
@@ -218,9 +218,9 @@ The impact report lets the researcher review each rule before the lists are froz
 
 ### Build diagnostics
 
-Columns: `source`, `request_key`, `error` (`parse_errors.csv`); `kind`, `id`, `app_count`, `in_vocabulary` (`tag_vocabulary.csv`); `entry_kind`, `field`, `value`, `source_url`, `retrieved` (`manual_metadata.csv`); `steamdb_batch`, `store_tag_ids`, `steamdb_tag_ids`, `steamdb_tags`, `only_store_tag_ids`, `only_steamdb_tag_ids`, `same_tag_set` (`steamdb_crosscheck.csv`).
+Columns: `source`, `request_key`, `error` (`parse_errors.csv`); `url`, `reason`, `last_status`, `timestamp` (`skipped_apps.csv`); `kind`, `id`, `app_count`, `in_vocabulary` (`tag_vocabulary.csv`); `entry_kind`, `field`, `value`, `source_url`, `retrieved` (`manual_metadata.csv`); `steamdb_batch`, `store_tag_ids`, `steamdb_tag_ids`, `steamdb_tags`, `only_store_tag_ids`, `only_steamdb_tag_ids`, `same_tag_set` (`steamdb_crosscheck.csv`).
 
-Files that document how the data was read rather than describing games. `parse_errors.csv` lists every response the parsers could not read; any row fails the Build unless `--allow-parse-errors` was given, and such Builds are never published. `tag_vocabulary.csv` lists every tag and store genre seen, with how many scored apps show it and, for tags, whether the id is in the `GetTagList` snapshot. `manual_metadata.csv` copies the source and retrieval date of every field of every Manual Metadata Entry. `steamdb_crosscheck.csv` compares store tags with SteamDB tags per game when a permitted SteamDB batch exists; SteamDB values never enter a dataset.
+Files that document how the data was read rather than describing games. `skipped_apps.csv` lists the apps whose Steam Charts page kept failing to load or parse during collection: they were skipped so that collection could go on, and they have no score. `parse_errors.csv` lists every response the parsers could not read; any row fails the Build unless `--allow-parse-errors` was given, and such Builds are never published. `tag_vocabulary.csv` lists every tag and store genre seen, with how many scored apps show it and, for tags, whether the id is in the `GetTagList` snapshot. `manual_metadata.csv` copies the source and retrieval date of every field of every Manual Metadata Entry. `steamdb_crosscheck.csv` compares store tags with SteamDB tags per game when a permitted SteamDB batch exists; SteamDB values never enter a dataset.
 
 *Example.* A `tag_vocabulary.csv` row `tag, 19, Action, 812, true` means 812 scored apps show the Action tag.
 

@@ -78,7 +78,9 @@ class MonthlyHistory:
     errors: tuple[str, ...] = field(default=())
 
 
-def parse_steamcharts_app(body: bytes) -> MonthlyHistory:
+def parse_steamcharts_app(body: bytes, last_month: str | None = None) -> MonthlyHistory:
+    """The monthly rows, oldest first. With `last_month` (YYYY-MM), rows for later months are ignored
+    entirely: they are neither data nor parse errors."""
     doc = _doc(body)
     titles = doc.xpath('//h1[@id="app-title"]')
     if not titles:
@@ -102,6 +104,8 @@ def parse_steamcharts_app(body: bytes) -> MonthlyHistory:
             errors.append(f"unknown row label {label!r}")
             continue
         month = f"{int(m.group(2)):04d}-{MONTHS[m.group(1)]:02d}"
+        if last_month is not None and month > last_month:
+            continue
         try:
             row = MonthRow(month, float(cells[1].replace(",", "")), int(cells[4].replace(",", "")))
         except ValueError:

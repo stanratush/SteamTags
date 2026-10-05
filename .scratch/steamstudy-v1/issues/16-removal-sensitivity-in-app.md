@@ -20,3 +20,4 @@ Spec: [Steam Success Study spec](../../steam-success-study/spec.md): "App" (Remo
 ## Comments
 
 - 2026-10-04 (agent): App implemented in steamstudy.app (loader, renderer boundary, layout, callbacks, export/open, rs_cache, server). Tested via the export zip (app equals Build, round trip, refusals), the served page (no external URLs) and the callbacks as functions; also exercised live in the browser on a demo Build (node/edge/cluster inspectors, remove, layout switch, Re-layout, background Removal Sensitivity run with stale/current display, Analysis Report mode on the same renderer instance, floating inspector). Open Network State also re-exports and can compare table hashes (recorded_table_hashes_match).
+- 2026-10-05 (agent, audit): Audit: every criterion checked against the code and tests; all met.

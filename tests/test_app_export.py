@@ -106,6 +106,7 @@ def test_open_network_state_round_trip(build_folder):
     assert opened.layout_source == "relayout"
     assert opened.relayout_positions == pytest.approx({t: moved[t] for t in state.nodes})
     assert [r["tag_id"] for r in opened.removal_rows] == [r["tag_id"] for r in rows]
+    assert opened.removal_total == len(state.nodes)  # a partial run keeps its done / total
     _, again = export_zip(ctx, opened.settings, relayout_positions=opened.relayout_positions,
                           removal_rows=opened.removal_rows)
     assert read_export(again)[1] == read_export(data)[1]  # identical tables

@@ -6,6 +6,7 @@ import dataclasses
 
 import pytest
 
+from conftest import neutral_collection
 from helpers import FIXTURES, World
 from steamstudy.build.core import build
 from steamstudy.build.parse import parse_steamdb_app
@@ -20,8 +21,7 @@ PAGE = (FIXTURES / "steamdb" / "SYNTHETIC-app.html").read_bytes()
 
 @pytest.fixture
 def config(config_dir):
-    cfg = load_config(config_dir)
-    return dataclasses.replace(cfg, collection=dataclasses.replace(cfg.collection, user_agent="test (contact: x)"))
+    return neutral_collection(load_config(config_dir))
 
 
 def _with_permission(config):

@@ -33,7 +33,7 @@ ENTRY_BY_COLUMN: dict[str, str] = {
     **{c: "build-diagnostics" for c in (
         "source", "request_key", "error", "id", "app_count", "in_vocabulary", "entry_kind", "field", "source_url",
         "retrieved", "steamdb_batch", "store_tag_ids", "steamdb_tag_ids", "steamdb_tags", "only_store_tag_ids",
-        "only_steamdb_tag_ids", "same_tag_set")},
+        "only_steamdb_tag_ids", "same_tag_set", "url", "last_status", "timestamp")},
     # feature analysis
     "count": "tag-count-and-share", "share": "tag-count-and-share", "median_position": "median-tag-position",
     "defining_tag": "defining-tag", "baseline_count": "eligible-pool-baseline",
@@ -168,6 +168,7 @@ REPORT_BY_FILE: dict[str, str] = {
     "exclusions.csv": "reports.html",
     "ties.csv": "reports.html",
     "release_month_check.csv": "reports.html",
+    "skipped_apps.csv": "reports.html",
 }
 REPORT_BY_COLUMN: dict[tuple[str, str], str] = {
     ("top100_<dataset>.csv", "months_observed"): "report.html: dataset introduction",

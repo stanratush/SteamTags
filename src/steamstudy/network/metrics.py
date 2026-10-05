@@ -131,10 +131,10 @@ def cluster_metrics(graph: nx.Graph, cluster: Cluster) -> ClusterMetrics:
     cut = math.fsum(d["w"] for u, v, d in graph.edges(members, data=True) if (u in members) != (v in members))
     pairs = cluster.size * (cluster.size - 1) / 2
     vol_c = math.fsum(graph.degree(t, weight="w") for t in members)
-    vol_rest = 2 * total_weight(graph) - vol_c
+    vol_rest = math.fsum(graph.degree(t, weight="w") for t in graph.nodes if t not in members)
     if vol_c == 0:
         conductance, status = None, "isolated_tag"
-    elif vol_rest <= 0:
+    elif vol_rest <= 1e-9 * max(vol_c, 1.0):  # zero up to float rounding of summed lift weights
         conductance, status = None, "no_edges_outside_cluster"
     else:
         conductance, status = cut / min(vol_c, vol_rest), None

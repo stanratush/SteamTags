@@ -9,6 +9,7 @@ import tomllib
 
 import pytest
 
+from conftest import neutral_collection
 from helpers import World, captured, raw
 from steamstudy.analysis.templates import CausalLanguageError, causal_hits, fmt, render_report
 from steamstudy.build.core import BuildFailed, build
@@ -24,8 +25,7 @@ WORDS = ["drives", "leads to", "makes ... successful", "key to success", "predic
 
 @pytest.fixture
 def config(config_dir):
-    cfg = load_config(config_dir)
-    return dataclasses.replace(cfg, collection=dataclasses.replace(cfg.collection, user_agent="test (contact: x)"))
+    return neutral_collection(load_config(config_dir))
 
 
 # ----------------------------------------------------------------------------- repair and gate

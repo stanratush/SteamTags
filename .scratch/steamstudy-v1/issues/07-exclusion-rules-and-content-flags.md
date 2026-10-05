@@ -21,3 +21,4 @@ Spec: [Steam Success Study spec](../../steam-success-study/spec.md): "Build" (Ex
 ## Comments
 
 - 2026-10-04 (agent): Implemented: ordered rules with short-circuit, rank limits, overrides (recorded in build.json exclusion_overrides_applied), manual exclusions, Content Flags, exclusions.csv with would-be ranks, overlapping/primary counts.
+- 2026-10-05 (agent, audit): Audit: every criterion checked against the code and tests; all met.

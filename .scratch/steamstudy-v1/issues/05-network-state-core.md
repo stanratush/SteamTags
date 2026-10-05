@@ -24,3 +24,4 @@ Spec: [Steam Success Study spec](../../steam-success-study/spec.md): "Network" (
 ## Comments
 
 - 2026-10-04 (agent): Implemented in steamstudy.network (model, graph, cluster, layout, state): pure compute_state(games, settings, context). Hidden-tag reasons come from the key plus the Build's config (defining tag id, Genre Tag list), so the same key always gives the same reasons.
+- 2026-10-05 (agent, audit): Audit: every criterion checked against the code and tests; all met.

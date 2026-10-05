@@ -31,6 +31,7 @@ def reports_html(result: Any, config: Config) -> str:
                        none_in_window=counts.get("unscored_no_month_in_window"),
                        not_found=counts.get("unscored_not_found")),
               sentence("summary_placeholders", count=counts.get("placeholder_rows")),
+              sentence("summary_skipped", count=counts.get("unscored_skipped", 0)),
               "## Exclusions",
               sentence("summary_excluded", excluded=counts.get("excluded_games", sum(primary.values())),
                        by_reason=", ".join(f"{k} {v}" for k, v in primary.items() if v) or "none"),

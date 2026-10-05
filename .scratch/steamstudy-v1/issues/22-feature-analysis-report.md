@@ -34,3 +34,4 @@ Spec: [Steam Success Study spec](../../steam-success-study/spec.md): "Feature an
 ## Comments
 
 - 2026-10-04 (agent): Implemented: analysis/report.py renders analysis/report.html from templates only (caveat, per-dataset sections, methods, limitations linking to docs/user-guide/06-known-limitations.md). The report never mentions significance; the removal sentence calls the flag a screening aid. A causal word fails the Build.
+- 2026-10-05 (agent, audit): Audit: every criterion checked against the code and tests; all met.

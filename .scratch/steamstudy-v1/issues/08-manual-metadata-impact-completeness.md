@@ -24,3 +24,4 @@ Spec: [Steam Success Study spec](../../steam-success-study/spec.md): "Build" (Ma
 ## Comments
 
 - 2026-10-04 (agent): Implemented: Manual Metadata validation/application, manual_metadata.csv, impact_removals / impact_near_misses / impact_adult_signals / impact_unexcluded, completeness depth check. Full entries may carry an optional sourced name field.
+- 2026-10-05 (agent, audit): Audit: every criterion checked against the code and tests; all met.

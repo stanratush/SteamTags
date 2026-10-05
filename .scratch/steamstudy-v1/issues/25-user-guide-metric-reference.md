@@ -26,3 +26,4 @@ Spec: [Steam Success Study spec](../../steam-success-study/spec.md): "User Guide
 ## Comments
 
 - 2026-10-04 (agent): Written: docs/user-guide/03-metric-reference.md, 71 entries in concept order with example / bounds / compare-with / exact definition, research-30 corrections and tickets 27-28 decisions applied. Worked examples rechecked in code (Fisher p, BH, ARI, phi max, within_z, triple lift, Q); the draft's 'moving 4 tags: ARI 0.80' is 0.83 for the configuration described and was corrected.
+- 2026-10-05 (agent, audit): Audit: every criterion checked against the code and tests; all met.

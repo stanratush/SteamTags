@@ -21,6 +21,7 @@ GROUP_LABEL = {
     "build_reports": "Build reports/",
     "analysis": "Build analysis/",
     "app_export": "app export zip",
+    "snapshot": "Snapshot folder",
 }
 
 

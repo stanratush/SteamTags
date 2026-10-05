@@ -436,7 +436,8 @@ def do_open(contents, filename, build_override):
     relayout_store = ({"basis": basis, "positions": {str(k): list(v) for k, v in opened.relayout_positions.items()}}
                       if opened.relayout_positions else None)
     rs_view = ({"state_id": opened.recorded_state_id, "rows": opened.removal_rows, "done": len(opened.removal_rows),
-                "total": len(opened.removal_rows), "from_export": True} if opened.removal_rows else None)
+                "total": opened.removal_total or len(opened.removal_rows), "from_export": True}
+               if opened.removal_rows else None)
     pending = {"dataset": values["dataset"], "defining-hidden": values["defining-hidden"], "removed": values["removed"]}
     message = (f"Opened {filename}: Build {c.build_id}, state {opened.recorded_state_id} "
                f"(schema_version {opened.schema_version}).")

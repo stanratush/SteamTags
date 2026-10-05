@@ -9,6 +9,7 @@ import sqlite3
 
 import pytest
 
+from conftest import neutral_collection
 from helpers import appdetails, captured, raw, steamcharts_page, store_page, top_page
 from steamstudy.collect.fetcher import (
     FakeClock,
@@ -30,9 +31,7 @@ TODAY = dt.date(2026, 10, 4)
 
 @pytest.fixture
 def config(config_dir):
-    cfg = load_config(config_dir)
-    collection = dataclasses.replace(cfg.collection, user_agent="steamstudy-test (contact: test@example.invalid)")
-    return dataclasses.replace(cfg, collection=collection)
+    return neutral_collection(load_config(config_dir))
 
 
 _OPEN_STORES: list[SnapshotStore] = []
@@ -290,7 +289,8 @@ def test_full_run_gate_refuses_without_operator_reply_and_ethics_check(tmp_path,
 
 def test_collection_refuses_without_contact_details(tmp_path, config_dir):
     with pytest.raises(CollectRefused, match="contact"):
-        run_collect(tmp_path, load_config(config_dir), mode="test", transport=FakeTransport({}), today=TODAY)
+        cfg = neutral_collection(load_config(config_dir), user_agent="steamstudy (contact: <fill in before collecting>)")
+        run_collect(tmp_path, cfg, mode="test", transport=FakeTransport({}), today=TODAY)
 
 
 def test_closed_snapshot_refuses_more_collection(tmp_path, config):

@@ -22,3 +22,4 @@ Spec: [Steam Success Study spec](../../steam-success-study/spec.md): "Collect" (
 ## Comments
 
 - 2026-10-04 (agent): Implemented with tickets 07 and 08 in one commit: store/taglist stages, store parsers, ranking with ties.csv, top100 contract, monthly_players (the scored months only), tag_vocabulary, release_month_check. A dataset with fewer than 100 eligible games (test Snapshot) is written short with a Build warning.
+- 2026-10-05 (agent, audit): Audit: all criteria met. 'Always exactly 100 rows' was only a warning before; a full Build now fails when a dataset has fewer than 100 eligible games (researcher decision 2026-10-05). A test Build may be shorter, with a warning.

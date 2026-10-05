@@ -23,3 +23,4 @@ Spec: [Steam Success Study spec](../../steam-success-study/spec.md): "Feature an
 ## Comments
 
 - 2026-10-04 (agent): Implemented: analysis/features.py (tag/genre frequency vs Eligible Pool, combinations with triple pruning, associations with phi/lift/Jaccard/Fisher/BH, content_flags long form). archived_category comes from a package-data mapping generated from research note 04 (multiple categories joined with ' / '). The combination lift uses N = the dataset's game count (100 for a full Build).
+- 2026-10-05 (agent, audit): Audit: every criterion checked against the code and tests; all met.

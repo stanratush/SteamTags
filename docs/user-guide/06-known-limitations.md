@@ -7,6 +7,7 @@ This chapter is the single home of every caveat the study carries. The reports' 
 - **Tags are a current snapshot, not historical.** Store tags are read on the collection date; a game's tags at release may have differed.
 - **The Top 100 is a ranked selection, not a sample.** Nothing generalises to Steam as a whole, and no test result is evidence about Steam in general.
 - **Steam Charts has coverage gaps.** It pauses tracking of low-player apps, so a gap means the app was not tracked, not that it had zero players. Missing Months stay missing.
+- **Skipped apps.** An app whose Steam Charts page kept failing to load or parse during collection is skipped rather than stopping collection; it has no score and cannot rank. Every skipped app is listed in `skipped_apps.csv`.
 - **Tiny pre-launch Steam Charts months are kept as real data.** They can move a Release Month earlier than the store's release date.
 - **`release_month_check.csv` is noisy for Early Access games**, whose store date is the 1.0 release.
 - **Delisted games.** Games with no store data are excluded as `store_data_unavailable`, and store pages without tags as `no_tags`, unless the researcher adds them back through a sourced Manual Metadata Entry. `exclusions.csv` shows which of them would have ranked.

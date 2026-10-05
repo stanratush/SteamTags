@@ -23,6 +23,8 @@ SENTENCES: dict[str, str] = {
     "summary_unscored": "Unscored apps: {no_rows} with no month rows, {only_placeholders} with only Placeholder Rows, "
                         "{none_in_window} with month rows but none in the Observation Window, {not_found} with no "
                         "Steam Charts page.",
+    "summary_skipped": "{count} apps were skipped during collection: their Steam Charts page kept "
+                       "failing to load or parse (skipped_apps.csv); they have no score.",
     "summary_placeholders": "{count} Placeholder Rows were treated as absent rows (placeholder_rows.csv).",
     "summary_excluded": "{excluded} scored games were excluded; by primary reason: {by_reason}.",
     "summary_dataset": "{label}: {rows} games from an Eligible Pool of {pool}; deepest /top rank of a member: {deepest}.",

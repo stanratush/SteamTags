@@ -18,8 +18,9 @@ from steamstudy.snapshot import Snapshot
 
 WINDOW = Window("2021-10", "2026-09")
 
+# Real page from the test Snapshot (interior Placeholder Row in April 2019, no month in the window).
+BOLD_BLADE = raw("steamcharts/app/749110.html.gz")
 # Derived cases (Steam Charts returned 500 at capture time; see tests/fixtures/README.md).
-BOLD_BLADE = steamcharts_page([("2024-01", 10.0, 20), ("2024-02", 0.0, 0), ("2024-03", 30.0, 50)], name="Bold Blade")
 BLACK_HOLE = steamcharts_page([], name="Black Hole Simulator")
 DADISH = steamcharts_page([], name="Dadish 3D")
 
@@ -107,11 +108,12 @@ def test_real_fixture_histories(tmp_path, config):
     result = build(_snapshot(tmp_path), config, "B1")
     placeholders = _rows(result, "reports/placeholder_rows.csv")
     assert {"appid": 698670, "month": "2017-09", "position": "leading"} in placeholders
-    assert {"appid": 749110, "month": "2024-02", "position": "interior"} in placeholders
+    assert {"appid": 749110, "month": "2019-04", "position": "interior"} in placeholders
     completeness = {r["item"]: r["value"] for r in _rows(result, "reports/completeness.csv")}
-    # Stardew, Scorn, Bold Blade and Baldur's Gate 3 are scored; Black Hole Simulator and Dadish 3D have
-    # no month rows (Dadish has only "Last 30 Days"); 999999990 is a Steam Charts 404.
-    assert completeness["scored_apps"] == 4
+    # Stardew, Scorn and Baldur's Gate 3 are scored; Bold Blade's rows all end in 2019, before the window;
+    # Black Hole Simulator and Dadish 3D have no month rows (Dadish has only "Last 30 Days"); 999999990 is a 404.
+    assert completeness["scored_apps"] == 3
+    assert completeness["unscored_no_month_in_window"] == 1
     assert completeness["unscored_no_month_rows"] == 2
     assert completeness["unscored_not_found"] == 1
     assert completeness["placeholder_rows"] == 2
@@ -142,7 +144,7 @@ def test_allow_parse_errors_treats_apps_as_unscored_and_is_recorded(tmp_path, co
     assert result.build_json["parse_errors_allowed"] is True and result.build_json["parse_error_count"] == 1
     assert len(_rows(result, "reports/parse_errors.csv")) == 1
     completeness = {r["item"]: r["value"] for r in _rows(result, "reports/completeness.csv")}
-    assert completeness["scored_apps"] == 3 and completeness["unscored_parse_error"] == 1
+    assert completeness["scored_apps"] == 2 and completeness["unscored_parse_error"] == 1
 
 
 def test_build_makes_no_network_access(tmp_path, config, monkeypatch):

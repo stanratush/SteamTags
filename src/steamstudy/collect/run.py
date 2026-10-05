@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import time
 from collections import Counter
 import logging
 import platform
@@ -14,7 +15,10 @@ from typing import Any
 
 from steamstudy import __version__
 from steamstudy.build.parse import ParseError, parse_steamcharts_app, parse_store_page, parse_tag_list, parse_top_page
-from steamstudy.build.pool import pool_appids
+from steamstudy.build.pool import pool_appids, skipped_app_rows
+from steamstudy.collect.progress import Progress
+from steamstudy.export import schema as S
+from steamstudy.export.writer import write_csv
 from steamstudy.build.score import Window, score
 from steamstudy.collect.fetcher import Clock, Fetcher, LiveTransport, RealClock, SourcePolicy, Transport
 from steamstudy.config import Config
@@ -28,6 +32,7 @@ STORE = "https://store.steampowered.com"
 TAGLIST_URL = "https://api.steampowered.com/IStoreService/GetTagList/v1/?language=english"
 TAGLIST_KEY = "steam_api/GetTagList.json"
 UA_PLACEHOLDER = "<fill in"
+PROGRESS_SECONDS = 10.0
 
 
 class CollectRefused(Exception):
@@ -129,6 +134,10 @@ def run_collect(
     fetcher = make_fetcher(store, config, meta, transport=transport, clock=clock)
     ctx = Context(store, fetcher, config, meta)
     ctx.save()
+    resumed = bool(meta["stages"])
+    log.info("%s %s Snapshot %s in %s (Observation Window %s to %s)", "Resuming" if resumed else "Starting",
+             meta["mode"], meta["id"], store.path, meta["observation_window"]["first"],
+             meta["observation_window"]["last"])
     try:
         stages = STAGES if stage is None else (stage,)
         for name in stages:
@@ -138,11 +147,23 @@ def run_collect(
         if stage is None:
             meta["closed"] = True
             meta["closed_at"] = utc_now()
-            log.info("Snapshot %s closed", meta["id"])
+            log.info("Snapshot %s closed after %d requests in this run. Next: steamstudy build --snapshot %s",
+                     meta["id"], fetcher.network_requests, meta["id"])
     finally:
         ctx.save()
+        write_skipped_report(store)
         store.close()
     return str(meta["id"])
+
+
+def write_skipped_report(store: SnapshotStore) -> Path | None:
+    """`skipped_apps.csv` next to snapshot.json: every app whose Steam Charts page was skipped."""
+    rows = skipped_app_rows(store)
+    path = store.path / "skipped_apps.csv"
+    if not rows and not path.exists():
+        return None
+    write_csv(path, S.SKIPPED_APPS_SNAPSHOT, rows)
+    return path
 
 
 def _check_gate(config: Config, mode: str) -> None:
@@ -294,6 +315,7 @@ def _parses(parser: Callable[[bytes], Any]) -> Callable[[bytes], bool]:
 
 def stage_pool(ctx: Context) -> None:
     _stage_start(ctx, "pool")
+    log.info("pool: reading the Steam Charts /top listing")
     passes = 1 if ctx.test_mode else ctx.config.collection.listing_passes
     max_pages = ctx.config.collection.test_listing_pages if ctx.test_mode else None
     seen: list[set[int]] = []
@@ -307,8 +329,12 @@ def stage_pool(ctx: Context) -> None:
         rows = 0
         page = 1
         end = "page_limit"
+        last_line = time.monotonic()
         while max_pages is None or page <= max_pages:
             key = f"steamcharts/top/pass-{n}/p-{page:04d}.html.gz"
+            if time.monotonic() - last_line >= PROGRESS_SECONDS:
+                last_line = time.monotonic()
+                log.info("pool pass %d of %d: page %d, %s rows so far", n, passes, page, f"{rows:,}")
             resp = ctx.fetcher.fetch(key, f"{STEAMCHARTS}/top/p.{page}", check=_parses(parse_top_page))
             if resp.outcome == "end_of_listing":
                 end = "404"
@@ -324,20 +350,40 @@ def stage_pool(ctx: Context) -> None:
         info.update(ended=utc_now(), pages=page - 1, rows=rows, appids=len(appids), ended_by=end)
         seen.append(appids)
         ctx.save()
+        log.info("pool pass %d of %d finished: %d pages, %s rows, %s apps (ended by %s)", n, passes, page - 1,
+                 f"{rows:,}", f"{len(appids):,}", end)
     union = set().union(*seen) if seen else set()
     one_pass_only = sum(1 for a in union if sum(a in s for s in seen) == 1) if len(seen) > 1 else 0
     ctx.meta["pool"]["one_pass_only_appids"] = one_pass_only
     _stage_end(ctx, "pool", pool_size=len(union), extra_appids=len(ctx.meta["extra_appids"]))
+    extra = set(ctx.meta["extra_appids"]) - union
+    log.info("pool finished: Candidate Pool of %s apps (%s seen in only one pass, %d edge cases added)",
+             f"{len(union) + len(extra):,}", f"{one_pass_only:,}", len(extra))
 
 
 def stage_history(ctx: Context) -> None:
+    """One Steam Charts page per pool app. A page that keeps failing to load or parse is skipped and
+    reported in skipped_apps.csv; anti-bot signals still stop collection."""
     _stage_start(ctx, "history")
     appids = pool_appids(ctx.store)
+    log.info("history: one Steam Charts page for each of %s apps", f"{len(appids):,}")
+    progress = Progress("history", len(appids))
+    outcomes: Counter[str] = Counter()
     for appid in appids:
-        ctx.fetcher.fetch(
-            f"steamcharts/app/{appid}.html.gz", f"{STEAMCHARTS}/app/{appid}", check=_parses(parse_steamcharts_app)
-        )
-    _stage_end(ctx, "history", apps=len(appids))
+        before = ctx.fetcher.network_requests
+        resp = ctx.fetcher.fetch(f"steamcharts/app/{appid}.html.gz", f"{STEAMCHARTS}/app/{appid}",
+                                 check=_parses(parse_steamcharts_app), skip_on_failure=True)
+        outcomes[resp.outcome] += 1
+        progress.step(fetched=ctx.fetcher.network_requests > before, skipped=resp.outcome == "skipped")
+    progress.finish(_outcome_summary(outcomes))
+    if outcomes["skipped"]:
+        log.warning("history: %d apps skipped; see %s", outcomes["skipped"], ctx.store.path / "skipped_apps.csv")
+    _stage_end(ctx, "history", apps=len(appids), skipped=outcomes["skipped"])
+
+
+def _outcome_summary(outcomes: Counter[str]) -> str:
+    ordered = sorted(outcomes.items(), key=lambda kv: -kv[1])
+    return ", ".join(f"{n:,} {name.replace('_', ' ')}" for name, n in ordered)
 
 
 def scored_appids(store: SnapshotStore, meta: dict[str, Any]) -> list[int]:
@@ -350,7 +396,7 @@ def scored_appids(store: SnapshotStore, meta: dict[str, Any]) -> list[int]:
         if resp is None or resp.outcome != "ok":
             continue
         try:
-            history = parse_steamcharts_app(resp.body or b"")
+            history = parse_steamcharts_app(resp.body or b"", last_month=window.last)
         except ParseError:
             continue
         if score(history, window) is not None:
@@ -362,13 +408,22 @@ def stage_store(ctx: Context) -> None:
     stage_taglist(ctx)
     _stage_start(ctx, "store")
     appids = scored_appids(ctx.store, ctx.meta)
+    log.info("store: store page and appdetails for each of %s scored apps", f"{len(appids):,}")
+    progress = Progress("store", len(appids))
+    outcomes: Counter[str] = Counter()
     for appid in appids:
+        before = ctx.fetcher.network_requests
         page = ctx.fetcher.fetch(
             f"store/page/{appid}.html.gz", f"{STORE}/app/{appid}/?l=english", check=_parses(parse_store_page)
         )
         if page.outcome == "ok" and ctx.meta.get("store_country") is None:
             ctx.meta["store_country"] = parse_store_page(page.body or b"").country
-        ctx.fetcher.fetch(f"store/appdetails/{appid}.json.gz", f"{STORE}/api/appdetails?appids={appid}&l=english")
+        details = ctx.fetcher.fetch(f"store/appdetails/{appid}.json.gz",
+                                    f"{STORE}/api/appdetails?appids={appid}&l=english")
+        outcomes[f"page {page.outcome}"] += 1
+        outcomes[f"appdetails {details.outcome}"] += 1
+        progress.step(fetched=ctx.fetcher.network_requests > before)
+    progress.finish(_outcome_summary(outcomes))
     _stage_end(ctx, "store", apps=len(appids))
 
 
@@ -378,7 +433,10 @@ def stage_taglist(ctx: Context) -> None:
     _stage_start(ctx, "taglist")
     resp = ctx.fetcher.fetch(TAGLIST_KEY, TAGLIST_URL, check=_parses(parse_tag_list))
     if resp.outcome == "ok":
-        ctx.meta["taglist_version_hash"] = parse_tag_list(resp.body or b"").version_hash
+        vocabulary = parse_tag_list(resp.body or b"")
+        ctx.meta["taglist_version_hash"] = vocabulary.version_hash
+        log.info("taglist: GetTagList vocabulary of %d tags (version_hash %s)", len(vocabulary.tags),
+                 vocabulary.version_hash)
     _stage_end(ctx, "taglist")
 
 
@@ -424,7 +482,7 @@ def run_repair(
         started = utc_now()
         outcomes: dict[str, str] = {}
         history = fetcher.fetch(f"steamcharts/app/{appid}.html.gz", f"{STEAMCHARTS}/app/{appid}",
-                                check=_parses(parse_steamcharts_app), force=True)
+                                check=_parses(parse_steamcharts_app), force=True, skip_on_failure=True)
         outcomes[history.request_key] = history.outcome
         if appid in scored_appids(store, meta) or store.latest(f"store/page/{appid}.html.gz") is not None:
             for key, url, check in (
@@ -436,6 +494,7 @@ def run_repair(
                   "outcomes": outcomes}
         meta["repairs"].append(repair)
         store.save_meta(meta)
+        write_skipped_report(store)
         return repair
     finally:
         store.close()

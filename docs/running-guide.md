@@ -54,7 +54,11 @@ runs every stage on a new test Snapshot, or resumes the latest open one. `--snap
 
 **Rates.** Each source has its own rate and one kept-alive connection; requests are sequential. If the operator asks for a lower rate, change it in `collection.toml` and log the change; `snapshot.json` records every rate actually used.
 
-**Hard stop.** Collection stops at once, saves the response, logs the reason and exits with code 3 on HTTP 403, 429 or 503, on any challenge page (Cloudflare markers, or a page without the structure the parser expects), after 5 parse-structure failures in a row, or when a timeout, connection reset or other 5xx persists through the 10 / 30 / 90 s retries. **Never retry around a challenge** (no browser emulation, proxies or challenge solving). Wait, check whether the site has changed or objects, lower the rate if appropriate, and rerun to resume. Refusals before any request (missing contact, gate not met, closed Snapshot) exit with code 2.
+**Feedback.** Collect prints what it is doing: the Snapshot it starts or resumes, each listing pass, and for the history and store stages a progress line every 10 seconds (items done, how many were already collected in an earlier run, how many were skipped, and an estimate of the time left), followed by a summary of outcomes when each stage finishes. Retries and skipped pages are printed as warnings.
+
+**Skipped apps.** When an app's Steam Charts page keeps failing to load (a timeout, connection reset or 5xx other than 503 that persists through the 10 / 30 / 90 s retries) or cannot be parsed, Collect skips that app and carries on. It records the app, the URL and the reason in `snapshots/<snapshot_id>/skipped_apps.csv`, and every Build copies the list into `reports/skipped_apps.csv`. A skipped app has no score. A rerun does not retry it; to try one again after collection, use `--repair <appid>`.
+
+**Hard stop.** Collection stops at once, saves the response, logs the reason and exits with code 3 on HTTP 403, 429 or 503, or on any challenge page (Cloudflare markers, or a page without the structure the parser expects), whatever the page. Outside the Steam Charts app pages it also stops after 5 parse-structure failures in a row, or when a timeout, connection reset or other 5xx persists through the retries. **Never retry around a challenge** (no browser emulation, proxies or challenge solving). Wait, check whether the site has changed or objects, lower the rate if appropriate, and rerun to resume. Refusals before any request (missing contact, gate not met, closed Snapshot) exit with code 2.
 
 **Repair.** To refetch one app in a closed Snapshot, give a written reason:
 
@@ -62,7 +66,7 @@ runs every stage on a new test Snapshot, or resumes the latest open one. `--snap
 uv run steamstudy collect --repair 413150 --reason "store page was mid-update during collection"
 ```
 
-It refetches the app's Steam Charts page and, if the app is scored, its store page and `appdetails`, and records the repair in `snapshot.json`.
+It refetches the app's Steam Charts page and, if the app is scored, its store page and `appdetails`, records the repair in `snapshot.json` and updates `skipped_apps.csv`.
 
 **SteamDB cross-check.** Disabled until `collection.toml` records a SteamDB permission reference. With permission, it fetches pages only for one Build's Top-100 members, as a logged batch; the next Build writes `reports/steamdb_crosscheck.csv`:
 
@@ -99,7 +103,7 @@ uv run steamstudy build
 
 derives a new Build from the latest Snapshot (`--snapshot <id>` picks one) without contacting any source. It writes `builds/<snapshot_id>/<build_id>/` with `datasets/`, `reports/` and `analysis/` (the files are described in [chapter 4 of the User Guide](user-guide/04-files.md)), never overwrites an earlier Build, and updates the `latest` pointers. All five datasets are always built; `--dataset` only limits what is printed.
 
-The Build fails (exit code 1) on any parse error, writing the errors to `builds/<snapshot_id>/failed/<build_id>-parse_errors.csv`. It also fails on an invalid Manual Metadata Entry or exclusion-list entry, a `;` in a tag or genre name, or a causal word in a generated report.
+Every dataset of a full Build holds exactly the 100 highest-ranked games of its Eligible Pool; if a pool has fewer than 100 games, the Build fails. A test Build may be shorter, with a warning. The Build fails (exit code 1) on any parse error, writing the errors to `builds/<snapshot_id>/failed/<build_id>-parse_errors.csv`. It also fails on an invalid Manual Metadata Entry or exclusion-list entry, a `;` in a tag or genre name, or a causal word in a generated report.
 
 ```bash
 uv run steamstudy build --allow-parse-errors
@@ -116,6 +120,7 @@ snapshots/<snapshot_id>/          one Snapshot (never published)
                                   store/appdetails/<appid>.json.gz, steam_api/GetTagList.json, steamdb/…
   requests.sqlite                 the request log and checkpoint (URL, status, final URL, time, sha256, outcome)
   snapshot.json                   collection metadata
+  skipped_apps.csv                apps skipped because their Steam Charts page kept failing (if any)
 builds/latest                     <snapshot_id>/<build_id> of the newest Build
 builds/<snapshot_id>/latest       the newest Build of that Snapshot
 builds/<snapshot_id>/<build_id>/  one Build

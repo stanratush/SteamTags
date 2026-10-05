@@ -32,6 +32,10 @@ One row is one Placeholder Row (Avg. 0.00 and Peak 0) of one app in the Candidat
 
 One row is one game outside a Top 100 whose score equals rank 100's, with the position it takes after the tie-break. It joins to `top100_<dataset>.csv` by `dataset`. It shows how the cut at rank 100 falls.
 
+### `skipped_apps.csv`
+
+One row is one app skipped during collection because its Steam Charts page kept failing to load (every retry used up) or could not be parsed: its AppID, listing name, the page URL, the reason, the last HTTP status and when it was skipped. Collect writes it next to `snapshot.json`, and every Build copies it into `reports/`. Skipped apps have no score and cannot rank; `completeness.csv` counts them as `unscored_skipped`. It joins to the Snapshot's listing by `appid`.
+
 ### `parse_errors.csv`
 
 One row is one response a parser could not read: which app, which kind of page, where it is in the Snapshot and the error. Any row fails the Build unless `--allow-parse-errors` was given. It is empty in a publishable Build.

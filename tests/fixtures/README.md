@@ -4,4 +4,4 @@
 
 These are raw responses: they stay in this local repository and are never published.
 
-Steam Charts returned HTTP 500 for Black Hole Simulator (1401150), Bold Blade (749110) and Dadish 3D (2888870), including on a retry. `raw/steamcharts/app/1401150-500.html.gz` is that error page. The tests build those three cases from the real Scorn page, with its monthly table replaced (see `tests/helpers.py`). Replace them with real pages from the first test Snapshot.
+Steam Charts returned HTTP 500 for Black Hole Simulator (1401150), Bold Blade (749110) and Dadish 3D (2888870), including on a retry. Bold Blade's real page has since been copied from the researcher's test Snapshot (2026-10-05); Black Hole Simulator still answers 500. `raw/steamcharts/app/1401150-500.html.gz` is that error page. The tests build the two remaining cases from the real Scorn page, with its monthly table replaced (see `tests/helpers.py`). Replace them with real pages from the first test Snapshot.

@@ -40,7 +40,7 @@ from steamstudy.build.parse import (
     parse_steamcharts_app,
     parse_steamdb_app,
 )
-from steamstudy.build.pool import Listing, SnapshotLike, read_listing
+from steamstudy.build.pool import Listing, SnapshotLike, read_listing, skipped_app_rows
 from steamstudy.build.score import Score, Window, placeholder_rows, score, unscored_reason
 from steamstudy.config import Config
 from steamstudy.export import schema as S
@@ -68,7 +68,7 @@ class AppRecord:
     appid: int
     listing_name: str | None
     top_listing_rank: int | None
-    history_outcome: str  # ok / not_found / missing / parse_error
+    history_outcome: str  # ok / not_found / skipped / missing / parse_error
     history: MonthlyHistory | None = None
     score: Score | None = None
 
@@ -131,7 +131,10 @@ def build(
     ranked = {d.key: rank_dataset(d, scores, games, excluded) for d in config.datasets}
     for r in ranked.values():
         if len(r.top) < TOP_N:
-            result.warnings.append(f"dataset {r.key} has only {len(r.top)} eligible games (fewer than {TOP_N})")
+            message = f"dataset {r.key} has only {len(r.top)} eligible games; every dataset must hold exactly {TOP_N}"
+            if meta.get("mode") != "test":
+                raise BuildFailed(message)
+            result.warnings.append(message + " (allowed only in a test Build)")
     _check_list_names(games, ranked)
 
     histories = {a: apps[a].history for a in scores if apps[a].history is not None}
@@ -152,6 +155,7 @@ def build(
     result.add("reports/release_month_check.csv", S.RELEASE_MONTH_CHECK,
                A.release_month_check_rows(t, config.analysis.release_month_check))
     result.add("reports/manual_metadata.csv", S.MANUAL_METADATA, A.manual_metadata_rows(games))
+    result.add("reports/skipped_apps.csv", S.SKIPPED_APPS, skipped_app_rows(snapshot))
     if snapshot.keys("steamdb/"):
         result.add("reports/steamdb_crosscheck.csv", S.STEAMDB_CROSSCHECK,
                    _steamdb_rows(snapshot, games, A.members(t), parse_errors_allowed=allow_parse_errors,
@@ -282,6 +286,9 @@ def _read_histories(
         if resp.outcome == "not_found":
             record.history_outcome = "not_found"
             continue
+        if resp.outcome == "skipped":
+            record.history_outcome = "skipped"
+            continue
         if resp.outcome == "parse_failure":
             record.history_outcome = "parse_error"
             parse_errors.append({"appid": appid, "source": "steamcharts_app", "request_key": key,
@@ -290,7 +297,7 @@ def _read_histories(
         if resp.outcome != "ok":
             continue
         try:
-            history = parse_steamcharts_app(resp.body or b"")
+            history = parse_steamcharts_app(resp.body or b"", last_month=window.last)
         except ParseError as exc:
             record.history_outcome = "parse_error"
             parse_errors.append({"appid": appid, "source": "steamcharts_app", "request_key": key, "error": str(exc)})
@@ -351,6 +358,7 @@ def _completeness(
     for reason, count in unscored.items():
         rows.append(row("scoring", f"unscored_{reason}", count, notes[reason]))
     for outcome, note in (("not_found", "unscored: Steam Charts app page returned 404"),
+                          ("skipped", "unscored: Steam Charts page kept failing to load or parse (skipped_apps.csv)"),
                           ("missing", "unscored: app page never fetched (incomplete Snapshot)"),
                           ("parse_error", "unscored: parse error (only with --allow-parse-errors)")):
         rows.append(row("scoring", f"unscored_{outcome}", sum(a.history_outcome == outcome for a in apps.values()), note))
