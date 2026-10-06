@@ -73,9 +73,9 @@ def column_defs(schema_key: str, columns: list[str] | None = None, *, extra: lis
                              "sortable": True, "filter": True, "resizable": True}
         if col.type in ("float", "float6"):
             d["valueFormatter"] = {"function": "params.value == null ? '' : d3.format('.3~f')(params.value)"}
-            d["filter"] = "agNumberColumnFilter"
+            d.update(filter="agNumberColumnFilter", type="rightAligned")
         elif col.type == "int":
-            d["filter"] = "agNumberColumnFilter"
+            d.update(filter="agNumberColumnFilter", type="rightAligned")
         elif col.type.endswith("_list"):
             d["valueFormatter"] = {"function": "params.value == null ? '' : params.value.join('; ')"}
         defs.append(d)

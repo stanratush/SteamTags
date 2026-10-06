@@ -6,7 +6,8 @@
    dash_clientside.set_props.
 
    The canvas follows its container (a ResizeObserver), and the view refits until the user zooms or
-   pans. Every fit targets where the nodes end up. At render time x is stretched by the canvas aspect
+   pans. Every fit targets where the nodes end up, and leaves room for the overlays drawn over the
+   canvas (elements marked data-graph-overlay="top|right|bottom|left", e.g. the floating Inspector). At render time x is stretched by the canvas aspect
    ratio (at most 1.6x) so the first fit fills a wide canvas; exported coordinates are untouched.
 */
 (function () {
@@ -66,14 +67,38 @@
     });
     cy.on("tap", (ev) => { if (ev.target === cy) emit({kind: "background"}); });
     cy.on("viewport", () => { if (performance.now() > G.quietUntil) G.userMoved = true; });
-    new ResizeObserver(() => {
+    const ro = new ResizeObserver(() => {
       cy.resize();
       if (G.data && !G.userMoved) { place(); fit(); }
-    }).observe(el);
+    });
+    ro.observe(el);
+    document.querySelectorAll("[data-graph-overlay]").forEach((o) => ro.observe(o));
     return cy;
   }
 
   // ------------------------------------------------------------------ geometry
+
+  // The canvas area left free by the overlays that cover it, as insets from each side.
+  function insets() {
+    const c = G.el.getBoundingClientRect(), pad = {top: PAD, right: PAD, bottom: PAD, left: PAD};
+    for (const o of document.querySelectorAll("[data-graph-overlay]")) {
+      const r = o.getBoundingClientRect(), side = o.dataset.graphOverlay;
+      if (!r.width || !r.height || r.right <= c.left || r.left >= c.right || r.bottom <= c.top || r.top >= c.bottom) {
+        continue;
+      }
+      const depth = {top: r.bottom - c.top, right: c.right - r.left, bottom: c.bottom - r.top, left: r.right - c.left};
+      if (depth[side] < (side === "top" || side === "bottom" ? c.height : c.width) * 0.6) {
+        pad[side] = Math.max(pad[side], depth[side] + 12);
+      }
+    }
+    return pad;
+  }
+
+  function freeArea() {
+    const p = insets(), w = G.cy.width(), h = G.cy.height();
+    return {w: Math.max(w - p.left - p.right, 40), h: Math.max(h - p.top - p.bottom, 40),
+            cx: p.left + (w - p.left - p.right) / 2, cy: p.top + (h - p.top - p.bottom) / 2};
+  }
 
   function box(data, stretch) {
     let x1 = Infinity, x2 = -Infinity, y1 = Infinity, y2 = -Infinity;
@@ -93,9 +118,9 @@
   }
 
   function stretchFor(data) {
-    const w = G.cy.width(), h = G.cy.height(), bb = box(data, 1);
-    if (!w || !h) return 1;
-    const want = (w / h) / (Math.max(bb.x2 - bb.x1, 1) / Math.max(bb.y2 - bb.y1, 1));
+    if (!G.cy.width() || !G.cy.height()) return 1;
+    const a = freeArea(), bb = box(data, 1);
+    const want = (a.w / a.h) / (Math.max(bb.x2 - bb.x1, 1) / Math.max(bb.y2 - bb.y1, 1));
     return Math.max(1, Math.min(MAX_STRETCH, want));
   }
 
@@ -107,11 +132,11 @@
   function fit() {
     const cy = G.cy, w = cy.width(), h = cy.height();
     if (!w || !h || !G.data) return;
-    const bb = box(G.data, G.stretch);
+    const bb = box(G.data, G.stretch), a = freeArea();
     const bw = Math.max(bb.x2 - bb.x1, 1), bh = Math.max(bb.y2 - bb.y1, 1);
-    const zoom = Math.max(cy.minZoom(), Math.min(cy.maxZoom(), Math.min((w - 2 * PAD) / bw, (h - 2 * PAD) / bh)));
+    const zoom = Math.max(cy.minZoom(), Math.min(cy.maxZoom(), Math.min(a.w / bw, a.h / bh)));
     quiet(0);
-    cy.viewport({zoom, pan: {x: w / 2 - zoom * (bb.x1 + bb.x2) / 2, y: h / 2 - zoom * (bb.y1 + bb.y2) / 2}});
+    cy.viewport({zoom, pan: {x: a.cx - zoom * (bb.x1 + bb.x2) / 2, y: a.cy - zoom * (bb.y1 + bb.y2) / 2}});
   }
 
   // Re-apply the target positions with the current stretch (after a resize).

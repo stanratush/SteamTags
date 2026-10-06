@@ -20,13 +20,27 @@ Each control below either sets a field of the Network State key (and so changes 
 | Global / Cluster-separated | Moves nodes only: one layout for the whole network, or one region per cluster | Global | none | Positions only |
 | Re-layout | Refines the positions from the current ones; kept until the dataset, filter, weight or seed changes | none | none (`layout_source` in exports) | Positions only |
 | Mode | Workbench or Analysis Report mode | Workbench | none | none |
-| Controls / Inspector / Tables, Graph only | Collapse panels | all shown | none | none |
+| Controls / Inspector / Tables | Collapse each panel independently | all shown | none | none |
+| Graph only | Switches to the narrowest form (pill bar, floating Inspector, bottom sheet) at any width; press again to leave it | off | none | none |
+| Fit (⤢, top right of the graph) | Fits the whole graph back into view after you zoom or pan | none | none | Positions only |
 | Run, Continue, Cancel, Run for this tag | Removal Sensitivity, as a background job | not run | none (results are cached per `state_id`) | `removal_sensitivity.csv` only |
 | Export this state | Downloads one zip with every table and the full state key | none | none | none |
 | Open Network State… | Reopens an export zip or its `export.json` | none | all key fields | All, recomputed |
 | Clear app cache | Deletes cached Removal Sensitivity results | none | none | none |
 
-Sliders send their value when you release them; the value label updates while you drag. The number of null-model replicates R and of noise seeds K are set in the Build's config only; they have no control.
+Sliders send their value when you release them; the value beside the slider's label updates while you drag. The number of null-model replicates R and of noise seeds K are set in the Build's config only; they have no control.
+
+The Controls panel is split into four sections: **Data** (dataset, Minimum Months Filter), **Filters** (the two thresholds, the hidden Genre Tags and the defining tag), **Clustering** (weight, algorithm, γ, seed) and **State** (removed tags, Reset all, Export, Open, Clear app cache). A struck-through Genre Tag chip is hidden from the network; click it to show the tag. The count beside the heading ("11 of 11") says how many are hidden.
+
+## Window width and the three forms
+
+The Workbench rearranges itself as the window narrows. Nothing is lost in a narrower form; every control is still one or two clicks away.
+
+- **Wide (1280 px and more)**: three panes. Controls on the left, the graph in the centre, the Inspector on the right, the tables below the graph. Drag the bar between the graph and the tables to give either more room.
+- **Medium (1024–1279 px)**: the Controls panel becomes a **pill bar** under the header. Each pill shows the current value ("Min games 8", "γ 1.00"); click it to open a small panel holding that control, and click anywhere else (or press Esc) to close it. The Inspector becomes a **floating card** over the right of the graph: it opens when you click a node, an edge or a cluster, and closes with ×. The graph refits so that nothing hides under the card.
+- **Narrow (under 1024 px)**: as medium, and the tables become a **bottom sheet**: a strip of tabs along the bottom of the graph. Click a tab or the grip on the left to open the sheet, and the grip again to close it.
+
+**Graph only** gives the narrow form at any width. Collapsing the Inspector in the wide form also makes it a floating card. The legend sits at the bottom left of the graph; the Global / Cluster-separated switch, Re-layout and Fit sit at the top right.
 
 ## Task recipes
 

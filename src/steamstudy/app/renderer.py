@@ -34,13 +34,11 @@ def cluster_color(label: str, kind: str) -> str:
     return PALETTE[index % len(PALETTE)]
 
 
-def graph_component(height: str = "62vh") -> list[Any]:
-    """The canvas container plus the stores of the boundary (the canvas follows the container's size)."""
-    return [
-        html.Div(id=GRAPH_ID, className="graph-canvas",
-                 style={"width": "100%", "height": height, "border": "1px solid #ddd", "background": "#fff"}),
-        dcc.Store(id=DATA_ID, data={}), dcc.Store(id=EVENT_ID), dcc.Store(id=ACK_ID),
-    ]
+def graph_component() -> list[Any]:
+    """The canvas container plus the stores of the boundary. The canvas fills `.graph-canvas` (app.css) and
+    follows its size."""
+    return [html.Div(id=GRAPH_ID, className="graph-canvas"),
+            dcc.Store(id=DATA_ID, data={}), dcc.Store(id=EVENT_ID), dcc.Store(id=ACK_ID)]
 
 
 def selection_ref(selection: dict[str, Any] | None) -> dict[str, str] | None:

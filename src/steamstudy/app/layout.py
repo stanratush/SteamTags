@@ -1,7 +1,13 @@
 """The Tag Network app's layout: the Workbench and Analysis Report mode over one set of components.
 
 The main column is a flex column whose blocks are re-ordered and shown or hidden by the mode, so the
-graph, the tables and the inspector are single component instances shared by both modes.
+graph, the tables and the inspector are single component instances shared by both modes. In the
+Workbench the tables sit in one resizable pane (`tables-area`); in Analysis Report mode that pane is
+`display: contents`, so its blocks take part in the page order.
+
+The Workbench changes form with the window width (`assets/workbench.js` sets `body[data-form]`):
+wide (>= 1280 px) is three panes; medium (1024-1279 px) turns the Controls into a pill bar and floats
+the Inspector; narrow (< 1024 px, or "Graph only") also turns the tables into a bottom sheet.
 """
 
 from __future__ import annotations
@@ -18,11 +24,40 @@ from steamstudy.export import schema as S
 
 WB_TABS = [("quality", "Cluster quality"), ("clusters", "Clusters"), ("rs", "Removal sensitivity"),
            ("nodes", "Nodes"), ("edges", "Edges"), ("nin", "Not in network")]
+SLIDERS = ("min-games", "min-shared", "min-months")
+PILLS = ("dataset", "min-months", "min-games", "min-shared", "hidden", "weight", "algorithm", "gamma", "seed")
+
+
+def _data(**attrs: str) -> dict[str, Any]:
+    """HTML data-* attributes as Dash keyword arguments: `_data(graph_overlay="top")` -> data-graph-overlay."""
+    return {"data-" + name.replace("_", "-"): value for name, value in attrs.items()}
+
 
 def _slider(id_: str, label: str, lo: int, hi: int, value: int) -> list[Any]:
-    return [html.Label(label, htmlFor=id_),
-            dcc.Slider(id=id_, min=lo, max=hi, step=1, value=value, updatemode="mouseup",
-                       tooltip={"placement": "bottom", "always_visible": False}, marks={lo: str(lo), hi: str(hi)})]
+    """A slider whose label shows its value while dragging; the value itself is sent on release."""
+    return [html.Label([label, html.B(str(value), id=f"{id_}-value", className="num")], htmlFor=id_,
+                       className="sl-label"),
+            dcc.Slider(id=id_, min=lo, max=hi, step=1, value=value, updatemode="mouseup", allow_direct_input=False,
+                       tooltip=None, marks={lo: str(lo), hi: str(hi)}, className="sl")]
+
+
+def _item(pill: str, pill_label: str, value: str, children: list[Any]) -> html.Div:
+    """One control: shown inline in the Controls panel, or as a pill with a popover in the pill bar."""
+    return html.Div([
+        html.Button([f"{pill_label} " if pill_label else "", html.B(value, id=f"pill-{pill}", className="num")],
+                    className="pill-btn", **_data(pill=pill)),
+        html.Div(children, className="pill-pop"),
+    ], className="ctl-item")
+
+
+def _section(title: str, items: list[Any]) -> html.Div:
+    return html.Div([html.H4(title, className="ctl-h"), *items], className="ctl-section")
+
+
+def _seg(id_: str, options: list[tuple[str, str]], value: Any, **kw: Any) -> dcc.RadioItems:
+    """RadioItems drawn as a segmented control."""
+    return dcc.RadioItems(id=id_, options=[{"label": label, "value": v} for v, label in options], value=value,
+                          inline=True, className="seg", **kw)
 
 
 def _help(panel: str) -> html.Button:
@@ -34,7 +69,7 @@ def _grid(id_: str, schema_key: str, columns: list[str] | None = None, height: s
     return dag.AgGrid(id=id_, columnDefs=column_defs(schema_key, columns, extra=extra), rowData=[],
                       defaultColDef={"sortable": True, "filter": True, "resizable": True},
                       dashGridOptions={"tooltipShowDelay": 300, "rowSelection": {"mode": "singleRow", "checkboxes": False, "enableClickSelection": True}, "animateRows": False},
-                      style={"height": height, "width": "100%"}, className="ag-theme-alpine", **kw)
+                      style={"height": height, "width": "100%"}, className="grid", **kw)
 
 
 def _block(id_: str, heading: str, children: list[Any], help_panel: str | None = None) -> html.Div:
@@ -44,95 +79,117 @@ def _block(id_: str, heading: str, children: list[Any], help_panel: str | None =
     return html.Div([html.H3(head, className="section-heading"), *children], id=id_, className="panel")
 
 
-def build_layout(ctx: BuildContext) -> html.Div:
+def _controls(ctx: BuildContext) -> html.Div:
     first = ctx.datasets[0].key
     s = ctx.default_settings(first)
     defining = ctx.dataset(first).defining_tag
     genre_ids = [t.id for t in ctx.genre_tags]
-    controls = html.Div([
-        html.Div([html.B("Controls"), _help("controls")]),
-        html.Label("Dataset", htmlFor="dataset"),
-        dcc.Dropdown(id="dataset", options=[{"label": d.label, "value": d.key} for d in ctx.datasets], value=first,
-                     clearable=False),
-        *_slider("min-games", "Minimum games per tag", 1, 40, s.min_games_per_tag),
-        *_slider("min-shared", "Minimum shared games", 1, 30, s.min_shared_games),
-        *_slider("min-months", "Minimum Months Filter", 0, 60, s.min_months),
-        html.Label("Hidden Genre Tags"),
-        dcc.Checklist(id="genre-hidden", options=[{"label": t.name, "value": t.id} for t in ctx.genre_tags],
-                      value=[t for t in genre_ids if t in s.hidden_tag_ids], inline=True),
-        dcc.Checklist(id="defining-hidden",
-                      options=[{"label": f"hide defining tag ({defining.name})" if defining else "no defining tag",
-                                "value": 1, "disabled": defining is None}],
-                      value=[1] if defining and defining.id in s.hidden_tag_ids else []),
-        html.Label("Clustering weight"),
-        dcc.RadioItems(id="weight", options=[{"label": "Shared games", "value": "shared_games"},
-                                             {"label": "Lift", "value": "lift"}], value=s.clustering_weight, inline=True),
-        html.Label("Clustering algorithm"),
-        dcc.RadioItems(id="algorithm", options=[{"label": "Louvain", "value": "louvain"},
-                                                {"label": "Leiden", "value": "leiden"}], value=s.algorithm, inline=True),
-        html.Label("Resolution γ (0.1–3.0)", htmlFor="gamma"),
-        dcc.Input(id="gamma", type="number", min=0.1, max=3.0, step=0.05, value=s.resolution, debounce=True),
-        html.Label("Seed", htmlFor="seed"),
-        dcc.Input(id="seed", type="number", min=0, step=1, value=s.seed, debounce=True),
-        html.Label("Removed tags"),
-        dcc.Dropdown(id="restore-pick", options=[], placeholder="pick a removed tag"),
-        html.Button("Restore", id="restore-btn"), html.Button("Reset all", id="reset-btn"),
-        html.Hr(),
-        html.Button("Re-layout", id="relayout-btn"),
-        html.Hr(),
-        html.Button("Export this state", id="export-btn"),
-        dcc.Upload(html.Button("Open Network State…"), id="open-upload", accept=".zip,.json", multiple=False),
-        dcc.Input(id="open-build-path", placeholder="Build folder (if it has moved)", style={"width": "100%"}),
-        html.Div(id="open-message"),
-        html.Hr(),
-        html.Button("Clear app cache", id="clear-cache-btn"), html.Div(id="cache-message"),
-    ], id="controls-panel", className="panel controls", style={"width": "280px", "flex": "0 0 280px"})
+    hidden = [t for t in genre_ids if t in s.hidden_tag_ids]
+    data = _section("Data", [
+        _item("dataset", "", ctx.dataset(first).label, [
+            html.Label("Dataset", htmlFor="dataset", className="l"),
+            dcc.Dropdown(id="dataset", options=[{"label": d.label, "value": d.key} for d in ctx.datasets],
+                         value=first, clearable=False, searchable=False)]),
+        _item("min-months", "Months ≥", str(s.min_months),
+              _slider("min-months", "Minimum Months Filter", 0, 60, s.min_months)),
+    ])
+    filters = _section("Filters", [
+        _item("min-games", "Min games", str(s.min_games_per_tag),
+              _slider("min-games", "Minimum games per tag", 1, 40, s.min_games_per_tag)),
+        _item("min-shared", "Min shared", str(s.min_shared_games),
+              _slider("min-shared", "Minimum shared games", 1, 30, s.min_shared_games)),
+        _item("hidden", "Hidden", f"{len(hidden)} Genre Tags", [
+            html.Label(["Hidden Genre Tags ", html.Span(f"{len(hidden)} of {len(genre_ids)}", id="genre-count",
+                                                          className="mute num")], className="l"),
+            dcc.Checklist(id="genre-hidden", options=[{"label": t.name, "value": t.id} for t in ctx.genre_tags],
+                          value=hidden, inline=True, className="chips"),
+            dcc.Checklist(id="defining-hidden",
+                          options=[{"label": f"hide defining tag ({defining.name})" if defining else "no defining tag",
+                                    "value": 1, "disabled": defining is None}],
+                          value=[1] if defining and defining.id in s.hidden_tag_ids else [], className="check"),
+        ]),
+    ])
+    clustering = _section("Clustering", [
+        _item("weight", "Weight", "Shared games" if s.clustering_weight == "shared_games" else "Lift", [
+            html.Label("Clustering weight", className="l"),
+            _seg("weight", [("shared_games", "Shared games"), ("lift", "Lift")], s.clustering_weight)]),
+        _item("algorithm", "", s.algorithm.capitalize(), [
+            html.Label("Clustering algorithm", className="l"),
+            _seg("algorithm", [("louvain", "Louvain"), ("leiden", "Leiden")], s.algorithm)]),
+        html.Div([
+            _item("gamma", "γ", f"{s.resolution:.2f}", [
+                html.Label("Resolution γ", htmlFor="gamma", className="l", title="0.1–3.0"),
+                dcc.Input(id="gamma", type="number", min=0.1, max=3.0, step=0.05, value=s.resolution, debounce=True)]),
+            _item("seed", "Seed", str(s.seed), [
+                html.Label("Seed", htmlFor="seed", className="l"),
+                dcc.Input(id="seed", type="number", min=0, step=1, value=s.seed, debounce=True)]),
+        ], className="two"),
+    ])
+    state = _section("State", [
+        _item("state", "State", "…", [
+            html.Label("Removed tags", className="l"),
+            html.Div([dcc.Dropdown(id="restore-pick", options=[], placeholder="pick a removed tag"),
+                      html.Button("Restore", id="restore-btn", className="btn")], className="row-inline"),
+            html.Div([html.Button("Reset all", id="reset-btn", className="btn"),
+                      html.Button("Export this state", id="export-btn", className="btn primary")], className="stack"),
+            dcc.Upload(html.Button("Open Network State…", className="btn wide"), id="open-upload", accept=".zip,.json",
+                       multiple=False),
+            dcc.Input(id="open-build-path", placeholder="Build folder (if it has moved)", className="wide"),
+            html.Div(id="open-message", className="msg"),
+            html.Button("Clear app cache", id="clear-cache-btn", className="btn quiet"),
+            html.Div(id="cache-message", className="msg"),
+        ]),
+    ])
+    return html.Div([
+        html.Div([html.B("Controls"), _help("controls")], className="ctl-title"),
+        data, filters, clustering, state,
+    ], id="controls-panel", className="controls")
 
+
+def build_layout(ctx: BuildContext) -> html.Div:
     graph_block = html.Div([
         html.H3(["3 Network", _help("network")], className="section-heading"),
-        html.Div([
-            dcc.RadioItems(id="layout-mode", options=[{"label": "Global", "value": "global"},
-                                                      {"label": "Cluster-separated", "value": "separated"}],
-                           value="global", inline=True),
-            html.Div(id="legend", className="legend"),
-        ]),
         html.Div(id="quality-line", className="qline"),
         html.Div(id="noise-line-top", className="qline"),
         html.Div([
-            html.Div(graph_component(), style={"flex": "1 1 auto", "minWidth": "0"}),
-            html.Div([
-                html.Div([html.B("Inspector"), _help("inspector"),
-                          html.Button("×", id="inspector-close", style={"float": "right"})]),
-                html.Div(id="inspector-body"),
-                html.Button("Remove this tag", id="remove-btn", style={"display": "none"}),
-                html.Button("Run for this tag", id="rs-run-tag", style={"display": "none"}),
-            ], id="inspector-panel", className="panel", style={"flex": "0 0 340px", "overflow": "auto"}),
-        ], style={"display": "flex"}),
-    ], id="blk-graph", className="panel")
+            *graph_component(),
+            html.Div([_seg("layout-mode", [("global", "Global"), ("separated", "Cluster-separated")], "global"),
+                      html.Button("Re-layout", id="relayout-btn", className="btn", title="Refine the positions"),
+                      html.Button("⤢", id="fit-btn", className="btn", title="Fit the graph to the view")],
+                     className="ov ov-tr", **_data(graph_overlay="top")),
+            html.Div(html.Div(id="legend", className="legend"), className="ov ov-bl",
+                     **_data(graph_overlay="bottom")),
+        ], className="graph-stage"),
+    ], id="blk-graph", className="panel graph-block")
 
     rs_block = _block("blk-rs", "5 Removal sensitivity", [
-        html.Div([html.Button("Run", id="rs-run"), html.Button("Continue", id="rs-continue", style={"display": "none"}),
-                  html.Button("Cancel", id="rs-cancel"), html.Span(id="rs-estimate", style={"marginLeft": "1em"})]),
+        html.Div([html.Button("Run", id="rs-run", className="btn primary"),
+                  html.Button("Continue", id="rs-continue", className="btn", style={"display": "none"}),
+                  html.Button("Cancel", id="rs-cancel", className="btn"),
+                  html.Span(id="rs-estimate", className="mute")], className="row-inline"),
         html.Progress(id="rs-progress", value="0", max="1", style={"width": "100%"}),
-        html.Span(id="rs-progress-label", style={"fontSize": "0.8em"}), dcc.Store(id="rs-progress-store"),
+        html.Span(id="rs-progress-label", className="mute small"), dcc.Store(id="rs-progress-store"),
         html.Div(id="rs-banner", className="warning", style={"display": "none"}),
         html.Div(id="noise-line-rs", className="qline"),
-        dcc.Checklist(id="rs-beyond", options=[{"label": "beyond noise only", "value": 1}], value=[], inline=True),
-        dcc.Dropdown(id="rs-cluster", options=[], placeholder="all clusters", style={"width": "200px"}),
+        html.Div([dcc.Checklist(id="rs-beyond", options=[{"label": "beyond noise only", "value": 1}], value=[],
+                                inline=True, className="check"),
+                  dcc.Dropdown(id="rs-cluster", options=[], placeholder="all clusters", style={"width": "200px"})],
+                 className="row-inline"),
         html.Div(_grid("rs-grid", "app_export/removal_sensitivity.csv", height="300px", extra=[{
             "field": "membership_stability", "headerName": "membership_stability (joined)",
             "headerTooltip": S.file("app_export/nodes.csv").column("membership_stability").description,
-            "sortable": True, "filter": "agNumberColumnFilter"}]), id="rs-grid-wrap"),
+            "sortable": True, "filter": "agNumberColumnFilter", "type": "rightAligned"}]),
+                 id="rs-grid-wrap"),
         html.Div(id="rs-footer", className="qline"),
     ], help_panel="removal")
 
-    blocks = [
-        _block("blk-dataset", "1 Dataset", [html.Div(id="dataset-summary")], help_panel="dataset"),
+    tables = html.Div([
+        html.Div([html.Span(id="sheet-grip", className="grip", title="Open or close the tables"),
+                  dcc.RadioItems(id="wb-tab", options=[{"label": label, "value": key} for key, label in WB_TABS],
+                                 value="quality", inline=True, className="tabs-nav")],
+                 id="blk-tabs", className="panel"),
         _block("blk-filters", "2 Filters", [html.Div(id="filters-summary"),
                                              _grid("nin-grid", "app_export/not_in_network.csv")], help_panel="filters"),
-        graph_block,
-        html.Div(dcc.RadioItems(id="wb-tab", options=[{"label": label, "value": key} for key, label in WB_TABS],
-                                value="quality", inline=True), id="blk-tabs", className="panel"),
         _block("blk-quality", "4 Cluster quality", [
             html.Div(id="quality-detail", className="qline"),
             _grid("connections-grid", "app_export/cluster_connections.csv", height="200px"),
@@ -145,45 +202,58 @@ def build_layout(ctx: BuildContext) -> html.Div:
         _block("blk-nodes", "6 All nodes and edges", [_grid("nodes-grid", "app_export/nodes.csv")], help_panel="nodes"),
         _block("blk-edges", "Edges", [_grid("edges-grid", "app_export/edges.csv",
                                             [c for c in _edge_columns()])], help_panel="edges"),
-        _block("blk-export", "7 Export", [html.Button("Export this state", id="export-btn-report"),
+    ], id="tables-area", className="tables-area", **_data(graph_overlay="bottom"))
+
+    main = html.Div([
+        _block("blk-dataset", "1 Dataset", [html.Div(id="dataset-summary")], help_panel="dataset"),
+        graph_block,
+        html.Div(id="tables-handle", className="tables-handle", title="Drag to resize the tables"),
+        tables,
+        _block("blk-export", "7 Export", [html.Button("Export this state", id="export-btn-report", className="btn primary"),
                                          html.Div(id="export-summary")], help_panel="export"),
-    ]
+    ], id="main", className="main")
+
+    inspector = html.Div([
+        html.Div([html.B("Inspector"), _help("inspector"),
+                  html.Button("×", id="inspector-close", className="x", title="Close")], className="insp-title"),
+        html.Div(id="inspector-body"),
+        html.Div([html.Button("Remove this tag", id="remove-btn", className="btn", style={"display": "none"}),
+                  html.Button("Run for this tag", id="rs-run-tag", className="btn", style={"display": "none"})],
+                 className="row-inline"),
+    ], id="inspector-panel", className="inspector docked", **_data(graph_overlay="right"))
 
     stores = [
         dcc.Store(id="build-path", data=str(ctx.path)),
         dcc.Store(id="state-meta"), dcc.Store(id="state-tables"), dcc.Store(id="elements-base"),
         dcc.Store(id="relayout"), dcc.Store(id="selection"), dcc.Store(id="floating-open", data=False),
+        dcc.Store(id="graph-only-on", data=False),
         dcc.Store(id="removed", data=[]), dcc.Store(id="rs-view"), dcc.Store(id="rs-request"),
         dcc.Store(id="rs-done"), dcc.Store(id="pending-open"), dcc.Store(id="verify"),
-        dcc.Download(id="download"),
+        dcc.Store(id="pill-sink"), dcc.Download(id="download"),
     ]
-    header = html.Div([
-        html.Div(id="banners"),
+    header = html.Header([
+        html.Div([html.B("Tag Network", className="title"), html.Span(f"Build {ctx.build_id}", className="mute")],
+                 className="brand"),
+        _seg("mode", [("workbench", "Workbench"), ("report", "Analysis Report mode")], "workbench"),
+        html.Div(id="search-slot", className="search-slot"),
         html.Div([
-            html.B("Tag Network"), html.Span(f" · Build {ctx.build_id}", style={"color": "#666"}),
-            dcc.RadioItems(id="mode", options=[{"label": "Workbench", "value": "workbench"},
-                                               {"label": "Analysis Report mode", "value": "report"}],
-                           value="workbench", inline=True, style={"display": "inline-block", "marginLeft": "2em"}),
+            html.Span(id="verify-result", className="small"),
+            html.Span(id="error-message", className="error small"),
             dcc.Checklist(id="panels", options=[{"label": "Controls", "value": "controls"},
                                                 {"label": "Inspector", "value": "inspector"},
                                                 {"label": "Tables", "value": "tables"}],
-                          value=["controls", "inspector", "tables"], inline=True,
-                          style={"display": "inline-block", "marginLeft": "2em"}),
-            html.Button("Graph only", id="graph-only"),
-            html.Span(id="verify-result", style={"marginLeft": "2em"}),
-            html.Span(id="error-message", style={"color": "#a00", "marginLeft": "1em"}),
-        ], style={"padding": "6px 12px"}),
-    ])
-    help_modal = html.Div([html.Button("×", id="help-close", style={"float": "right"}),
+                          value=["controls", "inspector", "tables"], inline=True, className="seg toggles"),
+            html.Button("Graph only", id="graph-only", className="btn", title="The narrowest form at any width"),
+        ], className="hdr-right"),
+    ], className="app-header")
+    help_modal = html.Div([html.Button("×", id="help-close", className="x"),
                            dcc.Markdown(id="help-body", link_target="_blank")],
-                          id="help-modal", className="panel floating", style={"display": "none", "width": "560px"})
+                          id="help-modal", className="help-modal", style={"display": "none"})
     return html.Div([
-        *stores, header,
-        html.Div([controls, html.Div(blocks, id="main", style={"display": "flex", "flexDirection": "column",
-                                                                 "flex": "1 1 auto", "minWidth": "0"})],
-                 style={"display": "flex"}),
+        *stores, html.Div(id="banners"), header,
+        html.Div([_controls(ctx), main, inspector], id="app-body", className="app-body"),
         help_modal,
-    ], id="root")
+    ], id="root", className="workbench controls-on inspector-on tables-on")
 
 
 def _edge_columns() -> list[str]:
@@ -218,3 +288,12 @@ def block_styles(mode: str, tab: str, panels: list[str]) -> dict[str, dict[str, 
                 visible = False
         styles[block] = {"order": order, "display": "block" if visible else "none"}
     return styles
+
+
+def root_class(mode: str, panels: list[str], graph_only: bool) -> str:
+    """The root's classes: the mode, which panels are open, and "Graph only" (read by app.css and workbench.js)."""
+    classes = ["report" if mode == "report" else "workbench"]
+    classes += [f"{p}-on" for p in ("controls", "inspector", "tables") if p in panels]
+    if graph_only:
+        classes.append("graph-only")
+    return " ".join(classes)

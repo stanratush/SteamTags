@@ -13,14 +13,14 @@ from typing import Any
 
 import dash
 import networkx as nx
-from dash import ALL, Input, Output, Patch, State, ctx, html, no_update
+from dash import ALL, ClientsideFunction, Input, Output, Patch, State, ctx, html, no_update
 from dash.exceptions import PreventUpdate
 
 from steamstudy.app import rs_cache
 from steamstudy.app import view as V
 from steamstudy.app.export import BuildNotFound, OpenRefused, export_zip, open_export
 from steamstudy.app.guide import help_markdown
-from steamstudy.app.layout import block_styles
+from steamstudy.app.layout import PILLS, SLIDERS, block_styles, root_class
 from steamstudy.app.loader import BuildContext, load_build
 from steamstudy.app import renderer as R
 from steamstudy.app.renderer import cluster_color
@@ -121,12 +121,15 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
         "weight": settings.clustering_weight, "seed": settings.seed, "dataset": dataset,
         "max_shared": max([e.shared for e in state.network.edges] + [1]),
     }
-    legend = [html.Button(f"{r['cluster']} · {r['size']}", id={"type": "legend", "cluster": r["cluster"]},
-                          style={"background": cluster_color(r["cluster"], r["kind"])})
-              for r in tables["clusters.csv"] if r["kind"] == "multi_tag"]
+    legend: list[Any] = [
+        html.Button([html.Span(className="sw", style={"background": cluster_color(r["cluster"], r["kind"])}),
+                     f"{r['cluster']} · {r['size']}"], id={"type": "legend", "cluster": r["cluster"]}, className="lchip",
+                    title="Select this cluster")
+        for r in tables["clusters.csv"] if r["kind"] == "multi_tag"]
     n_one = sum(r["kind"] == "one_tag" for r in tables["clusters.csv"])
     if n_one:
-        legend.append(html.Span(f" + {n_one} one-tag (grey)"))
+        legend.append(html.Span([html.Span(className="sw", style={"background": R.ONE_TAG_COLOR}), f"{n_one} one-tag"],
+                                className="lchip static"))
     qline = V.quality_line(q, gamma_text)
     nline = V.noise_line(q, k)
     banners = []
@@ -253,7 +256,7 @@ def select(event, _legend, cluster_rows, rs_rows, node_rows, panels):
             sel = {"kind": "node", "id": str(rows[0]["tag_id"])}
     if sel is None:
         raise PreventUpdate
-    return sel, "inspector" not in (panels or [])
+    return sel, True  # opens the floating Inspector wherever the Inspector is not docked
 
 
 def inspector(selection, tables, rs_view, build_path, dataset, min_months, meta):
@@ -308,17 +311,18 @@ def edit_removed(_remove, _restore, _reset, selection, pick, removed):
 # ----------------------------------------------------------------------------- 5. modes and panels
 
 
-def arrange(mode, tab, panels, floating_open, selection):
-    styles = block_styles(mode, tab, panels or [])
-    controls_style = {"width": "280px", "flex": "0 0 280px"} if "controls" in (panels or []) else {"display": "none"}
-    if "inspector" in (panels or []):
-        inspector_style, inspector_class = {"flex": "0 0 340px", "overflow": "auto"}, "panel"
-    elif floating_open and selection:
-        inspector_style, inspector_class = {}, "panel floating"
-    else:
-        inspector_style, inspector_class = {"display": "none"}, "panel"
-    return ([styles[b] for b in BLOCKS] + [controls_style, inspector_style, inspector_class,
-                                          "report" if mode == "report" else "workbench"])
+def arrange(mode, tab, panels, floating_open, selection, graph_only):
+    """Block order and visibility, the Inspector's form and the root classes (app.css does the layout)."""
+    panels = panels or []
+    styles = block_styles(mode, tab, panels)
+    inspector_class = "inspector" + (" docked" if "inspector" in panels else "") +         (" has-sel" if floating_open and selection else "")
+    return [styles[b] for b in BLOCKS] + [inspector_class, root_class(mode, panels, bool(graph_only))]
+
+
+def fit_view(_n):
+    patch = Patch()
+    patch["view"] = {"cmd": "fit", "nonce": time.time()}
+    return patch
 
 
 # ----------------------------------------------------------------------------- 6. Removal Sensitivity
@@ -511,11 +515,21 @@ def register(app: dash.Dash) -> None:
     cb(Output("removed", "data", allow_duplicate=True), Input("remove-btn", "n_clicks"),
        Input("restore-btn", "n_clicks"), Input("reset-btn", "n_clicks"), State("selection", "data"),
        State("restore-pick", "value"), State("removed", "data"), prevent_initial_call=True)(edit_removed)
-    cb(*[Output(b, "style") for b in BLOCKS], Output("controls-panel", "style"), Output("inspector-panel", "style"),
-       Output("inspector-panel", "className"), Output("root", "className"),
+    cb(*[Output(b, "style") for b in BLOCKS], Output("inspector-panel", "className"), Output("root", "className"),
        Input("mode", "value"), Input("wb-tab", "value"), Input("panels", "value"), Input("floating-open", "data"),
-       Input("selection", "data"))(arrange)
-    cb(Output("panels", "value"), Input("graph-only", "n_clicks"), prevent_initial_call=True)(lambda _n: [])
+       Input("selection", "data"), Input("graph-only-on", "data"))(arrange)
+    cb(Output("graph-only-on", "data"), Input("graph-only", "n_clicks"), State("graph-only-on", "data"),
+       prevent_initial_call=True)(lambda _n, on: not on)
+    cb(Output(R.DATA_ID, "data", allow_duplicate=True), Input("fit-btn", "n_clicks"),
+       prevent_initial_call=True)(fit_view)
+    app.clientside_callback(
+        ClientsideFunction(namespace="workbench", function_name="pills"),
+        *[Output(f"{s}-value", "children") for s in SLIDERS], *[Output(f"pill-{p}", "children") for p in PILLS],
+        Output("genre-count", "children"),
+        Input("dataset", "value"), *[Input(s, prop) for s in SLIDERS for prop in ("value", "drag_value")],
+        Input("genre-hidden", "value"), Input("defining-hidden", "value"), Input("weight", "value"),
+        Input("algorithm", "value"), Input("gamma", "value"), Input("seed", "value"),
+        State("dataset", "options"), State("genre-hidden", "options"))
     cb(Output("floating-open", "data", allow_duplicate=True), Input("inspector-close", "n_clicks"),
        prevent_initial_call=True)(lambda _n: False)
     cb(Output("rs-request", "data"), Input("rs-run", "n_clicks"), Input("rs-continue", "n_clicks"),

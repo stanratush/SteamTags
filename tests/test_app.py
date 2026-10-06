@@ -213,4 +213,13 @@ def test_every_tap_kind_selects_the_right_inspector_view(event, expected):
     sel, floating = CB.select(dict(event, nonce=1.0), [], None, None, None, ["inspector"])
     assert sel == expected
     if expected is not None:
-        assert floating is False
+        assert floating is True  # the floating Inspector opens wherever it is not docked
+
+
+def test_panels_collapse_independently_and_graph_only_is_a_form():
+    sel = {"kind": "node", "id": "5001"}
+    out = CB.arrange("workbench", "quality", ["controls", "tables"], True, sel, False)
+    assert out[-2] == "inspector has-sel" and out[-1] == "workbench controls-on tables-on"
+    out = CB.arrange("workbench", "quality", ["controls", "inspector", "tables"], True, sel, True)
+    assert out[-2] == "inspector docked has-sel" and out[-1].endswith("tables-on graph-only")
+    assert CB.arrange("report", "quality", [], False, None, False)[-2:] == ["inspector", "report"]

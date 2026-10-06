@@ -30,11 +30,11 @@ Each number is explained in the [metric reference](03-metric-reference.md). The 
 
 The **Mode** control at the top switches between two views of the same Network State. Settings, removed tags and results carry over when you switch.
 
-- **Workbench**: controls on the left, the graph in the centre with a cluster legend and the Global / Cluster-separated layout switch, the inspector on the right, and tabbed tables below (Cluster quality, Clusters, Removal sensitivity, Nodes, Edges, Not in network). Controls, Inspector and Tables collapse independently; **Graph only** collapses all three.
+- **Workbench**: controls on the left, the graph in the centre with a cluster legend and the Global / Cluster-separated layout switch, the inspector on the right, and tabbed tables below (Cluster quality, Clusters, Removal sensitivity, Nodes, Edges, Not in network). Controls, Inspector and Tables collapse independently; **Graph only** switches to the narrowest form, with the controls as a pill bar, a floating inspector and the tables as a bottom sheet (see [Window width and the three forms](02-app-controls.md#window-width-and-the-three-forms)).
 - **Analysis Report mode**: one scrolling page of numbered sections over the same state: 1 Dataset · 2 Filters (every tag left out of the network, with its reasons) · 3 Network and inspector · 4 Cluster quality · 5 Removal sensitivity · 6 All nodes and edges · 7 Export. It is meant for reading one Network State top to bottom. It is not the generated feature-analysis report (`report.html`), which the Build writes.
 
 ## Inspect a node, an edge or a cluster
 
-Click a node to see its metrics, an edge to see the games that have both tags, or a cluster (its legend button, its row in the Clusters table, or its region title in the Cluster-separated layout) to see its members ranked by how typical they are. With the inspector collapsed, a click opens it as a floating panel; close it with ×.
+Click a node to see its metrics, an edge to see the games that have both tags, or a cluster (its legend button, its row in the Clusters table, or its region title in the Cluster-separated layout) to see its members ranked by how typical they are. With the inspector collapsed, or in a window narrower than 1280 px, a click opens it as a floating card over the right of the graph; close it with ×.
 
 From a node's inspector you can **Remove** the tag (a what-if: the source dataset never changes) or start **Run for this tag** (its Removal Sensitivity).

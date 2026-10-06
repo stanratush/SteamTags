@@ -1,14 +1,211 @@
-body{font-family:system-ui,sans-serif;margin:0;color:#1d1d1f;background:#fafafa}
-.banner{background:#fff3cd;border-bottom:1px solid #e0c36b;padding:6px 12px}
-.panel{background:#fff;border:1px solid #e3e3e3;border-radius:6px;padding:8px;margin:6px}
-.controls label{display:block;margin-top:8px;font-weight:600;font-size:.85em}
-.section-heading{display:none}
-.report .section-heading{display:block}
-.qline{font-size:.85em;margin:4px 0;color:#333}
-.warning{color:#8a5300;background:#fff6e0;padding:4px 8px;border-radius:4px}
-.floating{position:fixed;right:24px;top:90px;width:360px;max-height:75vh;overflow:auto;z-index:1000;
- box-shadow:0 6px 24px rgba(0,0,0,.2)}
+/* The Tag Network app's styles: prototype variant A (three panes) with variant B's responsive forms.
+   System fonts only; every number uses tabular numerals. The form comes from body[data-form]
+   (workbench.js): wide >= 1280 px, medium 1024-1279 px (pill bar, floating Inspector), narrow < 1024 px
+   or "Graph only" (also the bottom sheet). */
+
+:root{--bg:#f5f6f8;--panel:#fff;--line:#e3e6eb;--line2:#eef0f3;--ink:#1b2130;--ink2:#3d4555;--mute:#6b7280;--faint:#9aa1ad;
+ --acc:#2457d6;--acc-bg:#eef3ff;--warn:#9a5b00;--warn-bg:#fff6e5;
+ --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+ /* Dash 4 component theme, mapped to the tokens */
+ --Dash-Fill-Interactive-Strong:var(--acc);--Dash-Fill-Interactive-Weak:var(--acc-bg);--Dash-Stroke-Weak:var(--line);
+ --Dash-Stroke-Strong:#a9b1bf;--Dash-Text-Primary:var(--ink);--Dash-Text-Strong:var(--ink);--Dash-Text-Weak:var(--mute);
+ --Dash-Fill-Primary-Hover:#f4f7ff;--Dash-Fill-Primary-Active:var(--acc-bg)}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font:13px/1.45 var(--sans);color:var(--ink);background:var(--bg);font-variant-numeric:tabular-nums}
+button,input,select{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);font-size:.92em}
+.mute{color:var(--mute)}
+.small{font-size:12px}
+.error{color:#a00}
+.sw{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;flex:none}
+
+/* ------------------------------------------------------------------ atoms */
+.btn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:4px 10px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:#a9b1bf}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn.quiet{border-color:transparent;background:none;color:var(--mute)}
+.btn.wide,input.wide{width:100%}
+.x{border:0;background:none;color:var(--mute);cursor:pointer;font-size:16px;line-height:1;padding:2px 4px}
+.help{margin-left:6px;cursor:pointer;border:1px solid var(--faint);border-radius:50%;width:1.5em;height:1.5em;
+ background:#fff;font-size:10px;color:var(--mute);padding:0;line-height:1}
+.banner{background:var(--warn-bg);color:var(--warn);border-bottom:1px solid #f0d7a6;padding:6px 16px}
+.warning{color:var(--warn);background:var(--warn-bg);padding:4px 8px;border-radius:4px}
+.qline{font-size:12px;margin:4px 0;color:var(--ink2)}
+.msg{font-size:12px;color:var(--mute);margin:4px 0}
 .stale{opacity:.45;pointer-events:none}
-.legend button{margin:2px;border:0;border-radius:3px;color:#fff;cursor:pointer;padding:2px 6px}
-.help{margin-left:6px;cursor:pointer;border:1px solid #bbb;border-radius:50%;width:1.4em;height:1.4em;
- background:#fff;font-size:.8em}
+.row-inline{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:6px 0}
+.stack{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.panel{background:var(--panel)}
+input[type=text],input:not([type]),.dash-input-element{border-radius:6px}
+#open-build-path{border:1px solid var(--line);border-radius:6px;padding:5px 7px;margin:6px 0 0}
+
+/* segmented control: Dash RadioItems / Checklist drawn as joined buttons */
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:#fff;flex-wrap:nowrap;
+ gap:0;padding:0}
+.seg .dash-options-list-option{display:inline-flex;align-items:center;margin:0;padding:4px 10px;cursor:pointer;
+ color:var(--ink2);white-space:nowrap;border-radius:0;gap:0;background:none}
+.seg .dash-options-list-option+.dash-options-list-option{border-left:1px solid var(--line)}
+.seg .dash-options-list-option.selected{background:var(--ink);color:#fff}
+.seg .dash-options-list-option-wrapper,.chips .dash-options-list-option-wrapper,
+.tabs-nav .dash-options-list-option-wrapper{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.toggles .dash-options-list-option.selected{background:var(--acc-bg);color:var(--acc)}
+
+/* toggle chips (hidden Genre Tags: a struck-through chip is hidden from the network) */
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chips .dash-options-list-option{border:1px solid var(--line);border-radius:12px;padding:1px 8px;font-size:12px;
+ background:#fff;cursor:pointer;margin:0;user-select:none}
+.chips .dash-options-list-option.selected{background:#f1f2f4;color:var(--mute);text-decoration:line-through;
+ text-decoration-color:#b6bcc6}
+.check .dash-options-list-option{margin:6px 0 0;font-size:12px;color:var(--ink2)}
+
+/* sliders: the label carries the live value */
+.sl-label{display:flex;justify-content:space-between;align-items:baseline;font-weight:500;margin-bottom:2px}
+.sl-label b{font-weight:600}
+.sl .dash-slider-mark{font-size:11px;color:var(--faint)}
+
+/* ------------------------------------------------------------------ frame */
+#root.workbench{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.app-header{display:flex;align-items:center;gap:16px;padding:8px 16px;background:var(--panel);
+ border-bottom:1px solid var(--line);flex-wrap:wrap;position:relative;z-index:30}
+.brand{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+.brand .title{font-weight:650;font-size:14px}
+.search-slot{flex:1 1 240px;max-width:420px;margin:0 auto}
+.search-slot:empty{visibility:hidden}
+.hdr-right{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
+.graph-only #graph-only{background:var(--ink);border-color:var(--ink);color:#fff}
+
+.app-body{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"ctl main insp";
+ flex:1 1 auto;min-height:0}
+.controls{grid-area:ctl;width:264px;overflow:auto;background:var(--panel);border-right:1px solid var(--line);
+ padding:4px 16px 40px}
+#root:not(.controls-on) .controls{display:none}
+.main{grid-area:main;display:flex;flex-direction:column;min-width:0;min-height:0}
+
+/* controls panel */
+.ctl-title{display:flex;align-items:center;font-size:14px;padding-top:10px}
+.ctl-h{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin:18px 0 8px;font-weight:600}
+.ctl-item{margin-bottom:12px;position:relative}
+.ctl-item label.l{display:block;font-weight:500;margin-bottom:4px}
+.two{display:grid;grid-template-columns:5fr 7fr;gap:8px}
+.two .dash-input-container,.two input{min-width:0}
+#seed~button{display:none} /* an 8-digit seed needs the room; arrow keys still step it */
+.pill-btn{display:none}
+
+/* graph */
+.workbench .main>.graph-block{display:flex!important;flex-direction:column;flex:1 1 auto;min-height:0}
+.graph-block{position:relative}
+.graph-block>.qline{padding:0 12px;margin:3px 0}
+.graph-stage{position:relative;flex:1 1 auto;min-height:0;background:#fff}
+.graph-canvas{position:absolute;inset:0}
+.ov{position:absolute;z-index:5}
+.ov-tr{right:10px;top:10px;display:flex;gap:6px;align-items:center}
+.ov-bl{left:10px;bottom:10px;right:10px;pointer-events:none}
+.legend{display:inline-flex;flex-wrap:wrap;gap:4px;align-items:center;background:#ffffffe6;padding:4px;border-radius:8px;
+ pointer-events:auto}
+.lchip{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:12px;padding:1px 8px 1px 6px;
+ font-size:12px;background:#fff;cursor:pointer;color:var(--ink)}
+.lchip:hover{border-color:#a9b1bf}
+.lchip.static{cursor:default}
+
+/* tables pane (Workbench): resizable with the handle above it */
+/* the graph block has order 1 (block_styles); the pane follows it */
+.tables-handle{order:2;flex:none;height:7px;cursor:row-resize;background:var(--line2);border-top:1px solid var(--line)}
+.tables-handle:hover{background:#dfe3ea}
+.tables-area{order:3;flex:none;height:var(--tables-h,270px);display:flex;flex-direction:column;background:var(--panel);min-height:0}
+.tables-area>.panel{margin:0}
+.tables-area>.panel:not(#blk-tabs){flex:1 1 auto;overflow:auto;padding:10px 14px 30px}
+#blk-tabs{flex:none;display:flex;align-items:center;border-bottom:1px solid var(--line);padding:0 10px}
+#root:not(.tables-on) .tables-area,#root:not(.tables-on) .tables-handle{display:none}
+.grip{display:none;width:36px;height:4px;border-radius:2px;background:#d4d8df;margin:0 10px 0 4px;cursor:pointer;flex:none}
+.tabs-nav{display:flex;flex-wrap:wrap;gap:2px}
+.tabs-nav .dash-options-list-option{margin:0;padding:8px 10px;color:var(--mute);border-bottom:2px solid transparent;
+ cursor:pointer;border-radius:0;background:none}
+.tabs-nav .dash-options-list-option.selected{color:var(--ink);border-bottom-color:var(--acc);font-weight:600}
+
+/* inspector: docked as the right pane, or a floating card over the right of the graph */
+.inspector{grid-area:insp;width:352px;overflow:auto;background:var(--panel);border-left:1px solid var(--line);
+ padding:12px 16px 40px;display:none}
+.inspector.docked{display:block}
+.insp-title{display:flex;align-items:center;gap:2px;margin-bottom:6px}
+.insp-title .x{margin-left:auto;display:none}
+.inspector table{border-collapse:collapse;font-size:12.5px;width:100%}
+.inspector th,.inspector td{padding:2px 6px 2px 0;text-align:left;vertical-align:top}
+.inspector th{font-weight:500;color:var(--mute)}
+.inspector h4{font-size:15px;margin:6px 0}
+.inspector h5{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin:14px 0 5px}
+#root.workbench .inspector:not(.docked).has-sel,
+body[data-form=medium] #root.workbench .inspector.has-sel,
+body[data-form=narrow] #root.workbench .inspector.has-sel{display:block;position:absolute;z-index:20;right:12px;
+ top:calc(var(--stage-top,0px) + 52px);bottom:calc(var(--stage-bottom,0px) + 56px);width:352px;max-width:calc(100% - 24px);
+ border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 34px #00000022}
+#root.workbench .inspector:not(.docked).has-sel .x,
+body[data-form=medium] #root.workbench .inspector.has-sel .x,
+body[data-form=narrow] #root.workbench .inspector.has-sel .x{display:inline-block}
+body[data-form=medium] #root.workbench .inspector:not(.has-sel),
+body[data-form=narrow] #root.workbench .inspector:not(.has-sel){display:none}
+
+/* AG Grid themed to the tokens: compact rows, muted headers (column names kept), right-aligned numbers */
+.grid [class*="ag-theme-params"]{--ag-font-family:var(--sans);--ag-font-size:12.5px;--ag-foreground-color:var(--ink);
+ --ag-header-background-color:#f7f8fa;--ag-header-text-color:var(--mute);--ag-header-font-weight:500;
+ --ag-header-font-family:var(--mono);--ag-header-font-size:11.5px;--ag-row-height:28px;--ag-header-height:32px;
+ --ag-border-color:var(--line);--ag-row-border:1px solid var(--line2);--ag-wrapper-border-radius:6px;
+ --ag-accent-color:var(--acc);--ag-selected-row-background-color:var(--acc-bg);--ag-spacing:6px}
+.grid .num{font-variant-numeric:tabular-nums}
+
+/* help */
+.help-modal{position:fixed;right:24px;top:70px;width:560px;max-width:calc(100vw - 48px);max-height:80vh;overflow:auto;
+ z-index:1000;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 40px #0003;padding:12px 20px}
+.help-modal .x{float:right}
+.section-heading{display:none}
+
+/* ------------------------------------------------------------------ medium and narrow: the pill bar */
+body[data-form=medium] #root.workbench .app-body,
+body[data-form=narrow] #root.workbench .app-body{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);
+ grid-template-areas:"ctl" "main"}
+body[data-form=medium] #root.workbench .controls,
+body[data-form=narrow] #root.workbench .controls{width:auto;display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+ padding:6px 14px;overflow:visible;border-right:0;border-bottom:1px solid var(--line);position:relative;z-index:25}
+body[data-form=medium] #root.workbench:not(.controls-on) .controls,
+body[data-form=narrow] #root.workbench:not(.controls-on) .controls{display:none}
+body[data-form=medium] #root.workbench .ctl-title,body[data-form=narrow] #root.workbench .ctl-title,
+body[data-form=medium] #root.workbench .ctl-h,body[data-form=narrow] #root.workbench .ctl-h{display:none}
+body[data-form=medium] #root.workbench .ctl-section,body[data-form=narrow] #root.workbench .ctl-section,
+body[data-form=medium] #root.workbench .two,body[data-form=narrow] #root.workbench .two{display:contents}
+body[data-form=medium] #root.workbench .ctl-item,body[data-form=narrow] #root.workbench .ctl-item{margin:0}
+body[data-form=medium] #root.workbench .pill-btn,body[data-form=narrow] #root.workbench .pill-btn{display:inline-flex;
+ gap:4px;align-items:baseline;border:1px solid var(--line);background:#fff;border-radius:999px;padding:3px 11px;
+ cursor:pointer;white-space:nowrap}
+body[data-form=medium] #root.workbench .pill-btn::after,body[data-form=narrow] #root.workbench .pill-btn::after{
+ content:"▾";color:var(--faint);font-size:10px}
+body[data-form=medium] #root.workbench .pill-btn:hover,body[data-form=narrow] #root.workbench .pill-btn:hover{
+ border-color:#a9b1bf}
+body[data-form=medium] #root.workbench .pill-pop,body[data-form=narrow] #root.workbench .pill-pop{display:none;
+ position:absolute;top:calc(100% + 5px);left:0;z-index:70;background:#fff;border:1px solid var(--line);border-radius:10px;
+ box-shadow:0 12px 32px #0002;padding:12px;width:290px}
+body[data-form=medium] #root.workbench .ctl-item.open .pill-pop,
+body[data-form=narrow] #root.workbench .ctl-item.open .pill-pop{display:block}
+
+/* narrow: the tables become a bottom sheet over the graph */
+body[data-form=narrow] #root.workbench .main{position:relative}
+body[data-form=narrow] #root.workbench .tables-handle{display:none}
+body[data-form=narrow] #root.workbench .tables-area{position:absolute;left:0;right:0;bottom:0;height:44px;z-index:15;
+ border-top:1px solid var(--line);box-shadow:0 -8px 24px #0000000f;transition:height .25s ease;overflow:hidden}
+body[data-form=narrow][data-sheet=open] #root.workbench .tables-area{height:46%}
+body[data-form=narrow][data-sheet=open] #root.workbench .inspector.has-sel{bottom:calc(46% + 12px)}
+body[data-form=narrow] #root.workbench .grip{display:inline-block}
+body[data-form=narrow] #root.workbench #blk-tabs{min-height:44px}
+body[data-form=narrow] #root.workbench .ov-bl{bottom:54px}
+@media (prefers-reduced-motion:reduce){.tables-area{transition:none!important}}
+
+/* ------------------------------------------------------------------ Analysis Report mode: one scrolling page */
+#root.report .app-body{align-items:start}
+#root.report .controls,#root.report .inspector.docked{position:sticky;top:0;height:100vh}
+#root.report .main{padding:12px 20px 60px;gap:12px}
+#root.report .main>.panel,#root.report .tables-area>.panel{border:1px solid var(--line);border-radius:10px;padding:12px 16px}
+#root.report .tables-area{display:contents}
+#root.report .tables-handle{display:none}
+#root.report .section-heading{display:flex;align-items:center;font-size:15px;margin:0 0 10px}
+#root.report .graph-stage{height:70vh;border:1px solid var(--line2);border-radius:8px}
