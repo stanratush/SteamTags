@@ -12,7 +12,9 @@ You need [uv](https://docs.astral.sh/uv/) and Python 3.14 (uv can install it: `u
 uv sync --compile-bytecode
 ```
 
-`pyproject.toml` also sets `compile-bytecode = true`, so a plain `uv sync` compiles too. Never set `PYTHONDONTWRITEBYTECODE`: without bytecode each Removal Sensitivity background job starts several seconds slower. Exact dependency versions are frozen in `uv.lock`. Before upgrading `dash`, `dash-cytoscape` or `dash-ag-grid`, rerun the Windows spike checklist from the planning effort.
+`pyproject.toml` also sets `compile-bytecode = true`, so a plain `uv sync` compiles too. Never set `PYTHONDONTWRITEBYTECODE`: without bytecode each Removal Sensitivity background job starts several seconds slower. Exact dependency versions are frozen in `uv.lock`. Before upgrading `dash` or `dash-ag-grid`, rerun the Windows spike checklist from the planning effort.
+
+The graph is drawn by **Cytoscape.js 3.34.3**, vendored (not installed by uv) as `src/steamstudy/app/assets/cytoscape.min.js` with its MIT licence beside it (`cytoscape.LICENSE.txt`); the app never loads it from the internet. To upgrade it, replace both files with the ones from the new release's npm package (`dist/cytoscape.min.js` and `LICENSE`), update the version named here, then rerun the app's browser checks: the first fit fills the canvas in both layouts at 1280 × 800 and after each panel is collapsed, and a tag, a link, a region title and the background each open the right inspector view.
 
 Check the install:
 

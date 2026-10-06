@@ -99,7 +99,7 @@ def build_layout(ctx: BuildContext) -> html.Div:
         html.Div(id="quality-line", className="qline"),
         html.Div(id="noise-line-top", className="qline"),
         html.Div([
-            html.Div([graph_component()], style={"flex": "1 1 auto", "minWidth": "0"}),
+            html.Div(graph_component(), style={"flex": "1 1 auto", "minWidth": "0"}),
             html.Div([
                 html.Div([html.B("Inspector"), _help("inspector"),
                           html.Button("×", id="inspector-close", style={"float": "right"})]),
@@ -154,7 +154,7 @@ def build_layout(ctx: BuildContext) -> html.Div:
         dcc.Store(id="state-meta"), dcc.Store(id="state-tables"), dcc.Store(id="elements-base"),
         dcc.Store(id="relayout"), dcc.Store(id="selection"), dcc.Store(id="floating-open", data=False),
         dcc.Store(id="removed", data=[]), dcc.Store(id="rs-view"), dcc.Store(id="rs-request"),
-        dcc.Store(id="rs-done"), dcc.Store(id="pending-open"), dcc.Store(id="verify"), dcc.Store(id="fitted"),
+        dcc.Store(id="rs-done"), dcc.Store(id="pending-open"), dcc.Store(id="verify"),
         dcc.Download(id="download"),
     ]
     header = html.Div([

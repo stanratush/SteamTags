@@ -722,7 +722,7 @@ Every writer validates against the schema. Writing an undeclared column or omitt
 - Background-job inputs are plain picklable values (Build path, dataset, settings, seed), never live objects. Up to about 4 s of startup per job is accepted, and there is no long-lived worker.
 - The job store is a separate directory and may be culled normally.
 
-**Renderer boundary**: the graph renderer is reached only through one module that takes nodes, edges, stylesheet and positions, so it can be replaced later (planned upgrade: Cytoscape.js 3.34 with WebGL behind our own wrapper).
+**Renderer boundary**: the graph renderer is reached only through one module that takes nodes, edges, stylesheet and positions, so it can be replaced later (planned upgrade: Cytoscape.js 3.34 with WebGL behind our own wrapper). *Overridden by [App readability](../app-readability/spec.md) "Renderer" ([issue 01](../app-readability/issues/01-plain-cytoscape-renderer.md)): the graph is now drawn by a vendored Cytoscape.js 3.34 in our own wrapper (`renderer.py` + `assets/graph.js`), canvas renderer, WebGL off.*
 - It sends a `preset` layout with positions computed in Python.
 - It re-fits explicitly (clientside `cy.fit()`) once the first elements arrive, rather than relying on the layout's `fit`.
 - The payload carries only ids, weights and styling data. AppID lists stay on the server.
@@ -958,7 +958,7 @@ Fixtures for seams 1 and 2 come from the test Snapshot's own raw archive. SteamD
 - Ranking by peak players. Paid-only dataset variants.
 - Re-ranking or backfilling games inside the app. Loading arbitrary CSV schemas.
 - The hybrid stack (FastAPI over `network` + a Vite/TypeScript front end), and any JS/TS backend, JS clustering or Pyodide build.
-- The Cytoscape.js 3.34 WebGL renderer upgrade. It is planned, and its spike runs only if panning feels slow on the first test Build. The `window.cy` speed hack.
+- The Cytoscape.js 3.34 WebGL renderer upgrade. It is planned, and its spike runs only if panning feels slow on the first test Build. The `window.cy` speed hack. *(The move to Cytoscape.js 3.34 itself happened in [App readability issue 01](../app-readability/issues/01-plain-cytoscape-renderer.md); WebGL stays off.)*
 - Candidate Pool cross-checks (SteamSpy top-100 lists, Valve Best of Steam "Most Played", a hand-picked declined-games list). SteamSpy and `GetItems` as tag sources.
 - Performance work in the app: turnaround targets, in-memory or disk caches of Network States, null-model results or layouts, staged null-model computation, a long-lived worker, multiprocessing for Removal Sensitivity. A later version can cache by `state_id`. Multiprocessing is revisited only if a sweep at default thresholds takes over 60 s on the first test Build.
 - Consensus clustering, as the displayed partition or as a mode.

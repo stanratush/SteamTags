@@ -1,1 +1,3 @@
 tests/fixtures/raw/** binary
+# Vendored third-party code (Cytoscape.js)
+src/steamstudy/app/assets/cytoscape.min.js -diff linguist-vendored

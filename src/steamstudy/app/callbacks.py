@@ -13,7 +13,7 @@ from typing import Any
 
 import dash
 import networkx as nx
-from dash import ALL, Input, Output, State, ctx, html, no_update
+from dash import ALL, Input, Output, Patch, State, ctx, html, no_update
 from dash.exceptions import PreventUpdate
 
 from steamstudy.app import rs_cache
@@ -22,7 +22,8 @@ from steamstudy.app.export import BuildNotFound, OpenRefused, export_zip, open_e
 from steamstudy.app.guide import help_markdown
 from steamstudy.app.layout import block_styles
 from steamstudy.app.loader import BuildContext, load_build
-from steamstudy.app.renderer import FIT_JS, GRAPH_ID, cluster_color, elements
+from steamstudy.app import renderer as R
+from steamstudy.app.renderer import cluster_color
 from steamstudy.network.cluster import Cluster
 from steamstudy.network.graph import filter_games
 from steamstudy.network.layout import cluster_separated_positions, relayout
@@ -183,12 +184,10 @@ def current_global_positions(base: dict[str, Any], relayout_store: dict | None) 
 
 
 def render_graph(base, layout_mode, relayout_store, selection):
+    """The `graph-data` payload: every visible node and edge with its target position (no AppIDs)."""
     if not base:
         raise PreventUpdate
     positions, _ = current_global_positions(base, relayout_store)
-    selected = None
-    if selection and selection.get("kind") in ("node", "edge"):
-        selected = selection["id"]
     regions: list[dict[str, Any]] = []
     if layout_mode == "separated":
         graph = _graph_from_base(base)
@@ -203,10 +202,17 @@ def render_graph(base, layout_mode, relayout_store, selection):
         sep, regions = cluster_separated_positions(graph, clusters, start, base["seed"])
         positions = {k: list(v) for k, v in sep.items()}
         for r, c in zip(regions, [c for c in clusters if c.size >= 2] + ([None] if any(c.size == 1 for c in clusters) else [])):
-            r["color"] = cluster_color(c.label, "multi_tag") if c is not None else "#999"
+            r["color"] = cluster_color(c.label, "multi_tag") if c is not None else R.REGION_COLOR
             r["cluster"] = c.label if c is not None else "one_tag_pool"
-    return elements(base["nodes"], base["edges"], positions, separated=layout_mode == "separated", regions=regions,
-                    selected=selected, max_shared=base["max_shared"])
+    return R.payload(base["nodes"], base["edges"], positions, dataset=base["dataset"], layout=layout_mode,
+                     regions=regions, selection=selection, max_shared=base["max_shared"])
+
+
+def show_selection(selection):
+    """Tell the canvas about a new selection without resending the elements."""
+    patch = Patch()
+    patch["selected"] = R.selection_ref(selection)
+    return patch
 
 
 def do_relayout(_n, base, relayout_store):
@@ -221,18 +227,20 @@ def do_relayout(_n, base, relayout_store):
 # ----------------------------------------------------------------------------- 4. selection and inspector
 
 
-def select(tap_node, tap_edge, _legend, cluster_rows, rs_rows, node_rows, panels):
+def select(event, _legend, cluster_rows, rs_rows, node_rows, panels):
     trigger = ctx.triggered_id
-    prop = ctx.triggered[0]["prop_id"] if ctx.triggered else ""
     sel: dict[str, Any] | None = None
-    if trigger == GRAPH_ID and prop.endswith("tapNodeData") and tap_node:
-        if str(tap_node["id"]).startswith("region-"):
-            cluster = tap_node.get("cluster")
+    if trigger == R.EVENT_ID and event:
+        kind = event.get("kind")
+        if kind == "background":
+            return None, no_update
+        if kind == "region":
+            cluster = event.get("cluster")
             sel = {"kind": "cluster", "id": cluster} if cluster and cluster != "one_tag_pool" else None
-        else:
-            sel = {"kind": "node", "id": str(tap_node["id"])}
-    elif trigger == GRAPH_ID and prop.endswith("tapEdgeData") and tap_edge:
-        sel = {"kind": "edge", "id": str(tap_edge["id"]), "source": tap_edge["source"], "target": tap_edge["target"]}
+        elif kind == "node":
+            sel = {"kind": "node", "id": str(event["id"])}
+        elif kind == "edge":
+            sel = {"kind": "edge", "id": str(event["id"]), "source": event["source"], "target": event["target"]}
     elif isinstance(trigger, dict) and trigger.get("type") == "legend":
         if not ctx.triggered[0]["value"]:
             raise PreventUpdate  # the legend was re-rendered, not clicked
@@ -484,14 +492,15 @@ def register(app: dash.Dash) -> None:
        Input("defining-hidden", "value"), Input("weight", "value"), Input("algorithm", "value"),
        Input("gamma", "value"), Input("seed", "value"), Input("removed", "data"), State("verify", "data"),
        prevent_initial_call="initial_duplicate")(recompute)
-    cb(Output(GRAPH_ID, "elements"), Input("elements-base", "data"), Input("layout-mode", "value"),
-       Input("relayout", "data"), Input("selection", "data"))(render_graph)
-    app.clientside_callback(FIT_JS, Output("fitted", "data"), Input(GRAPH_ID, "elements"),
-                            State("dataset", "value"), State("fitted", "data"))
+    cb(Output(R.DATA_ID, "data"), Input("elements-base", "data"), Input("layout-mode", "value"),
+       Input("relayout", "data"), State("selection", "data"))(render_graph)
+    cb(Output(R.DATA_ID, "data", allow_duplicate=True), Input("selection", "data"),
+       prevent_initial_call=True)(show_selection)
+    app.clientside_callback(R.RENDER, Output(R.ACK_ID, "data"), Input(R.DATA_ID, "data"))
     cb(Output("relayout", "data", allow_duplicate=True), Input("relayout-btn", "n_clicks"),
        State("elements-base", "data"), State("relayout", "data"), prevent_initial_call=True)(do_relayout)
     cb(Output("selection", "data"), Output("floating-open", "data", allow_duplicate=True),
-       Input(GRAPH_ID, "tapNodeData"), Input(GRAPH_ID, "tapEdgeData"),
+       Input(R.EVENT_ID, "data"),
        Input({"type": "legend", "cluster": ALL}, "n_clicks"), Input("clusters-grid", "selectedRows"),
        Input("rs-grid", "selectedRows"), Input("nodes-grid", "selectedRows"),
        State("panels", "value"), prevent_initial_call=True)(select)

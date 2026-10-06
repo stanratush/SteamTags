@@ -35,6 +35,6 @@ The **Mode** control at the top switches between two views of the same Network S
 
 ## Inspect a node, an edge or a cluster
 
-Click a node to see its metrics, an edge to see the games that have both tags, or a cluster (its legend button, its row in the Clusters table, or its region in the Cluster-separated layout) to see its members ranked by how typical they are. With the inspector collapsed, a click opens it as a floating panel; close it with ×.
+Click a node to see its metrics, an edge to see the games that have both tags, or a cluster (its legend button, its row in the Clusters table, or its region title in the Cluster-separated layout) to see its members ranked by how typical they are. With the inspector collapsed, a click opens it as a floating panel; close it with ×.
 
 From a node's inspector you can **Remove** the tag (a what-if: the source dataset never changes) or start **Run for this tag** (its Removal Sensitivity).

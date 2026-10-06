@@ -373,7 +373,7 @@ def _completeness(
 def software_versions() -> dict[str, str]:
     versions = {"python": platform.python_version(), "steamstudy": __version__}
     for pkg in ("networkx", "leidenalg", "igraph", "python-igraph", "numpy", "scipy", "scikit-learn", "pandas",
-                "lxml", "dash", "dash-cytoscape", "dash-ag-grid"):
+                "lxml", "dash", "dash-ag-grid"):
         try:
             versions[pkg] = metadata.version(pkg)
         except metadata.PackageNotFoundError:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import io
+import json
 import re
 import subprocess
 import sys
@@ -78,16 +79,35 @@ def test_recompute_matches_the_default_state(build_folder):
     assert all("appids" not in e for e in base["edges"])  # AppID lists stay on the server
 
 
+@pytest.mark.parametrize("layout_mode", ["global", "separated"])
+def test_graph_payload_has_every_visible_element_and_no_appids(build_folder, layout_mode):
+    meta, tables, base, *_ = _recompute(build_folder)
+    payload = CB.render_graph(base, layout_mode, None, {"kind": "node", "id": base["nodes"][0]["id"]})
+    assert {n["id"] for n in payload["nodes"]} == {str(r["tag_id"]) for r in tables["nodes"]}
+    assert {(e["source"], e["target"]) for e in payload["edges"]} == \
+           {(str(r["source_tag_id"]), str(r["target_tag_id"])) for r in tables["edges"]}
+    assert set(payload["positions"]) == {n["id"] for n in payload["nodes"]}
+    assert all(len(p) == 2 and all(isinstance(v, float) for v in p) for p in payload["positions"].values())
+    assert "appid" not in json.dumps(payload).lower()  # AppID lists stay on the server
+    assert payload["selected"] == {"kind": "node", "id": base["nodes"][0]["id"]} and payload["view"] is None
+    assert bool(payload["regions"]) == (layout_mode == "separated")
+    assert payload["dataset"] == "overall" and payload["layout"] == layout_mode
+
+
+def test_selection_reaches_the_canvas_as_a_patch():
+    patch = CB.show_selection({"kind": "edge", "id": "1-2", "source": "1", "target": "2"})
+    assert patch.to_plotly_json()["operations"][0]["params"]["value"] == {"kind": "edge", "id": "1-2"}
+    assert CB.show_selection(None).to_plotly_json()["operations"][0]["params"]["value"] is None
+
+
 def test_layout_switch_keeps_the_partition_and_export_has_both_coordinate_sets(build_folder):
     meta, tables, base, *_ = _recompute(build_folder)
     global_els = CB.render_graph(base, "global", None, None)
     separated = CB.render_graph(base, "separated", None, None)
-    clusters = lambda els: {e["data"]["id"]: e["data"]["cluster"] for e in els if "source" not in e["data"]
-                            and not e["data"]["id"].startswith("region-")}
+    clusters = lambda payload: {n["id"]: n["cluster"] for n in payload["nodes"]}
     assert clusters(global_els) == clusters(separated)
-    assert any(e["data"]["id"].startswith("region-") for e in separated)
-    assert {e["data"]["id"]: e["position"] for e in global_els if "position" in e} != \
-           {e["data"]["id"]: e["position"] for e in separated if "position" in e}
+    assert separated["regions"] and not global_els["regions"]
+    assert global_els["positions"] != separated["positions"]
     sent = CB.do_export(1, None, str(build_folder), meta, None, base, None)
     data = base64.b64decode(sent["content"]) if sent.get("base64") else sent["content"]
     export, files = read_export(data)
@@ -171,3 +191,26 @@ def test_mode_layout_orders():
     wb = block_styles("workbench", "rs", ["tables"])
     assert wb["blk-rs"]["display"] == "block" and wb["blk-nodes"]["display"] == "none"
     assert block_styles("workbench", "rs", [])["blk-rs"]["display"] == "none"  # Tables collapsed
+
+
+def triggered(prop_id: str, value=1):
+    """Run a callback function as if `prop_id` had triggered it."""
+    from dash._callback_context import context_value
+    from dash._utils import AttributeDict
+
+    context_value.set(AttributeDict(triggered_inputs=[{"prop_id": prop_id, "value": value}]))
+
+
+@pytest.mark.parametrize("event, expected", [
+    ({"kind": "node", "id": "5001"}, {"kind": "node", "id": "5001"}),
+    ({"kind": "edge", "id": "5000-5001", "source": "5000", "target": "5001"},
+     {"kind": "edge", "id": "5000-5001", "source": "5000", "target": "5001"}),
+    ({"kind": "region", "cluster": "C2"}, {"kind": "cluster", "id": "C2"}),
+    ({"kind": "background"}, None),
+])
+def test_every_tap_kind_selects_the_right_inspector_view(event, expected):
+    triggered("graph-event.data", event)
+    sel, floating = CB.select(dict(event, nonce=1.0), [], None, None, None, ["inspector"])
+    assert sel == expected
+    if expected is not None:
+        assert floating is False

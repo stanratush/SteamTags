@@ -231,15 +231,6 @@ wheels = [
 ]
 
 [[package]]
-name = "dash-cytoscape"
-version = "1.0.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "dash" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/ea/b7/0d511af853024241dc3192bea77e4753ea606187bd2dd777a8209a5b01bb/dash_cytoscape-1.0.2.tar.gz", hash = "sha256:a61019d2184d63a2b3b5c06d056d3b867a04223a674cc3c7cf900a561a9a59aa", size = 3992593, upload-time = "2024-07-15T11:39:06.185Z" }
-
-[[package]]
 name = "dill"
 version = "0.4.1"
 source = { registry = "https://pypi.org/simple" }
@@ -935,7 +926,6 @@ source = { editable = "." }
 dependencies = [
     { name = "dash" },
     { name = "dash-ag-grid" },
-    { name = "dash-cytoscape" },
     { name = "diskcache" },
     { name = "leidenalg" },
     { name = "lxml" },
@@ -961,7 +951,6 @@ dev = [
 requires-dist = [
     { name = "dash", specifier = ">=4.4,<5" },
     { name = "dash-ag-grid", specifier = ">=35.3,<36" },
-    { name = "dash-cytoscape", specifier = "==1.0.2" },
     { name = "diskcache", specifier = ">=5.6" },
     { name = "leidenalg", specifier = "==0.12.0" },
     { name = "lxml", specifier = ">=6.0" },

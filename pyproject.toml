@@ -4,9 +4,9 @@ version = "0.1.0"
 description = "Steam Success Study: polite collection, deterministic Build and an offline Tag Network app."
 requires-python = ">=3.14,<3.15"
 dependencies = [
-    # App stack. Any upgrade of dash, dash-cytoscape or dash-ag-grid re-runs the Windows spike checklist first.
+    # App stack. Any upgrade of dash or dash-ag-grid re-runs the Windows spike checklist first.
+    # The graph is drawn by Cytoscape.js, vendored in src/steamstudy/app/assets/ (see the Running Guide).
     "dash>=4.4,<5",
-    "dash-cytoscape==1.0.2",
     "dash-ag-grid>=35.3,<36",
     "diskcache>=5.6",
     "multiprocess>=0.70.19",
