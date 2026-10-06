@@ -68,10 +68,13 @@ def priority(nodes: list[dict[str, Any]], separated: bool) -> dict[str, int]:
 
 def payload(nodes: list[dict[str, Any]], edges: list[dict[str, Any]], positions: dict[str, list[float]], *,
             dataset: str, layout: str = "global", regions: list[dict[str, Any]] | None = None,
-            selection: dict[str, Any] | None = None, max_shared: int = 1) -> dict[str, Any]:
+            selection: dict[str, Any] | None = None, max_shared: int = 1,
+            basis: list[Any] | None = None) -> dict[str, Any]:
     """The `graph-data` store. nodes: {id, label, cluster, kind, size, center}; edges: {source, target, shared,
     intra}; positions: node id -> [x, y]; regions: {label, cluster, color, x, y, width, height} (top-left corner).
-    A node's size comes from the layout (fixed by its games, in the positions' units), never from what is visible."""
+    A node's size comes from the layout (fixed by its games, in the positions' units), never from what is visible.
+    `basis` (dataset, Minimum Months Filter, Clustering Weight, seed) tells the canvas when to drop dragged
+    positions."""
     separated = layout == "separated"
     ranks = priority(nodes, separated)
     out_nodes = []
@@ -87,6 +90,7 @@ def payload(nodes: list[dict[str, Any]], edges: list[dict[str, Any]], positions:
     out_regions = [{"id": f"region-{r.get('cluster') or i}", "label": r["label"], "cluster": r.get("cluster", ""),
                     "color": r.get("color", REGION_COLOR), "x": r["x"] + r["width"] / 2, "y": r["y"] + r["height"] / 2,
                     "w": r["width"], "h": r["height"]} for i, r in enumerate(regions or [])]
-    return {"dataset": dataset, "layout": layout, "nodes": out_nodes, "edges": out_edges,
+    return {"dataset": dataset, "layout": layout, "basis": list(basis or [dataset]), "nodes": out_nodes,
+            "edges": out_edges,
             "positions": {n["id"]: list(positions.get(n["id"], (0.0, 0.0))) for n in nodes},
             "regions": out_regions, "selected": selection_ref(selection), "view": None}

@@ -216,7 +216,7 @@ def render_graph(base, layout_mode, relayout_store, selection):
         for r in regions:
             r["color"] = R.REGION_COLOR if r["cluster"] == "one_tag_pool" else cluster_color(r["cluster"], "multi_tag")
     return R.payload(base["nodes"], base["edges"], positions, dataset=base["dataset"], layout=layout_mode,
-                     regions=regions, selection=selection, max_shared=base["max_shared"])
+                     regions=regions, selection=selection, max_shared=base["max_shared"], basis=base["basis"])
 
 
 def show_selection(selection):

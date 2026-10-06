@@ -92,6 +92,7 @@ def test_graph_payload_has_every_visible_element_and_no_appids(build_folder, lay
     assert payload["selected"] == {"kind": "node", "id": base["nodes"][0]["id"]} and payload["view"] is None
     assert bool(payload["regions"]) == (layout_mode == "separated")
     assert payload["dataset"] == "overall" and payload["layout"] == layout_mode
+    assert payload["basis"] == base["basis"]  # dragged positions are dropped when it changes
 
 
 def test_selection_reaches_the_canvas_as_a_patch():
