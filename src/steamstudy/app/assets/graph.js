@@ -6,10 +6,10 @@
    dash_clientside.set_props.
 
    The canvas follows its container (a ResizeObserver), and the view refits until the user zooms or
-   pans. Every fit targets where the nodes end up, and leaves room for the overlays drawn over the
-   canvas (elements marked data-graph-overlay="top|right|bottom|left", e.g. the floating Inspector). At
-   render time x is stretched by the canvas aspect ratio (at most 1.6x) so the first fit fills a wide
-   canvas; exported coordinates are untouched.
+   pans. Every fit targets where the nodes and their labels end up, never zooms past 100 %, and leaves
+   room for the overlays drawn over the canvas (elements marked data-graph-overlay="top|right|bottom|left",
+   e.g. the floating Inspector). Python lays the graph out for the free area this canvas reports, so one
+   model unit is one screen pixel at the first fit (layout.py's fit_zoom fits the same way).
 
    Labels: priority labels (classes `pri` from Python, `hot` for the selection and its neighbours) keep a
    constant on-screen size; after every zoom one that overlaps a higher-ranked one is hidden (rank: `hot`,
@@ -19,17 +19,19 @@
    350 ms, and all of it is instant under prefers-reduced-motion. A new dataset only fits (animated).
    Dragged positions are view-only: kept (per layout) while the layout basis is the same, dropped when the
    dataset, Minimum Months Filter, Clustering Weight or seed changes, never sent back. The canvas reports its
-   free area's aspect ratio (in steps of 0.2) on the `graph-aspect` store, so the Cluster-separated rows are
-   packed for it.
+   free area {w, h} on the `graph-canvas` store, each side rounded down to steps of 8 % from the reference
+   canvas (1116 x 678), so small resizes never trigger a new layout and the layout always fits the real area.
 */
 (function () {
   "use strict";
-  const PAD = 30, MAX_STRETCH = 1.6, LABEL_ROOM = 14, TITLE_ROOM = 22;
+  const PAD = 30, TITLE_ROOM = 22;
+  const LABEL_H = 15, LABEL_MARGIN = 2;  // a label's box below its node, in pixels (layout.py's LABEL_HEIGHT, LABEL_MARGIN)
+  const REF = {w: 1116, h: 678}, STEP = 1.08;  // the reference canvas and the canvas report's steps
   const PRI_PX = 11.5, TITLE_PX = 12.5;  // constant on-screen sizes of priority labels and region titles
   const SIZED = "font-size text-margin-y text-background-padding";
   const MOTION = 350, EASE = "ease-in-out-cubic";
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
-  const G = {cy: null, el: null, data: null, sig: null, moveSig: null, stretch: 1, userMoved: false,
+  const G = {cy: null, el: null, data: null, sig: null, moveSig: null, userMoved: false,
              quietUntil: 0, viewNonce: null, labelFrame: 0, selected: null, basis: null,
              dragged: {global: {}, separated: {}}};
 
@@ -108,10 +110,10 @@
       if (!e.hasClass("leaving")) emit({kind: "edge", id: e.id(), source: e.data("source"), target: e.data("target")});
     });
     cy.on("tap", (ev) => { if (ev.target === cy) emit({kind: "background"}); });
-    cy.on("dragfree", "node", (ev) => {  // a dragged position, kept in unstretched units
+    cy.on("dragfree", "node", (ev) => {  // a dragged position, kept per layout
       const n = ev.target;
       if (!G.data || !G.data.positions[n.id()] || n.hasClass("region")) return;
-      G.dragged[G.data.layout][n.id()] = {x: n.position("x") / G.stretch, y: n.position("y")};
+      G.dragged[G.data.layout][n.id()] = {x: n.position("x"), y: n.position("y")};
     });
     cy.on("viewport", () => { if (performance.now() > G.quietUntil) G.userMoved = true; });
     cy.on("zoom", () => {  // re-size and re-cull the labels once per frame
@@ -119,8 +121,8 @@
     });
     const ro = new ResizeObserver(() => {
       cy.resize();
-      reportAspect();
-      if (G.data && !G.userMoved) { place(); fit(false); }
+      reportCanvas();
+      if (G.data && !G.userMoved) fit(false);
     });
     ro.observe(el);
     document.querySelectorAll("[data-graph-overlay]").forEach((o) => ro.observe(o));
@@ -151,49 +153,56 @@
             cx: p.left + (w - p.left - p.right) / 2, cy: p.top + (h - p.top - p.bottom) / 2};
   }
 
-  // Where a node ends up, unstretched: its dragged position (same layout basis), else its target.
+  // Where a node ends up: its dragged position (same layout basis), else its target.
   function spot(data, id) {
     const drag = G.dragged[data.layout][id];
     return drag && data.positions[id] ? [drag.x, drag.y] : data.positions[id];
   }
 
-  // Tell Dash the free canvas area's shape, rounded to 0.2 within 0.6-2.4, whenever it changes.
-  function reportAspect() {
+  // Tell Dash the free canvas area whenever its step changes: each side rounded down to REF * STEP^k (a side
+  // up to about 1 % short of a step still counts as that step).
+  function reportCanvas() {
     if (!G.cy || !G.cy.width() || !G.cy.height()) return;
-    const a = freeArea(), aspect = Math.min(2.4, Math.max(0.6, Math.round((a.w / a.h) * 5) / 5));
-    if (aspect !== G.aspect) {
-      G.aspect = aspect;
-      window.dash_clientside.set_props("graph-aspect", {data: aspect});
+    const a = freeArea();
+    const step = (v, ref) => Math.round(ref * Math.pow(STEP, Math.floor(Math.log(v / ref) / Math.log(STEP) + 0.15)));
+    const size = {w: step(a.w, REF.w), h: step(a.h, REF.h)};
+    if (!G.canvas || size.w !== G.canvas.w || size.h !== G.canvas.h) {
+      G.canvas = size;
+      window.dash_clientside.set_props("graph-canvas", {data: size});
     }
   }
 
-  function box(data, stretch) {
+  // What the graph covers at a zoom, in model units: nodes, their labels (constant on screen) and regions.
+  function box(data, zoom) {
     let x1 = Infinity, x2 = -Infinity, y1 = Infinity, y2 = -Infinity;
     for (const n of data.nodes) {
       const p = spot(data, n.id);
       if (!p) continue;
-      const r = n.size / 2;
-      x1 = Math.min(x1, p[0] * stretch - r); x2 = Math.max(x2, p[0] * stretch + r);
-      y1 = Math.min(y1, p[1] - r); y2 = Math.max(y2, p[1] + r + LABEL_ROOM);
+      const r = n.size / 2, half = Math.max(r, (n.lw || 0) / 2 / zoom);
+      x1 = Math.min(x1, p[0] - half); x2 = Math.max(x2, p[0] + half);
+      y1 = Math.min(y1, p[1] - r); y2 = Math.max(y2, p[1] + r + (LABEL_MARGIN + LABEL_H) / zoom);
     }
     for (const r of data.regions) {
-      x1 = Math.min(x1, (r.x - r.w / 2) * stretch); x2 = Math.max(x2, (r.x + r.w / 2) * stretch);
-      y1 = Math.min(y1, r.y - r.h / 2 - TITLE_ROOM); y2 = Math.max(y2, r.y + r.h / 2);
+      x1 = Math.min(x1, r.x - r.w / 2); x2 = Math.max(x2, r.x + r.w / 2);
+      y1 = Math.min(y1, r.y - r.h / 2 - TITLE_ROOM / zoom); y2 = Math.max(y2, r.y + r.h / 2);
     }
     if (!isFinite(x1)) return {x1: -1, x2: 1, y1: -1, y2: 1};
     return {x1, x2, y1, y2};
   }
 
-  function stretchFor(data) {
-    if (!G.cy.width() || !G.cy.height()) return 1;
-    const a = freeArea(), bb = box(data, 1);
-    const want = (a.w / a.h) / (Math.max(bb.x2 - bb.x1, 1) / Math.max(bb.y2 - bb.y1, 1));
-    return Math.max(1, Math.min(MAX_STRETCH, want));
+  // The first fit: the largest zoom, at most 1, at which the whole graph is inside the free area.
+  function fitZoom(data) {
+    const a = freeArea();
+    const fits = (z) => { const b = box(data, z); return (b.x2 - b.x1) * z <= a.w && (b.y2 - b.y1) * z <= a.h; };
+    if (fits(1)) return 1;
+    let lo = G.cy.minZoom(), hi = 1;
+    for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (fits(mid)) lo = mid; else hi = mid; }
+    return lo;
   }
 
   function at(id) {
     const p = spot(G.data, id) || [0, 0];
-    return {x: p[0] * G.stretch, y: p[1]};
+    return {x: p[0], y: p[1]};
   }
 
   function viewport(zoom, pan, animate) {
@@ -205,7 +214,15 @@
   }
 
   function fit(animate) {
-    if (G.data) fitBox(box(G.data, G.stretch), animate);
+    if (!G.data || !G.cy.width() || !G.cy.height()) return;
+    const zoom = fitZoom(G.data);
+    G.fitZoom = zoom;
+    centre(box(G.data, zoom), zoom, animate);
+  }
+
+  function centre(bb, zoom, animate) {
+    const a = freeArea();
+    viewport(zoom, {x: a.cx - zoom * (bb.x1 + bb.x2) / 2, y: a.cy - zoom * (bb.y1 + bb.y2) / 2}, animate);
   }
 
   function fitBox(bb, animate) {
@@ -213,8 +230,7 @@
     if (!w || !h) return;
     const a = freeArea();
     const bw = Math.max(bb.x2 - bb.x1, 1), bh = Math.max(bb.y2 - bb.y1, 1);
-    const zoom = Math.max(cy.minZoom(), Math.min(cy.maxZoom(), Math.min(a.w / bw, a.h / bh)));
-    viewport(zoom, {x: a.cx - zoom * (bb.x1 + bb.x2) / 2, y: a.cy - zoom * (bb.y1 + bb.y2) / 2}, animate);
+    centre(bb, Math.max(cy.minZoom(), Math.min(cy.maxZoom(), Math.min(a.w / bw, a.h / bh))), animate);
   }
 
   // Centre the free area on some elements, zooming in to at least 1.2 (search, a connected-tag row).
@@ -224,22 +240,6 @@
     const zoom = Math.min(G.cy.maxZoom(), Math.max(G.cy.zoom(), 1.2));
     viewport(zoom, {x: a.cx - zoom * (b.x1 + b.x2) / 2, y: a.cy - zoom * (b.y1 + b.y2) / 2}, true);
     G.userMoved = true;
-  }
-
-  // Re-apply the target positions with the current stretch (after a resize).
-  function place() {
-    G.stretch = stretchFor(G.data);
-    G.cy.batch(() => {
-      for (const n of G.data.nodes) {
-        const el = G.cy.getElementById(n.id);
-        if (!el.animated()) el.position(at(n.id));
-      }
-      for (const r of G.data.regions) {
-        const el = region(r.cluster);
-        el.data("w", r.w * G.stretch);
-        el.unlock().position({x: r.x * G.stretch, y: r.y}).lock();
-      }
-    });
   }
 
   // ------------------------------------------------------------------ labels
@@ -307,7 +307,6 @@
     const cy = G.cy;
     if (JSON.stringify(data.basis) !== JSON.stringify(G.basis)) G.dragged = {global: {}, separated: {}};
     G.basis = data.basis;
-    G.stretch = stretchFor(data);
     const ms = fresh ? 0 : dur();
     const nodeIds = new Set(data.nodes.map((n) => n.id)), edgeIds = new Set(data.edges.map((e) => e.id));
     cy.batch(() => {
@@ -318,8 +317,8 @@
       G.regionSeq = (G.regionSeq || 0) + 1;
       for (const r of data.regions) {
         const added = cy.add({group: "nodes", data: {id: r.id + "~" + G.regionSeq, label: r.label, cluster: r.cluster,
-                                                     color: r.color, w: r.w * G.stretch, h: r.h},
-                              position: {x: r.x * G.stretch, y: r.y}, classes: "region", grabbable: false,
+                                                     color: r.color, w: r.w, h: r.h},
+                              position: {x: r.x, y: r.y}, classes: "region", grabbable: false,
                               selectable: false, locked: true, pannable: true});
         fadeIn(added, ms);
       }
@@ -403,7 +402,7 @@
     const eles = r.nonempty() ? r : members(cluster);
     if (eles.empty()) return;
     const b = eles.boundingBox({includeLabels: false, includeOverlays: false});
-    fitBox({x1: b.x1, x2: b.x2, y1: b.y1 - (r.nonempty() ? TITLE_ROOM : 0), y2: b.y2 + LABEL_ROOM}, true);
+    fitBox({x1: b.x1, x2: b.x2, y1: b.y1 - (r.nonempty() ? TITLE_ROOM : 0), y2: b.y2 + LABEL_MARGIN + LABEL_H}, true);
     G.userMoved = true;  // a resize (e.g. the floating Inspector opening) keeps the focus
   }
 
@@ -427,7 +426,7 @@
       G.el = el; G.cy = mount(el); G.data = null; G.sig = null; G.moveSig = null; G.transition = null;
     }
     transitions();
-    reportAspect();
+    reportCanvas();
     const prev = G.data;
     G.data = data;
     const moveSig = JSON.stringify([data.layout, data.positions, data.regions]);

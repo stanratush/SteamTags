@@ -20,7 +20,7 @@ from steamstudy.app.loader import load_build
 from steamstudy.build.core import build
 from steamstudy.build.writer import write_build
 from steamstudy.config import load_config
-from steamstudy.network.layout import layout_state
+from steamstudy.network.layout import REFERENCE_CANVAS, Canvas, label_width, layout_state
 from steamstudy.network.sensitivity import removal_sensitivity
 from steamstudy.network.state import compute_state
 from steamstudy.snapshot import Snapshot
@@ -124,13 +124,12 @@ def test_layout_switch_keeps_the_partition_and_export_has_both_coordinate_sets(b
 def test_relayout_is_recorded_and_dropped_when_the_basis_changes(build_folder):
     meta, tables, base, *_ = _recompute(build_folder)
     relayout_store = CB.do_relayout(1, base, None)
-    positions, used = CB.current_global_positions(base, relayout_store)
-    assert used
+    assert CB.relayout_positions(base, relayout_store) is not None
     sent = CB.do_export(1, None, str(build_folder), meta, relayout_store, base, None)
     export = read_export(base64.b64decode(sent["content"]))[0]
     assert export["layout_source"] == "relayout"
     other = dict(base, basis=[*base["basis"][:3], base["basis"][3] + 1])
-    assert CB.current_global_positions(other, relayout_store)[1] is False
+    assert CB.relayout_positions(other, relayout_store) is None
 
 
 def test_stale_results_are_shown_greyed_and_never_exported(build_folder, tmp_path):
@@ -494,9 +493,21 @@ def test_cluster_separated_rows_are_packed_for_the_canvas_shape(build_folder):
         h = max(x["y"] + x["h"] / 2 for x in r) - min(x["y"] - x["h"] / 2 for x in r)
         return w / h
 
-    tall = CB.render_graph(base, "separated", None, None, 0.6)
-    wide = CB.render_graph(base, "separated", None, None, 2.4)
+    tall = CB.render_graph(base, "separated", None, None, {"w": 500, "h": 900})
+    wide = CB.render_graph(base, "separated", None, None, {"w": 1600, "h": 600})
     assert shape(tall) < shape(wide)
-    assert CB.render_graph(base, "separated", None, None, None) == CB.render_graph(base, "separated", None, None, 1.4)
-    assert CB.render_graph(base, "global", None, None, 0.6)["positions"] == \
-           CB.render_graph(base, "global", None, None, 2.4)["positions"]  # only the regions are packed
+    reference = {"w": REFERENCE_CANVAS.width, "h": REFERENCE_CANVAS.height}
+    assert CB.render_graph(base, "separated", None, None, None) == CB.render_graph(base, "separated", None, None, reference)
+
+
+@pytest.mark.parametrize("canvas", [Canvas(956, 561), Canvas(1600, 1000)])
+def test_the_graph_is_laid_out_for_the_canvas_the_browser_reports(build_folder, canvas):
+    meta, tables, base, *_ = _recompute(build_folder)
+    payload = CB.render_graph(base, "global", None, None, {"w": canvas.width, "h": canvas.height})
+    ctx = load_build(build_folder)
+    state = compute_state(ctx.games("overall"), ctx.default_settings("overall"), ctx.context("overall"))
+    layout = layout_state(state, canvas)
+    assert payload["positions"] == {str(t): pytest.approx(list(p), abs=1e-9) for t, p in layout.positions.items()}
+    assert payload["zoom"] == layout.zoom
+    names = state.network.tag_names
+    assert {n["id"]: n["lw"] for n in payload["nodes"]} == {str(t): label_width(names[t]) for t in state.nodes}

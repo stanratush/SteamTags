@@ -17,14 +17,16 @@ from steamstudy.app.loader import load_build
 from steamstudy.build.core import build
 from steamstudy.build.writer import write_build
 from steamstudy.config import load_config
-from steamstudy.network.layout import (LABEL_HEIGHT, Canvas, Layout, LayoutParams, layout_state, loose_layout, node_sizes,
-                                      relayout)
+from steamstudy.network.layout import (LABEL_HEIGHT, LABEL_MARGIN, Canvas, Layout, LayoutParams, label_width,
+                                      layout_state, loose_layout, node_sizes, relayout)
 from steamstudy.network.model import Game, Settings
 from steamstudy.network.state import compute_state
 from steamstudy.snapshot import Snapshot
 from test_build_network import tagged_world
 
 DATASETS = ["overall", "puzzle"]  # the other datasets have no games in the test world
+CANVASES = [Canvas(1116, 678), Canvas(956, 561)]  # 1440 x 900 and 1280 x 800 with the Tables and Inspector closed
+LABEL_PX = 11.5
 
 
 @pytest.fixture(scope="module")
@@ -138,12 +140,14 @@ def _main_component(state):
     return min(nx.connected_components(state.graph), key=lambda c: (-len(c), min(c)))
 
 
-def _clamp_violations(state, positions):
-    """Tags farther from the main component's centre than its radius plus 1.5 label heights (per axis)."""
+def _clamp_violations(state, positions, zoom=1.0):
+    """Tags farther from the main component's centre than its radius plus 1.5 label heights (per axis), with the
+    labels at their on-screen size for `zoom`."""
     main = _main_component(state)
     xs, ys = [positions[t][0] for t in main], [positions[t][1] for t in main]
     cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
-    rx, ry = (max(xs) - min(xs)) / 2 + 1.5 * LABEL_HEIGHT, (max(ys) - min(ys)) / 2 + 1.5 * LABEL_HEIGHT
+    room = 1.5 * LABEL_HEIGHT / zoom
+    rx, ry = (max(xs) - min(xs)) / 2 + room, (max(ys) - min(ys)) / 2 + room
     return [t for t, (x, y) in positions.items() if abs(x - cx) > rx + 1e-6 or abs(y - cy) > ry + 1e-6]
 
 
@@ -153,8 +157,9 @@ def test_unlinked_tags_stay_next_to_the_main_graph(ctx, dataset):
     components = sorted(len(c) for c in nx.connected_components(state.graph))
     if dataset == "puzzle":
         assert components[0] == 1 and components[-1] < len(state.nodes)  # tags without a visible link
-    positions = layout_state(state).positions
-    assert _clamp_violations(state, positions) == []
+    layout = layout_state(state)
+    positions = layout.positions
+    assert _clamp_violations(state, positions, layout.zoom) == []
     main = _main_component(state)
     for axis in (0, 1):
         extent = max(p[axis] for p in positions.values()) - min(p[axis] for p in positions.values())
@@ -214,7 +219,93 @@ def test_a_large_network_is_laid_out_within_the_budget():
     started = time.perf_counter()
     layout = layout_state(state)
     assert time.perf_counter() - started <= 1.5
-    assert _clamp_violations(state, layout.positions) == []
+    assert _clamp_violations(state, layout.positions, layout.zoom) == []
+    assert _box_overlaps(_boxes(state, layout.positions, layout.sizes, layout.zoom)) == []
+
+
+# ----------------------------------------------------------------------------- geometry at the first fit
+
+
+def _boxes(state, positions, sizes, zoom):
+    """Each node plus its label below it (centred), in model units, with the label at 11.5 px on screen."""
+    out = {}
+    for t, (x, y) in positions.items():
+        size, width = sizes[t], label_width(state.network.tag_names[t]) / zoom
+        half = max(size, width) / 2
+        out[t] = (x - half, y - size / 2, x + half, y + size / 2 + (LABEL_MARGIN + LABEL_HEIGHT) / zoom)
+    return out
+
+
+def _box_overlaps(boxes):
+    tags = sorted(boxes)
+    return [(a, b) for i, a in enumerate(tags) for b in tags[i + 1:]
+            if boxes[a][0] < boxes[b][2] and boxes[b][0] < boxes[a][2]
+            and boxes[a][1] < boxes[b][3] and boxes[b][1] < boxes[a][3]]
+
+
+def _fit_zoom(state, positions, sizes, canvas):
+    """The first fit: the largest zoom, at most 1, at which every node and label is inside the canvas."""
+    def fits(zoom):
+        boxes = _boxes(state, positions, sizes, zoom).values()
+        width = max(b[2] for b in boxes) - min(b[0] for b in boxes)
+        height = max(b[3] for b in boxes) - min(b[1] for b in boxes)
+        return width * zoom <= canvas.width and height * zoom <= canvas.height
+    if fits(1.0):
+        return 1.0
+    low, high = 0.01, 1.0
+    for _ in range(50):
+        low, high = ((low + high) / 2, high) if fits((low + high) / 2) else (low, (low + high) / 2)
+    return low
+
+
+@pytest.mark.parametrize("canvas", CANVASES, ids=["1440x900", "1280x800"])
+@pytest.mark.parametrize("dataset", DATASETS)
+def test_every_label_fits_at_the_first_fit(ctx, dataset, canvas):
+    state = _state(ctx, dataset)
+    layout = layout_state(state, canvas)
+    zoom = _fit_zoom(state, layout.positions, layout.sizes, canvas)
+    assert zoom >= layout.zoom - 1e-6  # the first fit is at least the zoom the labels were spaced for
+    assert _box_overlaps(_boxes(state, layout.positions, layout.sizes, zoom)) == []
+    assert min(layout.sizes.values()) * zoom >= 14.0
+    assert _clamp_violations(state, layout.positions, layout.zoom) == []
+
+
+def test_one_model_unit_is_one_pixel_at_the_first_fit_of_a_canvas_that_holds_the_graph(ctx):
+    state = _state(ctx, "overall")
+    big, small = layout_state(state, Canvas(1600, 1000)), layout_state(state, Canvas(700, 420))
+    assert big.zoom == 1.0
+    assert _fit_zoom(state, big.positions, big.sizes, Canvas(1600, 1000)) == 1.0
+    width = lambda p: max(x for x, _ in p.values()) - min(x for x, _ in p.values())  # noqa: E731
+    assert width(small.positions) < width(big.positions)  # laid out for the smaller canvas, not just zoomed
+
+
+def test_a_small_set_sits_centred_at_its_designed_size():
+    names = {1: "Puzzle", 2: "Relaxing", 3: "Casual", 4: "2D", 5: "Cute"}
+    rows = [(1, 2, 3)] * 4 + [(3, 4)] * 3 + [(4, 5)] * 3
+    games = [Game(i, f"g{i}", i + 1, 12, tags, tuple(names[t] for t in tags)) for i, tags in enumerate(rows)]
+    state = compute_state(games, Settings(build_id="small", dataset="overall", min_games_per_tag=1,
+                                          min_shared_games=1, seed=2, null_replicates=2, noise_seeds=2))
+    assert len(state.nodes) == 5
+    canvas = Canvas(1116, 678)
+    layout = layout_state(state, canvas)
+    assert layout.zoom == 1.0 and _fit_zoom(state, layout.positions, layout.sizes, canvas) == 1.0
+    boxes = _boxes(state, layout.positions, layout.sizes, 1.0)
+    for t, (x1, y1, x2, y2) in boxes.items():  # every tag's nearest neighbour within 3x the room their boxes need
+        def need(u):
+            ox1, oy1, ox2, oy2 = boxes[u]
+            dx = abs((x1 + x2) / 2 - (ox1 + ox2) / 2) / (((x2 - x1) + (ox2 - ox1)) / 2)
+            dy = abs((y1 + y2) / 2 - (oy1 + oy2) / 2) / (((y2 - y1) + (oy2 - oy1)) / 2)
+            return max(dx, dy)
+        assert min(need(u) for u in boxes if u != t) <= 3.0
+    assert _box_overlaps(boxes) == []
+
+
+def test_label_widths_come_from_a_fixed_table():
+    assert label_width("Puzzle") == label_width("Puzzle")
+    assert label_width("Massively Multiplayer") > label_width("Puzzle") > label_width("2D") > 0
+    assert label_width("WWW") > label_width("iii")
+    assert 1.05 * 6 * 6.0 < label_width("Puzzle") < 1.2 * 6 * 7.5  # about 10 % above the 11.5 px bold widths
+    assert label_width("Café") > label_width("Caf")  # a character outside the table still takes room
 
 
 @pytest.mark.parametrize("dataset", DATASETS)

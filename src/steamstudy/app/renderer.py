@@ -14,11 +14,13 @@ from typing import Any
 
 from dash import ClientsideFunction, dcc, html
 
+from steamstudy.network.layout import label_width
+
 GRAPH_ID = "cy"
 DATA_ID = "graph-data"
 EVENT_ID = "graph-event"
 ACK_ID = "graph-ack"
-ASPECT_ID = "graph-aspect"  # the canvas's free area, width / height, reported by graph.js
+CANVAS_ID = "graph-canvas"  # the canvas's free area {w, h} in pixels, in steps, reported by graph.js
 # Slightly muted cluster colours (prototype variant B); One-Tag Clusters stay grey.
 PALETTE = ["#5b7fb0", "#d08a4e", "#6a9c64", "#c0646a", "#6ea8a5", "#c9ad4f", "#9a7fa8", "#d79aa4", "#8f7766",
            "#86aeb0", "#c27d9b", "#93bf88", "#a8945a", "#5f9592", "#e3b9c8", "#837b78"]
@@ -41,7 +43,7 @@ def graph_component() -> list[Any]:
     """The canvas container plus the stores of the boundary. The canvas fills `.graph-canvas` (app.css) and
     follows its size."""
     return [html.Div(id=GRAPH_ID, className="graph-canvas"),
-            dcc.Store(id=DATA_ID, data={}), dcc.Store(id=EVENT_ID), dcc.Store(id=ACK_ID), dcc.Store(id=ASPECT_ID)]
+            dcc.Store(id=DATA_ID, data={}), dcc.Store(id=EVENT_ID), dcc.Store(id=ACK_ID), dcc.Store(id=CANVAS_ID)]
 
 
 def selection_ref(selection: dict[str, Any] | None) -> dict[str, str] | None:
@@ -70,12 +72,13 @@ def priority(nodes: list[dict[str, Any]], separated: bool) -> dict[str, int]:
 def payload(nodes: list[dict[str, Any]], edges: list[dict[str, Any]], positions: dict[str, list[float]], *,
             dataset: str, layout: str = "global", regions: list[dict[str, Any]] | None = None,
             selection: dict[str, Any] | None = None, max_shared: int = 1,
-            basis: list[Any] | None = None) -> dict[str, Any]:
+            basis: list[Any] | None = None, zoom: float = 1.0) -> dict[str, Any]:
     """The `graph-data` store. nodes: {id, label, cluster, kind, size, center}; edges: {source, target, shared,
     intra}; positions: node id -> [x, y]; regions: {label, cluster, color, x, y, width, height} (top-left corner).
-    A node's size comes from the layout (fixed by its games, in the positions' units), never from what is visible.
-    `basis` (dataset, Minimum Months Filter, Clustering Weight, seed) tells the canvas when to drop dragged
-    positions."""
+    A node's size comes from the layout (fixed by its games, in the positions' units), never from what is visible;
+    `lw` is its label's width on screen (`label_width`), for the fit. `basis` (dataset, Minimum Months Filter,
+    Clustering Weight, seed) tells the canvas when to drop dragged positions. `zoom` is the zoom the labels are
+    spaced for: zoomed out further, the canvas hides labels that would overlap."""
     separated = layout == "separated"
     ranks = priority(nodes, separated)
     out_nodes = []
@@ -83,6 +86,7 @@ def payload(nodes: list[dict[str, Any]], edges: list[dict[str, Any]], positions:
         classes = [n["kind"]] + (["center"] if n["center"] else []) + (["pri"] if n["id"] in ranks else [])
         out_nodes.append({"id": n["id"], "label": n["label"], "cluster": n["cluster"],
                           "color": cluster_color(n["cluster"], n["kind"]), "size": n["size"],
+                          "lw": label_width(n["label"]),
                           "classes": " ".join(classes), "prio": ranks.get(n["id"])})
     out_edges = [{"id": f"{e['source']}-{e['target']}", "source": e["source"], "target": e["target"],
                   "width": 0.6 + 6 * (e["shared"] / max(max_shared, 1)),
@@ -94,4 +98,4 @@ def payload(nodes: list[dict[str, Any]], edges: list[dict[str, Any]], positions:
     return {"dataset": dataset, "layout": layout, "basis": list(basis or [dataset]), "nodes": out_nodes,
             "edges": out_edges,
             "positions": {n["id"]: list(positions.get(n["id"], (0.0, 0.0))) for n in nodes},
-            "regions": out_regions, "selected": selection_ref(selection), "view": None}
+            "regions": out_regions, "selected": selection_ref(selection), "view": None, "zoom": zoom}

@@ -25,7 +25,8 @@ from steamstudy.app import renderer as R
 from steamstudy.app.renderer import cluster_color
 from steamstudy.network.cluster import Cluster
 from steamstudy.network.graph import filter_games
-from steamstudy.network.layout import ASPECT, cluster_separated_positions, layout_state, relayout
+from steamstudy.network.layout import (REFERENCE_CANVAS, Canvas, LayoutInput, lay_out, label_width, layout_input,
+                                      relayout)
 from steamstudy.network.model import Settings, resolution_text
 from steamstudy.network.sensitivity import removal_sensitivity
 from steamstudy.network.state import compute_state
@@ -99,7 +100,7 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
                                       weight, algorithm, gamma, seed, removed)
     state = compute_state(c.games(dataset), settings, c.context(dataset))
     tables = state_tables(state)
-    layout = layout_state(state)
+    inp = layout_input(state)
     q = tables["cluster_quality.csv"][0]
     gamma_text = resolution_text(settings.resolution)
     k = settings.noise_seeds
@@ -114,11 +115,11 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
     kind_of = {r["cluster"]: r["kind"] for r in tables["clusters.csv"]}
     base = {
         "nodes": [{"id": str(r["tag_id"]), "label": r["tag"], "cluster": r["cluster"], "kind": kind_of[r["cluster"]],
-                   "n_games": r["n_games"], "center": r["is_center"], "size": layout.sizes[r["tag_id"]]}
+                   "n_games": r["n_games"], "center": r["is_center"], "size": inp.sizes[r["tag_id"]]}
                   for r in tables["nodes.csv"]],
         "edges": [{"source": str(e.u), "target": str(e.v), "shared": e.shared, "lift": e.lift,
                    "intra": state.cluster_of[e.u] == state.cluster_of[e.v]} for e in state.network.edges],
-        "positions": {str(t): list(p) for t, p in layout.positions.items()},
+        "start": {str(t): list(p) for t, p in inp.start.items()},  # the loose layout: where the layout starts
         "basis": [dataset, settings.min_months, settings.clustering_weight, settings.seed],
         "weight": settings.clustering_weight, "seed": settings.seed, "dataset": dataset,
         "max_shared": max([e.shared for e in state.network.edges] + [1]),
@@ -193,42 +194,57 @@ def _graph_from_base(base: dict[str, Any]) -> nx.Graph:
     return g
 
 
-def _sizes(base: dict[str, Any]) -> dict[int, float]:
-    return {int(n["id"]): n["size"] for n in base["nodes"]}
+def layout_input_from_base(base: dict[str, Any]) -> LayoutInput:
+    """The layout's input, rebuilt from the plain data the browser holds (the same as `layout_input(state)`)."""
+    by_cluster: dict[str, set[int]] = {}
+    centers: dict[str, int | None] = {}
+    for n in base["nodes"]:
+        by_cluster.setdefault(n["cluster"], set()).add(int(n["id"]))
+        if n["center"]:
+            centers[n["cluster"]] = int(n["id"])
+    clusters = [Cluster(label, frozenset(members)) for label, members in
+                sorted(by_cluster.items(), key=lambda kv: int(kv[0][1:]))]
+    return LayoutInput(_graph_from_base(base), {int(k): (v[0], v[1]) for k, v in base["start"].items()},
+                       {int(n["id"]): n["size"] for n in base["nodes"]},
+                       {int(n["id"]): label_width(n["label"]) for n in base["nodes"]}, clusters, centers, base["seed"])
 
 
-def current_global_positions(base: dict[str, Any], relayout_store: dict | None) -> tuple[dict[str, list[float]], bool]:
+MIN_CANVAS = Canvas(320, 240)  # a canvas still opening or closing a panel is never laid out smaller
+
+
+def canvas_of(reported: dict | None) -> Canvas:
+    """The canvas graph.js reports (its free area, in steps), or the reference canvas until it has."""
+    if not reported or not reported.get("w") or not reported.get("h"):
+        return REFERENCE_CANVAS
+    return Canvas(max(float(reported["w"]), MIN_CANVAS.width), max(float(reported["h"]), MIN_CANVAS.height))
+
+
+def relayout_positions(base: dict[str, Any], relayout_store: dict | None) -> dict[int, tuple[float, float]] | None:
+    """The Re-layout's Global positions, while the layout basis is the one they were made for."""
     if relayout_store and relayout_store.get("basis") == base["basis"]:
-        positions = dict(base["positions"])
-        positions.update(relayout_store["positions"])
-        return positions, True
-    return base["positions"], False
+        nodes = {int(n["id"]) for n in base["nodes"]}
+        kept = {int(k): (v[0], v[1]) for k, v in relayout_store["positions"].items() if int(k) in nodes}
+        if set(kept) == nodes:
+            return kept
+    return None
 
 
-def render_graph(base, layout_mode, relayout_store, selection, aspect=None):
-    """The `graph-data` payload: every visible node and edge with its target position (no AppIDs). Cluster-separated
-    rows are packed for the canvas's aspect ratio (exports use the default, 1.4)."""
+def render_graph(base, layout_mode, relayout_store, selection, canvas=None):
+    """The `graph-data` payload: every visible node and edge with its target position (no AppIDs), laid out for
+    the canvas the browser reports (exports use the reference canvas)."""
     if not base:
         raise PreventUpdate
-    positions, _ = current_global_positions(base, relayout_store)
+    layout = lay_out(layout_input_from_base(base), canvas_of(canvas), positions=relayout_positions(base, relayout_store))
     regions: list[dict[str, Any]] = []
+    positions = layout.positions
     if layout_mode == "separated":
-        by_cluster: dict[str, set[int]] = {}
-        centers: dict[str, int] = {}
-        for n in base["nodes"]:
-            by_cluster.setdefault(n["cluster"], set()).add(int(n["id"]))
-            if n["center"]:
-                centers[n["cluster"]] = int(n["id"])
-        clusters = [Cluster(label, frozenset(members)) for label, members in
-                    sorted(by_cluster.items(), key=lambda kv: int(kv[0][1:]))]
-        start = {int(k): (v[0], v[1]) for k, v in positions.items()}
-        sep, regions = cluster_separated_positions(_graph_from_base(base), clusters, start, base["seed"],
-                                                   centers=centers, sizes=_sizes(base), aspect=aspect or ASPECT)
-        positions = {str(k): list(v) for k, v in sep.items()}
+        positions = layout.separated
+        regions = [dict(r) for r in layout.regions]
         for r in regions:
             r["color"] = R.REGION_COLOR if r["cluster"] == "one_tag_pool" else cluster_color(r["cluster"], "multi_tag")
-    return R.payload(base["nodes"], base["edges"], positions, dataset=base["dataset"], layout=layout_mode,
-                     regions=regions, selection=selection, max_shared=base["max_shared"], basis=base["basis"])
+    return R.payload(base["nodes"], base["edges"], {str(t): list(p) for t, p in positions.items()},
+                     dataset=base["dataset"], layout=layout_mode, regions=regions, selection=selection,
+                     max_shared=base["max_shared"], basis=base["basis"], zoom=layout.zoom)
 
 
 def show_selection(selection):
@@ -242,12 +258,12 @@ def show_selection(selection):
     return patch
 
 
-def do_relayout(_n, base, relayout_store):
+def do_relayout(_n, base, relayout_store, canvas=None):
     if not base:
         raise PreventUpdate
-    positions, _ = current_global_positions(base, relayout_store)
-    graph = _graph_from_base(base)
-    refined = relayout(graph, {int(k): (v[0], v[1]) for k, v in positions.items()}, base["seed"], sizes=_sizes(base))
+    inp = layout_input_from_base(base)
+    positions = relayout_positions(base, relayout_store) or lay_out(inp, canvas_of(canvas)).positions
+    refined = relayout(inp.graph, positions, base["seed"], sizes=inp.sizes)
     return {"basis": base["basis"], "positions": {str(k): list(v) for k, v in refined.items()}}
 
 
@@ -491,9 +507,7 @@ def do_export(_a, _b, build_path, meta, relayout_store, base, rs_view):
         raise PreventUpdate
     c = load_build(build_path)
     settings = Settings.from_key(meta["key"])
-    positions = None
-    if base and relayout_store and relayout_store.get("basis") == base["basis"]:
-        positions = {int(k): (v[0], v[1]) for k, v in current_global_positions(base, relayout_store)[0].items()}
+    positions = relayout_positions(base, relayout_store) if base else None
     rows = None
     if rs_view and rs_view.get("rows") and rs_view.get("state_id") == meta["state_id"] and not rs_view.get("stale"):
         rows = rs_view["rows"]  # only results under the exact current key; stale results are never exported
@@ -568,12 +582,13 @@ def register(app: dash.Dash) -> None:
        Input("gamma", "value"), Input("seed", "value"), Input("removed", "data"), State("verify", "data"),
        prevent_initial_call="initial_duplicate")(recompute)
     cb(Output(R.DATA_ID, "data"), Input("elements-base", "data"), Input("layout-mode", "value"),
-       Input("relayout", "data"), State("selection", "data"), Input(R.ASPECT_ID, "data"))(render_graph)
+       Input("relayout", "data"), State("selection", "data"), Input(R.CANVAS_ID, "data"))(render_graph)
     cb(Output(R.DATA_ID, "data", allow_duplicate=True), Input("selection", "data"),
        prevent_initial_call=True)(show_selection)
     app.clientside_callback(R.RENDER, Output(R.ACK_ID, "data"), Input(R.DATA_ID, "data"))
     cb(Output("relayout", "data", allow_duplicate=True), Input("relayout-btn", "n_clicks"),
-       State("elements-base", "data"), State("relayout", "data"), prevent_initial_call=True)(do_relayout)
+       State("elements-base", "data"), State("relayout", "data"), State(R.CANVAS_ID, "data"),
+       prevent_initial_call=True)(do_relayout)
     cb(Output("selection", "data"), Output("floating-open", "data", allow_duplicate=True),
        Input(R.EVENT_ID, "data"),
        Input({"type": "legend", "cluster": ALL}, "n_clicks"), Input("clusters-grid", "selectedRows"),
