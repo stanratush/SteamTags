@@ -20,7 +20,7 @@ from steamstudy.build.core import build
 from steamstudy.build.writer import write_build
 from steamstudy.config import load_config
 from steamstudy.export.writer import read_csv
-from steamstudy.network.layout import Canvas, layout_state, relayout
+from steamstudy.network.layout import Canvas, LayoutParams, layout_state, relayout
 from steamstudy.network.sensitivity import removal_sensitivity
 from steamstudy.network.state import compute_state
 from steamstudy.snapshot import Snapshot
@@ -75,8 +75,8 @@ def test_layout_settings_change_only_the_coordinates(build_folder, dataset):
     rows = removal_sensitivity(state, tags=state.nodes[:3])
     now = __import__("datetime").datetime(2026, 10, 6, 12, 0, tzinfo=__import__("datetime").UTC)
     exports = []
-    for layout in (layout_state(state), layout_state(state, Canvas(500, 1400)),
-                   layout_state(state, Canvas(2400, 600))):
+    for layout in (layout_state(state), layout_state(state, Canvas(500, 1400), LayoutParams(gravity=10.0)),
+                   layout_state(state, Canvas(2400, 600), LayoutParams(clamp=False))):
         name, data = export_zip(ctx, settings, removal_rows=rows, state=state, layout=layout, now=now)
         exports.append((name, *read_export(data)))
     (name, export, files), others = exports[0], exports[1:]

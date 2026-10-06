@@ -300,13 +300,14 @@ def test_state_key_canonical_json_and_state_id():
     assert Settings.from_key(key) == settings
 
 
-def test_global_positions_do_not_depend_on_thresholds_or_hidden_tags():
+def test_global_positions_follow_the_visible_network_and_the_seed():
     games = _random_games(9)
     loose = compute_state(games, _settings(min_games_per_tag=3, min_shared_games=2, null_replicates=2, noise_seeds=2))
     tight = compute_state(games, _settings(min_games_per_tag=8, min_shared_games=5, hidden_tag_ids=(1, 2),
                                            null_replicates=2, noise_seeds=2))
-    assert all(layout_state(tight).positions[t] == layout_state(loose).positions[t] for t in tight.nodes)
-    other_seed = compute_state(games, _settings(min_games_per_tag=8, seed=12, null_replicates=2, noise_seeds=2))
+    assert any(layout_state(tight).positions[t] != layout_state(loose).positions[t] for t in tight.nodes)
+    other_seed = compute_state(games, _settings(min_games_per_tag=8, min_shared_games=5, hidden_tag_ids=(1, 2),
+                                                seed=12, null_replicates=2, noise_seeds=2))
     assert layout_state(other_seed).positions != layout_state(tight).positions
 
 

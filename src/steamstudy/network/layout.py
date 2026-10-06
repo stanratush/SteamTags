@@ -10,6 +10,7 @@ and a deterministic overlap-removal pass keeps every pair of nodes at least `GAP
 
 from __future__ import annotations
 
+import functools
 import math
 from collections.abc import Hashable, Iterable, Mapping
 from dataclasses import dataclass
@@ -58,7 +59,7 @@ class Layout:
     regions: list[dict[str, Any]]
 
 
-def layout_state(state: NetworkState, canvas: Canvas = REFERENCE_CANVAS, *,
+def layout_state(state: NetworkState, canvas: Canvas = REFERENCE_CANVAS, params: LayoutParams | None = None, *,
                  positions: Mapping[int, tuple[float, float]] | None = None) -> Layout:
     """The layout of a finished Network State, which it only reads. `positions` replaces the computed Global
     positions (a Re-layout); the Cluster-separated layout always starts from the Global one."""
@@ -68,16 +69,18 @@ def layout_state(state: NetworkState, canvas: Canvas = REFERENCE_CANVAS, *,
     all_sizes = node_sizes(games, settings.min_months)
     sizes = {t: all_sizes[t] for t in nodes}
     if positions is None:
-        loose = global_positions(games, settings.min_months, settings.clustering_weight, settings.seed)
-        positions = {t: loose[t] for t in nodes}
+        loose = loose_layout(games, settings.min_months, settings.clustering_weight, settings.seed)
+        positions = global_layout(state.graph, {t: loose[t] for t in nodes}, sizes, canvas, params or LayoutParams())
     global_ = {t: positions[t] for t in nodes}
     centers = {label: c.center for label, c in state.centers.items()}
     separated, regions = cluster_separated_positions(state.graph, state.clusters, global_, settings.seed,
                                                      centers=centers, sizes=sizes, aspect=canvas.aspect)
     return Layout(global_, sizes, separated, regions)
 
+
 GAP = 4.0  # free space kept between two nodes
-MIN_SIZE, SIZE_RANGE = 10.0, 24.0  # node diameter: MIN_SIZE + SIZE_RANGE * sqrt(n_games / most frequent tag's)
+MIN_SIZE, SIZE_RANGE = 18.0, 30.0  # node diameter: MIN_SIZE + SIZE_RANGE * sqrt(n_games / most frequent tag's)
+LABEL_HEIGHT = 15.0  # one label line at 11.5 px with its halo, in pixels
 REGION_UNIT = 90.0  # a Cluster-separated region's side per square root of its members
 REGION_GAP = 24.0  # between packed regions
 TITLE_ROOM = 26.0  # above each row of regions, for the region titles
@@ -101,14 +104,16 @@ def node_sizes(games: list[Game], min_months: int) -> dict[int, float]:
 
 
 def remove_overlaps(positions: Mapping[K, tuple[float, float]], sizes: Mapping[K, float], *, gap: float = GAP,
-                    fixed: Iterable[K] = (), max_rounds: int = 2000) -> dict[K, tuple[float, float]]:
+                    fixed: Iterable[K] = (), max_rounds: int = 2000,
+                    clamp: Clamp | None = None) -> dict[K, tuple[float, float]]:
     """Push overlapping nodes apart until every pair is at least `gap` apart (radius = size / 2).
 
     Deterministic: nodes are taken in sorted order and every round moves each overlapping pair apart along
     the line between them, half each (all of it on the free node when the other is fixed). Only pairs near
     each other are checked between full checks; it stops only when a full check finds no overlap. If that
     takes more than `max_rounds`, the free nodes spread out by half and it starts again (with at most one
-    fixed node, or fixed nodes far enough apart, this always ends)."""
+    fixed node, or fixed nodes far enough apart, this always ends). A `clamp` (over the nodes in sorted order)
+    is kept after every round, and loosened at every spread."""
     keys = sorted(positions, key=_sort_key)
     n = len(keys)
     if n < 2:
@@ -122,13 +127,15 @@ def remove_overlaps(positions: Mapping[K, tuple[float, float]], sizes: Mapping[K
     # The fixed nodes stay put; if a settle runs out of rounds, the free nodes spread out from them (or from
     # the centroid when none is fixed) and settle again, so it always ends without an overlap.
     anchor = xy[free == 0].mean(axis=0) if (free == 0).any() else xy.mean(axis=0)
-    while not _settle(xy, free, upper_i, upper_j, need_all, n, max_rounds):
+    while not _settle(xy, free, upper_i, upper_j, need_all, n, max_rounds, clamp):
         xy[free > 0] = anchor + (xy[free > 0] - anchor) * 1.5
+        if clamp is not None:
+            clamp.loosen(1.5)
     return {k: (float(x), float(y)) for k, (x, y) in zip(keys, xy)}
 
 
 def _settle(xy: np.ndarray, free: np.ndarray, upper_i: np.ndarray, upper_j: np.ndarray, need_all: np.ndarray,
-            n: int, max_rounds: int) -> bool:
+            n: int, max_rounds: int, clamp: Clamp | None = None) -> bool:
     """Push overlapping pairs apart in place for at most `max_rounds`; whether a full check found no overlap."""
     pairs = np.zeros(0, dtype=int)
     for round_ in range(max_rounds):
@@ -158,25 +165,122 @@ def _settle(xy: np.ndarray, free: np.ndarray, upper_i: np.ndarray, upper_j: np.n
         np.add.at(delta, i, step * share_i[:, None])
         np.add.at(delta, j, -step * share_j[:, None])
         xy += delta
+        if clamp is not None:
+            clamp(xy)
     d = xy[upper_i] - xy[upper_j]
     return not (need_all - np.hypot(d[:, 0], d[:, 1]) > 1e-7).any()
 
 
-def global_positions(games: list[Game], min_months: int, clustering_weight: str, seed: int) -> Positions:
-    """A pure function of (dataset, Minimum Months Filter, Clustering Weight, seed).
+def loose_layout(games: list[Game], min_months: int, clustering_weight: str, seed: int) -> Positions:
+    """The dataset's fixed loose layout, where every Global layout starts: a pure function of (dataset, Minimum
+    Months Filter, Clustering Weight, seed).
 
     A weighted, seeded spring layout on the active Clustering Weight, at the loosest thresholds and with
-    no tag hidden or removed, then overlap removal, so moving a slider never moves the graph.
+    no tag hidden or removed, then overlap removal. Similar visible sets start alike, so they end up alike.
     """
-    loose = Settings(build_id="layout", dataset="layout", min_months=min_months, min_games_per_tag=1,
+    return dict(_loose_layout(tuple(filter_games(games, min_months)), clustering_weight, seed))
+
+
+@functools.lru_cache(maxsize=32)
+def _loose_layout(games: tuple[Game, ...], clustering_weight: str,
+                  seed: int) -> tuple[tuple[int, tuple[float, float]], ...]:
+    loose = Settings(build_id="layout", dataset="layout", min_months=0, min_games_per_tag=1,
                      min_shared_games=1, clustering_weight=clustering_weight, seed=seed)
-    network = build_network(games, loose, TagContext())
+    network = build_network(list(games), loose, TagContext())
     graph = to_graph(network.nodes, network.edges, clustering_weight)
     if graph.number_of_nodes() == 0:
-        return {}
+        return ()
     pos = nx.spring_layout(graph, weight="w", seed=seed)
     spread = {int(t): (float(x) * SCALE, float(y) * SCALE) for t, (x, y) in sorted(pos.items())}
-    return remove_overlaps(spread, node_sizes(games, min_months))
+    return tuple(remove_overlaps(spread, node_sizes(list(games), 0)).items())
+
+
+# ----------------------------------------------------------------------------- Global layout
+
+GRAVITY = 1.0  # ForceAtlas2 gravity: pulls tags without a visible link towards the graph
+FA2_ITERATIONS = 200
+FILL = 0.7  # the main component's share of the canvas, before overlap removal
+MAX_STRETCH = 1.6  # at most this much wider (or taller) than the layout's own shape, to fill the canvas
+CLAMP_ROOM = 1.5 * LABEL_HEIGHT  # how far beyond the main component's radius a tag may sit
+
+
+@dataclass(frozen=True)
+class LayoutParams:
+    """Layout settings. Like the canvas, they change only coordinates, never a result (ADR 0002)."""
+
+    gravity: float = GRAVITY
+    clamp: bool = True
+
+
+def global_layout(graph: nx.Graph, start: Mapping[int, tuple[float, float]], sizes: Mapping[int, float],
+                  canvas: Canvas = REFERENCE_CANVAS, params: LayoutParams = LayoutParams()) -> Positions:
+    """The Global layout of the visible network: ForceAtlas2 with gravity and hub dissuasion from the start
+    positions, scaled to the canvas, then the clamp and overlap removal. Deterministic."""
+    keys = sorted(graph.nodes)
+    if not keys:
+        return {}
+    xy = _forceatlas2(graph, keys, start, params.gravity)
+    main = _main_component(graph, keys)
+    xy = _fit(xy, main, canvas)
+    clamp = Clamp(main, CLAMP_ROOM) if params.clamp and main.sum() >= 2 else None  # no links: nothing to clamp to
+    if clamp is not None:
+        clamp(xy)
+    return remove_overlaps({t: (float(x), float(y)) for t, (x, y) in zip(keys, xy)}, sizes, clamp=clamp)
+
+
+def _forceatlas2(graph: nx.Graph, keys: list[int], start: Mapping[int, tuple[float, float]],
+                 gravity: float) -> np.ndarray:
+    """`nx.forceatlas2_layout` on the active Clustering Weight (scaled to at most 1), with hub dissuasion."""
+    g = nx.Graph()
+    g.add_nodes_from(keys)
+    top = max((float(w) for *_, w in graph.edges(data="w")), default=1.0) or 1.0
+    for u, v, w in sorted(graph.edges(data="w")):
+        g.add_edge(u, v, w=float(w) / top)
+    init = {t: np.array(start[t], dtype=float) / SCALE for t in keys if t in start}
+    pos = nx.forceatlas2_layout(g, pos=init or None, max_iter=FA2_ITERATIONS, gravity=gravity,
+                                distributed_action=True, weight="w", seed=0)
+    return np.array([pos[t] for t in keys], dtype=float)
+
+
+def _main_component(graph: nx.Graph, keys: list[int]) -> np.ndarray:
+    """A mask over `keys`: the largest connected component (ties: the one with the smallest tag id)."""
+    main = min(nx.connected_components(graph), key=lambda c: (-len(c), min(c)))
+    return np.array([t in main for t in keys])
+
+
+def _fit(xy: np.ndarray, main: np.ndarray, canvas: Canvas) -> np.ndarray:
+    """Centre the main component and scale it to FILL of the canvas (stretched at most MAX_STRETCH per axis).
+    Without a main component of two or more tags, the whole layout is scaled instead."""
+    basis = xy[main] if main.sum() >= 2 else xy
+    centre = (basis.min(axis=0) + basis.max(axis=0)) / 2
+    extent = basis.max(axis=0) - basis.min(axis=0)
+    if extent.max() < 1e-9:
+        extent = np.ones(2)
+    extent = np.maximum(extent, extent.max() / MAX_STRETCH)
+    scale = FILL * np.array([canvas.width, canvas.height]) / extent
+    scale = np.minimum(scale, scale.min() * MAX_STRETCH)
+    return (xy - centre) * scale
+
+
+class Clamp:
+    """Keeps every tag within the main component's radius plus `room` of its centre, per axis: a tag outside is
+    moved towards the centre onto that bound. The main component's own tags are never moved, so the bound grows
+    with it."""
+
+    def __init__(self, main: np.ndarray, room: float):
+        self.main, self.room = main, room
+
+    def __call__(self, xy: np.ndarray) -> None:
+        inner = xy[self.main]
+        centre = (inner.min(axis=0) + inner.max(axis=0)) / 2
+        bound = (inner.max(axis=0) - inner.min(axis=0)) / 2 + self.room
+        d = xy - centre
+        with np.errstate(divide="ignore"):
+            shrink = np.min(np.where(np.abs(d) > 1e-12, bound / np.abs(d), np.inf), axis=1)
+        xy[:] = centre + d * np.minimum(1.0, shrink)[:, None]
+
+    def loosen(self, by: float) -> None:
+        self.room *= by
 
 
 def relayout(graph: nx.Graph, start: Mapping[Any, tuple[float, float]], seed: int, iterations: int = 50, *,
