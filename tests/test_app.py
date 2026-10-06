@@ -245,23 +245,28 @@ def test_the_app_draws_the_exported_coordinates_in_both_layouts(build_folder):
 
 
 @pytest.mark.parametrize("layout_mode", ["global", "separated"])
-def test_priority_labels_are_centers_the_15_largest_and_in_regions_each_clusters_largest(build_folder, layout_mode):
+def test_every_label_is_ranked_for_culling_centers_first_then_by_games(build_folder, layout_mode):
     meta, tables, base, *_ = _recompute(build_folder, **{"min-games": 1, "min-shared": 1})
     payload = CB.render_graph(base, layout_mode, None, None)
     by_id = {n["id"]: n for n in base["nodes"]}
-    ranked = sorted(base["nodes"], key=lambda n: (-n["n_games"], int(n["id"])))
-    expected = {n["id"] for n in ranked[:15]} | {n["id"] for n in base["nodes"] if n["center"]}
-    if layout_mode == "separated":
-        for cluster in {n["cluster"] for n in base["nodes"]}:
-            expected.add(next(n["id"] for n in ranked if n["cluster"] == cluster))
-    priority = [n for n in payload["nodes"] if "pri" in n["classes"].split()]
-    assert {n["id"] for n in priority} == expected and len(base["nodes"]) > len(expected)
-    order = [n["id"] for n in sorted(priority, key=lambda n: n["prio"])]  # culling rank: Centers, then n_games
+    order = [n["id"] for n in sorted(payload["nodes"], key=lambda n: n["prio"])]
+    assert sorted(n["prio"] for n in payload["nodes"]) == list(range(len(base["nodes"])))  # every tag, once
     centers = [i for i in order if by_id[i]["center"]]
-    assert order[:len(centers)] == centers
+    assert centers and order[:len(centers)] == centers
     rest = order[len(centers):]
     assert rest == sorted(rest, key=lambda i: (-by_id[i]["n_games"], int(i)))
-    assert all(n["prio"] is None for n in payload["nodes"] if "pri" not in n["classes"].split())
+
+
+def test_edges_are_thin_and_scale_with_shared_games(build_folder):
+    meta, tables, base, *_ = _recompute(build_folder)
+    payload = CB.render_graph(base, "global", None, None)
+    widths = {(e["source"], e["target"]): e["width"] for e in payload["edges"]}
+    shared = {(e["source"], e["target"]): e["shared"] for e in base["edges"]}
+    top = max(shared.values())
+    assert all(0.4 <= w <= 3.0 for w in widths.values())
+    assert max(widths.values()) == pytest.approx(3.0)
+    assert all(widths[a] <= widths[b] for a in widths for b in widths if shared[a] <= shared[b])
+    assert widths[min(shared, key=shared.get)] == pytest.approx(0.4 + 2.6 * min(shared.values()) / top)
 
 
 def test_selecting_a_cluster_focuses_it_and_other_selections_do_not():

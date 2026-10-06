@@ -24,7 +24,6 @@ CANVAS_ID = "graph-canvas"  # the canvas's free area {w, h} in pixels, in steps,
 # Slightly muted cluster colours (prototype variant B); One-Tag Clusters stay grey.
 PALETTE = ["#5b7fb0", "#d08a4e", "#6a9c64", "#c0646a", "#6ea8a5", "#c9ad4f", "#9a7fa8", "#d79aa4", "#8f7766",
            "#86aeb0", "#c27d9b", "#93bf88", "#a8945a", "#5f9592", "#e3b9c8", "#837b78"]
-TOP_LABELS = 15  # the largest tags (by n_games) whose labels keep a constant on-screen size
 ONE_TAG_COLOR = "#b8b8b8"
 REGION_COLOR = "#999999"
 
@@ -53,20 +52,11 @@ def selection_ref(selection: dict[str, Any] | None) -> dict[str, str] | None:
     return {"kind": selection["kind"], "id": str(selection["id"])}
 
 
-def priority(nodes: list[dict[str, Any]], separated: bool) -> dict[str, int]:
-    """Node id -> culling rank (0 first) of the priority labels: the Cluster Centers, then the TOP_LABELS largest
-    tags by n_games (ties by tag id) and, in Cluster-separated mode, each cluster's largest tag; after the
-    Centers they rank by n_games. The canvas adds the selection and its neighbours, ranked above all."""
-    ranked = sorted(nodes, key=lambda n: (-n["n_games"], int(n["id"])))
-    chosen = {n["id"] for n in ranked[:TOP_LABELS]} | {n["id"] for n in nodes if n["center"]}
-    if separated:
-        seen: set[str] = set()
-        for n in ranked:
-            if n["cluster"] not in seen:
-                seen.add(n["cluster"])
-                chosen.add(n["id"])
-    order = [n["id"] for n in ranked if n["center"]] + [n["id"] for n in ranked if not n["center"]]
-    return {node_id: rank for rank, node_id in enumerate(i for i in order if i in chosen)}
+def priority(nodes: list[dict[str, Any]]) -> dict[str, int]:
+    """Node id -> culling rank (0 first) of every label: the Cluster Centers, then the other tags, each by n_games
+    (ties by tag id). The canvas ranks the selection and its neighbours above all."""
+    ranked = sorted(nodes, key=lambda n: (not n["center"], -n["n_games"], int(n["id"])))
+    return {n["id"]: rank for rank, n in enumerate(ranked)}
 
 
 def payload(nodes: list[dict[str, Any]], edges: list[dict[str, Any]], positions: dict[str, list[float]], *,
@@ -80,16 +70,16 @@ def payload(nodes: list[dict[str, Any]], edges: list[dict[str, Any]], positions:
     Clustering Weight, seed) tells the canvas when to drop dragged positions. `zoom` is the zoom the labels are
     spaced for: zoomed out further, the canvas hides labels that would overlap."""
     separated = layout == "separated"
-    ranks = priority(nodes, separated)
+    ranks = priority(nodes)
     out_nodes = []
     for n in nodes:
-        classes = [n["kind"]] + (["center"] if n["center"] else []) + (["pri"] if n["id"] in ranks else [])
+        classes = [n["kind"]] + (["center"] if n["center"] else [])
         out_nodes.append({"id": n["id"], "label": n["label"], "cluster": n["cluster"],
                           "color": cluster_color(n["cluster"], n["kind"]), "size": n["size"],
                           "lw": label_width(n["label"]),
                           "classes": " ".join(classes), "prio": ranks.get(n["id"])})
     out_edges = [{"id": f"{e['source']}-{e['target']}", "source": e["source"], "target": e["target"],
-                  "width": 0.6 + 6 * (e["shared"] / max(max_shared, 1)),
+                  "width": 0.4 + 2.6 * (e["shared"] / max(max_shared, 1)),
                   "classes": ("intra" if e["intra"] else "inter") + (" separated" if separated else "")}
                  for e in edges]
     out_regions = [{"id": f"region-{r.get('cluster') or i}", "label": r["label"], "cluster": r.get("cluster", ""),

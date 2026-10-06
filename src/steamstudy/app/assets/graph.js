@@ -11,9 +11,11 @@
    e.g. the floating Inspector). Python lays the graph out for the free area this canvas reports, so one
    model unit is one screen pixel at the first fit (layout.py's fit_zoom fits the same way).
 
-   Labels: priority labels (classes `pri` from Python, `hot` for the selection and its neighbours) keep a
-   constant on-screen size; after every zoom one that overlaps a higher-ranked one is hidden (rank: `hot`,
-   then the `prio` sent by Python: Centers, then n_games). Other labels scale with zoom and hide below 7 px.
+   Labels: every label keeps a constant 11.5 px on screen, with a white halo; the selection and its
+   neighbours (`hot`) get a solid white box and bold type. Python spaces the layout so no label overlaps
+   at the zoom it sends (`zoom`) and above. Zoomed out below that (or below the first fit), a label that
+   overlaps a higher-ranked one is hidden after every zoom (rank: `hot`, then the `prio` sent by Python:
+   Centers, then n_games).
 
    Motion is brief and never continuous: moves, fades, the selection pulse and animated fits take about
    350 ms, and all of it is instant under prefers-reduced-motion. A new dataset only fits (animated).
@@ -27,8 +29,7 @@
   const PAD = 30, TITLE_ROOM = 22;
   const LABEL_H = 15, LABEL_MARGIN = 2;  // a label's box below its node, in pixels (layout.py's LABEL_HEIGHT, LABEL_MARGIN)
   const REF = {w: 1116, h: 678}, STEP = 1.08;  // the reference canvas and the canvas report's steps
-  const PRI_PX = 11.5, TITLE_PX = 12.5;  // constant on-screen sizes of priority labels and region titles
-  const SIZED = "font-size text-margin-y text-background-padding";
+  const LABEL_PX = 11.5, TITLE_PX = 12.5, HALO = 2;  // constant on-screen sizes of labels and region titles
   const MOTION = 350, EASE = "ease-in-out-cubic";
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
   const G = {cy: null, el: null, data: null, sig: null, moveSig: null, userMoved: false,
@@ -40,14 +41,14 @@
   function style() {
     return [
       {selector: "node", style: {
-        "background-color": "data(color)", "label": "data(label)", "font-size": 6.5, "min-zoomed-font-size": 7,
+        "background-color": "data(color)", "label": "data(label)", "font-size": LABEL_PX, "min-zoomed-font-size": 0,
         "font-family": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", "color": "#1b2130",
-        "text-valign": "bottom", "text-margin-y": 2, "text-outline-color": "#fff", "text-outline-width": 1.2,
-        "text-outline-opacity": 0.9, "width": "data(size)", "height": "data(size)", "border-width": 1.2,
+        "text-valign": "bottom", "text-margin-y": 2, "text-outline-color": "#fff", "text-outline-width": HALO,
+        "text-outline-opacity": 0.95, "width": "data(size)", "height": "data(size)", "border-width": 1.2,
         "border-color": "#00000040", "z-index-compare": "manual", "z-index": 10}},
-      {selector: "node.pri, node.hot", style: {
-        "min-zoomed-font-size": 0, "font-weight": 500, "text-outline-width": 0, "text-background-color": "#fff", "z-index": 15,
-        "text-background-opacity": 0.85, "text-background-padding": 2, "text-background-shape": "round-rectangle"}},
+      {selector: "node.hot", style: {
+        "font-weight": 700, "text-outline-width": 0, "text-background-color": "#fff", "z-index": 15,
+        "text-background-opacity": 1, "text-background-padding": 2, "text-background-shape": "round-rectangle"}},
       {selector: "node.one_tag", style: {"opacity": 0.8}},
       {selector: "node.center", style: {
         "shape": "diamond", "border-width": 2, "border-color": "#1b2130", "font-weight": 650, "z-index": 20}},
@@ -58,12 +59,12 @@
         "min-zoomed-font-size": 0, "font-weight": 600, "color": "#3d4555", "text-outline-width": 0,
         "z-index": 0, "text-events": "yes"}},
       {selector: "edge", style: {
-        "curve-style": "haystack", "haystack-radius": 0, "line-color": "#8d95a3", "opacity": 0.3,
+        "curve-style": "haystack", "haystack-radius": 0, "line-color": "#8d95a3", "opacity": 0.18,
         "width": "data(width)", "z-index-compare": "manual", "z-index": 5}},
       {selector: "edge.inter.separated", style: {"opacity": 0.06}},
       {selector: "node.dim", style: {"opacity": 0.12}},
       {selector: "edge.dim", style: {"opacity": 0.04}},
-      {selector: "edge.nb", style: {"opacity": 0.6}},
+      {selector: "edge.nb", style: {"line-color": "#4a5262", "opacity": 0.9}},
       {selector: "node.sel", style: {"border-width": 3, "border-color": "#2457d6", "z-index": 30}},
       {selector: "edge.sel", style: {"line-color": "#2457d6", "opacity": 0.95}},
       {selector: "node.lbl-off", style: {"text-opacity": 0, "text-background-opacity": 0}},
@@ -119,11 +120,14 @@
     cy.on("zoom", () => {  // re-size and re-cull the labels once per frame
       if (!G.labelFrame) G.labelFrame = requestAnimationFrame(() => { G.labelFrame = 0; sizeLabels(); });
     });
-    const ro = new ResizeObserver(() => {
+    // After a resize: report the canvas and refit (browser checks call it directly, as a hidden page skips it).
+    G.refresh = () => {
       cy.resize();
       reportCanvas();
       if (G.data && !G.userMoved) fit(false);
-    });
+      if (G.data) sizeLabels();
+    };
+    const ro = new ResizeObserver(() => G.refresh());
     ro.observe(el);
     document.querySelectorAll("[data-graph-overlay]").forEach((o) => ro.observe(o));
     return cy;
@@ -247,17 +251,23 @@
   function sizeLabels() {
     const cy = G.cy, z = cy.zoom();
     cy.batch(() => {
-      cy.nodes(".pri, .hot").style({"font-size": PRI_PX / z, "text-margin-y": 2 / z,
-                                    "text-background-padding": 2 / z});
+      cy.nodes().not(".region").style({"font-size": LABEL_PX / z, "text-margin-y": 2 / z,
+                                       "text-outline-width": HALO / z, "text-background-padding": 2 / z});
       cy.nodes(".region").style({"font-size": TITLE_PX / z, "text-margin-y": -4 / z});
     });
     cull();
   }
 
-  // Hide each priority label that overlaps a higher-ranked one; the selection and its neighbours always show.
+  // Zoomed out below the zoom the layout spaced the labels for (or below the first fit), hide each label that
+  // overlaps a higher-ranked one; the selection and its neighbours always show. Otherwise every label shows.
   function cull() {
     const cy = G.cy;
-    const labelled = cy.nodes(".pri, .hot").not(".region, .leaving");
+    const labelled = cy.nodes().not(".region, .leaving");
+    const roomy = G.data && cy.zoom() >= Math.max(G.data.zoom || 1, G.fitZoom || 0) * 0.99;
+    if (roomy) {
+      cy.batch(() => labelled.removeClass("lbl-off"));
+      return;
+    }
     const hot = labelled.filter(".hot");
     const rest = labelled.not(".hot").sort((a, b) => a.data("prio") - b.data("prio"));
     const area = (n) => n.boundingBox({includeNodes: false, includeEdges: false, includeLabels: true,
@@ -344,7 +354,6 @@
                          classes: e.classes}), ms);
         }
       }
-      cy.nodes().not(".pri").removeStyle(SIZED);
     });
   }
 
@@ -365,7 +374,6 @@
     const cy = G.cy;
     let pulse = null;
     cy.batch(() => {
-      cy.nodes(".hot").not(".pri").removeStyle(SIZED);
       cy.elements().removeClass("sel hot dim nb");
       if (!sel) return;
       let keep = cy.collection();
