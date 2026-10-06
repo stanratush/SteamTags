@@ -22,7 +22,9 @@ def state_tables(state: NetworkState, *, cluster_positions: Positions | None = N
     """Every app-export table except removal_sensitivity.csv, keyed by file name."""
     positions = positions if positions is not None else state.positions
     if cluster_positions is None:
-        cluster_positions, _ = cluster_separated_positions(state.graph, state.clusters, positions, state.settings.seed)
+        centers = {label: c.center for label, c in state.centers.items()}
+        cluster_positions, _ = cluster_separated_positions(state.graph, state.clusters, positions, state.settings.seed,
+                                                           centers=centers, sizes=state.sizes)
     return {
         "nodes.csv": node_rows(state, positions, cluster_positions),
         "edges.csv": edge_rows(state),

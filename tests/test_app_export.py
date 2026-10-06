@@ -96,7 +96,7 @@ def test_open_network_state_round_trip(build_folder):
     ctx = load_build(build_folder)
     settings = ctx.default_settings("overall").with_(min_games_per_tag=10, removed_tag_ids=(5000,), resolution=1.2)
     state = compute_state(ctx.games("overall"), settings, ctx.context("overall"))
-    moved = relayout(state.graph, state.positions, settings.seed, iterations=5)
+    moved = relayout(state.graph, state.positions, settings.seed, iterations=5, sizes=state.sizes)
     rows = removal_sensitivity(state)[:2]
     _, data = export_zip(ctx, settings, relayout_positions=moved, removal_rows=rows, state=state)
     for payload in (data, json.dumps(read_export(data)[0]).encode("utf-8")):

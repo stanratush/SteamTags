@@ -51,15 +51,15 @@ def selection_ref(selection: dict[str, Any] | None) -> dict[str, str] | None:
 def payload(nodes: list[dict[str, Any]], edges: list[dict[str, Any]], positions: dict[str, list[float]], *,
             dataset: str, layout: str = "global", regions: list[dict[str, Any]] | None = None,
             selection: dict[str, Any] | None = None, max_shared: int = 1) -> dict[str, Any]:
-    """The `graph-data` store. nodes: {id, label, cluster, kind, n_games, center}; edges: {source, target, shared,
-    intra}; positions: node id -> [x, y]; regions: {label, cluster, color, x, y, width, height} (top-left corner)."""
+    """The `graph-data` store. nodes: {id, label, cluster, kind, size, center}; edges: {source, target, shared,
+    intra}; positions: node id -> [x, y]; regions: {label, cluster, color, x, y, width, height} (top-left corner).
+    A node's size comes from the layout (fixed by its games, in the positions' units), never from what is visible."""
     separated = layout == "separated"
-    biggest = max([n["n_games"] for n in nodes] + [1])
     out_nodes = []
     for n in nodes:
         classes = [n["kind"]] + (["center"] if n["center"] else [])
         out_nodes.append({"id": n["id"], "label": n["label"], "cluster": n["cluster"],
-                          "color": cluster_color(n["cluster"], n["kind"]), "size": 12 + 26 * (n["n_games"] / biggest),
+                          "color": cluster_color(n["cluster"], n["kind"]), "size": n["size"],
                           "classes": " ".join(classes)})
     out_edges = [{"id": f"{e['source']}-{e['target']}", "source": e["source"], "target": e["target"],
                   "width": 0.6 + 6 * (e["shared"] / max(max_shared, 1)),

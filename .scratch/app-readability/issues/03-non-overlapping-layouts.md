@@ -4,24 +4,26 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
 Spec: [App readability spec](../spec.md): "Layout". Prototype: `packedPositions` in [01-styling-directions](../prototypes/01-styling-directions/PROTOTYPE-styling-directions.html). It only scales the global positions; the real layout runs a local spring layout.
 
-- [ ] Node size is a fixed function of `n_games` relative to the dataset's most frequent tag. It is computed in Python and sent in the payload; the renderer no longer derives it from the visible set.
-- [ ] A deterministic overlap-removal pass (node radii + a 4-unit gap) runs after the seeded spring layout in `global_positions`, on the full loose layout, so thresholds still never move the graph. The same pass runs after `relayout`.
-- [ ] `cluster_separated_positions`:
+- [x] Node size is a fixed function of `n_games` relative to the dataset's most frequent tag. It is computed in Python and sent in the payload; the renderer no longer derives it from the visible set.
+- [x] A deterministic overlap-removal pass (node radii + a 4-unit gap) runs after the seeded spring layout in `global_positions`, on the full loose layout, so thresholds still never move the graph. The same pass runs after `relayout`.
+- [x] `cluster_separated_positions`:
   - Region side grows with √(members).
   - Members are placed by a short seeded spring layout from their global positions, with the Cluster Center pinned in the middle, then de-overlapped.
   - Regions are shelf-packed biggest first with small even gaps, rows aimed at the canvas aspect ratio (passed in; default 1.4).
   - One-Tag Clusters share one compact grid region, packed as the last box.
-- [ ] Positions stay a pure function of their inputs and are never part of the Network State. `nodes.csv` coordinates change value only; the columns and `schema_version` stay the same.
-- [ ] Tests:
+- [x] Positions stay a pure function of their inputs and are never part of the Network State. `nodes.csv` coordinates change value only; the columns and `schema_version` stay the same.
+- [x] Tests:
   - No two nodes overlap (centre distance ≥ r1 + r2) for every dataset of the test Build, at the default and the loosest thresholds, in both layouts and after Re-layout.
   - The same inputs give identical positions.
   - The packed area is at most 1.5 × the sum of the region areas.
   - The Center sits at its region's centre.
   - Moving a threshold leaves the global positions unchanged.
-- [ ] The "Layout" entry in `docs/user-guide/03-metric-reference.md` describes overlap removal and the packed regions. Positions are still never a metric.
+- [x] The "Layout" entry in `docs/user-guide/03-metric-reference.md` describes overlap removal and the packed regions. Positions are still never a metric.
 
 ## Comments
+
+**2026-10-06 (implemented):** `network/layout.py`: `node_sizes` (diameter 10 + 24·√(n / most frequent tag's n), stored on `NetworkState.sizes` and sent in the payload), `remove_overlaps` (deterministic, vectorised over candidate pairs; it stops only after a full check finds no pair closer than the 4-unit gap), the packed `cluster_separated_positions` (Center pinned in the middle, the others' centroid moved onto it so members surround it; first-fit shelf packing that tries every contiguous run of boxes as the row width and keeps the smallest box weighted by its distance from the aspect). `aspect` is a parameter; the app packs at the default 1.4 so the drawn positions equal the exported ones (tested), and the render-time stretch adapts the drawing to the canvas. The app now lays out on the canonical int-id graph of `to_graph`, which also fixed an old mismatch between the drawn and the exported Cluster-separated coordinates. Overall's global layout takes about 220 ms on the real Build (spring 146 ms). On the real Build the first Cluster-separated fit is at zoom 0.49 instead of 0.093.

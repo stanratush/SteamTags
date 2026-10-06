@@ -17,7 +17,7 @@ import numpy as np
 from steamstudy.network import metrics as M
 from steamstudy.network.cluster import Cluster, detect, label_clusters, membership
 from steamstudy.network.graph import TagNetwork, build_network, to_graph
-from steamstudy.network.layout import Positions, global_positions
+from steamstudy.network.layout import Positions, global_positions, node_sizes
 from steamstudy.network.model import Game, Settings, TagContext, state_id_of
 from steamstudy.network.stability import (
     NullReplicate,
@@ -71,6 +71,7 @@ class NetworkState:
     distances: np.ndarray
     clustering_seconds: float
     index: dict[int, int] = field(default_factory=dict)
+    sizes: dict[int, float] = field(default_factory=dict)  # node diameter per tag (layout units)
 
     # -- identity
 
@@ -204,5 +205,5 @@ def compute_state(games: list[Game], settings: Settings, context: TagContext | N
         cluster_metrics={c.label: M.cluster_metrics(graph, c) for c in clusters}, node_metrics=node_metrics,
         centers=centers, connections=M.connections(graph, clusters), null_replicates=nulls, seed_runs=runs,
         membership_stability=stability, positions=positions, distances=distances,
-        clustering_seconds=clustering_seconds, index=index,
+        clustering_seconds=clustering_seconds, index=index, sizes=node_sizes(games, settings.min_months),
     )

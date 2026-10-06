@@ -223,3 +223,20 @@ def test_panels_collapse_independently_and_graph_only_is_a_form():
     out = CB.arrange("workbench", "quality", ["controls", "inspector", "tables"], True, sel, True)
     assert out[-2] == "inspector docked has-sel" and out[-1].endswith("tables-on graph-only")
     assert CB.arrange("report", "quality", [], False, None, False)[-2:] == ["inspector", "report"]
+
+
+def test_the_app_draws_the_exported_coordinates_in_both_layouts(build_folder):
+    import csv
+
+    meta, tables, base, *_ = _recompute(build_folder)
+    sent = CB.do_export(1, None, str(build_folder), meta, None, base, None)
+    rows = list(csv.DictReader(io.StringIO(read_export(base64.b64decode(sent["content"]))[1]["nodes.csv"]
+                                           .decode("utf-8-sig"))))
+    for layout_mode, x, y in (("global", "x_global", "y_global"),
+                              ("separated", "x_cluster_separated", "y_cluster_separated")):
+        drawn = CB.render_graph(base, layout_mode, None, None)["positions"]
+        assert {r["tag_id"]: pytest.approx([float(r[x]), float(r[y])], abs=1e-6) for r in rows} == drawn
+    sizes = {n["id"]: n["size"] for n in CB.render_graph(base, "global", None, None)["nodes"]}
+    ctx = load_build(build_folder)
+    state = compute_state(ctx.games("overall"), ctx.default_settings("overall"), ctx.context("overall"))
+    assert sizes == {str(t): state.sizes[t] for t in state.nodes}  # fixed by the layout, not by the visible set

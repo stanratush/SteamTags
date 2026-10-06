@@ -634,7 +634,7 @@ How evenly a tag's links are spread over clusters: 0 means all its weight is ins
 
 Columns: `x_global`, `y_global`, `x_cluster_separated`, `y_cluster_separated` in `nodes.csv`; `layout_source` in `export.json`.
 
-Where each node is drawn. The Global layout is a seeded, weighted force-directed layout (NetworkX `spring_layout`) on the active Clustering Weight, computed at the loosest thresholds with no tag hidden, so moving a slider never moves the graph. The Cluster-separated layout lays each Multi-Tag Cluster out from its own edges in a separate region and puts One-Tag Clusters in one grid. After a Re-layout, the exported global positions are the refined ones (`layout_source` = `relayout`). Distance on screen is **not** a metric: two tags drawn close together may share few games. Never measure or report positions.
+Where each node is drawn. The Global layout is a seeded, weighted force-directed layout (NetworkX `spring_layout`) on the active Clustering Weight, computed at the loosest thresholds with no tag hidden, so moving a slider never moves the graph. A node's drawn size depends only on how many games have the tag, relative to the dataset's most frequent tag (never on which tags are visible), so sizes and positions share one scale. After the spring layout, an **overlap-removal** pass pushes apart any two nodes that touch until at least 4 units separate them, so no node hides another at any zoom. It runs on the whole loose network, so every visible subset is also free of overlaps. The Cluster-separated layout gives each Multi-Tag Cluster its own square region, whose side grows with the square root of its member count. Inside the region the Cluster Center sits exactly in the middle; the other members are placed by a short seeded spring layout started from their global positions, then de-overlapped. One-Tag Clusters share one compact grid region. The regions are **packed** in rows, biggest cluster first, with small even gaps. After a Re-layout, the exported global positions are the refined ones (`layout_source` = `relayout`), again de-overlapped. You can drag nodes in the app; dragged positions are never exported. Distance on screen is **not** a metric: two tags drawn close together may share few games. Never measure or report positions.
 
 *Example.* Two exports of the same state with the default layout have identical positions.
 
@@ -642,7 +642,7 @@ Where each node is drawn. The Global layout is a seeded, weighted force-directed
 
 *Compare with.* Nothing.
 
-**Exact definition:** Global = `spring_layout(weight = active weight, seed = seed)` on the dataset's network at minimum games 1 and minimum shared games 1, scaled by 1,000.
+**Exact definition:** Global = `spring_layout(weight = active weight, seed = seed)` on the dataset's network at minimum games 1 and minimum shared games 1, scaled by 1,000, then overlap removal with node diameter 10 + 24 × √(`n_games` / largest `n_games` of the dataset) and a 4-unit gap. Cluster-separated: region side 90 × √(members) units (larger if the de-overlapped members need it), members by `spring_layout(30 iterations, Center fixed, seed = seed)` from their global positions, shelf-packed in label order with rows aimed at a 1.4 : 1 canvas.
 
 ### Tags not in the network
 

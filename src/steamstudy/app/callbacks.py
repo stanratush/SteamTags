@@ -113,7 +113,8 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
     kind_of = {r["cluster"]: r["kind"] for r in tables["clusters.csv"]}
     base = {
         "nodes": [{"id": str(r["tag_id"]), "label": r["tag"], "cluster": r["cluster"], "kind": kind_of[r["cluster"]],
-                   "n_games": r["n_games"], "center": r["is_center"]} for r in tables["nodes.csv"]],
+                   "n_games": r["n_games"], "center": r["is_center"], "size": state.sizes[r["tag_id"]]}
+                  for r in tables["nodes.csv"]],
         "edges": [{"source": str(e.u), "target": str(e.v), "shared": e.shared, "lift": e.lift,
                    "intra": state.cluster_of[e.u] == state.cluster_of[e.v]} for e in state.network.edges],
         "positions": {str(t): list(p) for t, p in state.positions.items()},
@@ -171,11 +172,18 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
 
 
 def _graph_from_base(base: dict[str, Any]) -> nx.Graph:
+    """The state's graph in the canonical order of `to_graph` (int tag ids), so the app's layouts equal the
+    export's."""
     g = nx.Graph()
-    g.add_nodes_from(n["id"] for n in base["nodes"])
-    for e in base["edges"]:
-        g.add_edge(e["source"], e["target"], w=float(e["shared"] if base["weight"] == "shared_games" else e["lift"]))
+    g.add_nodes_from(sorted(int(n["id"]) for n in base["nodes"]))
+    for e in sorted(base["edges"], key=lambda e: (int(e["source"]), int(e["target"]))):
+        g.add_edge(int(e["source"]), int(e["target"]),
+                   w=float(e["shared"]) if base["weight"] == "shared_games" else e["lift"])
     return g
+
+
+def _sizes(base: dict[str, Any]) -> dict[int, float]:
+    return {int(n["id"]): n["size"] for n in base["nodes"]}
 
 
 def current_global_positions(base: dict[str, Any], relayout_store: dict | None) -> tuple[dict[str, list[float]], bool]:
@@ -193,20 +201,20 @@ def render_graph(base, layout_mode, relayout_store, selection):
     positions, _ = current_global_positions(base, relayout_store)
     regions: list[dict[str, Any]] = []
     if layout_mode == "separated":
-        graph = _graph_from_base(base)
-        by_cluster: dict[str, set[str]] = {}
-        kinds: dict[str, str] = {}
+        by_cluster: dict[str, set[int]] = {}
+        centers: dict[str, int] = {}
         for n in base["nodes"]:
-            by_cluster.setdefault(n["cluster"], set()).add(n["id"])
-            kinds[n["cluster"]] = n["kind"]
+            by_cluster.setdefault(n["cluster"], set()).add(int(n["id"]))
+            if n["center"]:
+                centers[n["cluster"]] = int(n["id"])
         clusters = [Cluster(label, frozenset(members)) for label, members in
                     sorted(by_cluster.items(), key=lambda kv: int(kv[0][1:]))]
-        start = {k: (v[0], v[1]) for k, v in positions.items()}
-        sep, regions = cluster_separated_positions(graph, clusters, start, base["seed"])
-        positions = {k: list(v) for k, v in sep.items()}
-        for r, c in zip(regions, [c for c in clusters if c.size >= 2] + ([None] if any(c.size == 1 for c in clusters) else [])):
-            r["color"] = cluster_color(c.label, "multi_tag") if c is not None else R.REGION_COLOR
-            r["cluster"] = c.label if c is not None else "one_tag_pool"
+        start = {int(k): (v[0], v[1]) for k, v in positions.items()}
+        sep, regions = cluster_separated_positions(_graph_from_base(base), clusters, start, base["seed"],
+                                                   centers=centers, sizes=_sizes(base))
+        positions = {str(k): list(v) for k, v in sep.items()}
+        for r in regions:
+            r["color"] = R.REGION_COLOR if r["cluster"] == "one_tag_pool" else cluster_color(r["cluster"], "multi_tag")
     return R.payload(base["nodes"], base["edges"], positions, dataset=base["dataset"], layout=layout_mode,
                      regions=regions, selection=selection, max_shared=base["max_shared"])
 
@@ -223,7 +231,7 @@ def do_relayout(_n, base, relayout_store):
         raise PreventUpdate
     positions, _ = current_global_positions(base, relayout_store)
     graph = _graph_from_base(base)
-    refined = relayout(graph, {k: (v[0], v[1]) for k, v in positions.items()}, base["seed"])
+    refined = relayout(graph, {int(k): (v[0], v[1]) for k, v in positions.items()}, base["seed"], sizes=_sizes(base))
     return {"basis": base["basis"], "positions": {str(k): list(v) for k, v in refined.items()}}
 
 
