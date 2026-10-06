@@ -12,7 +12,7 @@ A researcher with Python installed copies one zip to another computer, extracts 
 - The application is the **Tag Network app**; the copyable thing is the **App Bundle**. Avoid "visualization tool", "standalone app", "portable version", "offline bundle".
 - Only one kind of bundle exists, and it is always offline: everything except Python itself is inside.
 - uv stays the tool for development and the pipeline (`collect`, `build`, tests, mypy). The App Bundle is a second way to deliver the app, made from the repository; the app code lives only once, in the repo.
-- The bundle contains the app only: no `collect`/`build`, no lxml, requests, pandas or markdown.
+- The bundle contains the app only: no `collect`/`build`, no lxml, pandas or markdown. `requests` is the one exception (amended 2026-10-06): dash 4 declares it as a dependency, so the bundle installs it for dash, but the app never imports it. Stripping it would mean installing dash against its own declared dependencies.
 
 ### Python and platforms
 - Supported Python: 3.12, 3.13, 3.14, except 3.14.1 (networkx 3.7 excludes it). The floor comes from numpy 2.5.3, scipy 1.18.1 and networkx 3.7. The pipeline keeps running on 3.14.

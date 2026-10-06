@@ -4,7 +4,7 @@ Researchers must be able to run the Tag Network app on another computer that has
 
 ## Consequences
 
-- The `steamstudy` package declares only the app's dependencies; the pipeline's (lxml, requests, pandas, markdown) are separate, and the app must never import pipeline modules (`build`, `collect`, `analysis`). The package's Python range widens to 3.12–3.14, while the pipeline keeps running on 3.14.
+- The `steamstudy` package declares only the app's dependencies; the pipeline's (lxml, requests, pandas, markdown) are separate (a bundle still installs `requests`, because dash declares it; the app never imports it), and the app must never import pipeline modules (`build`, `collect`, `analysis`). The package's Python range widens to 3.12–3.14, while the pipeline keeps running on 3.14.
 - The graph renderer (a vendored Cytoscape.js, replacing dash-cytoscape) ships as package data inside the `steamstudy` wheel, so every dependency is an ordinary wheel from PyPI and nothing is built for the bundle.
 - A bundle covers one or more chosen operating systems (default: the one making it). Bundles for other systems are checked for completeness but not launched by the test suite.
 - uv stays the tool for development and the pipeline; the App Bundle is a second, researcher-facing way to deliver the app.
