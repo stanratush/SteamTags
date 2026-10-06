@@ -448,3 +448,49 @@ def state_sentence(dataset_label: str, n_rows: int, settings: Any, hidden: list[
             f"{hidden_text}; {removed_text}; {settings.algorithm.capitalize()} on {weight}, "
             f"γ {settings.resolution:.2f}, seed {settings.seed} · ")
     return [text, html.Span(state_id, className="mono copy-id", title="Network State id: click to copy")]
+
+
+# ----------------------------------------------------------------------------- Analysis Report §1
+
+
+def key_json(key: dict[str, Any]) -> str:
+    """The state key as JSON with one field per line (a list of tag ids stays on its field's line)."""
+    import json
+
+    return "{\n" + ",\n".join(f"  {json.dumps(k)}: {json.dumps(v, ensure_ascii=False)}" for k, v in key.items()) + "\n}"
+
+
+def state_table(key: dict[str, Any], state_id: str, dataset_label: str, n_games: int, n_rows: int,
+                names: dict[int, str]) -> list[Any]:
+    """Analysis Report §1: the state_id (click to copy), then the Network State as a short table a reader can
+    cite (tags by name, never by bare id), then the raw state key behind "Show JSON"."""
+    def tags(ids: list[int]) -> str:
+        return ", ".join(names.get(int(t), f"tag {t}") for t in ids) or "none"
+
+    weight = "Shared games" if key["clustering_weight"] == "shared_games" else "Lift"
+    rows = [
+        ("dataset", "Dataset and Build", f"{dataset_label} · Build {key['build_id']}"),
+        ("n_games", "Games after the Minimum Months Filter", f"{n_games} of {n_rows}"),
+        ("min_months", "Minimum Months Filter", f"≥ {key['min_months']} months observed"),
+        ("min_games_per_tag", "Minimum games per tag", str(key["min_games_per_tag"])),
+        ("min_shared_games", "Minimum shared games", str(key["min_shared_games"])),
+        ("hidden_tag_ids", "Hidden tags", tags(key["hidden_tag_ids"])),
+        ("removed_tag_ids", "Removed tags", tags(key["removed_tag_ids"])),
+        ("clustering_weight", "Clustering Weight", weight),
+        ("algorithm", "Algorithm", str(key["algorithm"]).capitalize()),
+        ("resolution", "Resolution γ", str(key["resolution"])),
+        ("seed", "Seed", str(key["seed"])),
+        ("null_replicates", "Null-model replicates R", str(key["null_replicates"])),
+        ("noise_seeds", "Noise seeds K", str(key["noise_seeds"])),
+        ("key_version", "Method version", str(key["key_version"])),
+    ]
+    fields = {"dataset": "dataset, build_id", "n_games": "derived from dataset and min_months"}
+    return [
+        html.Div([html.Span("Network State ", className="mute"),
+                  html.Span(state_id, className="mono copy-id state-id", title="Click to copy"),
+                  html.Span(" — quote it with every network number.", className="mute small")], className="state-head"),
+        html.Table(html.Tbody([html.Tr([html.Th(label, title=f"State key field: {fields.get(field, field)}"),
+                                        html.Td(value)], id=f"state-row-{field}") for field, label, value in rows]),
+                   className="tl state-table"),
+        html.Details([html.Summary("Show JSON", className="more"), html.Pre(key_json(key), className="key-json")]),
+    ]

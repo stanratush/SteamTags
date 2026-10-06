@@ -450,3 +450,34 @@ def test_the_network_state_sentence_names_every_setting(build_folder):
     for expected in ("Overall", "≥ 0 months", "tags on ≥ 9 games", "links of ≥ 8 shared games", "Genre Tags hidden",
                      "tag 5001", "Louvain", "shared games", "γ 1.00", "seed"):
         assert expected in sentence, expected
+
+
+def test_report_section_1_is_a_table_of_every_network_state_field_with_names(build_folder):
+    from steamstudy.network.model import KEY_FIELDS
+
+    out = _recompute(build_folder, dataset="puzzle", removed=[5001])
+    meta, section = out[0], out[18]
+    flat = json.dumps(section.to_plotly_json() if hasattr(section, "to_plotly_json") else
+                      [s.to_plotly_json() for s in section], default=str)
+    rows = [tr for tr in _walk(section) if getattr(tr, "id", None) and str(tr.id).startswith("state-row-")]
+    assert {str(tr.id)[len("state-row-"):] for tr in rows} >= set(KEY_FIELDS) - {"build_id", "dataset"}
+    assert "state-row-dataset" in flat and meta["state_id"] in flat and "copy-id" in flat
+    hidden = next(tr for tr in rows if tr.id == "state-row-hidden_tag_ids")
+    text = " ".join(_texts(hidden))
+    assert "Puzzle" in text and "Strategy" in text  # names, from the Build's genre-tag list
+    assert not re.search(r"\b(9|19|21|1664)\b", text.replace("hidden_tag_ids", ""))  # never bare ids
+    removed = " ".join(_texts(next(tr for tr in rows if tr.id == "state-row-removed_tag_ids")))
+    assert "tag 5001" in removed
+    details = [d for d in _walk(section) if type(d).__name__ == "Details"]
+    assert details and "Show JSON" in " ".join(_texts(details[0]))
+    pre = " ".join(_texts(details[0]))
+    assert '"hidden_tag_ids": [' in pre and "\n    9" not in pre  # one field per line, never one id per line
+
+
+def _walk(component):
+    if isinstance(component, (list, tuple)):
+        for c in component:
+            yield from _walk(c)
+    elif component is not None and not isinstance(component, (str, int, float)):
+        yield component
+        yield from _walk(getattr(component, "children", None))

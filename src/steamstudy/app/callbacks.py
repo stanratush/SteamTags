@@ -7,7 +7,6 @@ Functions are module-level so background jobs (Removal Sensitivity) can import t
 from __future__ import annotations
 
 import base64
-import json
 import time
 from typing import Any
 
@@ -146,10 +145,9 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
         verify_text = f"Opened state {verify['expected']}: recomputed state_id {state.state_id} {'✓' if ok else '✗'}"
         verify_out = {"expected": None}
     rows_total = len(c.rows(dataset))
-    summary = [html.P(f"{c.dataset(dataset).label}: {state.network.n_games} games after the Minimum Months Filter "
-                      f"(of {rows_total}); Build {c.build_id}; mode {c.mode}."),
-               html.P(f"Network State {state.state_id} — quote it with every network number."),
-               html.Pre(json.dumps(settings.key(), indent=1), style={"fontSize": "0.75em"})]
+    defining_ref = c.dataset(dataset).defining_tag
+    summary = V.state_table(settings.key(), state.state_id, c.dataset(dataset).label, state.network.n_games, rows_total,
+                            {**names, **({defining_ref.id: defining_ref.name} if defining_ref else {})})
     filters = html.P(f"Minimum games per tag {settings.min_games_per_tag}, minimum shared games "
                      f"{settings.min_shared_games}, Minimum Months Filter {settings.min_months}. "
                      f"{len(tables['not_in_network.csv'])} tags of the dataset are not in the network; every one is "
