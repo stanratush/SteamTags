@@ -31,3 +31,6 @@ desktop.ini
 # Collected data and Builds (raw responses are never redistributed)
 /snapshots/
 /builds/
+
+# App Bundles and their wheel cache (steamstudy bundle)
+/bundles/

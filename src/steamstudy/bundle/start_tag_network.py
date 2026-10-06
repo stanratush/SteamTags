@@ -102,7 +102,7 @@ def build_environment(folder: Path, target: str, identity: dict[str, str]) -> Pa
     import venv
 
     env = folder / ENV_DIR
-    print("Setting up the Tag Network app (first run, or the folder or Python changed). This takes a minute…",
+    print("Setting up the Tag Network app (first run, or the folder or Python changed). This takes a minute...",
           flush=True)
     if env.exists():
         shutil.rmtree(env)

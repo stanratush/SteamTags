@@ -82,3 +82,16 @@ def test_a_missing_build_writes_nothing(tmp_path):
     with pytest.raises(BundleError):
         make_bundle(tmp_path, targets=["linux"], out=tmp_path / "out")
     assert not (tmp_path / "out").exists()
+
+
+def test_the_launcher_uses_only_the_standard_library_and_plain_ascii():
+    import ast
+    import sys
+
+    source = Path(L.__file__).read_text(encoding="utf-8")
+    assert source.isascii()  # old Windows console code pages print anything else as "?"
+    imported = {n.name.split(".")[0] for node in ast.walk(ast.parse(source))
+                for n in (node.names if isinstance(node, ast.Import) else [])}
+    imported |= {node.module.split(".")[0] for node in ast.walk(ast.parse(source))
+                 if isinstance(node, ast.ImportFrom) and node.module}
+    assert imported - {"__future__"} <= set(sys.stdlib_module_names)
