@@ -67,6 +67,17 @@
   });
   document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") closePills(); });
 
+  // ------------------------------------------------------------------ click a state_id to copy it
+
+  document.addEventListener("click", (ev) => {
+    const id = ev.target.closest(".copy-id");
+    if (!id || !navigator.clipboard) return;
+    navigator.clipboard.writeText(id.textContent.trim()).then(() => {
+      id.classList.add("copied");
+      setTimeout(() => id.classList.remove("copied"), 1200);
+    });
+  });
+
   // ------------------------------------------------------------------ tables pane drag handle
 
   document.addEventListener("pointerdown", (ev) => {

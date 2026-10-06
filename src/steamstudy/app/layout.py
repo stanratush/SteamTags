@@ -149,8 +149,8 @@ def _controls(ctx: BuildContext) -> html.Div:
 def build_layout(ctx: BuildContext) -> html.Div:
     graph_block = html.Div([
         html.H3(["3 Network", _help("network")], className="section-heading"),
-        html.Div(id="quality-line", className="qline"),
-        html.Div(id="noise-line-top", className="qline"),
+        html.Div(id="summary-row", className="sumrow"),
+        html.Div(id="state-sentence", className="state-line"),
         html.Div([
             *graph_component(),
             html.Div([_seg("layout-mode", [("global", "Global"), ("separated", "Cluster-separated")], "global"),

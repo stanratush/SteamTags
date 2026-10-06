@@ -131,15 +131,13 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
     if n_one:
         legend.append(html.Span([html.Span(className="sw", style={"background": R.ONE_TAG_COLOR}), f"{n_one} one-tag"],
                                 className="lchip static"))
-    qline = V.quality_line(q, gamma_text)
-    nline = V.noise_line(q, k)
     banners = []
     if c.mode == "test":
         banners.append(html.Div("mode: test — this Build comes from a test Snapshot; never publish it.", className="banner"))
     if c.build_json.get("parse_errors_allowed"):
         banners.append(html.Div(f"parse_errors_allowed — this Build was made with --allow-parse-errors "
                                 f"({c.build_json.get('parse_error_count')} errors); never publish it.", className="banner"))
-    names = state.network.tag_names
+    names = {**{t.id: t.name for t in c.genre_tags}, **state.network.tag_names}
     restore = [{"label": f"{names.get(t, t)} ({t})", "value": t} for t in settings.removed_tag_ids]
     verify_text: Any = no_update
     verify_out: Any = no_update
@@ -161,7 +159,13 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
     export_summary = (f"Exports steamstudy_{dataset}_{state.state_id}_<UTC timestamp>.zip: every table above, "
                       f"export.json with the full state key and provenance, and Removal Sensitivity results for "
                       f"this exact state if any.")
-    return (meta, store_tables, base, legend, qline, nline, html.Div([html.P(qline), html.P(nline)]),
+    defining = c.dataset(dataset).defining_tag
+    sentence = V.state_sentence(c.dataset(dataset).label, rows_total, settings,
+                                [str(names.get(t, t)) for t in settings.hidden_tag_ids],
+                                defining.name if defining else None,
+                                [str(names.get(t, t)) for t in settings.removed_tag_ids], state.state_id)
+    return (meta, store_tables, base, legend, V.summary_row(q, rows_total, gamma_text), sentence,
+            V.quality_boxes(q, gamma_text, k, settings.null_replicates),
             V.grid_rows(tables["not_in_network.csv"]), V.grid_rows(tables["nodes.csv"]), V.grid_rows(edges_view),
             V.grid_rows(tables["clusters.csv"]), V.grid_rows(tables["cluster_connections.csv"]),
             V.grid_rows(tables["null_model.csv"]), V.grid_rows(tables["seed_noise.csv"]),
@@ -452,7 +456,8 @@ def show_rs(rs_view, beyond, cluster, tables, meta):
     view_rows.sort(key=lambda r: (r["rc_ari"] if r["rc_ari"] is not None else 2.0,
                                   -abs(r["rc_delta_modularity"] or 0.0)))
     q = tables["quality"]
-    noise = V.noise_line(q, meta["k"]) + " (the standing Seed-Noise Floor of section 4)"
+    noise = (f"Compare each agreement after removal with the Seed-Noise Floor: ARI min {V.num(q['seed_ari_min'])} "
+             f"over K = {meta['k']} noise seeds (all its numbers are in Cluster quality).")
     banner, banner_style = "", {"display": "none"}
     total = (rs_view or {}).get("total") or meta["n_nodes"]
     done = len(rows)
@@ -540,7 +545,7 @@ def register(app: dash.Dash) -> None:
        Input("dataset", "value"), State("build-path", "data"), State("pending-open", "data"),
        prevent_initial_call=True)(on_dataset)
     cb(Output("state-meta", "data"), Output("state-tables", "data"), Output("elements-base", "data"),
-       Output("legend", "children"), Output("quality-line", "children"), Output("noise-line-top", "children"),
+       Output("legend", "children"), Output("summary-row", "children"), Output("state-sentence", "children"),
        Output("quality-detail", "children"), Output("nin-grid", "rowData"), Output("nodes-grid", "rowData"),
        Output("edges-grid", "rowData"), Output("clusters-grid", "rowData"), Output("connections-grid", "rowData"),
        Output("null-grid", "rowData"), Output("seed-grid", "rowData"), Output("banners", "children"),

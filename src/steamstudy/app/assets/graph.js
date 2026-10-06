@@ -42,7 +42,7 @@
         "text-outline-opacity": 0.9, "width": "data(size)", "height": "data(size)", "border-width": 1.2,
         "border-color": "#00000040", "z-index-compare": "manual", "z-index": 10}},
       {selector: "node.pri, node.hot", style: {
-        "min-zoomed-font-size": 0, "font-weight": 500, "text-outline-width": 0, "text-background-color": "#fff",
+        "min-zoomed-font-size": 0, "font-weight": 500, "text-outline-width": 0, "text-background-color": "#fff", "z-index": 15,
         "text-background-opacity": 0.85, "text-background-padding": 2, "text-background-shape": "round-rectangle"}},
       {selector: "node.one_tag", style: {"opacity": 0.8}},
       {selector: "node.center", style: {

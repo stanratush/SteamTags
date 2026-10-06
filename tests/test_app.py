@@ -382,3 +382,71 @@ def test_a_connected_tag_row_selects_its_edge_and_pans_to_it():
     triggered('{"edge":"5000-5001","type":"conn"}.n_clicks', 1)
     sel, _ = CB.select(None, [], None, None, None, [], None, [1])
     assert sel == {"kind": "edge", "id": "5000-5001", "source": "5000", "target": "5001", "pan": True}
+
+
+def _texts(component) -> list[str]:
+    """Every text node and tooltip of a component tree."""
+    out: list[str] = []
+    def walk(c):
+        if c is None:
+            return
+        if isinstance(c, (str, int, float)):
+            out.append(str(c))
+        elif isinstance(c, (list, tuple)):
+            for x in c:
+                walk(x)
+        else:
+            if getattr(c, "title", None):
+                out.append(c.title)
+            walk(getattr(c, "children", None))
+    walk(component)
+    return out
+
+
+def test_summary_row_and_quality_boxes_show_the_state_values(build_folder):
+    from steamstudy.app import view as V
+
+    values = dict(zip([*CB.CONTROL_IDS, "removed"], _controls(load_build(build_folder))))
+    out = CB.recompute(str(build_folder), *[values[k] for k in CB.CONTROL_IDS], values["removed"], None)
+    meta, tables = out[0], out[1]
+    q = tables["quality"]
+    summary, sentence, quality = out[4], out[5], out[6]
+    text = " ".join(_texts(summary))
+    assert f"{q['n_dataset_games']} of 100" in text or f"{q['n_dataset_games']} of " in text
+    for expected in (str(q["n_nodes"]), str(q["n_edges"]), f"{q['n_multi_tag_clusters']} + {q['n_one_tag_clusters']}",
+                     V.num(q["modularity"]), f"excess +{V.num(q['q_excess'])}", V.num(q["mean_silhouette"]),
+                     "descriptive", "not a selection criterion"):
+        assert expected in text, expected
+    boxes = " ".join(_texts(quality))
+    for expected in (V.num(q["modularity"]), f"+{V.num(q['q_excess'])}", V.z_text(q["modularity_z"]),
+                     f"{V.num(q['q_null_mean'])} ± {V.num(q['q_null_sd'])}", V.num(q["coverage"]),
+                     V.num(q["seed_ari_min"]), V.num(q["seed_ari_mean"]), "adjusted Rand index"):
+        assert expected in boxes, expected
+    assert meta["state_id"] in " ".join(_texts(sentence))
+    for word in ("stable", "unstable", "excellent", "strong", "weak"):
+        assert word not in (text + boxes).lower().replace("membership stability", "")
+
+
+def test_z_is_never_shown_without_the_excess_and_the_null_mean(build_folder):
+    out = _recompute(build_folder)
+    for component in (out[4], out[6]):
+        for t in _texts(component):
+            if re.search(r"\bz [-\d]", t):
+                assert "excess" in t.lower() and "null" in t.lower(), t
+
+
+def test_the_quality_sentence_appears_once_in_the_workbench(build_folder):
+    out = _recompute(build_folder)
+    ctx = load_build(build_folder)
+    texts = " ".join(_texts(list(out[3:8])))  # legend, summary, sentence, quality tab, grids...
+    rs = CB.show_rs(None, [], None, out[1], out[0])
+    texts += " " + " ".join(_texts(list(rs)))
+    assert texts.count("vs null") == 1 and texts.count("Seed-noise floor (K =") == 1
+
+
+def test_the_network_state_sentence_names_every_setting(build_folder):
+    out = _recompute(build_folder, **{"min-games": 9, "removed": [5001]})
+    sentence = " ".join(_texts(out[5]))
+    for expected in ("Overall", "≥ 0 months", "tags on ≥ 9 games", "links of ≥ 8 shared games", "Genre Tags hidden",
+                     "tag 5001", "Louvain", "shared games", "γ 1.00", "seed"):
+        assert expected in sentence, expected

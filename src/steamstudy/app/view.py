@@ -362,3 +362,89 @@ def nin_inspector(row: dict[str, Any], min_games: int) -> list[Any]:
         out.append(html.P("No single control brings this tag back; change the settings listed above.",
                           className="mute small"))
     return out
+
+
+# ----------------------------------------------------------------------------- summary row and quality boxes
+
+SILHOUETTE_TIP = ("Mean silhouette on Jaccard game-set distance. Descriptive diagnostic, not a selection criterion: "
+                  "it is not what the clustering optimises.")
+
+
+def ari_tip(k: int) -> str:
+    return ("ARI (adjusted Rand index) compares two partitions: 1 = identical clusters, about 0 = no more agreement "
+            f"than chance. Here: each of the K = {k} noise seeds against the clusters shown; min is the seed that "
+            "differed most.")
+
+
+def _excess(q: dict[str, Any]) -> str:
+    return "n/a" if q["q_excess"] is None else f"{q['q_excess']:+.2f}"
+
+
+def _stat(label: str, value: str, sub: str, tip: str, cls: str) -> html.Div:
+    return html.Div([html.B(value, className="num"), html.Span(label), html.Small(sub) if sub else None],
+                    title=tip, className=cls)
+
+
+def summary_row(q: dict[str, Any], n_rows: int, gamma: str) -> list[Any]:
+    """The key numbers above the graph, each large with a muted label and a tooltip."""
+    q_value = "n/a" if q["modularity"] is None else f"{num(q['modularity'])} · excess {_excess(q)}"
+    sil = num(q["mean_silhouette"]) if q["mean_silhouette"] is not None else "n/a"
+    items = [
+        ("Games", f"{q['n_dataset_games']} of {n_rows}", "", "Games left after the Minimum Months Filter, of the "
+                                                           "dataset's games."),
+        ("Tags", str(q["n_nodes"]), "", "Tags in the network (nodes)."),
+        ("Links", str(q["n_edges"]), "", "Pairs of tags sharing at least the minimum number of games (edges)."),
+        ("Clusters", f"{q['n_multi_tag_clusters']} + {q['n_one_tag_clusters']}", "multi-tag + one-tag",
+         "Multi-Tag and One-Tag Clusters, counted apart: One-Tag Clusters are usually isolated tags."),
+        ("Q", q_value, "", f"Modularity Q at γ = {gamma}. Excess = Q minus the null-model mean "
+                           f"({num(q['q_null_mean'])}): how much more than tag frequencies alone produce."),
+        ("Silhouette", f"{sil} · descriptive", "", SILHOUETTE_TIP),
+    ]
+    return [_stat(label, value, sub, tip, "m") for label, value, sub, tip in items]
+
+
+def quality_boxes(q: dict[str, Any], gamma: str, k: int, r: int) -> list[Any]:
+    """The Cluster quality tab: five boxes with tooltips, then the two full sentences once, small and muted."""
+    if q["modularity"] is None:
+        excess_sub = "no edges"
+    else:
+        excess_sub = (f"z {z_text(q['modularity_z'])} · null {num(q['q_null_mean'])} ± {num(q['q_null_sd'])} "
+                      f"· excess over the null mean")
+    sil = num(q["mean_silhouette"]) if q["mean_silhouette"] is not None else f"n/a ({q['silhouette_status']})"
+    boxes = [
+        ("Q", num(q["modularity"]), f"γ = {gamma}", "Modularity: how much more link weight falls inside clusters "
+                                                   "than expected for these tags. Compare it with the null model."),
+        ("Null-model excess", _excess(q), excess_sub,
+         f"Q minus the mean Q of R = {r} null networks with the same games and tag frequencies (null mean ± SD). "
+         "z is never read alone: the null SD is small."),
+        ("Coverage", num(q["coverage"]), "link weight inside clusters", "Share of total link weight inside clusters."),
+        ("Silhouette", sil, "descriptive", SILHOUETTE_TIP),
+        ("Seed noise", num(q["seed_ari_min"]), f"ARI min · mean {num(q['seed_ari_mean'])}", ari_tip(k)),
+    ]
+    return [
+        html.Div([html.Div([html.Div([label, html.I("i", className="qi")], className="l"),
+                            html.Div(value, className="v"), html.Div(sub, className="s")],
+                           className="qbox", title=tip) for label, value, sub, tip in boxes], className="qboxes"),
+        html.Div([html.P(quality_line(q, gamma)), html.P(noise_line(q, k))], className="sentences"),
+    ]
+
+
+def state_sentence(dataset_label: str, n_rows: int, settings: Any, hidden: list[str], defining: str | None,
+                   removed: list[str], state_id: str) -> list[Any]:
+    """The Network State in one readable sentence, ending with its state_id (click to copy)."""
+    genre = [h for h in hidden if h != defining]
+    if not genre:
+        hidden_text = "no Genre Tag hidden"
+    elif len(genre) <= 3:
+        hidden_text = f"Genre Tag{'s' if len(genre) > 1 else ''} {', '.join(genre)} hidden"
+    else:
+        hidden_text = f"{len(genre)} Genre Tags hidden"
+    if defining and defining in hidden:
+        hidden_text += f", defining tag {defining} hidden"
+    removed_text = f"removed: {', '.join(removed)}" if removed else "no tag removed"
+    weight = "shared games" if settings.clustering_weight == "shared_games" else "lift"
+    text = (f"{dataset_label} Top {n_rows}, games with ≥ {settings.min_months} months observed; "
+            f"tags on ≥ {settings.min_games_per_tag} games, links of ≥ {settings.min_shared_games} shared games; "
+            f"{hidden_text}; {removed_text}; {settings.algorithm.capitalize()} on {weight}, "
+            f"γ {settings.resolution:.2f}, seed {settings.seed} · ")
+    return [text, html.Span(state_id, className="mono copy-id", title="Network State id: click to copy")]
