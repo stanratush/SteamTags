@@ -7,15 +7,12 @@ from pathlib import Path
 from typing import Any
 
 from steamstudy.build.core import BuildResult
+from steamstudy.builds import builds_dir, resolve_build  # noqa: F401  (re-exported)
 from steamstudy.export.writer import write_csv
 
 
 class BuildExists(Exception):
     pass
-
-
-def builds_dir(root: Path) -> Path:
-    return Path(root) / "builds"
 
 
 def write_build(result: BuildResult, root: Path) -> Path:
@@ -50,22 +47,3 @@ def write_failed_parse_errors(root: Path, snapshot_id: str, build_id: str, rows:
     path = builds_dir(root) / snapshot_id / "failed" / f"{build_id}-parse_errors.csv"
     write_csv(path, S.PARSE_ERRORS, rows)
     return path
-
-
-def resolve_build(root: Path, build: str | None = None, snapshot: str | None = None) -> Path:
-    """A Build folder from an id (or `<snapshot>/<build>`), defaulting to the latest."""
-    base = builds_dir(root)
-    if build and "/" in build:
-        snapshot, build = build.split("/", 1)
-    if build is None:
-        pointer = (base / snapshot / "latest") if snapshot else (base / "latest")
-        if not pointer.is_file():
-            raise FileNotFoundError(f"no Build found under {base}")
-        ref = pointer.read_text(encoding="utf-8").strip()
-        return (base / snapshot / ref) if snapshot else (base / ref)
-    if snapshot:
-        return base / snapshot / build
-    matches = [p for p in base.glob(f"*/{build}") if p.is_dir()]
-    if len(matches) != 1:
-        raise FileNotFoundError(f"Build {build} not found (or ambiguous) under {base}")
-    return matches[0]

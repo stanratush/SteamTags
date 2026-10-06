@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Any
 
 from steamstudy.app.loader import BuildContext, build_json_hash, load_build
-from steamstudy.build.core import software_versions
 from steamstudy.export import schema as S
 from steamstudy.export.schema import SCHEMA_VERSION, columns_block
 from steamstudy.export.writer import csv_bytes, parse_value
@@ -25,6 +24,7 @@ from steamstudy.network.sensitivity import METHOD_VERSION
 from steamstudy.network.stability import TRADES_PER_GAME
 from steamstudy.network.state import NetworkState, compute_state
 from steamstudy.network.tables import state_tables
+from steamstudy.versions import software_versions
 
 CENTER_TIE_BREAK = "smallest medoid_score (rounded to 12 decimals), then more n_games, then lower tag_id"
 CLUSTER_LABEL_RULE = ("C1… by size descending, ties by smallest member tag_id; Multi-Tag Clusters first, then "

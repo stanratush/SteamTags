@@ -7,12 +7,9 @@ The only inputs are the read-only Snapshot and the config (plus the `build_id` t
 from __future__ import annotations
 
 import datetime as dt
-import platform
 from dataclasses import dataclass, field
-from importlib import metadata
 from typing import Any
 
-from steamstudy import __version__
 from steamstudy.build import assemble as A
 from steamstudy.build.assemble import GameTable
 from steamstudy.build.datasets import TOP_N, RankedDataset, rank_dataset
@@ -45,6 +42,7 @@ from steamstudy.build.score import Score, Window, placeholder_rows, score, unsco
 from steamstudy.config import Config
 from steamstudy.export import schema as S
 from steamstudy.export.schema import DATASET_KEYS, FileSchema
+from steamstudy.versions import software_versions
 
 ATTRIBUTION = "Player data: Steam Charts; tags/metadata: Steam store"
 SOURCE_SUBSTITUTIONS = [
@@ -368,17 +366,6 @@ def _completeness(
 
 
 # ----------------------------------------------------------------------------- build.json
-
-
-def software_versions() -> dict[str, str]:
-    versions = {"python": platform.python_version(), "steamstudy": __version__}
-    for pkg in ("networkx", "leidenalg", "igraph", "python-igraph", "numpy", "scipy", "scikit-learn", "pandas",
-                "lxml", "dash", "dash-ag-grid"):
-        try:
-            versions[pkg] = metadata.version(pkg)
-        except metadata.PackageNotFoundError:
-            pass
-    return versions
 
 
 def _build_json(

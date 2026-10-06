@@ -126,7 +126,7 @@ def _build(args: argparse.Namespace) -> int:
 
 def _app(args: argparse.Namespace) -> int:
     from steamstudy.app import rs_cache
-    from steamstudy.build.writer import resolve_build
+    from steamstudy.builds import resolve_build
 
     log = logging.getLogger("steamstudy.app")
     try:

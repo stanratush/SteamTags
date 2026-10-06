@@ -30,6 +30,7 @@ from steamstudy.network.model import Settings, resolution_text
 from steamstudy.network.sensitivity import removal_sensitivity
 from steamstudy.network.state import compute_state
 from steamstudy.network.tables import state_tables
+from steamstudy.versions import version_mismatches
 
 BLOCKS = ["blk-dataset", "blk-filters", "blk-graph", "blk-tabs", "blk-quality", "blk-clusters", "blk-rs",
           "blk-nodes", "blk-edges", "blk-export"]
@@ -133,6 +134,12 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
     banners = []
     if c.mode == "test":
         banners.append(html.Div("mode: test — this Build comes from a test Snapshot; never publish it.", className="banner"))
+    mismatches = version_mismatches(c.build_json.get("software_versions") or {})
+    if mismatches:
+        banners.append(html.Div("Library versions differ from the ones this Build was made with, so numbers may "
+                                "differ from the Build's: " + "; ".join(f"{lib} {then} (Build) vs {now} (installed)"
+                                                                        for lib, then, now in mismatches) + ".",
+                                className="banner"))
     if c.build_json.get("parse_errors_allowed"):
         banners.append(html.Div(f"parse_errors_allowed — this Build was made with --allow-parse-errors "
                                 f"({c.build_json.get('parse_error_count')} errors); never publish it.", className="banner"))

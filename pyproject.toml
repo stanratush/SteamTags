@@ -2,9 +2,11 @@
 name = "steamstudy"
 version = "0.1.0"
 description = "Steam Success Study: polite collection, deterministic Build and an offline Tag Network app."
-requires-python = ">=3.14,<3.15"
+requires-python = ">=3.12,!=3.14.1,<3.15"
 dependencies = [
-    # App stack. Any upgrade of dash or dash-ag-grid re-runs the Windows spike checklist first.
+    # The Tag Network app only: exactly what an App Bundle installs (ADR 0001). The pipeline's own
+    # dependencies are the `pipeline` group below, installed by default in the developer environment.
+    # Any upgrade of dash or dash-ag-grid re-runs the Windows spike checklist first.
     # The graph is drawn by Cytoscape.js, vendored in src/steamstudy/app/assets/ (see the Running Guide).
     "dash>=4.4,<5",
     "dash-ag-grid>=35.3,<36",
@@ -19,12 +21,6 @@ dependencies = [
     "numpy>=2.5",
     "scipy>=1.18",
     "scikit-learn>=1.8",
-    "pandas>=3.0",
-    # Collection and parsing.
-    "requests>=2.34",
-    "lxml>=6.0",
-    # Report rendering.
-    "markdown>=3.9",
 ]
 
 [project.scripts]
@@ -32,6 +28,15 @@ steamstudy = "steamstudy.cli:main"
 
 [dependency-groups]
 dev = ["pytest>=9.0", "mypy>=1.20"]
+# Collect, Build and the feature analysis (never in an App Bundle).
+pipeline = [
+    "pandas>=3.0",
+    # Collection and parsing.
+    "requests>=2.34",
+    "lxml>=6.0",
+    # Report rendering.
+    "markdown>=3.9",
+]
 
 [build-system]
 requires = ["hatchling>=1.27"]
@@ -45,6 +50,7 @@ packages = ["src/steamstudy"]
 "docs/user-guide" = "steamstudy/guide"
 
 [tool.uv]
+default-groups = ["dev", "pipeline"]  # `uv sync` installs the pipeline as before
 # Spawned background jobs start ~2.5 s slower per job without bytecode (ticket 22 spike).
 compile-bytecode = true
 
