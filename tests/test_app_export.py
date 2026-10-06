@@ -100,9 +100,9 @@ def test_open_network_state_round_trip(build_folder):
     rows = removal_sensitivity(state)[:2]
     _, data = export_zip(ctx, settings, relayout_positions=moved, removal_rows=rows, state=state)
     for payload in (data, json.dumps(read_export(data)[0]).encode("utf-8")):
-        opened = open_export(payload)
+        opened = open_export(payload, builds_root=_builds(build_folder))
         assert opened.settings == settings and opened.state_id_matches
-    opened = open_export(data)
+    opened = open_export(data, builds_root=_builds(build_folder))
     assert opened.layout_source == "relayout"
     assert opened.relayout_positions == pytest.approx({t: moved[t] for t in state.nodes})
     assert [r["tag_id"] for r in opened.removal_rows] == [r["tag_id"] for r in rows]
@@ -112,24 +112,56 @@ def test_open_network_state_round_trip(build_folder):
     assert read_export(again)[1] == read_export(data)[1]  # identical tables
 
 
+def _builds(build_folder):
+    return build_folder.parents[1]  # <root>/builds/<snapshot>/<build>
+
+
+def test_open_finds_the_build_by_identity_after_it_moved(build_folder, tmp_path):
+    ctx = load_build(build_folder)
+    settings = ctx.default_settings("puzzle").with_(min_games_per_tag=9, removed_tag_ids=(5001,))
+    _, data = export_zip(ctx, settings)
+    elsewhere = tmp_path / "other-clone"
+    shutil.copytree(build_folder.parents[2], elsewhere)  # the whole root: builds/<snapshot>/<build>
+    moved_builds = elsewhere / "builds"
+    hidden = tmp_path / "old-place-gone"
+    shutil.move(str(build_folder), hidden)  # the recorded path no longer exists
+    try:
+        opened = open_export(data, builds_root=moved_builds)
+        assert opened.state_id_matches and opened.settings == settings
+        assert opened.build_path == moved_builds / build_folder.parent.name / build_folder.name
+        _, again = export_zip(load_build(opened.build_path), opened.settings)
+        assert read_export(again)[1] == read_export(data)[1]  # the same tables
+        assert read_export(again)[0]["build_path"] == str(opened.build_path.resolve())  # still recorded
+    finally:
+        shutil.move(str(hidden), build_folder)
+
+
+def test_open_refuses_a_missing_build_naming_it(build_folder, tmp_path):
+    ctx = load_build(build_folder)
+    _, data = export_zip(ctx, ctx.default_settings("overall"))
+    empty = tmp_path / "builds"
+    empty.mkdir()
+    with pytest.raises(BuildNotFound) as refused:
+        open_export(data, builds_root=empty)
+    assert ctx.build_id in str(refused.value) and ctx.build_json["snapshot_id"] in str(refused.value)
+
+
 def test_open_refuses_a_changed_build_or_key_version(build_folder, tmp_path):
     ctx = load_build(build_folder)
     _, data = export_zip(ctx, ctx.default_settings("overall"))
     export, files = read_export(data)
     bad_key = dict(export, state_key={**export["state_key"], "key_version": 999})
     with pytest.raises(OpenRefused, match="key_version"):
-        open_export(json.dumps(bad_key).encode("utf-8"))
-    moved = tmp_path / "moved"
-    shutil.copytree(build_folder, moved)
-    bj = json.loads((moved / "datasets" / "build.json").read_text(encoding="utf-8"))
+        open_export(json.dumps(bad_key).encode("utf-8"), builds_root=_builds(build_folder))
+    changed = tmp_path / "builds" / build_folder.parent.name / build_folder.name
+    shutil.copytree(build_folder, changed)
+    bj = json.loads((changed / "datasets" / "build.json").read_text(encoding="utf-8"))
     bj["build_config_hash"] = "0" * 64
-    (moved / "datasets" / "build.json").write_text(json.dumps(bj), encoding="utf-8")
+    (changed / "datasets" / "build.json").write_text(json.dumps(bj), encoding="utf-8")
     with pytest.raises(OpenRefused, match="differs"):
-        open_export(data, build_path=moved)
-    gone = dict(export, build_path=str(tmp_path / "nowhere"))
-    with pytest.raises(BuildNotFound):
-        open_export(json.dumps(gone).encode("utf-8"))
-    assert open_export(json.dumps(gone).encode("utf-8"), build_path=build_folder).state_id_matches
+        open_export(data, builds_root=tmp_path / "builds")
+    gone = dict(export, build_path=str(tmp_path / "nowhere"))  # the recorded path is informational only
+    assert open_export(json.dumps(gone).encode("utf-8"), builds_root=_builds(build_folder)).state_id_matches
 
 
 def test_open_accepts_an_older_schema_version(build_folder):
@@ -138,7 +170,7 @@ def test_open_accepts_an_older_schema_version(build_folder):
     export = read_export(data)[0]
     export["schema_version"] = 0
     export.pop("columns")
-    opened = open_export(json.dumps(export).encode("utf-8"))
+    opened = open_export(json.dumps(export).encode("utf-8"), builds_root=_builds(build_folder))
     assert opened.schema_version == 0 and opened.state_id_matches
 
 

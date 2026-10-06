@@ -134,7 +134,6 @@ def _controls(ctx: BuildContext) -> html.Div:
                       html.Button("Export this state", id="export-btn", className="btn primary")], className="stack"),
             dcc.Upload(html.Button("Open Network State…", className="btn wide"), id="open-upload", accept=".zip,.json",
                        multiple=False),
-            dcc.Input(id="open-build-path", placeholder="Build folder (if it has moved)", className="wide"),
             html.Div(id="open-message", className="msg"),
             html.Button("Clear app cache", id="clear-cache-btn", className="btn quiet"),
             html.Div(id="cache-message", className="msg"),
@@ -224,6 +223,7 @@ def build_layout(ctx: BuildContext) -> html.Div:
 
     stores = [
         dcc.Store(id="build-path", data=str(ctx.path)),
+        dcc.Store(id="builds-root", data=str(ctx.path.resolve().parents[1])),  # <root>/builds: where exports' Builds are found
         dcc.Store(id="state-meta"), dcc.Store(id="state-tables"), dcc.Store(id="elements-base"),
         dcc.Store(id="relayout"), dcc.Store(id="selection"), dcc.Store(id="floating-open", data=False),
         dcc.Store(id="graph-only-on", data=False),

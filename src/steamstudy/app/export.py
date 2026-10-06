@@ -36,11 +36,12 @@ class OpenRefused(ValueError):
 
 
 class BuildNotFound(FileNotFoundError):
-    """The export's Build folder is not where its build.json says; ask for its location."""
+    """No Build available to the app has the export's identity (its build_id)."""
 
-    def __init__(self, path: str):
-        super().__init__(f"Build folder not found: {path}")
-        self.path = path
+    def __init__(self, build_id: str, snapshot_id: str, builds_root: Path):
+        super().__init__(f"this state needs Build {build_id} (Snapshot {snapshot_id}), which is not among the Builds "
+                         f"in {builds_root}; copy that Build folder there and open again")
+        self.build_id, self.snapshot_id = build_id, snapshot_id
 
 
 def export_filename(dataset: str, state_id: str, now: dt.datetime) -> str:
@@ -152,7 +153,26 @@ def read_export(data: bytes) -> tuple[dict[str, Any], dict[str, bytes]]:
         raise OpenRefused("neither an export zip nor an export.json") from exc
 
 
-def open_export(data: bytes, *, build_path: str | Path | None = None) -> OpenedState:
+def find_build(builds_root: str | Path, build_json: dict[str, Any]) -> Path:
+    """The Build folder under `builds_root` (`<snapshot>/<build_id>/`) with this build.json's identity: the same
+    build_id and the same build.json hash. A Build with the same id but another hash is refused."""
+    build_id = str(build_json.get("build_id", ""))
+    snapshot_id = str(build_json.get("snapshot_id", ""))
+    root = Path(builds_root)
+    candidates = sorted(p for p in root.glob(f"*/{build_id}") if (p / "datasets" / "build.json").is_file())         if build_id else []
+    wanted = build_json_hash(build_json)
+    for path in candidates:
+        if build_json_hash(json.loads((path / "datasets" / "build.json").read_text(encoding="utf-8"))) == wanted:
+            return path
+    if candidates:
+        raise OpenRefused(f"the Build {build_id} at {candidates[0]} differs from the one this state was exported "
+                          f"from (its build.json changed)")
+    raise BuildNotFound(build_id, snapshot_id, root)
+
+
+def open_export(data: bytes, *, builds_root: str | Path) -> OpenedState:
+    """Reopen an export. Its Build is found by identity among the Builds under `builds_root`; the recorded
+    `build_path` is informational only."""
     export, files = read_export(data)
     try:
         key = export["state_key"]
@@ -162,14 +182,7 @@ def open_export(data: bytes, *, build_path: str | Path | None = None) -> OpenedS
     if int(key.get("key_version", -1)) != KEY_VERSION:
         raise OpenRefused(f"key_version {key.get('key_version')} differs from this software's {KEY_VERSION}: "
                           f"the methods changed, so the state cannot be reproduced exactly")
-    path = Path(build_path) if build_path else Path(str(export.get("build_path", "")))
-    if not (path / "datasets" / "build.json").is_file():
-        raise BuildNotFound(str(path))
-    ctx = load_build(path)
-    copied = export.get("build_json") or {}
-    if build_json_hash(ctx.build_json) != build_json_hash(copied):
-        raise OpenRefused(f"the Build at {path} differs from the one this state was exported from "
-                          f"(build {ctx.build_id} vs {copied.get('build_id')})")
+    path = find_build(builds_root, export.get("build_json") or {})
     try:
         settings = Settings.from_key(key)
     except (KeyError, ValueError, TypeError) as exc:

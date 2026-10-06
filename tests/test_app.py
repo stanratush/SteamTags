@@ -175,13 +175,14 @@ def test_open_restores_every_control(build_folder):
 
     _, data = export_zip(ctx, settings)
     contents = "data:application/zip;base64," + base64.b64encode(data).decode("ascii")
-    out = CB.do_open(contents, "x.zip", None)
+    out = CB.do_open(contents, "x.zip", str(build_folder.parents[1]))
     values = dict(zip(["build-path", *CB.CONTROL_IDS, "removed", "relayout", "rs-view", "pending", "verify", "msg"], out))
     assert values["dataset"] == "puzzle" and values["min-games"] == 9 and values["algorithm"] == "leiden"
     assert values["gamma"] == 0.85 and values["seed"] == 7 and values["removed"] == [5001]
     assert values["genre-hidden"] == [9, 19] and values["defining-hidden"] == []
     assert values["verify"] == {"expected": read_export(data)[0]["state_id"]}
-    refused = CB.do_open("data:x;base64," + base64.b64encode(b"not an export").decode("ascii"), "y.json", None)
+    refused = CB.do_open("data:x;base64," + base64.b64encode(b"not an export").decode("ascii"), "y.json",
+                         str(build_folder.parents[1]))
     assert refused[-1].startswith("Refused")
 
 

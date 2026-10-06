@@ -90,6 +90,10 @@ _Avoid_: view, session, configuration, state (unqualified)
 The **Tag Network** app's second mode: one scrolling page of numbered sections over the same state as the graph workbench. Distinct from the generated feature-analysis report.
 _Avoid_: report (unqualified)
 
+**App Bundle**:
+A self-contained folder, made from the repository, that lets a researcher run the **Tag Network** app on another computer with only Python installed and no internet access: the app, the User Guide, the **Builds** it opens and every library the app needs, at the exact versions the **Builds** were made with. It never collects or builds; it only opens the **Builds** it carries. The pipeline itself is not part of it.
+_Avoid_: visualization tool, standalone app, portable version, offline bundle
+
 **Free-to-Play Game**:
 Included in all datasets; flagged with `is_free`.
 

@@ -182,7 +182,7 @@ One row is one tag on at least one game of the dataset that is not a node, with 
 
 ### `export.json`
 
-The zip's metadata: `schema_version`, the full Network State key and its `state_id`, `layout_source`, the export time and software versions, the Build folder path and a copy of the Build's `build.json`, each file's row count and SHA-256, the method constants (R and the replicate seeds, K and the noise seeds, the Removal Sensitivity method version, the center tie-break and cluster-label rules, the silhouette distance), the Removal Sensitivity status (`not_run`, or `partial` / `complete` with `done` and `total`) and the `columns` block describing every column. Open Network State reads it to reproduce the state.
+The zip's metadata: `schema_version`, the full Network State key and its `state_id`, `layout_source`, the export time and software versions, the Build folder path (informational only: Open Network State finds the Build by its identity, not by this path) and a copy of the Build's `build.json`, each file's row count and SHA-256, the method constants (R and the replicate seeds, K and the noise seeds, the Removal Sensitivity method version, the center tie-break and cluster-label rules, the silhouette distance), the Removal Sensitivity status (`not_run`, or `partial` / `complete` with `done` and `total`) and the `columns` block describing every column. Open Network State reads it to reproduce the state.
 
 ## Metadata files
 

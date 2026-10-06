@@ -491,15 +491,16 @@ def do_export(_a, _b, build_path, meta, relayout_store, base, rs_view):
     return dash.dcc.send_bytes(data, filename)
 
 
-def do_open(contents, filename, build_override):
+def do_open(contents, filename, builds_root):
+    """Open Network State…: the export's Build is found by identity among the Builds this app can see."""
     if not contents:
         raise PreventUpdate
     data = base64.b64decode(contents.split(",", 1)[1])
     nothing = [no_update] * 16
     try:
-        opened = open_export(data, build_path=build_override or None)
+        opened = open_export(data, builds_root=builds_root)
     except BuildNotFound as exc:
-        return [*nothing, f"Build folder not found ({exc.path}). Enter its location in the box and open again."]
+        return [*nothing, f"Refused: {exc}."]
     except OpenRefused as exc:
         return [*nothing, f"Refused: {exc}"]
     c = load_build(opened.build_path)
@@ -625,7 +626,7 @@ def register(app: dash.Dash) -> None:
        Output("removed", "data", allow_duplicate=True), Output("relayout", "data", allow_duplicate=True),
        Output("rs-view", "data", allow_duplicate=True), Output("pending-open", "data"),
        Output("verify", "data", allow_duplicate=True), Output("open-message", "children"),
-       Input("open-upload", "contents"), State("open-upload", "filename"), State("open-build-path", "value"),
+       Input("open-upload", "contents"), State("open-upload", "filename"), State("builds-root", "data"),
        prevent_initial_call=True)(do_open)
     cb(Output("cache-message", "children"), Output("rs-view", "data", allow_duplicate=True),
        Input("clear-cache-btn", "n_clicks"), State("build-path", "data"), prevent_initial_call=True)(clear_cache)

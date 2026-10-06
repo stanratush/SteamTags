@@ -40,7 +40,6 @@ button,input,select{font:inherit;color:inherit}
 .stack{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
 .panel{background:var(--panel)}
 input[type=text],input:not([type]),.dash-input-element{border-radius:6px}
-#open-build-path{border:1px solid var(--line);border-radius:6px;padding:5px 7px;margin:6px 0 0}
 
 /* segmented control: Dash RadioItems / Checklist drawn as joined buttons */
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:#fff;flex-wrap:nowrap;

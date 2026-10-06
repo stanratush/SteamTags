@@ -1,0 +1,10 @@
+# The App Bundle ships wheels and a launcher, not a frozen executable
+
+Researchers must be able to run the Tag Network app on another computer that has Python but no uv, no repository and no internet access. We ship it as an **App Bundle**: one zip holding the app-only `steamstudy` wheel, every dependency wheel pinned exactly to `uv.lock` (hash-checked), the chosen Builds and a stdlib-only launcher (`start_tag_network.py`, plus double-click wrappers). On first run the launcher installs the wheels into a private environment inside the bundle with no package index. We chose this over a frozen executable (PyInstaller-style) because one machine can make bundles for other operating systems (only wheels differ per target, about 200–250 MB per OS for Python 3.12–3.14), because the exact library versions stay visible and are compared against each Build's recorded `software_versions` (the "same Network State, same Clusters" promise depends on them), and because Dash background jobs spawn fresh worker processes, which frozen apps handle poorly. The cost is that Python 3.12–3.14 must already be installed (3.14.1 is excluded by networkx 3.7).
+
+## Consequences
+
+- The `steamstudy` package declares only the app's dependencies; the pipeline's (lxml, requests, pandas, markdown) are separate, and the app must never import pipeline modules (`build`, `collect`, `analysis`). The package's Python range widens to 3.12–3.14, while the pipeline keeps running on 3.14.
+- The graph renderer (a vendored Cytoscape.js, replacing dash-cytoscape) ships as package data inside the `steamstudy` wheel, so every dependency is an ordinary wheel from PyPI and nothing is built for the bundle.
+- A bundle covers one or more chosen operating systems (default: the one making it). Bundles for other systems are checked for completeness but not launched by the test suite.
+- uv stays the tool for development and the pipeline; the App Bundle is a second, researcher-facing way to deliver the app.
