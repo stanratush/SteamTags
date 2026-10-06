@@ -27,3 +27,5 @@ Facts found while grilling: dash-cytoscape is no longer a dependency (the vendor
 - [ ] The bundle command's completeness check is tested for a non-current target (every required wheel present for every supported Python).
 
 ## Comments
+
+**2026-10-06 (in progress, not done):** Implemented `steamstudy bundle` (`src/steamstudy/bundle/make.py`, `wheels.py`), the stdlib launcher `start_tag_network.py`, the `.bat` / `.command` wrappers and `READ ME FIRST.txt`, with unit tests (`tests/test_bundle.py`: refusals, rebuild decision, completeness for every target × Python, nothing written on a missing wheel or Build). Still open: `/bundles/` in `.gitignore` (left out because `.gitignore` has uncommitted local edits), and a real end-to-end bundle run (fetch wheels, install offline, start), which ticket 04's acceptance test covers. Deviation to decide: dash 4 declares `requests` as a dependency, so the bundle installs it although the app never imports it; the spec says "no requests".

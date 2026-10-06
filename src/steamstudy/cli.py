@@ -1,4 +1,4 @@
-"""The `steamstudy` command line: collect, build, app."""
+"""The `steamstudy` command line: collect, build, app, bundle."""
 
 from __future__ import annotations
 
@@ -40,13 +40,20 @@ def _parser() -> argparse.ArgumentParser:
     a.add_argument("--port", type=int, default=8050)
     a.add_argument("--no-browser", action="store_true", help="do not open the browser")
     a.add_argument("--clear-cache", action="store_true", help="delete the Build's app cache and exit")
+
+    n = sub.add_parser("bundle", help="write an App Bundle zip: the Tag Network app and Builds for offline use")
+    n.add_argument("--build", action="append", default=[], help="also include this Build (repeatable; the latest "
+                                                                 "is always included)")
+    n.add_argument("--target", action="append", default=[], choices=("windows", "macos", "linux"),
+                   help="an operating system to make it for (repeatable; default: this computer's)")
+    n.add_argument("--out", type=Path, help="folder for the zip (default: <root>/bundles)")
     return p
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(message)s", datefmt="%H:%M:%S")
-    handler = {"collect": _collect, "build": _build, "app": _app}[args.command]
+    handler = {"collect": _collect, "build": _build, "app": _app, "bundle": _bundle}[args.command]
     return handler(args)
 
 
@@ -142,6 +149,19 @@ def _app(args: argparse.Namespace) -> int:
 
     log.info("opening Build %s", folder)
     run(folder, port=args.port, open_browser=not args.no_browser)
+    return 0
+
+
+def _bundle(args: argparse.Namespace) -> int:
+    from steamstudy.bundle.make import BundleError, make_bundle
+
+    log = logging.getLogger("steamstudy.bundle")
+    try:
+        path = make_bundle(args.root, builds=args.build, targets=args.target, out=args.out)
+    except BundleError as exc:
+        log.error("bundle not written: %s", exc)
+        return 2
+    log.info("App Bundle written to %s (%.0f MB)", path, path.stat().st_size / 1e6)
     return 0
 
 

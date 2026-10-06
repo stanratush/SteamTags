@@ -1,3 +1,6 @@
 tests/fixtures/raw/** binary
 # Vendored third-party code (Cytoscape.js)
 src/steamstudy/app/assets/cytoscape.min.js -diff linguist-vendored
+# App Bundle wrappers: a shell script needs LF, a batch file CRLF
+*.command text eol=lf
+*.bat text eol=crlf

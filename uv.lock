@@ -1211,6 +1211,7 @@ dev = [
 pipeline = [
     { name = "lxml" },
     { name = "markdown" },
+    { name = "packaging" },
     { name = "pandas" },
     { name = "requests" },
 ]
@@ -1238,6 +1239,7 @@ dev = [
 pipeline = [
     { name = "lxml", specifier = ">=6.0" },
     { name = "markdown", specifier = ">=3.9" },
+    { name = "packaging", specifier = ">=24" },
     { name = "pandas", specifier = ">=3.0" },
     { name = "requests", specifier = ">=2.34" },
 ]

@@ -31,6 +31,8 @@ dev = ["pytest>=9.0", "mypy>=1.20"]
 # Collect, Build and the feature analysis (never in an App Bundle).
 pipeline = [
     "pandas>=3.0",
+    # Choosing App Bundle wheels from uv.lock (wheel tags, markers).
+    "packaging>=24",
     # Collection and parsing.
     "requests>=2.34",
     "lxml>=6.0",

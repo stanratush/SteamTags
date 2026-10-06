@@ -1,0 +1,34 @@
+Tag Network app: App Bundle
+===========================
+
+This folder runs the Tag Network app of the Steam Success Study on this computer, offline. It holds
+the app, the libraries it needs (at the exact versions its Builds were made with), the User Guide and
+these Builds:
+
+{builds}
+
+It never collects data or makes Builds; it only opens the Builds it carries.
+
+Made for:  {targets}
+Python:    3.12, 3.13 or 3.14 (not 3.14.1) must already be installed (python.org)
+Made on:   {created} (steamstudy {version})
+
+
+Start it
+--------
+1. Extract the whole zip to a folder on your own disk (not inside the zip, not on a read-only drive).
+2. Windows: double-click "Start Tag Network.bat".
+   macOS:   double-click "Start Tag Network.command" (if macOS blocks it: right-click, Open).
+   Linux:   run  python3 start_tag_network.py  in this folder.
+3. The first start sets up a private environment inside this folder (about a minute, no internet
+   needed). Later starts take a few seconds. The app opens in your browser at
+   http://127.0.0.1:8050/ (or the next free port). Close the window to stop the app.
+
+Options: add --build <build id> to open another bundled Build, --no-browser to not open the browser.
+If you move this folder or change Python, the next start sets the environment up again.
+
+
+The User Guide
+--------------
+It is in the "User Guide" folder (start with README.md), and each "?" button in the app opens the
+matching section.
