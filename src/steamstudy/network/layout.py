@@ -52,7 +52,8 @@ def remove_overlaps(positions: Mapping[K, tuple[float, float]], sizes: Mapping[K
 
     Deterministic: nodes are taken in sorted order and every round moves each overlapping pair apart along
     the line between them, half each (all of it on the free node when the other is fixed). Only pairs near
-    each other are checked between full checks; it stops only after a full check finds no overlap."""
+    each other are checked between full checks; it stops when a full check finds no overlap, or after
+    `max_rounds` (never reached on the real or the test Builds, whose layouts settle within about 100)."""
     keys = sorted(positions, key=_sort_key)
     n = len(keys)
     if n < 2:

@@ -98,7 +98,8 @@ def _controls(ctx: BuildContext) -> html.Div:
               _slider("min-games", "Minimum games per tag", 1, 40, s.min_games_per_tag)),
         _item("min-shared", "Min shared", str(s.min_shared_games),
               _slider("min-shared", "Minimum shared games", 1, 30, s.min_shared_games)),
-        _item("hidden", "Hidden", f"{len(hidden)} Genre Tags", [
+        _item("hidden", "Hidden", f"{len(hidden)} Genre Tag{'' if len(hidden) == 1 else 's'}"
+              + (" + defining" if defining and defining.id in s.hidden_tag_ids else ""), [
             html.Label(["Hidden Genre Tags ", html.Span(f"{len(hidden)} of {len(genre_ids)}", id="genre-count",
                                                           className="mute num")], className="l"),
             dcc.Checklist(id="genre-hidden", options=[{"label": t.name, "value": t.id} for t in ctx.genre_tags],
@@ -229,7 +230,7 @@ def build_layout(ctx: BuildContext) -> html.Div:
         dcc.Store(id="graph-only-on", data=False),
         dcc.Store(id="removed", data=[]), dcc.Store(id="rs-view"), dcc.Store(id="rs-request"),
         dcc.Store(id="rs-done"), dcc.Store(id="pending-open"), dcc.Store(id="verify"),
-        dcc.Store(id="pill-sink"), dcc.Download(id="download"),
+        dcc.Download(id="download"),
     ]
     header = html.Header([
         html.Div([html.B("Tag Network", className="title"), html.Span(f"Build {ctx.build_id}", className="mute")],

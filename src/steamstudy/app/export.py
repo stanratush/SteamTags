@@ -39,7 +39,7 @@ class BuildNotFound(FileNotFoundError):
     """No Build available to the app has the export's identity (its build_id)."""
 
     def __init__(self, build_id: str, snapshot_id: str, builds_root: Path):
-        super().__init__(f"this state needs Build {build_id} (Snapshot {snapshot_id}), which is not among the Builds "
+        super().__init__(f"this Network State needs Build {build_id} (Snapshot {snapshot_id}), which is not among the Builds "
                          f"in {builds_root}; copy that Build folder there and open again")
         self.build_id, self.snapshot_id = build_id, snapshot_id
 
@@ -159,14 +159,15 @@ def find_build(builds_root: str | Path, build_json: dict[str, Any]) -> Path:
     build_id = str(build_json.get("build_id", ""))
     snapshot_id = str(build_json.get("snapshot_id", ""))
     root = Path(builds_root)
-    candidates = sorted(p for p in root.glob(f"*/{build_id}") if (p / "datasets" / "build.json").is_file())         if build_id else []
+    candidates = (sorted(p for p in root.glob(f"*/{build_id}") if (p / "datasets" / "build.json").is_file())
+                  if build_id else [])
     wanted = build_json_hash(build_json)
     for path in candidates:
         if build_json_hash(json.loads((path / "datasets" / "build.json").read_text(encoding="utf-8"))) == wanted:
             return path
     if candidates:
-        raise OpenRefused(f"the Build {build_id} at {candidates[0]} differs from the one this state was exported "
-                          f"from (its build.json changed)")
+        raise OpenRefused(f"the Build {build_id} at {candidates[0]} differs from the one this Network State was "
+                          f"exported from (its build.json changed)")
     raise BuildNotFound(build_id, snapshot_id, root)
 
 

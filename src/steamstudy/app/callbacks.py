@@ -381,7 +381,8 @@ def arrange(mode, tab, panels, floating_open, selection, graph_only):
     """Block order and visibility, the Inspector's form and the root classes (app.css does the layout)."""
     panels = panels or []
     styles = block_styles(mode, tab, panels)
-    inspector_class = "inspector" + (" docked" if "inspector" in panels else "") +         (" has-sel" if floating_open and selection else "")
+    inspector_class = ("inspector" + (" docked" if "inspector" in panels else "")
+                       + (" has-sel" if floating_open and selection else ""))
     return [styles[b] for b in BLOCKS] + [inspector_class, root_class(mode, panels, bool(graph_only))]
 
 

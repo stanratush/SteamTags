@@ -284,8 +284,8 @@ def cluster_inspector(cluster: dict[str, Any], members: list[dict[str, Any]], we
     ]))
     out.append(html.Div(["Members ", html.Span("by game-set distance to the others", className="cnt")],
                         className="i-h"))
-    head = [("Tag", None), ("Games", "Games"), ("Distance", "Mean game-set distance to members"),
-            ("Stability", "Membership Stability")]
+    head = [("Tag", None), ("Games", "Games"), ("Mean game-set distance to members", "Mean game-set distance to members"),
+            ("Membership Stability", "Membership Stability")]
     out.append(html.Table([
         html.Thead(html.Tr([html.Th(h, className="r" if tip else None, title=label_tip(tip) if tip else None)
                             for h, tip in head])),
