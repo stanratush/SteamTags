@@ -283,3 +283,70 @@ def test_a_cluster_is_selected_from_the_legend_its_region_title_or_the_clusters_
         triggered("clusters-grid.selectedRows", [{"cluster": "C2"}])
         sel, _ = CB.select(None, [], [{"cluster": "C2"}], None, None, [])
     assert sel == {"kind": "cluster", "id": "C2"}
+
+
+def _search_values(options):
+    return [o["value"] for o in options if not o.get("disabled")]
+
+
+def test_tag_search_lists_every_node_then_every_tag_not_in_the_network_with_its_reasons(build_folder):
+    meta, tables, base, *_ = _recompute(build_folder)
+    from steamstudy.app import view as V
+
+    options = V.search_options(tables, meta["key"]["min_games_per_tag"])
+    values = _search_values(options)
+    nodes = [f"node:{r['tag_id']}" for r in tables["nodes"]]
+    missing = [f"nin:{r['tag_id']}" for r in tables["nin"]]
+    assert set(values) == set(nodes) | set(missing) and len(values) == len(nodes) + len(missing)
+    assert max(values.index(v) for v in nodes) < min(values.index(v) for v in missing)  # visible tags first
+    text = {o["value"]: o["search"] + " " + json.dumps(o["label"].to_plotly_json(), default=str) for o in options
+            if not o.get("disabled")}
+    for r in tables["nin"]:
+        for reason in r["reasons"]:
+            assert V.reason_text(reason, r["n_games"], meta["key"]["min_games_per_tag"]) in text[f"nin:{r['tag_id']}"]
+    assert V.reason_text("below_min_games", 3, 8) == "3 games, below 8"
+    assert V.reason_text("genre_tag_hidden", 0, 8) == "Genre Tag hidden"
+    assert V.reason_text("defining_tag_hidden", 0, 8) == "defining tag hidden"
+    assert V.reason_text("removed", 0, 8) == "removed"
+
+
+def test_choosing_a_tag_in_the_search_selects_and_centres_it_or_opens_its_card():
+    triggered("tag-search.value", "node:5001")
+    sel, floating = CB.select(None, [], None, None, None, [], "node:5001")
+    assert sel == {"kind": "node", "id": "5001", "pan": True} and floating is True
+    ops = CB.show_selection(sel).to_plotly_json()["operations"]
+    assert {"cmd": "center", "id": "5001"}.items() <= next(o["params"]["value"] for o in ops
+                                                          if o["location"] == ["view"]).items()
+    triggered("tag-search.value", "nin:9")
+    assert CB.select(None, [], None, None, None, [], "nin:9")[0] == {"kind": "nin", "id": "9"}
+
+
+@pytest.mark.parametrize("reasons, action", [
+    (["removed"], "restore"), (["genre_tag_hidden"], "unhide"), (["defining_tag_hidden"], "unhide"),
+    (["defining_tag_hidden", "genre_tag_hidden"], "unhide"), (["removed", "genre_tag_hidden"], None),
+    (["below_min_games"], None), (["genre_tag_hidden", "below_min_games"], None)])
+def test_only_one_action_that_brings_the_tag_back_is_offered(reasons, action):
+    from steamstudy.app import view as V
+
+    assert V.nin_action(reasons) == action
+
+
+def test_restore_and_unhide_change_the_controls_exactly_as_the_existing_ones(build_folder):
+    ctx = load_build(build_folder)
+    settings = ctx.default_settings("puzzle")
+    c = CB.controls_from_settings(ctx, settings.with_(removed_tag_ids=(5001, 5002)))
+    restored = CB.nin_act(1, {"kind": "nin", "id": "5001"}, "restore", c["removed"], c["genre-hidden"],
+                          c["defining-hidden"], str(build_folder), "puzzle")
+    triggered("restore-btn.n_clicks", 1)
+    assert restored[0] == CB.edit_removed(None, 1, None, None, 5001, c["removed"])
+    genre = [t for t in c["genre-hidden"] if t != 1664][0]
+    unhidden = CB.nin_act(1, {"kind": "nin", "id": str(genre)}, "unhide", c["removed"], c["genre-hidden"],
+                          c["defining-hidden"], str(build_folder), "puzzle")
+    assert unhidden[1] == [t for t in c["genre-hidden"] if t != genre] and unhidden[2] == c["defining-hidden"]
+    puzzle = CB.nin_act(1, {"kind": "nin", "id": "1664"}, "unhide", c["removed"], c["genre-hidden"],
+                        c["defining-hidden"], str(build_folder), "puzzle")
+    after = CB.settings_from_controls(ctx, "puzzle", settings.min_games_per_tag, settings.min_shared_games,
+                                      settings.min_months, puzzle[1], puzzle[2], settings.clustering_weight,
+                                      settings.algorithm, settings.resolution, settings.seed, puzzle[0])
+    assert 1664 not in after.hidden_tag_ids  # the defining tag (also a Genre Tag) comes back with one press
+    assert puzzle[3] == {"kind": "node", "id": "1664"}

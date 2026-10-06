@@ -22,6 +22,7 @@ Each control below either sets a field of the Network State key (and so changes 
 | Mode | Workbench or Analysis Report mode | Workbench | none | none |
 | Controls / Inspector / Tables | Collapse each panel independently | all shown | none | none |
 | Graph only | Switches to the narrowest form (pill bar, floating Inspector, bottom sheet) at any width; press again to leave it | off | none | none |
+| Find a tag… (header) | Finds any tag of the dataset: a tag in the network is selected, centred and opened in the Inspector; a missing tag opens a "Not in the network" card | none | none (Restore / Unhide on the card change `removed_tag_ids` / `hidden_tag_ids`) | none until you press the card's button |
 | Fit (⤢, top right of the graph) | Fits the whole graph back into view after you zoom or pan | none | none | Positions only |
 | Run, Continue, Cancel, Run for this tag | Removal Sensitivity, as a background job | not run | none (results are cached per `state_id`) | `removal_sensitivity.csv` only |
 | Export this state | Downloads one zip with every table and the full state key | none | none | none |
@@ -31,6 +32,13 @@ Each control below either sets a field of the Network State key (and so changes 
 Sliders send their value when you release them; the value beside the slider's label updates while you drag. The number of null-model replicates R and of noise seeds K are set in the Build's config only; they have no control.
 
 The Controls panel is split into four sections: **Data** (dataset, Minimum Months Filter), **Filters** (the two thresholds, the hidden Genre Tags and the defining tag), **Clustering** (weight, algorithm, γ, seed) and **State** (removed tags, Reset all, Export, Open, Clear app cache). A struck-through Genre Tag chip is hidden from the network; click it to show the tag. The count beside the heading ("11 of 11") says how many are hidden.
+
+## Find a tag
+
+The search box in the middle of the header works in every mode and form, including Graph only. Type part of a tag's name; the list shows the tags **in the network** first (with their cluster colour, cluster and games), then every tag of the dataset that is **not in the network**, greyed out, with all its reasons in plain words: "Genre Tag hidden", "defining tag hidden", "removed", or "3 games, below 8" (fewer games than the Minimum games per tag). Use ↑ / ↓ and Enter to choose, Esc to close.
+
+- Choosing a tag in the network selects it, centres the graph on it and opens it in the Inspector.
+- Choosing a missing tag opens a **Not in the network** card with its reasons and its number of games. When exactly one action brings it back, the card offers it: **Restore** for a removed tag, **Unhide** for a hidden Genre Tag or defining tag. Nothing changes until you press it, and pressing it changes the Network State, exactly as the Restore button or the hidden-tag chips would. A tag below the minimum games, or one that would need two changes, gets no button.
 
 ## Window width and the three forms
 

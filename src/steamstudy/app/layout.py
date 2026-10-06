@@ -235,7 +235,8 @@ def build_layout(ctx: BuildContext) -> html.Div:
         html.Div([html.B("Tag Network", className="title"), html.Span(f"Build {ctx.build_id}", className="mute")],
                  className="brand"),
         _seg("mode", [("workbench", "Workbench"), ("report", "Analysis Report mode")], "workbench"),
-        html.Div(id="search-slot", className="search-slot"),
+        html.Div(dcc.Dropdown(id="tag-search", options=[], placeholder="Find a tag…", searchable=True,
+                              clearable=False, className="tag-search"), id="search-slot", className="search-slot"),
         html.Div([
             html.Span(id="verify-result", className="small"),
             html.Span(id="error-message", className="error small"),

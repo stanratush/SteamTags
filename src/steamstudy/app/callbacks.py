@@ -165,7 +165,8 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
             V.grid_rows(tables["not_in_network.csv"]), V.grid_rows(tables["nodes.csv"]), V.grid_rows(edges_view),
             V.grid_rows(tables["clusters.csv"]), V.grid_rows(tables["cluster_connections.csv"]),
             V.grid_rows(tables["null_model.csv"]), V.grid_rows(tables["seed_noise.csv"]),
-            banners, restore, verify_text, verify_out, summary, filters, estimate, export_summary, "")
+            banners, restore, verify_text, verify_out, summary, filters, estimate, export_summary, "",
+            V.search_options(store_tables, settings.min_games_per_tag))
 
 
 # ----------------------------------------------------------------------------- 3. graph
@@ -225,6 +226,8 @@ def show_selection(selection):
     patch["selected"] = R.selection_ref(selection)
     if selection and selection.get("kind") == "cluster":
         patch["view"] = {"cmd": "focus", "cluster": selection["id"], "nonce": time.time()}
+    elif selection and selection.get("pan"):
+        patch["view"] = {"cmd": "center", "id": selection["id"], "nonce": time.time()}
     return patch
 
 
@@ -240,10 +243,15 @@ def do_relayout(_n, base, relayout_store):
 # ----------------------------------------------------------------------------- 4. selection and inspector
 
 
-def select(event, _legend, cluster_rows, rs_rows, node_rows, panels):
+def select(event, _legend, cluster_rows, rs_rows, node_rows, panels, search=None):
     trigger = ctx.triggered_id
     sel: dict[str, Any] | None = None
-    if trigger == R.EVENT_ID and event:
+    if trigger == "tag-search":
+        if not search:
+            raise PreventUpdate  # the search was cleared after a pick
+        kind, _, tag = str(search).partition(":")
+        sel = {"kind": "node", "id": tag, "pan": True} if kind == "node" else {"kind": "nin", "id": tag}
+    elif trigger == R.EVENT_ID and event:
         kind = event.get("kind")
         if kind == "background":
             return None, no_update
@@ -274,6 +282,11 @@ def inspector(selection, tables, rs_view, build_path, dataset, min_months, meta)
     if not selection or not tables:
         return [html.P("Click a node, an edge or a cluster (legend or Clusters table) to inspect it.")], hide, hide
     weight = (meta or {}).get("weight", "shared_games")
+    if selection["kind"] == "nin":
+        row = next((r for r in tables["nin"] if str(r["tag_id"]) == selection["id"]), None)
+        if row is not None:
+            return V.nin_inspector(row, (meta or {})["key"]["min_games_per_tag"]), hide, hide
+        selection = {"kind": "node", "id": selection["id"]}  # it has come back into the network
     if selection["kind"] == "node":
         node = next((r for r in tables["nodes"] if str(r["tag_id"]) == selection["id"]), None)
         if node is None:
@@ -300,6 +313,32 @@ def inspector(selection, tables, rs_view, build_path, dataset, min_months, meta)
     by_id = {r["tag_id"]: r for r in tables["nodes"]}
     members = [by_id[t] for t in cluster["member_tag_ids"] if t in by_id]
     return V.cluster_inspector(cluster, members, weight), hide, hide
+
+
+def nin_act(_n, selection, action, removed, genre_hidden, defining_hidden, build_path, dataset):
+    """Restore or Unhide a missing tag from its card: the same control changes as the Restore button or the
+    hidden-tag checklists, then the tag is selected."""
+    if not selection or selection.get("kind") != "nin":
+        raise PreventUpdate
+    tag = int(selection["id"])
+    removed, genre_hidden, defining_hidden = list(removed or []), list(genre_hidden or []), list(defining_hidden or [])
+    if action == "restore":
+        removed = [t for t in removed if t != tag]
+    elif action == "unhide":
+        genre_hidden = [t for t in genre_hidden if t != tag]
+        defining = load_build(build_path).dataset(dataset).defining_tag
+        if defining is not None and defining.id == tag:
+            defining_hidden = []
+    else:
+        raise PreventUpdate
+    return sorted(removed), genre_hidden, defining_hidden, {"kind": "node", "id": str(tag)}
+
+
+def on_nin_action(clicks, selection, removed, genre_hidden, defining_hidden, build_path, dataset):
+    trigger = ctx.triggered_id
+    if not isinstance(trigger, dict) or not any(clicks or []):
+        raise PreventUpdate
+    return nin_act(1, selection, trigger["action"], removed, genre_hidden, defining_hidden, build_path, dataset)
 
 
 def edit_removed(_remove, _restore, _reset, selection, pick, removed):
@@ -500,7 +539,7 @@ def register(app: dash.Dash) -> None:
        Output("restore-pick", "options"), Output("verify-result", "children"),
        Output("verify", "data", allow_duplicate=True), Output("dataset-summary", "children"),
        Output("filters-summary", "children"), Output("rs-estimate", "children"), Output("export-summary", "children"),
-       Output("error-message", "children"),
+       Output("error-message", "children"), Output("tag-search", "options"),
        Input("build-path", "data"), Input("dataset", "value"), Input("min-games", "value"),
        Input("min-shared", "value"), Input("min-months", "value"), Input("genre-hidden", "value"),
        Input("defining-hidden", "value"), Input("weight", "value"), Input("algorithm", "value"),
@@ -517,7 +556,14 @@ def register(app: dash.Dash) -> None:
        Input(R.EVENT_ID, "data"),
        Input({"type": "legend", "cluster": ALL}, "n_clicks"), Input("clusters-grid", "selectedRows"),
        Input("rs-grid", "selectedRows"), Input("nodes-grid", "selectedRows"),
-       State("panels", "value"), prevent_initial_call=True)(select)
+       State("panels", "value"), Input("tag-search", "value"), prevent_initial_call=True)(select)
+    cb(Output("tag-search", "value", allow_duplicate=True), Input("tag-search", "value"),
+       prevent_initial_call=True)(lambda v: None if v else no_update)  # ready for the next pick
+    cb(Output("removed", "data", allow_duplicate=True), Output("genre-hidden", "value", allow_duplicate=True),
+       Output("defining-hidden", "value", allow_duplicate=True), Output("selection", "data", allow_duplicate=True),
+       Input({"type": "nin-action", "action": ALL}, "n_clicks"), State("selection", "data"),
+       State("removed", "data"), State("genre-hidden", "value"), State("defining-hidden", "value"),
+       State("build-path", "data"), State("dataset", "value"), prevent_initial_call=True)(on_nin_action)
     cb(Output("inspector-body", "children"), Output("remove-btn", "style"), Output("rs-run-tag", "style"),
        Input("selection", "data"), Input("state-tables", "data"), Input("rs-view", "data"),
        State("build-path", "data"), State("dataset", "value"), State("min-months", "value"),

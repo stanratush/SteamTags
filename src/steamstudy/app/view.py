@@ -181,3 +181,71 @@ def cluster_inspector(cluster: dict[str, Any], members: list[dict[str, Any]], we
     ]))
     out.append(html.Table([header, *body], style={"fontSize": "0.85em", "marginTop": "0.5em"}))
     return out
+
+
+# ----------------------------------------------------------------------------- tag search and missing tags
+
+REASONS = {"removed": "removed", "defining_tag_hidden": "defining tag hidden", "genre_tag_hidden": "Genre Tag hidden"}
+
+
+def reason_text(reason: str, n_games: int, min_games: int) -> str:
+    """A `not_in_network.csv` reason in plain words."""
+    if reason == "below_min_games":
+        return f"{n_games} game{'' if n_games == 1 else 's'}, below {min_games}"
+    return REASONS.get(reason, reason)
+
+
+def nin_action(reasons: list[str]) -> str | None:
+    """The one action that brings a missing tag back, if exactly one does: Restore (removed) or Unhide (hidden)."""
+    found = set(reasons)
+    if found == {"removed"}:
+        return "restore"
+    if found and found <= {"genre_tag_hidden", "defining_tag_hidden"}:
+        return "unhide"
+    return None
+
+
+def search_options(tables: dict[str, Any], min_games: int) -> list[dict[str, Any]]:
+    """The header search: every tag of the network (by name, with cluster and games), then every tag not in the
+    network (greyed, by games, with all its reasons). Values are `node:<id>` and `nin:<id>`."""
+    from steamstudy.app.renderer import cluster_color
+
+    kinds = {r["cluster"]: r["kind"] for r in tables["clusters"]}
+    nodes = sorted(tables["nodes"], key=lambda r: (str(r["tag"]).lower(), r["tag_id"]))
+    missing = sorted(tables["nin"], key=lambda r: (-r["n_games"], str(r["tag"]).lower()))
+    options: list[dict[str, Any]] = [{"label": html.Span(f"In the network · {len(nodes)}", className="grp"),
+                                      "value": "group:in", "disabled": True, "search": ""}]
+    for r in nodes:
+        options.append({"label": html.Span([
+            html.Span(className="sw", style={"background": cluster_color(r["cluster"], kinds[r["cluster"]])}),
+            r["tag"], html.Span(f"{r['cluster']} · {r['n_games']} games", className="why")], className="opt"),
+            "value": f"node:{r['tag_id']}", "search": str(r["tag"])})
+    if missing:
+        options.append({"label": html.Span(f"Not in the network · {len(missing)}", className="grp"),
+                        "value": "group:nin", "disabled": True, "search": ""})
+    for r in missing:
+        why = " · ".join(reason_text(x, r["n_games"], min_games) for x in r["reasons"])
+        options.append({"label": html.Span([r["tag"], html.Span(why, className="why")], className="opt gone"),
+                        "value": f"nin:{r['tag_id']}", "search": str(r["tag"])})
+    return options
+
+
+def nin_inspector(row: dict[str, Any], min_games: int) -> list[Any]:
+    """The "Not in the network" card: the tag's reasons and games, and the one action that brings it back."""
+    action = nin_action(list(row["reasons"]))
+    n = row["n_games"]
+    out: list[Any] = [
+        html.H4(row["tag"]), html.P(f"Tag {row['tag_id']} · not in the network", className="mute"),
+        html.P([html.Span(reason_text(x, n, min_games), className="reason") for x in row["reasons"]]),
+        html.P(f"{n} game{'' if n == 1 else 's'} of the dataset {'has' if n == 1 else 'have'} this tag.",
+               className="mute"),
+    ]
+    if action:
+        out.append(html.Div([
+            html.Button("Restore" if action == "restore" else "Unhide", id={"type": "nin-action", "action": action},
+                        className="btn primary"),
+            html.Span(" Pressing it changes the Network State.", className="mute small")], className="row-inline"))
+    else:
+        out.append(html.P("No single control brings this tag back; change the settings listed above.",
+                          className="mute small"))
+    return out
