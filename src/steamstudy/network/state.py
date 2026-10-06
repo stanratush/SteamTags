@@ -1,8 +1,9 @@
 """`compute_state(games, settings, context) -> NetworkState`: one complete Network State result.
 
 The app and the Build both call this, so they never disagree. It covers the network, clustering,
-the null model, the Seed-Noise Floor, silhouette, metrics, centers, Membership Stability and global
-positions. Removal Sensitivity and the Resolution Sweep are separate entry points over the same state.
+the null model, the Seed-Noise Floor, silhouette, metrics, centers and Membership Stability. Removal
+Sensitivity and the Resolution Sweep are separate entry points over the same state. Positions are not part
+of it: `steamstudy.network.layout.layout_state` reads a finished state (ADR 0002).
 """
 
 from __future__ import annotations
@@ -17,7 +18,6 @@ import numpy as np
 from steamstudy.network import metrics as M
 from steamstudy.network.cluster import Cluster, detect, label_clusters, membership
 from steamstudy.network.graph import TagNetwork, build_network, to_graph
-from steamstudy.network.layout import Positions, global_positions, node_sizes
 from steamstudy.network.model import Game, Settings, TagContext, state_id_of
 from steamstudy.network.stability import (
     NullReplicate,
@@ -67,11 +67,9 @@ class NetworkState:
     null_replicates: list[NullReplicate]
     seed_runs: list[SeedRun]
     membership_stability: dict[int, float | None]
-    positions: Positions
     distances: np.ndarray
     clustering_seconds: float
     index: dict[int, int] = field(default_factory=dict)
-    sizes: dict[int, float] = field(default_factory=dict)  # node diameter per tag (layout units)
 
     # -- identity
 
@@ -164,8 +162,7 @@ def partition_metrics(graph: nx.Graph, clusters: list[Cluster], tags: list[int],
     return M.modularity(graph, clusters, resolution), M.silhouette(tags, clusters, tag_games, distances)
 
 
-def compute_state(games: list[Game], settings: Settings, context: TagContext | None = None,
-                  *, with_positions: bool = True) -> NetworkState:
+def compute_state(games: list[Game], settings: Settings, context: TagContext | None = None) -> NetworkState:
     context = context or TagContext()
     network = build_network(games, settings, context)
     graph = to_graph(network.nodes, network.edges, settings.clustering_weight)
@@ -196,14 +193,10 @@ def compute_state(games: list[Game], settings: Settings, context: TagContext | N
                             ari(nodes, cluster_of, membership(seed_clusters))))
     stability = membership_stability(nodes, {t: m.degree for t, m in node_metrics.items()}, clusters,
                                      [r.clusters for r in runs])
-
-    positions = global_positions(games, settings.min_months, settings.clustering_weight, settings.seed) \
-        if with_positions else {}
     return NetworkState(
         settings=settings, context=context, network=network, graph=graph, clusters=clusters, cluster_of=cluster_of,
         modularity=q, coverage=M.coverage(graph, cluster_of), silhouette=sil,
         cluster_metrics={c.label: M.cluster_metrics(graph, c) for c in clusters}, node_metrics=node_metrics,
         centers=centers, connections=M.connections(graph, clusters), null_replicates=nulls, seed_runs=runs,
-        membership_stability=stability, positions=positions, distances=distances,
-        clustering_seconds=clustering_seconds, index=index, sizes=node_sizes(games, settings.min_months),
+        membership_stability=stability, distances=distances, clustering_seconds=clustering_seconds, index=index,
     )

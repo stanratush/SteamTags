@@ -1,30 +1,39 @@
 """The network tables of one Network State: one writer for the app export and the Build.
 
-`state_tables(state)` gives the app zip's rows; `stack(rows, dataset, state_id)` prefixes them for the
+`state_tables(state, layout)` gives the app zip's rows; `stack(rows, dataset, state_id)` prefixes them for the
 Build's stacked `analysis/network_*.csv` files. Both are validated against `steamstudy.export.schema`.
+Coordinates are an input, computed after the state by the layout (ADR 0002), never here.
 """
 
 from __future__ import annotations
 
 import math
-from typing import Any
+from collections.abc import Mapping
+from typing import Any, Protocol
 
 from steamstudy.network.cluster import label_order
-from steamstudy.network.layout import Positions, cluster_separated_positions
 from steamstudy.network.metrics import member_order
 from steamstudy.network.state import NetworkState
 
 Rows = list[dict[str, Any]]
+Positions = Mapping[int, tuple[float, float]]
 
 
-def state_tables(state: NetworkState, *, cluster_positions: Positions | None = None,
-                 positions: Positions | None = None) -> dict[str, Rows]:
-    """Every app-export table except removal_sensitivity.csv, keyed by file name."""
-    positions = positions if positions is not None else state.positions
-    if cluster_positions is None:
-        centers = {label: c.center for label, c in state.centers.items()}
-        cluster_positions, _ = cluster_separated_positions(state.graph, state.clusters, positions, state.settings.seed,
-                                                           centers=centers, sizes=state.sizes)
+class Coordinates(Protocol):
+    """What the tables read of a layout: the Global and the Cluster-separated positions."""
+
+    @property
+    def positions(self) -> Positions: ...
+
+    @property
+    def separated(self) -> Positions: ...
+
+
+def state_tables(state: NetworkState, layout: Coordinates | None = None) -> dict[str, Rows]:
+    """Every app-export table except removal_sensitivity.csv, keyed by file name. Without a layout the four
+    coordinate columns are empty."""
+    positions = layout.positions if layout is not None else {}
+    cluster_positions = layout.separated if layout is not None else {}
     return {
         "nodes.csv": node_rows(state, positions, cluster_positions),
         "edges.csv": edge_rows(state),

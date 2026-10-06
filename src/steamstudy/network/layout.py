@@ -1,5 +1,8 @@
 """Graph positions: the Global layout and the Cluster-separated layout. Never part of the Network State.
 
+Layout is downstream of analysis (ADR 0002): `layout_state(state, canvas)` takes a finished Network State
+and only reads it. No analysis module imports this one, so no coordinate can reach a metric.
+
 Positions and node sizes share model units, so no node hides another at any zoom: a node's size is a
 fixed function of its `n_games` relative to the dataset's most frequent tag (never of what is visible),
 and a deterministic overlap-removal pass keeps every pair of nodes at least `GAP` apart.
@@ -9,7 +12,8 @@ from __future__ import annotations
 
 import math
 from collections.abc import Hashable, Iterable, Mapping
-from typing import Any, TypeVar
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import networkx as nx
 import numpy as np
@@ -18,9 +22,59 @@ from steamstudy.network.cluster import Cluster
 from steamstudy.network.graph import build_network, filter_games, to_graph
 from steamstudy.network.model import Game, Settings, TagContext
 
+if TYPE_CHECKING:
+    from steamstudy.network.state import NetworkState
+
 SCALE = 1000.0  # positions are returned in renderer units
 Positions = dict[int, tuple[float, float]]
 K = TypeVar("K", bound=Hashable)
+
+
+@dataclass(frozen=True)
+class Canvas:
+    """The free graph area a layout is made for, in screen pixels."""
+
+    width: float
+    height: float
+
+    @property
+    def aspect(self) -> float:
+        return self.width / self.height
+
+
+# The free graph area of a 1440 x 900 Workbench with the Tables and the Inspector closed: exports use it, so the
+# same Network State exports the same coordinates on every machine.
+REFERENCE_CANVAS = Canvas(1116, 678)
+
+
+@dataclass(frozen=True)
+class Layout:
+    """Where every visible tag is drawn: the Global positions, the node sizes, and the Cluster-separated
+    positions with their regions (top-left corner, width, height, label and cluster)."""
+
+    positions: Positions
+    sizes: dict[int, float]
+    separated: Positions
+    regions: list[dict[str, Any]]
+
+
+def layout_state(state: NetworkState, canvas: Canvas = REFERENCE_CANVAS, *,
+                 positions: Mapping[int, tuple[float, float]] | None = None) -> Layout:
+    """The layout of a finished Network State, which it only reads. `positions` replaces the computed Global
+    positions (a Re-layout); the Cluster-separated layout always starts from the Global one."""
+    nodes = state.nodes
+    games = state.network.games  # already after the Minimum Months Filter
+    settings = state.settings
+    all_sizes = node_sizes(games, settings.min_months)
+    sizes = {t: all_sizes[t] for t in nodes}
+    if positions is None:
+        loose = global_positions(games, settings.min_months, settings.clustering_weight, settings.seed)
+        positions = {t: loose[t] for t in nodes}
+    global_ = {t: positions[t] for t in nodes}
+    centers = {label: c.center for label, c in state.centers.items()}
+    separated, regions = cluster_separated_positions(state.graph, state.clusters, global_, settings.seed,
+                                                     centers=centers, sizes=sizes, aspect=canvas.aspect)
+    return Layout(global_, sizes, separated, regions)
 
 GAP = 4.0  # free space kept between two nodes
 MIN_SIZE, SIZE_RANGE = 10.0, 24.0  # node diameter: MIN_SIZE + SIZE_RANGE * sqrt(n_games / most frequent tag's)

@@ -11,6 +11,7 @@ import pytest
 from steamstudy.network import metrics as M
 from steamstudy.network.cluster import Cluster, label_clusters
 from steamstudy.network.graph import to_graph
+from steamstudy.network.layout import layout_state
 from steamstudy.network.model import KEY_VERSION, Game, Settings, TagContext, canonical_key_json, state_id_of
 from steamstudy.network.sensitivity import removal_sensitivity, run_order
 from steamstudy.network.stability import curveball, noise_seeds, replicate_seeds
@@ -126,8 +127,8 @@ def _random_games(seed: int, n: int = 100, tags: int = 40) -> list[Game]:
 def test_seeded_clustering_is_deterministic(algorithm):
     games = _random_games(3)
     settings = _settings(algorithm=algorithm, min_games_per_tag=5, min_shared_games=3, null_replicates=2, noise_seeds=2)
-    first = compute_state(games, settings, with_positions=False)
-    second = compute_state(list(reversed(games)), settings, with_positions=False)
+    first = compute_state(games, settings)
+    second = compute_state(list(reversed(games)), settings)
     assert [sorted(c.members) for c in first.clusters] == [sorted(c.members) for c in second.clusters]
     assert first.modularity == second.modularity
 
@@ -169,8 +170,8 @@ def test_conductance_of_a_connected_one_tag_cluster_is_one():
 
 
 def test_coverage_plus_inter_share_is_one():
-    state = compute_state(_random_games(5), _settings(min_games_per_tag=5, min_shared_games=3), with_positions=False)
-    row = state_tables(state, cluster_positions={})["cluster_quality.csv"][0]
+    state = compute_state(_random_games(5), _settings(min_games_per_tag=5, min_shared_games=3))
+    row = state_tables(state)["cluster_quality.csv"][0]
     assert row["coverage"] + row["inter_cluster_weight_share"] == pytest.approx(1.0)
 
 
@@ -191,7 +192,7 @@ def test_silhouette_needs_two_multi_tag_clusters():
 
 def test_no_edges():
     state = compute_state(_games([((A,), 2), ((B,), 2)]), _settings())
-    row = state_tables(state, cluster_positions={})["cluster_quality.csv"][0]
+    row = state_tables(state)["cluster_quality.csv"][0]
     assert row["modularity"] is None and row["modularity_status"] == "no_edges"
     assert row["seed_ari_min"] == 1.0 and row["seed_ari_mean"] == 1.0
     assert row["n_multi_tag_clusters"] == 0 and row["n_one_tag_clusters"] == 2
@@ -205,7 +206,7 @@ def test_medoid_with_tie_and_top_strength(toy):
     assert center.medoid_scores == pytest.approx({A: 0.25, B: 0.125, C: 0.125})
     assert center.center == B  # B and C tie at 0.125 with 3 games each: the lower tag_id wins
     assert center.top_strength == A  # all intra strengths are 6: A has more games
-    row = next(r for r in state_tables(toy, cluster_positions={})["clusters.csv"] if r["cluster"] == "C1")
+    row = next(r for r in state_tables(toy)["clusters.csv"] if r["cluster"] == "C1")
     assert row["member_tag_ids"] == [B, C, A] and row["center_is_top_strength"] is False
 
 
@@ -279,7 +280,7 @@ def test_seed_noise_and_stability_on_the_toy(toy):
     summary = toy.seed_summary()
     assert summary["seed_ari_min"] == 1.0 and summary["seed_k_min"] == summary["seed_k_max"] == 2
     assert toy.membership_stability[A] == 1.0 and toy.membership_stability[G] is None
-    tables = state_tables(toy, cluster_positions={})
+    tables = state_tables(toy)
     assert len(tables["seed_noise.csv"]) == 4
     c3 = next(r for r in tables["clusters.csv"] if r["cluster"] == "C3")
     assert c3["mean_membership_stability"] is None
@@ -304,13 +305,13 @@ def test_global_positions_do_not_depend_on_thresholds_or_hidden_tags():
     loose = compute_state(games, _settings(min_games_per_tag=3, min_shared_games=2, null_replicates=2, noise_seeds=2))
     tight = compute_state(games, _settings(min_games_per_tag=8, min_shared_games=5, hidden_tag_ids=(1, 2),
                                            null_replicates=2, noise_seeds=2))
-    assert all(tight.positions[t] == loose.positions[t] for t in tight.nodes)
+    assert all(layout_state(tight).positions[t] == layout_state(loose).positions[t] for t in tight.nodes)
     other_seed = compute_state(games, _settings(min_games_per_tag=8, seed=12, null_replicates=2, noise_seeds=2))
-    assert other_seed.positions != tight.positions
+    assert layout_state(other_seed).positions != layout_state(tight).positions
 
 
 def test_table_sorting_and_edges(toy):
-    tables = state_tables(toy)
+    tables = state_tables(toy, layout_state(toy))
     nodes = tables["nodes.csv"]
     assert [r["tag_id"] for r in nodes] == [B, C, A, E, F, D, G]  # by cluster, then medoid_score, then tag_id
     edges = tables["edges.csv"]
@@ -342,7 +343,7 @@ def test_bridge_tag_removal_splits_the_cluster_and_is_flagged():
 def test_reclustered_delta_equals_a_fresh_state_without_the_tag(toy):
     rows = {r["tag_id"]: r for r in removal_sensitivity(toy)}
     for tag in (A, G):
-        without = compute_state(TOY, _settings(removed_tag_ids=(tag,)), with_positions=False)
+        without = compute_state(TOY, _settings(removed_tag_ids=(tag,)))
         assert rows[tag]["rc_delta_modularity"] == pytest.approx(without.modularity - toy.modularity)
         assert rows[tag]["rc_silhouette_after"] == pytest.approx(without.silhouette.mean)
     assert rows[G]["rc_ari"] == 1.0 and rows[G]["rc_delta_s"] == -1
@@ -357,14 +358,14 @@ def test_silhouette_na_transition_leaves_the_delta_empty():
 
 
 def test_partial_run_is_a_prefix_and_state_is_unchanged(toy):
-    before = state_tables(toy, cluster_positions={})
+    before = state_tables(toy)
     full = removal_sensitivity(toy)
     calls = []
     partial = removal_sensitivity(toy, progress=lambda done, total: calls.append((done, total)),
                                   should_stop=lambda: len(calls) >= 3)
     assert partial == full[:3] and calls[-1] == (3, 7)
     assert [r["tag_id"] for r in full] == run_order(toy)
-    assert state_tables(toy, cluster_positions={}) == before
+    assert state_tables(toy) == before
     one = removal_sensitivity(toy, tags=[D])
     assert one[0] == next(r for r in full if r["tag_id"] == D)
 

@@ -13,13 +13,14 @@ import zipfile
 import pytest
 
 from steamstudy.app import rs_cache
-from steamstudy.app.export import BuildNotFound, OpenRefused, export_zip, open_export, read_export
+from steamstudy.app.export import (BuildNotFound, OpenRefused, export_zip, open_export, read_export,
+                                   recorded_table_hashes_match)
 from steamstudy.app.loader import load_build
 from steamstudy.build.core import build
 from steamstudy.build.writer import write_build
 from steamstudy.config import load_config
 from steamstudy.export.writer import read_csv
-from steamstudy.network.layout import relayout
+from steamstudy.network.layout import Canvas, layout_state, relayout
 from steamstudy.network.sensitivity import removal_sensitivity
 from steamstudy.network.state import compute_state
 from steamstudy.snapshot import Snapshot
@@ -53,6 +54,61 @@ def test_app_at_the_report_settings_equals_the_build(build_folder, dataset):
         build_rows = [{k: v for k, v in r.items() if k not in ("dataset", "state_id")}
                       for r in read_csv(build_folder / "analysis" / build_name) if r["dataset"] == dataset]
         assert _zip_rows(data, app_name) == build_rows, app_name
+
+
+COORDINATES = ("x_global", "y_global", "x_cluster_separated", "y_cluster_separated")
+
+
+def _without_coordinates(files: dict[str, bytes]) -> dict[str, list[dict[str, str]]]:
+    return {name: [{k: v for k, v in r.items() if k not in COORDINATES}
+                   for r in csv.DictReader(io.StringIO(data.decode("utf-8-sig")))]
+            for name, data in files.items()}
+
+
+@pytest.mark.parametrize("dataset", ["overall", "puzzle", "rpg", "strategy", "simulation"])
+def test_layout_settings_change_only_the_coordinates(build_folder, dataset):
+    """ADR 0002: the same Network State exported under very different layouts differs only in the four
+    coordinate columns of nodes.csv (and their hash in export.json)."""
+    ctx = load_build(build_folder)
+    settings = ctx.default_settings(dataset)
+    state = compute_state(ctx.games(dataset), settings, ctx.context(dataset))
+    rows = removal_sensitivity(state, tags=state.nodes[:3])
+    now = __import__("datetime").datetime(2026, 10, 6, 12, 0, tzinfo=__import__("datetime").UTC)
+    exports = []
+    for layout in (layout_state(state), layout_state(state, Canvas(500, 1400)),
+                   layout_state(state, Canvas(2400, 600))):
+        name, data = export_zip(ctx, settings, removal_rows=rows, state=state, layout=layout, now=now)
+        exports.append((name, *read_export(data)))
+    (name, export, files), others = exports[0], exports[1:]
+    for other_name, other_export, other_files in others:
+        assert other_name == name and other_export["state_id"] == export["state_id"] == state.state_id
+        assert set(other_files) == set(files) and ("removal_sensitivity.csv" in files) == bool(state.nodes)
+        for file in files:
+            if file != "nodes.csv":
+                assert other_files[file] == files[file], file  # byte-identical
+        assert _without_coordinates(other_files) == _without_coordinates(files)
+        strip = lambda e: {**e, "files": {k: v for k, v in e["files"].items() if k != "nodes.csv"}}  # noqa: E731
+        assert strip(other_export) == strip(export)
+    if state.nodes:
+        assert any(other_files["nodes.csv"] != files["nodes.csv"] for _, _, other_files in others)
+
+
+def test_recorded_table_hashes_ignore_the_coordinates(build_folder):
+    ctx = load_build(build_folder)
+    settings = ctx.default_settings("overall")
+    state = compute_state(ctx.games("overall"), settings, ctx.context("overall"))
+    _, data = export_zip(ctx, settings, state=state, layout=layout_state(state, Canvas(500, 1400)))
+    opened = open_export(data, builds_root=_builds(build_folder))
+    assert recorded_table_hashes_match(opened, data)
+    export, files = read_export(data)
+    edges = files["edges.csv"].decode("utf-8-sig").replace(",tag ", ",tug ", 1).encode("utf-8-sig")
+    assert edges != files["edges.csv"]
+    tampered = io.BytesIO()
+    with zipfile.ZipFile(tampered, "w") as zf:
+        for file, content in {**files, "edges.csv": edges}.items():
+            zf.writestr(file, content)
+        zf.writestr("export.json", json.dumps(export))
+    assert not recorded_table_hashes_match(opened, tampered.getvalue())
 
 
 def test_zip_contents_hashes_and_row_counts(build_folder):
@@ -96,7 +152,8 @@ def test_open_network_state_round_trip(build_folder):
     ctx = load_build(build_folder)
     settings = ctx.default_settings("overall").with_(min_games_per_tag=10, removed_tag_ids=(5000,), resolution=1.2)
     state = compute_state(ctx.games("overall"), settings, ctx.context("overall"))
-    moved = relayout(state.graph, state.positions, settings.seed, iterations=5, sizes=state.sizes)
+    layout = layout_state(state)
+    moved = relayout(state.graph, layout.positions, settings.seed, iterations=5, sizes=layout.sizes)
     rows = removal_sensitivity(state)[:2]
     _, data = export_zip(ctx, settings, relayout_positions=moved, removal_rows=rows, state=state)
     for payload in (data, json.dumps(read_export(data)[0]).encode("utf-8")):

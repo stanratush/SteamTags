@@ -18,7 +18,7 @@ from steamstudy.app.loader import BuildContext, build_json_hash, load_build
 from steamstudy.export import schema as S
 from steamstudy.export.schema import SCHEMA_VERSION, columns_block
 from steamstudy.export.writer import csv_bytes, parse_value
-from steamstudy.network.layout import Positions
+from steamstudy.network.layout import Layout, Positions, layout_state
 from steamstudy.network.model import KEY_VERSION, Settings, state_id_of
 from steamstudy.network.sensitivity import METHOD_VERSION
 from steamstudy.network.stability import TRADES_PER_GAME
@@ -61,13 +61,15 @@ def export_zip(
     relayout_positions: Positions | None = None,
     removal_rows: list[dict[str, Any]] | None = None,
     state: NetworkState | None = None,
+    layout: Layout | None = None,
     now: dt.datetime | None = None,
 ) -> tuple[str, bytes]:
-    """The zip for one Network State. `removal_rows` must belong to this exact key (callers check)."""
+    """The zip for one Network State. `removal_rows` must belong to this exact key (callers check). The layout
+    is computed after the state, for the reference canvas, unless one is given."""
     now = now or dt.datetime.now(dt.UTC)
     state = state or compute_state(ctx.games(settings.dataset), settings, ctx.context(settings.dataset))
-    positions = relayout_positions if relayout_positions else state.positions
-    tables = state_tables(state, positions=positions)
+    layout = layout or layout_state(state, positions=relayout_positions or None)
+    tables = state_tables(state, layout)
     files: dict[str, bytes] = {}
     for schema in S.APP_TABLES:
         if schema.name == "removal_sensitivity.csv":
@@ -210,11 +212,19 @@ def _raw_rows(data: bytes) -> list[dict[str, str]]:
     return list(csv.DictReader(io.StringIO(data.decode("utf-8-sig"))))
 
 
+COORDINATE_COLUMNS = ("x_global", "y_global", "x_cluster_separated", "y_cluster_separated")
+
+
 def recorded_table_hashes_match(opened: OpenedState, data: bytes) -> bool:
-    """Whether the recomputed state's tables are byte-identical to the export's (beyond the state_id check)."""
+    """Whether the recomputed state's tables equal the export's (beyond the state_id check), every column except
+    the four coordinate columns: positions come from the layout, which is not part of the state (ADR 0002)."""
     ctx = load_build(opened.build_path)
-    _, again = export_zip(ctx, opened.settings, relayout_positions=opened.relayout_positions or None,
-                          removal_rows=opened.removal_rows or None)
-    _, files = read_export(again)
+    _, again = export_zip(ctx, opened.settings, removal_rows=opened.removal_rows or None)
+    files = read_export(again)[1]
     original = read_export(data)[1]
-    return all(files.get(name) == original.get(name) for name in original if name.endswith(".csv"))
+    return all(name in files and _coordinate_blind(files[name]) == _coordinate_blind(original[name])
+               for name in original if name.endswith(".csv"))
+
+
+def _coordinate_blind(data: bytes) -> list[list[tuple[str, str]]]:
+    return [[(k, v) for k, v in row.items() if k not in COORDINATE_COLUMNS] for row in _raw_rows(data)]

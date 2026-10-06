@@ -25,7 +25,7 @@ from steamstudy.app import renderer as R
 from steamstudy.app.renderer import cluster_color
 from steamstudy.network.cluster import Cluster
 from steamstudy.network.graph import filter_games
-from steamstudy.network.layout import ASPECT, cluster_separated_positions, relayout
+from steamstudy.network.layout import ASPECT, cluster_separated_positions, layout_state, relayout
 from steamstudy.network.model import Settings, resolution_text
 from steamstudy.network.sensitivity import removal_sensitivity
 from steamstudy.network.state import compute_state
@@ -98,7 +98,8 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
     settings = settings_from_controls(c, dataset, min_games, min_shared, min_months, genre_hidden, defining_hidden,
                                       weight, algorithm, gamma, seed, removed)
     state = compute_state(c.games(dataset), settings, c.context(dataset))
-    tables = state_tables(state, cluster_positions={})
+    tables = state_tables(state)
+    layout = layout_state(state)
     q = tables["cluster_quality.csv"][0]
     gamma_text = resolution_text(settings.resolution)
     k = settings.noise_seeds
@@ -113,11 +114,11 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
     kind_of = {r["cluster"]: r["kind"] for r in tables["clusters.csv"]}
     base = {
         "nodes": [{"id": str(r["tag_id"]), "label": r["tag"], "cluster": r["cluster"], "kind": kind_of[r["cluster"]],
-                   "n_games": r["n_games"], "center": r["is_center"], "size": state.sizes[r["tag_id"]]}
+                   "n_games": r["n_games"], "center": r["is_center"], "size": layout.sizes[r["tag_id"]]}
                   for r in tables["nodes.csv"]],
         "edges": [{"source": str(e.u), "target": str(e.v), "shared": e.shared, "lift": e.lift,
                    "intra": state.cluster_of[e.u] == state.cluster_of[e.v]} for e in state.network.edges],
-        "positions": {str(t): list(p) for t, p in state.positions.items()},
+        "positions": {str(t): list(p) for t, p in layout.positions.items()},
         "basis": [dataset, settings.min_months, settings.clustering_weight, settings.seed],
         "weight": settings.clustering_weight, "seed": settings.seed, "dataset": dataset,
         "max_shared": max([e.shared for e in state.network.edges] + [1]),

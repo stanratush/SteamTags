@@ -1,8 +1,11 @@
-"""Graph positions: no node hides another, the packed Cluster-separated layout, and determinism."""
+"""Graph positions: layout downstream of analysis, no node hides another, the packed Cluster-separated layout,
+and determinism."""
 
 from __future__ import annotations
 
+import ast
 import math
+from pathlib import Path
 
 import pytest
 
@@ -10,7 +13,7 @@ from steamstudy.app.loader import load_build
 from steamstudy.build.core import build
 from steamstudy.build.writer import write_build
 from steamstudy.config import load_config
-from steamstudy.network.layout import cluster_separated_positions, global_positions, node_sizes, relayout
+from steamstudy.network.layout import Layout, global_positions, layout_state, node_sizes, relayout
 from steamstudy.network.state import compute_state
 from steamstudy.snapshot import Snapshot
 from test_build_network import tagged_world
@@ -47,21 +50,55 @@ def _overlaps(positions, sizes):
 
 
 def _separated(state):
-    centers = {label: c.center for label, c in state.centers.items()}
-    return cluster_separated_positions(state.graph, state.clusters, state.positions, state.settings.seed,
-                                       centers=centers, sizes=state.sizes)
+    layout = layout_state(state)
+    return layout.separated, layout.regions
+
+
+NETWORK = Path(__import__("steamstudy.network", fromlist=["x"]).__path__[0])
+
+
+def _imports(path):
+    found = set()
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            found.add(node.module)
+            found.update(f"{node.module}.{a.name}" for a in node.names)
+        elif isinstance(node, ast.Import):
+            found.update(a.name for a in node.names)
+    return found
+
+
+def test_only_the_layout_module_knows_about_layout():
+    """ADR 0002: no analysis module can import the layout, so no coordinate can reach a metric."""
+    modules = sorted(NETWORK.glob("*.py"))
+    assert {p.stem for p in modules} >= {"state", "metrics", "cluster", "stability", "sensitivity", "sweep", "layout"}
+    for path in modules:
+        if path.stem != "layout":
+            assert "steamstudy.network.layout" not in _imports(path), path.name
+
+
+def test_compute_state_holds_no_coordinates_and_layout_state_only_reads_it(ctx):
+    state = _state(ctx, "overall")
+    assert not hasattr(state, "positions") and not hasattr(state, "sizes")
+    before = (state.state_id, [sorted(c.members) for c in state.clusters], state.modularity, state.silhouette.mean)
+    layout = layout_state(state)
+    assert isinstance(layout, Layout)
+    assert set(layout.positions) == set(state.nodes) == set(layout.separated) == set(layout.sizes)
+    assert layout.regions
+    assert (state.state_id, [sorted(c.members) for c in state.clusters], state.modularity,
+            state.silhouette.mean) == before
 
 
 @pytest.mark.parametrize("loosest", [False, True])
 @pytest.mark.parametrize("dataset", DATASETS)
 def test_no_two_nodes_overlap_in_either_layout_or_after_relayout(ctx, dataset, loosest):
     state = _state(ctx, dataset, loosest)
-    assert state.nodes and set(state.sizes) >= set(state.nodes)
-    visible = {t: state.positions[t] for t in state.nodes}
-    assert _overlaps(visible, state.sizes) == []
-    assert _overlaps(_separated(state)[0], state.sizes) == []
-    refined = relayout(state.graph, state.positions, state.settings.seed, sizes=state.sizes)
-    assert _overlaps(refined, state.sizes) == []
+    layout = layout_state(state)
+    assert state.nodes and set(layout.sizes) >= set(state.nodes)
+    assert _overlaps(layout.positions, layout.sizes) == []
+    assert _overlaps(layout.separated, layout.sizes) == []
+    refined = relayout(state.graph, layout.positions, state.settings.seed, sizes=layout.sizes)
+    assert _overlaps(refined, layout.sizes) == []
 
 
 def test_the_global_layout_has_no_overlap_on_the_full_loose_network(ctx):
@@ -80,22 +117,22 @@ def test_node_size_is_fixed_by_n_games_relative_to_the_most_frequent_tag(ctx):
     top = [t for t, n in counts.items() if n == biggest]
     assert all(sizes[t] == max(sizes.values()) for t in top)
     assert all(sizes[a] <= sizes[b] for a in counts for b in counts if counts[a] <= counts[b])
-    state = _state(ctx, "overall")
-    assert {t: state.sizes[t] for t in state.nodes} == {t: sizes[t] for t in state.nodes}  # not the visible set
+    assert layout_state(_state(ctx, "overall")).sizes == {t: sizes[t] for t in _state(ctx, "overall").nodes}
 
 
 def test_the_same_inputs_give_identical_positions(ctx):
-    a, b = _state(ctx, "overall"), _state(ctx, "overall")
-    assert a.positions == b.positions
-    assert _separated(a) == _separated(b)
-    assert relayout(a.graph, a.positions, 3, sizes=a.sizes) == relayout(b.graph, b.positions, 3, sizes=b.sizes)
+    a, b = layout_state(_state(ctx, "overall")), layout_state(_state(ctx, "overall"))
+    assert a == b
+    graph = _state(ctx, "overall").graph
+    assert relayout(graph, a.positions, 3, sizes=a.sizes) == relayout(graph, b.positions, 3, sizes=b.sizes)
 
 
 def test_moving_a_threshold_leaves_the_global_positions_unchanged(ctx):
     default = _state(ctx, "overall")
     other = compute_state(ctx.games("overall"), default.settings.with_(min_games_per_tag=12, min_shared_games=5),
                           ctx.context("overall"))
-    assert other.positions == default.positions
+    same = set(other.nodes) & set(default.nodes)
+    assert {t: layout_state(other).positions[t] for t in same} == {t: layout_state(default).positions[t] for t in same}
 
 
 @pytest.mark.parametrize("dataset", DATASETS)
@@ -116,7 +153,7 @@ def test_regions_are_packed_tightly_with_each_center_in_the_middle(ctx, dataset,
         assert cx == pytest.approx(r["x"] + r["width"] / 2) and cy == pytest.approx(r["y"] + r["height"] / 2)
         for t in c.members:  # every member inside its region
             px, py = positions[t]
-            radius = state.sizes[t] / 2
+            radius = layout_state(state).sizes[t] / 2
             assert r["x"] <= px - radius and px + radius <= r["x"] + r["width"]
             assert r["y"] <= py - radius and py + radius <= r["y"] + r["height"]
     if len(state.clusters) > len(multi):

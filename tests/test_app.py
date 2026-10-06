@@ -20,6 +20,7 @@ from steamstudy.app.loader import load_build
 from steamstudy.build.core import build
 from steamstudy.build.writer import write_build
 from steamstudy.config import load_config
+from steamstudy.network.layout import layout_state
 from steamstudy.network.sensitivity import removal_sensitivity
 from steamstudy.network.state import compute_state
 from steamstudy.snapshot import Snapshot
@@ -241,7 +242,7 @@ def test_the_app_draws_the_exported_coordinates_in_both_layouts(build_folder):
     sizes = {n["id"]: n["size"] for n in CB.render_graph(base, "global", None, None)["nodes"]}
     ctx = load_build(build_folder)
     state = compute_state(ctx.games("overall"), ctx.default_settings("overall"), ctx.context("overall"))
-    assert sizes == {str(t): state.sizes[t] for t in state.nodes}  # fixed by the layout, not by the visible set
+    assert sizes == {str(t): layout_state(state).sizes[t] for t in state.nodes}  # fixed by the layout, not by the visible set
 
 
 @pytest.mark.parametrize("layout_mode", ["global", "separated"])

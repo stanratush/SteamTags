@@ -1,7 +1,8 @@
 """The Build's network outputs: each Top-100 Dataset's Network State at the report's settings.
 
-Uses the same `steamstudy.network` computation and the same table writer as the app export, so the
-app opened at these settings gives exactly these rows (minus `dataset` / `state_id`).
+Uses the same `steamstudy.network` computation, the same layout (after the state, on the reference canvas)
+and the same table writer as the app export, so the app opened at these settings gives exactly these rows
+(minus `dataset` / `state_id`).
 """
 
 from __future__ import annotations
@@ -10,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from steamstudy.config import Config, DatasetDef
+from steamstudy.network.layout import layout_state
 from steamstudy.network.defaults import default_settings
 from steamstudy.network.model import Settings, TagContext, games_from_rows
 from steamstudy.network.sensitivity import METHOD_VERSION, expected_chance_flags, removal_sensitivity
@@ -42,7 +44,7 @@ def network_outputs(config: Config, build_id: str, dataset_rows: dict[str, list[
         settings, context = report_settings(config, build_id, d)
         state = compute_state(games_from_rows(dataset_rows[d.key]), settings, context)
         states[d.key] = state
-        for name, rows in state_tables(state).items():
+        for name, rows in state_tables(state, layout_state(state)).items():
             tables.setdefault(name, []).extend(stack(rows, d.key, state.state_id))
         rs = removal_sensitivity(state)
         tables.setdefault("removal_sensitivity.csv", []).extend(stack(rs, d.key, state.state_id))
