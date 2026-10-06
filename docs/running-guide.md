@@ -6,7 +6,7 @@ Before a **full** collection, the project has one-time obligations (contacting t
 
 ## Install
 
-You need [uv](https://docs.astral.sh/uv/) and Python 3.14 (uv can install it: `uv python install 3.14`).
+You need [uv](https://docs.astral.sh/uv/) and Python 3.14 (uv can install it: `uv python install 3.14`). The repository pins the development environment to 3.14 (`.python-version`); the `steamstudy` package itself declares only the Tag Network app's dependencies and supports Python 3.12–3.14 (not 3.14.1), so the app can be delivered as an App Bundle. The pipeline's own dependencies (pandas, requests, lxml, markdown, packaging) are the `pipeline` dependency group, which `uv sync` installs by default.
 
 ```bash
 uv sync --compile-bytecode
@@ -125,6 +125,7 @@ snapshots/<snapshot_id>/          one Snapshot (never published)
   skipped_apps.csv                apps skipped because their Steam Charts page kept failing (if any)
 builds/latest                     <snapshot_id>/<build_id> of the newest Build
 builds/<snapshot_id>/latest       the newest Build of that Snapshot
+bundles/                          App Bundle zips and their wheel cache (steamstudy bundle)
 builds/<snapshot_id>/<build_id>/  one Build
   datasets/                       top100_<dataset>.csv ×5, monthly_players.csv, build.json
   reports/                        exclusions, completeness, impact, ties, diagnostics, reports.html
@@ -133,7 +134,7 @@ builds/<snapshot_id>/<build_id>/  one Build
   app_cache/                      the app's Removal Sensitivity results and job store (regenerable)
 ```
 
-`snapshots/` and `builds/` are git-ignored. Only the derived Top-100 exports, reports and analysis are published; `monthly_players.csv` waits for the operator's agreement.
+`snapshots/`, `builds/` and `bundles/` are git-ignored. Only the derived Top-100 exports, reports and analysis are published; `monthly_players.csv` waits for the operator's agreement.
 
 ## The app
 
@@ -146,6 +147,32 @@ opens the latest Build (`--build <id>` picks another, `--port` changes the port,
 ```bash
 uv run steamstudy app --clear-cache
 ```
+
+When a library the app computes with is installed at another version than the one the Build recorded in `build.json` (`software_versions`), the app shows a banner naming each library with both versions. Pipeline-only libraries and the Python version never trigger it. **Open Network State…** finds an export's Build by its identity (`build_id` and the `build.json` hash) among the Builds under the `builds/` folder the app was started from; the path recorded in `export.json` is informational only.
+
+## Making an App Bundle
+
+An App Bundle lets a researcher run the Tag Network app on another computer that has only Python 3.12–3.14 (not 3.14.1): no uv, no repository, no internet. It never collects or builds; it opens only the Builds it carries. See [ADR 0001](adr/0001-app-bundle-wheels-not-frozen.md) for why it ships wheels and a launcher rather than a frozen executable.
+
+```bash
+uv run steamstudy bundle
+```
+
+writes `bundles/tag-network-<build_id>-<targets>.zip` for this computer's operating system, with the latest Build. Options:
+
+- `--build <id>` (repeatable) also includes another Build; the latest is always included and opens by default.
+- `--target windows|macos|linux` (repeatable) makes it for those systems instead (Windows x64, macOS on Apple silicon, Linux x86_64 with glibc 2.28 or newer). Intel Macs and ARM Linux are not supported.
+- `--out <folder>` writes the zip elsewhere.
+
+```bash
+uv run steamstudy bundle --target windows --target macos --target linux
+```
+
+makes one zip for all three. What goes in: the launcher `start_tag_network.py` (standard library only) with `Start Tag Network.bat` and `Start Tag Network.command`; `READ ME FIRST.txt`; the User Guide; the app-only `steamstudy` wheel; every dependency wheel each target needs for Python 3.12, 3.13 and 3.14, pinned exactly to `uv.lock` and checked against its hashes (pure-Python wheels stored once); per-target requirement files with those hashes; the Build folders without `app_cache/`, with `latest` pointers; and `bundle.json` (format version, `steamstudy` version, `uv.lock` hash, targets, Python versions, Builds, date). Each target adds about 220 MB. The command refuses, writing nothing, when a selected Build does not exist or when `uv.lock` has no wheel for some package on some target and Python.
+
+**Making a bundle needs internet** (it downloads the wheels from PyPI into `bundles/.cache/`, and later runs reuse them); **using one never does**. On the target computer the launcher installs the wheels into a private `environment/` folder inside the bundle with no package index, and rebuilds it when the folder moved, the Python changed or the bundle changed. It opens the app on port 8050 or the next free one.
+
+macOS and Linux bundles are checked for completeness (every required wheel present for every supported Python) but have not been tested on real hardware; only Windows bundles are installed and started by the test suite (`tests/test_bundle_acceptance.py`, marked `slow`, about six minutes; skip it with `-m "not slow"`).
 
 ## Windows notes
 

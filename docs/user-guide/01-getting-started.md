@@ -2,25 +2,26 @@
 
 ## Open the app
 
-The Tag Network app runs on your own computer and needs no internet connection. Someone who has run the pipeline starts it with
+The Tag Network app runs on your own computer and needs no internet connection. You get it as an **App Bundle**: one zip that holds the app, the libraries it needs, this User Guide and one or more Builds. You only need Python 3.12, 3.13 or 3.14 (but not 3.14.1) from [python.org](https://www.python.org/downloads/). A bundle is made for Windows (x64), macOS (Apple silicon) or Linux (x86_64); its `READ ME FIRST.txt` says which.
 
-```bash
-uv run steamstudy app
-```
+1. **Extract the whole zip** to a folder on your own disk. The app refuses to start from inside the zip, or from a read-only folder (a network share, a CD): copy the folder to your own disk first.
+2. **Start it.** Windows: double-click `Start Tag Network.bat`. macOS: double-click `Start Tag Network.command` (if macOS blocks it, right-click it and choose Open). Linux: run `python3 start_tag_network.py` in the folder.
+3. **The first start takes about a minute**: it sets up a private environment inside the folder from the bundled files, with no internet. Later starts take a few seconds. If you move the folder or install another Python, the next start sets it up again.
+4. The app opens in your browser at `http://127.0.0.1:8050`, or at the next free port (8051, …) if 8050 is taken. Keep the window open while you work; closing it stops the app.
 
-It opens the latest Build at `http://127.0.0.1:8050` in your browser (`--build <id>` picks another Build; `--port` another port). The app only reads the pipeline's own Top-100 Datasets; it never loads other files.
+It opens the latest Build in the bundle; add `--build <build id>` to the start command to open another one it carries. If it refuses to start, it says why and what to do (for example "This App Bundle needs Python 3.12, 3.13 or 3.14"). The app only reads the pipeline's own Top-100 Datasets; it never loads other files. (If you run the pipeline yourself, start the app from the repository instead, as the [Running Guide](../running-guide.md#the-app) describes.)
 
-A yellow banner at the top warns when the Build comes from a test Snapshot (`mode: test`) or was made with parse errors allowed (`parse_errors_allowed`). Never publish numbers from such a Build.
+A yellow banner at the top warns when the Build comes from a test Snapshot (`mode: test`) or was made with parse errors allowed (`parse_errors_allowed`). Never publish numbers from such a Build. Another banner appears when a library the app computes with (for example networkx or numpy) is installed at a different version from the one the Build was made with, naming each library with both versions: the numbers may then differ from the Build's own reports. An App Bundle installs exactly the Build's versions, so you should not see it there.
 
 ## Load a dataset
 
 Pick one of the five Top-100 Datasets in the **Dataset** selector: Overall, Puzzle, RPG, Strategy or Simulation. The app builds the Tag Network of that dataset at the shared defaults (the same settings the feature-analysis report uses) and clusters it. Every control change recomputes the whole Network State: network, clusters, null model, Seed-Noise Floor and all metrics. At loose thresholds a change can take several seconds.
 
-The line under the graph is the Cluster-quality row, for example
+Above the graph, the summary row shows the key numbers large: the games left after the Minimum Months Filter ("100 of 100"), tags, links, clusters ("3 + 4" multi-tag + one-tag), Q with its excess over the null model ("0.17 · excess +0.11") and the mean silhouette ("0.04 · descriptive"). Hover over any of them for what it means. Under it, one line states the Network State as a sentence that ends with its `state_id`; click the id to copy it.
+
+The **Cluster quality** tab shows five boxes (Q, Null-model excess, Coverage, Silhouette, Seed noise), then the two full sentences, for example
 
 > Q (γ = 1.00) 0.42 vs null 0.31 ± 0.01 (excess 0.11, z 11; null networks average 640 edges vs 702) · coverage 0.81 · 5 multi-tag + 3 one-tag · silhouette (Jaccard game-set distance), descriptive diagnostic, not a selection criterion 0.21
-
-and the line below it is the Seed-Noise Floor:
 
 > Seed-noise floor (K = 10): ARI vs. main min 0.84, mean 0.93 · multi-tag clusters 5–7 · SD Q 0.004 · SD silhouette 0.01
 

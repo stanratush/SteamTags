@@ -61,6 +61,7 @@ testpaths = ["tests"]
 # Run as: uv run python -W default -X faulthandler -m pytest   (never -X dev on this machine)
 filterwarnings = ["default"]
 addopts = "-p no:dash"
+markers = ["slow: installs an App Bundle on every local Python (minutes); deselect with -m \"not slow\""]
 
 [tool.mypy]
 python_version = "3.14"
