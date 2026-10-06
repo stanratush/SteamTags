@@ -240,3 +240,45 @@ def test_the_app_draws_the_exported_coordinates_in_both_layouts(build_folder):
     ctx = load_build(build_folder)
     state = compute_state(ctx.games("overall"), ctx.default_settings("overall"), ctx.context("overall"))
     assert sizes == {str(t): state.sizes[t] for t in state.nodes}  # fixed by the layout, not by the visible set
+
+
+@pytest.mark.parametrize("layout_mode", ["global", "separated"])
+def test_priority_labels_are_centers_the_15_largest_and_in_regions_each_clusters_largest(build_folder, layout_mode):
+    meta, tables, base, *_ = _recompute(build_folder, **{"min-games": 1, "min-shared": 1})
+    payload = CB.render_graph(base, layout_mode, None, None)
+    by_id = {n["id"]: n for n in base["nodes"]}
+    ranked = sorted(base["nodes"], key=lambda n: (-n["n_games"], int(n["id"])))
+    expected = {n["id"] for n in ranked[:15]} | {n["id"] for n in base["nodes"] if n["center"]}
+    if layout_mode == "separated":
+        for cluster in {n["cluster"] for n in base["nodes"]}:
+            expected.add(next(n["id"] for n in ranked if n["cluster"] == cluster))
+    priority = [n for n in payload["nodes"] if "pri" in n["classes"].split()]
+    assert {n["id"] for n in priority} == expected and len(base["nodes"]) > len(expected)
+    order = [n["id"] for n in sorted(priority, key=lambda n: n["prio"])]  # culling rank: Centers, then n_games
+    centers = [i for i in order if by_id[i]["center"]]
+    assert order[:len(centers)] == centers
+    rest = order[len(centers):]
+    assert rest == sorted(rest, key=lambda i: (-by_id[i]["n_games"], int(i)))
+    assert all(n["prio"] is None for n in payload["nodes"] if "pri" not in n["classes"].split())
+
+
+def test_selecting_a_cluster_focuses_it_and_other_selections_do_not():
+    ops = CB.show_selection({"kind": "cluster", "id": "C2"}).to_plotly_json()["operations"]
+    view = next(o["params"]["value"] for o in ops if o["location"] == ["view"])
+    assert view["cmd"] == "focus" and view["cluster"] == "C2" and view["nonce"]
+    ops = CB.show_selection({"kind": "node", "id": "5001"}).to_plotly_json()["operations"]
+    assert [o["location"] for o in ops] == [["selected"]]
+
+
+@pytest.mark.parametrize("source", ["legend", "region", "grid"])
+def test_a_cluster_is_selected_from_the_legend_its_region_title_or_the_clusters_grid(source):
+    if source == "legend":
+        triggered('{"cluster":"C2","type":"legend"}.n_clicks', 1)
+        sel, _ = CB.select(None, [1], None, None, None, [])
+    elif source == "region":
+        triggered("graph-event.data", {"kind": "region", "cluster": "C2"})
+        sel, _ = CB.select({"kind": "region", "cluster": "C2", "nonce": 1}, [], None, None, None, [])
+    else:
+        triggered("clusters-grid.selectedRows", [{"cluster": "C2"}])
+        sel, _ = CB.select(None, [], [{"cluster": "C2"}], None, None, [])
+    assert sel == {"kind": "cluster", "id": "C2"}

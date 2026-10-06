@@ -9,33 +9,46 @@
    pans. Every fit targets where the nodes end up, and leaves room for the overlays drawn over the
    canvas (elements marked data-graph-overlay="top|right|bottom|left", e.g. the floating Inspector). At render time x is stretched by the canvas aspect
    ratio (at most 1.6x) so the first fit fills a wide canvas; exported coordinates are untouched.
+
+   Labels: priority labels (classes `pri` from Python, `hot` for the selection and its neighbours) keep a
+   constant on-screen size; after every zoom one that overlaps a higher-ranked one is hidden (rank: `hot`,
+   then the `prio` sent by Python: Centers, then n_games). Other labels scale with zoom and hide below 7 px.
 */
 (function () {
   "use strict";
   const PAD = 30, MAX_STRETCH = 1.6, LABEL_ROOM = 14, TITLE_ROOM = 22;
+  const PRI_PX = 11.5, TITLE_PX = 12.5;  // constant on-screen sizes of priority labels and region titles
+  const SIZED = "font-size text-margin-y text-background-padding";
   const G = {cy: null, el: null, data: null, sig: null, moveSig: null, stretch: 1, userMoved: false,
-             quietUntil: 0, viewNonce: null};
+             quietUntil: 0, viewNonce: null, labelFrame: 0};
 
   function style() {
     return [
       {selector: "node", style: {
-        "background-color": "data(color)", "label": "data(label)", "font-size": 10, "min-zoomed-font-size": 7,
-        "width": "data(size)", "height": "data(size)", "color": "#222", "text-outline-color": "#fff",
-        "text-outline-width": 1, "z-index-compare": "manual", "z-index": 10}},
-      {selector: "node.one_tag", style: {"opacity": 0.7}},
+        "background-color": "data(color)", "label": "data(label)", "font-size": 6.5, "min-zoomed-font-size": 7,
+        "font-family": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", "color": "#1b2130",
+        "text-valign": "bottom", "text-margin-y": 2, "text-outline-color": "#fff", "text-outline-width": 1.2,
+        "text-outline-opacity": 0.9, "width": "data(size)", "height": "data(size)", "border-width": 1.2,
+        "border-color": "#00000040", "z-index-compare": "manual", "z-index": 10}},
+      {selector: "node.pri, node.hot", style: {
+        "min-zoomed-font-size": 0, "font-weight": 500, "text-outline-width": 0, "text-background-color": "#fff",
+        "text-background-opacity": 0.85, "text-background-padding": 2, "text-background-shape": "round-rectangle"}},
+      {selector: "node.one_tag", style: {"opacity": 0.8}},
       {selector: "node.center", style: {
-        "shape": "diamond", "border-width": 3, "border-color": "#111", "font-weight": "bold", "z-index": 20}},
+        "shape": "diamond", "border-width": 2, "border-color": "#1b2130", "font-weight": 650, "z-index": 20}},
       {selector: "node.region", style: {
         "shape": "round-rectangle", "width": "data(w)", "height": "data(h)", "background-color": "data(color)",
-        "background-opacity": 0.1, "border-width": 1, "border-color": "data(color)", "border-opacity": 0.4,
-        "label": "data(label)", "text-valign": "top", "text-halign": "center", "font-size": 14, "color": "#555",
-        "text-outline-width": 0, "z-index": 0, "text-events": "yes"}},
+        "background-opacity": 0.07, "border-width": 1, "border-color": "data(color)", "border-opacity": 0.35,
+        "label": "data(label)", "text-valign": "top", "text-halign": "center", "font-size": 12.5,
+        "min-zoomed-font-size": 0, "font-weight": 600, "color": "#3d4555", "text-outline-width": 0,
+        "z-index": 0, "text-events": "yes"}},
       {selector: "edge", style: {
-        "curve-style": "haystack", "haystack-radius": 0, "line-color": "#8a8a8a", "opacity": 0.45,
+        "curve-style": "haystack", "haystack-radius": 0, "line-color": "#8d95a3", "opacity": 0.3,
         "width": "data(width)", "z-index-compare": "manual", "z-index": 5}},
-      {selector: "edge.inter.separated", style: {"opacity": 0.08}},
-      {selector: "node.sel", style: {"border-width": 4, "border-color": "#d00", "opacity": 1}},
-      {selector: "edge.sel", style: {"line-color": "#d00", "opacity": 1}},
+      {selector: "edge.inter.separated", style: {"opacity": 0.06}},
+      {selector: "node.sel", style: {"border-width": 3, "border-color": "#2457d6", "z-index": 30}},
+      {selector: "edge.sel", style: {"line-color": "#2457d6", "opacity": 0.95}},
+      {selector: "node.lbl-off", style: {"text-opacity": 0, "text-background-opacity": 0}},
     ];
   }
 
@@ -67,6 +80,9 @@
     });
     cy.on("tap", (ev) => { if (ev.target === cy) emit({kind: "background"}); });
     cy.on("viewport", () => { if (performance.now() > G.quietUntil) G.userMoved = true; });
+    cy.on("zoom", () => {  // re-size and re-cull the labels once per frame
+      if (!G.labelFrame) G.labelFrame = requestAnimationFrame(() => { G.labelFrame = 0; sizeLabels(); });
+    });
     const ro = new ResizeObserver(() => {
       cy.resize();
       if (G.data && !G.userMoved) { place(); fit(); }
@@ -130,9 +146,13 @@
   }
 
   function fit() {
+    if (G.data) fitBox(box(G.data, G.stretch));
+  }
+
+  function fitBox(bb) {
     const cy = G.cy, w = cy.width(), h = cy.height();
-    if (!w || !h || !G.data) return;
-    const bb = box(G.data, G.stretch), a = freeArea();
+    if (!w || !h) return;
+    const a = freeArea();
     const bw = Math.max(bb.x2 - bb.x1, 1), bh = Math.max(bb.y2 - bb.y1, 1);
     const zoom = Math.max(cy.minZoom(), Math.min(cy.maxZoom(), Math.min(a.w / bw, a.h / bh)));
     quiet(0);
@@ -152,9 +172,43 @@
     });
   }
 
+  // ------------------------------------------------------------------ labels
+
+  function sizeLabels() {
+    const cy = G.cy, z = cy.zoom();
+    cy.batch(() => {
+      cy.nodes(".pri, .hot").style({"font-size": PRI_PX / z, "text-margin-y": 2 / z,
+                                    "text-background-padding": 2 / z});
+      cy.nodes(".region").style({"font-size": TITLE_PX / z, "text-margin-y": -4 / z});
+    });
+    cull();
+  }
+
+  // Hide each priority label that overlaps a higher-ranked one; the selection and its neighbours always show.
+  function cull() {
+    const cy = G.cy;
+    const labelled = cy.nodes(".pri, .hot").not(".region");
+    const hot = labelled.filter(".hot");
+    const rest = labelled.not(".hot").sort((a, b) => a.data("prio") - b.data("prio"));
+    const area = (n) => n.boundingBox({includeNodes: false, includeEdges: false, includeLabels: true,
+                                       includeOverlays: false});
+    const hits = (a, b) => a.x1 < b.x2 && b.x1 < a.x2 && a.y1 < b.y2 && b.y1 < a.y2;
+    const kept = hot.map(area);
+    cy.batch(() => {
+      hot.removeClass("lbl-off");
+      rest.forEach((n) => {
+        const b = area(n);
+        if (kept.some((k) => hits(k, b))) n.addClass("lbl-off");
+        else { kept.push(b); n.removeClass("lbl-off"); }
+      });
+    });
+  }
+
   // ------------------------------------------------------------------ elements, selection, view
 
-  function nodeData(n) { return {id: n.id, label: n.label, cluster: n.cluster, color: n.color, size: n.size}; }
+  function nodeData(n) {
+    return {id: n.id, label: n.label, cluster: n.cluster, color: n.color, size: n.size, prio: n.prio};
+  }
 
   function sync(data, fresh, moved) {
     const cy = G.cy;
@@ -181,21 +235,52 @@
         else cy.add({group: "edges", data: {id: e.id, source: e.source, target: e.target, width: e.width},
                      classes: e.classes});
       }
+      cy.nodes().not(".pri").removeStyle(SIZED);
     });
     if (fresh || moved) G.userMoved = false;
     if (!G.userMoved) fit();
   }
 
+  function members(cluster) {
+    return G.cy.nodes().filter((n) => !n.hasClass("region") && n.data("cluster") === cluster);
+  }
+
   function applySelection(sel) {
     const cy = G.cy;
-    cy.elements().removeClass("sel");
-    if (sel && (sel.kind === "node" || sel.kind === "edge")) cy.getElementById(sel.id).addClass("sel");
+    cy.batch(() => {
+      cy.nodes(".hot").not(".pri").removeStyle(SIZED);
+      cy.elements().removeClass("sel hot");
+      if (!sel) return;
+      let hot = cy.collection();
+      if (sel.kind === "node" || sel.kind === "edge") {
+        const el = cy.getElementById(sel.id);
+        if (el.nonempty()) {
+          el.addClass("sel");
+          hot = el.isNode() ? el.closedNeighborhood().nodes() : el.connectedNodes();
+        }
+      } else if (sel.kind === "cluster") {
+        hot = members(sel.id);
+      }
+      hot.addClass("hot");
+    });
+    sizeLabels();
+  }
+
+  // Zoom to a cluster: its region in Cluster-separated mode, its members' bounding box in Global.
+  function focusCluster(cluster) {
+    const region = G.cy.getElementById("region-" + cluster);
+    const eles = region.nonempty() ? region : members(cluster);
+    if (eles.empty()) return;
+    const b = eles.boundingBox({includeLabels: false, includeOverlays: false});
+    fitBox({x1: b.x1, x2: b.x2, y1: b.y1 - (region.nonempty() ? TITLE_ROOM : 0), y2: b.y2 + LABEL_ROOM});
+    G.userMoved = true;  // a resize (e.g. the floating Inspector opening) keeps the focus
   }
 
   function runView(view) {
     if (!view || view.nonce === G.viewNonce) return;
     G.viewNonce = view.nonce;
     if (view.cmd === "fit") { G.userMoved = false; fit(); }
+    else if (view.cmd === "focus") focusCluster(view.cluster);
   }
 
   function render(data) {

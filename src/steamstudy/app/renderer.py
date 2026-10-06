@@ -18,8 +18,10 @@ GRAPH_ID = "cy"
 DATA_ID = "graph-data"
 EVENT_ID = "graph-event"
 ACK_ID = "graph-ack"
-PALETTE = ["#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f", "#edc948", "#b07aa1", "#ff9da7", "#9c755f",
-           "#86bcb6", "#d37295", "#8cd17d", "#b6992d", "#499894", "#fabfd2", "#79706e"]
+# Slightly muted cluster colours (prototype variant B); One-Tag Clusters stay grey.
+PALETTE = ["#5b7fb0", "#d08a4e", "#6a9c64", "#c0646a", "#6ea8a5", "#c9ad4f", "#9a7fa8", "#d79aa4", "#8f7766",
+           "#86aeb0", "#c27d9b", "#93bf88", "#a8945a", "#5f9592", "#e3b9c8", "#837b78"]
+TOP_LABELS = 15  # the largest tags (by n_games) whose labels keep a constant on-screen size
 ONE_TAG_COLOR = "#b8b8b8"
 REGION_COLOR = "#999999"
 
@@ -48,6 +50,22 @@ def selection_ref(selection: dict[str, Any] | None) -> dict[str, str] | None:
     return {"kind": selection["kind"], "id": str(selection["id"])}
 
 
+def priority(nodes: list[dict[str, Any]], separated: bool) -> dict[str, int]:
+    """Node id -> culling rank (0 first) of the priority labels: the Cluster Centers, then the TOP_LABELS largest
+    tags by n_games (ties by tag id) and, in Cluster-separated mode, each cluster's largest tag; after the
+    Centers they rank by n_games. The canvas adds the selection and its neighbours, ranked above all."""
+    ranked = sorted(nodes, key=lambda n: (-n["n_games"], int(n["id"])))
+    chosen = {n["id"] for n in ranked[:TOP_LABELS]} | {n["id"] for n in nodes if n["center"]}
+    if separated:
+        seen: set[str] = set()
+        for n in ranked:
+            if n["cluster"] not in seen:
+                seen.add(n["cluster"])
+                chosen.add(n["id"])
+    order = [n["id"] for n in ranked if n["center"]] + [n["id"] for n in ranked if not n["center"]]
+    return {node_id: rank for rank, node_id in enumerate(i for i in order if i in chosen)}
+
+
 def payload(nodes: list[dict[str, Any]], edges: list[dict[str, Any]], positions: dict[str, list[float]], *,
             dataset: str, layout: str = "global", regions: list[dict[str, Any]] | None = None,
             selection: dict[str, Any] | None = None, max_shared: int = 1) -> dict[str, Any]:
@@ -55,12 +73,13 @@ def payload(nodes: list[dict[str, Any]], edges: list[dict[str, Any]], positions:
     intra}; positions: node id -> [x, y]; regions: {label, cluster, color, x, y, width, height} (top-left corner).
     A node's size comes from the layout (fixed by its games, in the positions' units), never from what is visible."""
     separated = layout == "separated"
+    ranks = priority(nodes, separated)
     out_nodes = []
     for n in nodes:
-        classes = [n["kind"]] + (["center"] if n["center"] else [])
+        classes = [n["kind"]] + (["center"] if n["center"] else []) + (["pri"] if n["id"] in ranks else [])
         out_nodes.append({"id": n["id"], "label": n["label"], "cluster": n["cluster"],
                           "color": cluster_color(n["cluster"], n["kind"]), "size": n["size"],
-                          "classes": " ".join(classes)})
+                          "classes": " ".join(classes), "prio": ranks.get(n["id"])})
     out_edges = [{"id": f"{e['source']}-{e['target']}", "source": e["source"], "target": e["target"],
                   "width": 0.6 + 6 * (e["shared"] / max(max_shared, 1)),
                   "classes": ("intra" if e["intra"] else "inter") + (" separated" if separated else "")}

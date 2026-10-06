@@ -35,6 +35,8 @@ The **Mode** control at the top switches between two views of the same Network S
 
 ## Inspect a node, an edge or a cluster
 
-Click a node to see its metrics, an edge to see the games that have both tags, or a cluster (its legend button, its row in the Clusters table, or its region title in the Cluster-separated layout) to see its members ranked by how typical they are. With the inspector collapsed, or in a window narrower than 1280 px, a click opens it as a floating card over the right of the graph; close it with ×.
+Click a node to see its metrics, an edge to see the games that have both tags, or a cluster (its legend button, its row in the Clusters table, or its region title in the Cluster-separated layout) to see its members ranked by how typical they are; the graph also zooms to that cluster (⤢ fits the whole graph again).
+
+The labels you can always read are the Cluster Centers, the 15 tags on the most games and, in the Cluster-separated layout, each cluster's largest tag, plus whatever you have selected and its neighbours. They keep the same size at any zoom; where two would overlap, the less important one is hidden until you zoom in. Every other label grows as you zoom in and appears once it is large enough to read. With the inspector collapsed, or in a window narrower than 1280 px, a click opens it as a floating card over the right of the graph; close it with ×.
 
 From a node's inspector you can **Remove** the tag (a what-if: the source dataset never changes) or start **Run for this tag** (its Removal Sensitivity).

@@ -220,9 +220,11 @@ def render_graph(base, layout_mode, relayout_store, selection):
 
 
 def show_selection(selection):
-    """Tell the canvas about a new selection without resending the elements."""
+    """Tell the canvas about a new selection without resending the elements; a cluster is also zoomed to."""
     patch = Patch()
     patch["selected"] = R.selection_ref(selection)
+    if selection and selection.get("kind") == "cluster":
+        patch["view"] = {"cmd": "focus", "cluster": selection["id"], "nonce": time.time()}
     return patch
 
 
