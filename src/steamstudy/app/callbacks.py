@@ -243,10 +243,15 @@ def do_relayout(_n, base, relayout_store):
 # ----------------------------------------------------------------------------- 4. selection and inspector
 
 
-def select(event, _legend, cluster_rows, rs_rows, node_rows, panels, search=None):
+def select(event, _legend, cluster_rows, rs_rows, node_rows, panels, search=None, _connected=None):
     trigger = ctx.triggered_id
     sel: dict[str, Any] | None = None
-    if trigger == "tag-search":
+    if isinstance(trigger, dict) and trigger.get("type") == "conn":
+        if not ctx.triggered[0]["value"]:
+            raise PreventUpdate  # the Inspector was re-rendered, not clicked
+        source, _, target = trigger["edge"].partition("-")
+        sel = {"kind": "edge", "id": trigger["edge"], "source": source, "target": target, "pan": True}
+    elif trigger == "tag-search":
         if not search:
             raise PreventUpdate  # the search was cleared after a pick
         kind, _, tag = str(search).partition(":")
@@ -297,7 +302,10 @@ def inspector(selection, tables, rs_view, build_path, dataset, min_months, meta)
             rs_row = next((r for r in rs_view["rows"] if str(r["tag_id"]) == selection["id"]), None)
             stale = rs_view.get("state_id") != (meta or {}).get("state_id")
         show = {"display": "inline-block"}
-        return V.node_inspector(node, weight, rs_row, size, stale), show, show
+        kind = next(r["kind"] for r in tables["clusters"] if r["cluster"] == node["cluster"])
+        games = V.tag_games(load_build(build_path).games(dataset), int(min_months), int(node["tag_id"]))
+        return (V.node_inspector(node, weight, rs_row, size, stale, games, V.connected_tags(tables, node["tag_id"]),
+                                 cluster_color(node["cluster"], kind)), show, show)
     if selection["kind"] == "edge":
         u, v = int(selection["source"]), int(selection["target"])
         edge = next((r for r in tables["edges"] if r["source_tag_id"] == min(u, v) and r["target_tag_id"] == max(u, v)), None)
@@ -312,7 +320,7 @@ def inspector(selection, tables, rs_view, build_path, dataset, min_months, meta)
         return [html.P("This cluster is not in the current partition.")], hide, hide
     by_id = {r["tag_id"]: r for r in tables["nodes"]}
     members = [by_id[t] for t in cluster["member_tag_ids"] if t in by_id]
-    return V.cluster_inspector(cluster, members, weight), hide, hide
+    return V.cluster_inspector(cluster, members, weight, cluster_color(cluster["cluster"], cluster["kind"])), hide, hide
 
 
 def nin_act(_n, selection, action, removed, genre_hidden, defining_hidden, build_path, dataset):
@@ -556,7 +564,8 @@ def register(app: dash.Dash) -> None:
        Input(R.EVENT_ID, "data"),
        Input({"type": "legend", "cluster": ALL}, "n_clicks"), Input("clusters-grid", "selectedRows"),
        Input("rs-grid", "selectedRows"), Input("nodes-grid", "selectedRows"),
-       State("panels", "value"), Input("tag-search", "value"), prevent_initial_call=True)(select)
+       State("panels", "value"), Input("tag-search", "value"), Input({"type": "conn", "edge": ALL}, "n_clicks"),
+       prevent_initial_call=True)(select)
     cb(Output("tag-search", "value", allow_duplicate=True), Input("tag-search", "value"),
        prevent_initial_call=True)(lambda v: None if v else no_update)  # ready for the next pick
     cb(Output("removed", "data", allow_duplicate=True), Output("genre-hidden", "value", allow_duplicate=True),

@@ -350,3 +350,35 @@ def test_restore_and_unhide_change_the_controls_exactly_as_the_existing_ones(bui
                                       settings.algorithm, settings.resolution, settings.seed, puzzle[0])
     assert 1664 not in after.hidden_tag_ids  # the defining tag (also a Genre Tag) comes back with one press
     assert puzzle[3] == {"kind": "node", "id": "1664"}
+
+
+def test_the_tag_view_lists_its_games_then_its_connected_tags_then_the_metrics(build_folder):
+    from steamstudy.app import view as V
+    from steamstudy.network.graph import filter_games
+
+    meta, tables, base, *_ = _recompute(build_folder, **{"min-months": 20})
+    ctx = load_build(build_folder)
+    node = max(tables["nodes"], key=lambda r: r["degree"])
+    tag = node["tag_id"]
+    games = V.tag_games(ctx.games("overall"), 20, tag)
+    expected = [g for g in filter_games(ctx.games("overall"), 20) if tag in g.tag_ids]
+    assert [g["appid"] for g in games] == [g.appid for g in expected] and len(games) == node["n_games"]
+    connected = V.connected_tags(tables, tag)
+    assert len(connected) == node["degree"]
+    assert [c["shared"] for c in connected] == sorted((c["shared"] for c in connected), reverse=True)
+    triggered("selection.data", {"kind": "node", "id": str(tag)})
+    body, *_ = CB.inspector({"kind": "node", "id": str(tag)}, tables, None, str(build_folder), "overall", 20, meta)
+    text = json.dumps([b.to_plotly_json() for b in body], default=str)
+    lead = " games in the network have this tag"
+    assert lead in text and text.index(lead) < text.index("Connected tags") < text.index("Metrics")
+    assert body[2].children[0].children == str(node["n_games"])  # the bold count of the lead sentence
+    assert "used for clustering" in text and "descriptive" in text and "hub" not in text.lower()
+    rows = [b for b in body if getattr(b, "id", None) is None]
+    assert any(f"Show all {node['n_games']}" in json.dumps(b.to_plotly_json(), default=str) for b in rows) == \
+           (node["n_games"] > 10)
+
+
+def test_a_connected_tag_row_selects_its_edge_and_pans_to_it():
+    triggered('{"edge":"5000-5001","type":"conn"}.n_clicks', 1)
+    sel, _ = CB.select(None, [], None, None, None, [], None, [1])
+    assert sel == {"kind": "edge", "id": "5000-5001", "source": "5000", "target": "5001", "pan": True}

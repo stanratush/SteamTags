@@ -98,3 +98,19 @@ def test_known_limitations_chapter_holds_the_full_list():
                  "pre-launch", "Early Access", "not optimised", "screening aid", "single run", "K = 10",
                  "fixed γ grid"):
         assert item in text, item
+
+
+def test_every_inspector_label_is_a_schema_column_whose_guide_entry_names_it():
+    from steamstudy.app.view import INSPECTOR_LABELS
+    from steamstudy.export import schema as S
+
+    text = _text("03-metric-reference.md")
+    entries = {slug(e.splitlines()[0]): e for e in re.split(r"^### ", text, flags=re.M)[1:]}
+    assert len(INSPECTOR_LABELS) >= 25
+    for label, columns in INSPECTOR_LABELS.items():
+        for file, name in columns:
+            entry = entries[S.file(file).column(name).guide_entry]
+            shown = next(line for line in entry.splitlines() if line.startswith("Shown in the app as"))
+            assert f"“{label}”" in shown, (label, name)
+    for word in ("hub", "importance"):
+        assert all(word not in label.lower() for label in INSPECTOR_LABELS)

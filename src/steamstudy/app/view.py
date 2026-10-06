@@ -89,49 +89,160 @@ def grid_rows(rows: list[dict[str, Any]], drop: tuple[str, ...] = ()) -> list[di
 
 # ----------------------------------------------------------------------------- inspector
 
+NODES, EDGES, CLUSTERS, RS = ("app_export/nodes.csv", "app_export/edges.csv", "app_export/clusters.csv",
+                              "app_export/removal_sensitivity.csv")
 
-def _metric(label: str, value: str, column: tuple[str, str] | None = None) -> html.Tr:
-    tip = S.file(column[0]).column(column[1]).description if column else None
-    return html.Tr([html.Th(label, title=tip, style={"textAlign": "left", "paddingRight": "1em"}), html.Td(value)])
+# The Inspector's plain names. Grids, exports and the Column Index keep the column names; each label's tooltip
+# gives the column's description and name, and its guide entry says "Shown in the app as" this label.
+INSPECTOR_LABELS: dict[str, tuple[tuple[str, str], ...]] = {
+    "Cluster": ((NODES, "cluster"),),
+    "Games": ((NODES, "n_games"),),
+    "Total shared games": ((NODES, "strength_shared"),),
+    "Total lift": ((NODES, "strength_lift"),),
+    "Shared games in own cluster": ((NODES, "strength_shared_intra"),),
+    "Lift in own cluster": ((NODES, "strength_lift_intra"),),
+    "Links · in own cluster": ((NODES, "degree"), (NODES, "degree_intra")),
+    "Membership Stability": ((NODES, "membership_stability"),),
+    "Prominence in own cluster (z)": ((NODES, "within_z"),),
+    "Spread across clusters": ((NODES, "participation"),),
+    "Fit to own cluster (silhouette)": ((NODES, "silhouette"),),
+    "Mean game-set distance to members": ((NODES, "medoid_score"),),
+    "Cluster Center": ((NODES, "is_center"), (CLUSTERS, "center")),
+    "Shared games": ((EDGES, "shared_games"),),
+    "Lift": ((EDGES, "lift"),),
+    "Center's game-set distance": ((CLUSTERS, "center_medoid_score"),),
+    "Most-linked member": ((CLUSTERS, "top_strength_tag"),),
+    "Center is the most-linked member": ((CLUSTERS, "center_is_top_strength"),),
+    "Mean Membership Stability": ((CLUSTERS, "mean_membership_stability"),),
+    "Boundary crossing (conductance)": ((CLUSTERS, "conductance"),),
+    "Agreement after removal (ARI, reclustered)": ((RS, "rc_ari"),),
+    "Beyond seed noise": ((RS, "rc_ari_beyond_noise"),),
+    "Change in Q (reclustered)": ((RS, "rc_delta_modularity"),),
+    "Silhouette after removal (reclustered)": ((RS, "rc_delta_silhouette"), (RS, "rc_silhouette_after")),
+    "Change in multi-tag · one-tag clusters": ((RS, "rc_delta_k"), (RS, "rc_delta_s")),
+    "Cluster Centers lost": ((RS, "rc_centers_lost"),),
+    "Change in Q (clusters kept)": ((RS, "fp_delta_modularity"),),
+    "Silhouette after removal (clusters kept)": ((RS, "fp_delta_silhouette"), (RS, "fp_silhouette_after")),
+}
+GAMES_SHOWN = 10
+
+
+def label_tip(label: str) -> str:
+    """A plain name's tooltip: each column's description and name."""
+    return "  ".join(f"{S.file(f).column(c).description} Column: {c} ({f.split('/')[-1]})."
+                     for f, c in INSPECTOR_LABELS[label])
+
+
+def _kv(rows: list[tuple[str, Any]]) -> html.Dl:
+    """Metrics as a two-column list: muted plain names (tooltip: description and column), values."""
+    items: list[Any] = []
+    for label, value in rows:
+        items += [html.Dt(label, title=label_tip(label)), html.Dd(value)]
+    return html.Dl(items, className="kv")
+
+
+def _note(value: str, note: str) -> list[Any]:
+    return [value, " ", html.Small(note)]
+
+
+def _swatch(color: str) -> html.Span:
+    return html.Span(className="sw", style={"background": color})
+
+
+def tag_games(games: list[Any], min_months: int, tag: int) -> list[dict[str, Any]]:
+    """The games in the network (after the Minimum Months Filter) that have the tag, in rank order."""
+    from steamstudy.network.graph import filter_games
+
+    return [{"appid": g.appid, "name": g.name, "rank": g.rank} for g in filter_games(games, min_months)
+            if tag in g.tag_ids]
+
+
+def connected_tags(tables: dict[str, Any], tag: int) -> list[dict[str, Any]]:
+    """The tags linked to `tag`: by shared games (most first), then by name."""
+    from steamstudy.app.renderer import cluster_color
+
+    kinds = {r["cluster"]: r["kind"] for r in tables["clusters"]}
+    out = []
+    for e in tables["edges"]:
+        if tag not in (e["source_tag_id"], e["target_tag_id"]):
+            continue
+        mine = e["source_tag_id"] == tag
+        cluster = e["target_cluster"] if mine else e["source_cluster"]
+        out.append({"edge": f"{e['source_tag_id']}-{e['target_tag_id']}",
+                    "tag": e["target_tag"] if mine else e["source_tag"], "cluster": cluster,
+                    "color": cluster_color(cluster, kinds.get(cluster, "multi_tag")), "shared": e["shared_games"],
+                    "lift": e["lift"]})
+    return sorted(out, key=lambda c: (-c["shared"], str(c["tag"]).lower()))
+
+
+def _games_table(games: list[dict[str, Any]], with_appid: bool = False) -> html.Table:
+    head = [html.Th("Rank", className="r")] + ([html.Th("AppID")] if with_appid else []) + [html.Th("Name")]
+    body = [html.Tr([html.Td(g["rank"], className="r mute")] + ([html.Td(g["appid"], className="mono mute")]
+                                                               if with_appid else []) +
+                    [html.Td(g["name"], className="name")]) for g in games]
+    return html.Table([html.Thead(html.Tr(head)), html.Tbody(body)], className="tl")
 
 
 def node_inspector(node: dict[str, Any], weight: str, rs_row: dict[str, Any] | None, cluster_size: int,
-                   stale: bool) -> list[Any]:
-    active, other = ("strength_shared", "strength_lift") if weight == "shared_games" else ("strength_lift", "strength_shared")
+                   stale: bool, games: list[dict[str, Any]] | None = None,
+                   connected: list[dict[str, Any]] | None = None, color: str = "#999") -> list[Any]:
+    """The tag view: its games, its connected tags, then its metrics (and its Removal Sensitivity, if run)."""
+    games, connected = games or [], connected or []
+    active = "strength_shared" if weight == "shared_games" else "strength_lift"
+    used = lambda column, value: _note(value, "used for clustering") if column.startswith(active) else value  # noqa: E731
     within = node["within_z"]
     cap = within_z_cap(cluster_size) if cluster_size >= 2 else None
-    within_text = "n/a" if within is None else (
-        f"{num(within, 1)} (max {num(cap, 1)} in a {cluster_size}-tag cluster); not comparable across cluster sizes")
-    nodes = "app_export/nodes.csv"
-    rows = [
-        _metric("cluster", node["cluster"], (nodes, "cluster")),
-        _metric("games (n_games)", str(node["n_games"]), (nodes, "n_games")),
-        _metric(f"{active} (active)", num(node[active]), (nodes, active)),
-        _metric(other, num(node[other]), (nodes, other)),
-        _metric(f"{active}_intra", num(node[f"{active}_intra"]), (nodes, f"{active}_intra")),
-        _metric("degree / intra", f"{node['degree']} / {node['degree_intra']}", (nodes, "degree")),
-        _metric("Membership Stability", num(node["membership_stability"]), (nodes, "membership_stability")),
-        _metric("within-z", within_text, (nodes, "within_z")),
-        _metric("participation", num(node["participation"]), (nodes, "participation")),
-        _metric("silhouette", num(node["silhouette"]) if node["silhouette"] is not None
-                else f"n/a ({node['silhouette_status']})", (nodes, "silhouette")),
-        _metric("medoid_score", num(node["medoid_score"], 3), (nodes, "medoid_score")),
-        _metric("Cluster Center", "yes ◆" if node["is_center"] else "no", (nodes, "is_center")),
+    within_text: Any = "n/a" if within is None else _note(
+        num(within, 1), f"max {num(cap, 1)} in a {cluster_size}-tag cluster; not comparable across cluster sizes")
+    silhouette: Any = _note(num(node["silhouette"]), "descriptive") if node["silhouette"] is not None \
+        else _note("n/a", str(node["silhouette_status"]))
+    n = len(games)
+    out: list[Any] = [
+        html.H4([_swatch(color), node["tag"]] + ([html.Span("◆ Cluster Center", className="badge")]
+                                                 if node["is_center"] else []), className="i-title"),
+        html.P(f"Tag {node['tag_id']} · {node['cluster']} ({cluster_size} tags)", className="i-sub"),
+        html.P([html.B(str(n)), f" game{'' if n == 1 else 's'} in the network {'has' if n == 1 else 'have'} this tag"],
+               className="lead"),
+        _games_table(games[:GAMES_SHOWN]),
     ]
-    out: list[Any] = [html.H4(f"{node['tag']} (tag {node['tag_id']})"), html.Table(rows)]
+    if n > GAMES_SHOWN:
+        out.append(html.Details([html.Summary(f"Show all {n}", className="more"), _games_table(games[GAMES_SHOWN:])]))
+    out.append(html.Div(["Connected tags ", html.Span(f"{len(connected)}, by shared games", className="cnt")],
+                        className="i-h"))
+    out.append(html.Table([
+        html.Thead(html.Tr([html.Th("Tag"), html.Th("Shared games", className="r"), html.Th("Lift", className="r")])),
+        html.Tbody([html.Tr([html.Td([_swatch(c["color"]), c["tag"]]), html.Td(c["shared"], className="r"),
+                             html.Td(num(c["lift"]), className="r")],
+                            id={"type": "conn", "edge": c["edge"]}, className="click", title="Select this link")
+                    for c in connected])], className="tl"))
+    out.append(html.Div("Metrics", className="i-h"))
+    out.append(_kv([
+        ("Cluster", node["cluster"]),
+        ("Games", str(node["n_games"])),
+        ("Total shared games", used("strength_shared", num(node["strength_shared"]))),
+        ("Total lift", used("strength_lift", num(node["strength_lift"]))),
+        ("Shared games in own cluster", used("strength_shared_intra", num(node["strength_shared_intra"]))),
+        ("Lift in own cluster", used("strength_lift_intra", num(node["strength_lift_intra"]))),
+        ("Links · in own cluster", f"{node['degree']} · {node['degree_intra']}"),
+        ("Membership Stability", num(node["membership_stability"])),
+        ("Prominence in own cluster (z)", within_text),
+        ("Spread across clusters", num(node["participation"])),
+        ("Fit to own cluster (silhouette)", silhouette),
+        ("Mean game-set distance to members", num(node["medoid_score"], 3)),
+        ("Cluster Center", "yes ◆" if node["is_center"] else "no"),
+    ]))
     if rs_row is not None:
-        rs = "app_export/removal_sensitivity.csv"
-        out += [html.H5("Removal Sensitivity" + (" (stale: other settings)" if stale else "")), html.Table([
-            _metric("rc ARI", num(rs_row["rc_ari"]), (rs, "rc_ari")),
-            _metric("beyond noise", ("yes" if rs_row["rc_ari_beyond_noise"] else "no") + f" ({SCREENING})",
-                    (rs, "rc_ari_beyond_noise")),
-            _metric("rc ΔQ", num(rs_row["rc_delta_modularity"], 3), (rs, "rc_delta_modularity")),
-            _metric("rc silhouette", _transition(rs_row, "rc"), (rs, "rc_delta_silhouette")),
-            _metric("rc Δk / Δs", f"{rs_row['rc_delta_k']} / {rs_row['rc_delta_s']}", (rs, "rc_delta_k")),
-            _metric("centers lost", ", ".join(rs_row["rc_centers_lost"] or []) or "none", (rs, "rc_centers_lost")),
-            _metric("fp ΔQ", num(rs_row["fp_delta_modularity"], 3), (rs, "fp_delta_modularity")),
-            _metric("fp silhouette", _transition(rs_row, "fp"), (rs, "fp_delta_silhouette")),
-        ])]
+        out += [html.Div("Removal Sensitivity" + (" (stale: other settings)" if stale else ""), className="i-h"),
+                _kv([
+                    ("Agreement after removal (ARI, reclustered)", num(rs_row["rc_ari"])),
+                    ("Beyond seed noise", _note("yes" if rs_row["rc_ari_beyond_noise"] else "no", SCREENING)),
+                    ("Change in Q (reclustered)", num(rs_row["rc_delta_modularity"], 3)),
+                    ("Silhouette after removal (reclustered)", _transition(rs_row, "rc")),
+                    ("Change in multi-tag · one-tag clusters", f"{rs_row['rc_delta_k']} · {rs_row['rc_delta_s']}"),
+                    ("Cluster Centers lost", ", ".join(rs_row["rc_centers_lost"] or []) or "none"),
+                    ("Change in Q (clusters kept)", num(rs_row["fp_delta_modularity"], 3)),
+                    ("Silhouette after removal (clusters kept)", _transition(rs_row, "fp")),
+                ])]
     return out
 
 
@@ -143,43 +254,45 @@ def _transition(row: dict[str, Any], prefix: str) -> str:
 
 
 def edge_inspector(edge: dict[str, Any], games: list[dict[str, Any]]) -> list[Any]:
-    edges = "app_export/edges.csv"
+    same = edge["source_cluster"] == edge["target_cluster"]
     return [
-        html.H4(f"{edge['source_tag']} — {edge['target_tag']}"),
-        html.Table([_metric("shared_games", str(edge["shared_games"]), (edges, "shared_games")),
-                    _metric("lift", num(edge["lift"]), (edges, "lift")),
-                    _metric("clusters", f"{edge['source_cluster']} / {edge['target_cluster']}", None)]),
-        html.H5(f"Games having both tags ({len(games)})"),
-        html.Table([html.Tr([html.Th("rank"), html.Th("AppID"), html.Th("name")])] +
-                   [html.Tr([html.Td(g["rank"]), html.Td(g["appid"]), html.Td(g["name"])]) for g in games],
-                   style={"fontSize": "0.85em"}),
+        html.H4([edge["source_tag"], html.Span(" — ", className="mute"), edge["target_tag"]], className="i-title"),
+        html.P(f"Inside {edge['source_cluster']}" if same
+               else f"Between {edge['source_cluster']} and {edge['target_cluster']}", className="i-sub"),
+        _kv([("Shared games", html.B(str(edge["shared_games"]))), ("Lift", num(edge["lift"]))]),
+        html.Div(["Games having both tags ", html.Span(str(len(games)), className="cnt")], className="i-h"),
+        _games_table(games, with_appid=True),
     ]
 
 
-def cluster_inspector(cluster: dict[str, Any], members: list[dict[str, Any]], weight: str) -> list[Any]:
-    clusters = "app_export/clusters.csv"
-    intra = "strength_shared_intra" if weight == "shared_games" else "strength_lift_intra"
-    other = "strength_lift_intra" if weight == "shared_games" else "strength_shared_intra"
-    header = html.Tr([html.Th("tag"), html.Th("medoid"), html.Th(f"{intra} (active)"), html.Th(other),
-                      html.Th("within-z"), html.Th("participation"), html.Th("stability")])
-    body = [html.Tr([html.Td(("◆ " if m["is_center"] else "") + m["tag"]), html.Td(num(m["medoid_score"], 3)),
-                     html.Td(num(m[intra])), html.Td(num(m[other])), html.Td(num(m["within_z"], 1)),
-                     html.Td(num(m["participation"])), html.Td(num(m["membership_stability"]))]) for m in members]
-    out: list[Any] = [html.H4(f"{cluster['cluster']} · {cluster['size']} tags ({cluster['kind']})")]
+def cluster_inspector(cluster: dict[str, Any], members: list[dict[str, Any]], weight: str, color: str = "#999") -> list[Any]:
+    out: list[Any] = [
+        html.H4([_swatch(color), f"{cluster['cluster']} · {cluster['size']} tags"], className="i-title"),
+        html.P("Multi-Tag Cluster" if cluster["kind"] == "multi_tag" else "One-Tag Cluster", className="i-sub"),
+    ]
     if not cluster["connected"]:
         out.append(html.P("This Louvain cluster is not a connected group of tags (never split). The Leiden mode "
                           "avoids such clusters.", className="warning"))
-    out.append(html.Table([
-        _metric("center", cluster["center"] or f"none ({cluster['center_status']})", (clusters, "center")),
-        _metric("center_medoid_score", num(cluster["center_medoid_score"], 3), (clusters, "center_medoid_score")),
-        _metric("top_strength_tag", cluster["top_strength_tag"] or "n/a", (clusters, "top_strength_tag")),
-        _metric("center_is_top_strength", num(cluster["center_is_top_strength"]), (clusters, "center_is_top_strength")),
-        _metric("mean Membership Stability", num(cluster["mean_membership_stability"]),
-                (clusters, "mean_membership_stability")),
-        _metric("conductance", num(cluster["conductance"]) if cluster["conductance"] is not None
-                else f"n/a ({cluster['conductance_status']})", (clusters, "conductance")),
+    out.append(_kv([
+        ("Cluster Center", ("◆ " + cluster["center"]) if cluster["center"] else f"none ({cluster['center_status']})"),
+        ("Center's game-set distance", num(cluster["center_medoid_score"], 3)),
+        ("Most-linked member", cluster["top_strength_tag"] or "n/a"),
+        ("Center is the most-linked member", num(cluster["center_is_top_strength"])),
+        ("Mean Membership Stability", num(cluster["mean_membership_stability"])),
+        ("Boundary crossing (conductance)", num(cluster["conductance"]) if cluster["conductance"] is not None
+         else f"n/a ({cluster['conductance_status']})"),
     ]))
-    out.append(html.Table([header, *body], style={"fontSize": "0.85em", "marginTop": "0.5em"}))
+    out.append(html.Div(["Members ", html.Span("by game-set distance to the others", className="cnt")],
+                        className="i-h"))
+    head = [("Tag", None), ("Games", "Games"), ("Distance", "Mean game-set distance to members"),
+            ("Stability", "Membership Stability")]
+    out.append(html.Table([
+        html.Thead(html.Tr([html.Th(h, className="r" if tip else None, title=label_tip(tip) if tip else None)
+                            for h, tip in head])),
+        html.Tbody([html.Tr([html.Td(("◆ " if m["is_center"] else "") + m["tag"]), html.Td(m["n_games"], className="r"),
+                             html.Td(num(m["medoid_score"], 3), className="r"),
+                             html.Td(num(m["membership_stability"]), className="r")]) for m in members])],
+        className="tl"))
     return out
 
 
