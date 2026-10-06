@@ -17,8 +17,10 @@
 
    Motion is brief and never continuous: moves, fades, the selection pulse and animated fits take about
    350 ms, and all of it is instant under prefers-reduced-motion. A new dataset only fits (animated).
-   Dragged positions are view-only: kept while the layout basis is the same and the layout has not moved
-   that node, never sent back.
+   Dragged positions are view-only: kept (per layout) while the layout basis is the same, dropped when the
+   dataset, Minimum Months Filter, Clustering Weight or seed changes, never sent back. The canvas reports its
+   free area's aspect ratio (in steps of 0.2) on the `graph-aspect` store, so the Cluster-separated rows are
+   packed for it.
 */
 (function () {
   "use strict";
@@ -107,9 +109,9 @@
     });
     cy.on("tap", (ev) => { if (ev.target === cy) emit({kind: "background"}); });
     cy.on("dragfree", "node", (ev) => {  // a dragged position, kept in unstretched units
-      const n = ev.target, target = G.data && G.data.positions[n.id()];
-      if (!target || n.hasClass("region")) return;
-      G.dragged[G.data.layout][n.id()] = {x: n.position("x") / G.stretch, y: n.position("y"), target};
+      const n = ev.target;
+      if (!G.data || !G.data.positions[n.id()] || n.hasClass("region")) return;
+      G.dragged[G.data.layout][n.id()] = {x: n.position("x") / G.stretch, y: n.position("y")};
     });
     cy.on("viewport", () => { if (performance.now() > G.quietUntil) G.userMoved = true; });
     cy.on("zoom", () => {  // re-size and re-cull the labels once per frame
@@ -117,6 +119,7 @@
     });
     const ro = new ResizeObserver(() => {
       cy.resize();
+      reportAspect();
       if (G.data && !G.userMoved) { place(); fit(false); }
     });
     ro.observe(el);
@@ -148,12 +151,20 @@
             cx: p.left + (w - p.left - p.right) / 2, cy: p.top + (h - p.top - p.bottom) / 2};
   }
 
-  // Where a node ends up, unstretched: its dragged position while the layout has not moved it, else its target.
+  // Where a node ends up, unstretched: its dragged position (same layout basis), else its target.
   function spot(data, id) {
-    const target = data.positions[id];
     const drag = G.dragged[data.layout][id];
-    if (drag && target && drag.target[0] === target[0] && drag.target[1] === target[1]) return [drag.x, drag.y];
-    return target;
+    return drag && data.positions[id] ? [drag.x, drag.y] : data.positions[id];
+  }
+
+  // Tell Dash the free canvas area's shape, rounded to 0.2 within 0.6-2.4, whenever it changes.
+  function reportAspect() {
+    if (!G.cy || !G.cy.width() || !G.cy.height()) return;
+    const a = freeArea(), aspect = Math.min(2.4, Math.max(0.6, Math.round((a.w / a.h) * 5) / 5));
+    if (aspect !== G.aspect) {
+      G.aspect = aspect;
+      window.dash_clientside.set_props("graph-aspect", {data: aspect});
+    }
   }
 
   function box(data, stretch) {
@@ -416,6 +427,7 @@
       G.el = el; G.cy = mount(el); G.data = null; G.sig = null; G.moveSig = null; G.transition = null;
     }
     transitions();
+    reportAspect();
     const prev = G.data;
     G.data = data;
     const moveSig = JSON.stringify([data.layout, data.positions, data.regions]);

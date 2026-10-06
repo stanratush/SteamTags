@@ -52,8 +52,9 @@ def remove_overlaps(positions: Mapping[K, tuple[float, float]], sizes: Mapping[K
 
     Deterministic: nodes are taken in sorted order and every round moves each overlapping pair apart along
     the line between them, half each (all of it on the free node when the other is fixed). Only pairs near
-    each other are checked between full checks; it stops when a full check finds no overlap, or after
-    `max_rounds` (never reached on the real or the test Builds, whose layouts settle within about 100)."""
+    each other are checked between full checks; it stops only when a full check finds no overlap. If that
+    takes more than `max_rounds`, the free nodes spread out by half and it starts again (with at most one
+    fixed node, or fixed nodes far enough apart, this always ends)."""
     keys = sorted(positions, key=_sort_key)
     n = len(keys)
     if n < 2:
@@ -64,6 +65,17 @@ def remove_overlaps(positions: Mapping[K, tuple[float, float]], sizes: Mapping[K
     free = np.array([k not in pinned for k in keys], dtype=float)
     upper_i, upper_j = np.triu_indices(n, 1)
     need_all = radius[upper_i] + radius[upper_j] + gap
+    # The fixed nodes stay put; if a settle runs out of rounds, the free nodes spread out from them (or from
+    # the centroid when none is fixed) and settle again, so it always ends without an overlap.
+    anchor = xy[free == 0].mean(axis=0) if (free == 0).any() else xy.mean(axis=0)
+    while not _settle(xy, free, upper_i, upper_j, need_all, n, max_rounds):
+        xy[free > 0] = anchor + (xy[free > 0] - anchor) * 1.5
+    return {k: (float(x), float(y)) for k, (x, y) in zip(keys, xy)}
+
+
+def _settle(xy: np.ndarray, free: np.ndarray, upper_i: np.ndarray, upper_j: np.ndarray, need_all: np.ndarray,
+            n: int, max_rounds: int) -> bool:
+    """Push overlapping pairs apart in place for at most `max_rounds`; whether a full check found no overlap."""
     pairs = np.zeros(0, dtype=int)
     for round_ in range(max_rounds):
         if round_ % 5 == 0:  # refresh the pairs close enough to touch soon
@@ -76,7 +88,7 @@ def remove_overlaps(positions: Mapping[K, tuple[float, float]], sizes: Mapping[K
         hit = over > 1e-7
         if not hit.any():
             if round_ % 5 == 0:
-                break  # a full check found nothing
+                return True  # a full check found nothing
             continue
         i, j, d, dist, over = i[hit], j[hit], d[hit], dist[hit], over[hit]
         coincident = dist < 1e-9
@@ -92,7 +104,8 @@ def remove_overlaps(positions: Mapping[K, tuple[float, float]], sizes: Mapping[K
         np.add.at(delta, i, step * share_i[:, None])
         np.add.at(delta, j, -step * share_j[:, None])
         xy += delta
-    return {k: (float(x), float(y)) for k, (x, y) in zip(keys, xy)}
+    d = xy[upper_i] - xy[upper_j]
+    return not (need_all - np.hypot(d[:, 0], d[:, 1]) > 1e-7).any()
 
 
 def global_positions(games: list[Game], min_months: int, clustering_weight: str, seed: int) -> Positions:

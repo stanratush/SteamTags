@@ -18,6 +18,7 @@ GRAPH_ID = "cy"
 DATA_ID = "graph-data"
 EVENT_ID = "graph-event"
 ACK_ID = "graph-ack"
+ASPECT_ID = "graph-aspect"  # the canvas's free area, width / height, reported by graph.js
 # Slightly muted cluster colours (prototype variant B); One-Tag Clusters stay grey.
 PALETTE = ["#5b7fb0", "#d08a4e", "#6a9c64", "#c0646a", "#6ea8a5", "#c9ad4f", "#9a7fa8", "#d79aa4", "#8f7766",
            "#86aeb0", "#c27d9b", "#93bf88", "#a8945a", "#5f9592", "#e3b9c8", "#837b78"]
@@ -40,7 +41,7 @@ def graph_component() -> list[Any]:
     """The canvas container plus the stores of the boundary. The canvas fills `.graph-canvas` (app.css) and
     follows its size."""
     return [html.Div(id=GRAPH_ID, className="graph-canvas"),
-            dcc.Store(id=DATA_ID, data={}), dcc.Store(id=EVENT_ID), dcc.Store(id=ACK_ID)]
+            dcc.Store(id=DATA_ID, data={}), dcc.Store(id=EVENT_ID), dcc.Store(id=ACK_ID), dcc.Store(id=ASPECT_ID)]
 
 
 def selection_ref(selection: dict[str, Any] | None) -> dict[str, str] | None:

@@ -95,3 +95,31 @@ def test_the_launcher_uses_only_the_standard_library_and_plain_ascii():
     imported |= {node.module.split(".")[0] for node in ast.walk(ast.parse(source))
                  if isinstance(node, ast.ImportFrom) and node.module}
     assert imported - {"__future__"} <= set(sys.stdlib_module_names)
+
+
+def test_an_incomplete_folder_is_not_mistaken_for_a_zip(tmp_path):
+    problems = L.refusals((3, 13, 0), "Windows", "AMD64", tmp_path, ["windows"], True, True)
+    assert len(problems) == 1 and "wheels" in problems[0] and "zip" not in problems[0].split(".")[0]
+
+
+def test_a_failed_zip_write_leaves_no_partial_file(tmp_path, monkeypatch):
+    import zipfile as zf
+
+    root = tmp_path / "root"
+    folder = root / "builds" / "s" / "b"
+    (folder / "datasets").mkdir(parents=True)
+    (folder / "datasets" / "build.json").write_text("{}", encoding="utf-8")
+    (root / "builds" / "latest").write_text("s/b\n", encoding="utf-8")
+    lock = {"package": [{"name": "steamstudy", "version": "0.1.0", "dependencies": []}]}
+    monkeypatch.setattr("steamstudy.bundle.make.read_lock", lambda _path: lock)
+    wheel = tmp_path / "steamstudy-0.1.0-py3-none-any.whl"
+    wheel.write_bytes(b"x")
+
+    class Broken(zf.ZipFile):
+        def writestr(self, *a, **k):
+            raise OSError("disk full")
+    monkeypatch.setattr("steamstudy.bundle.make.zipfile.ZipFile", Broken)
+    with pytest.raises(OSError):
+        make_bundle(root, targets=["windows"], out=tmp_path / "out", lock_path=REPO / "uv.lock",
+                    build_wheel=lambda _repo, _out: wheel)
+    assert list((tmp_path / "out").glob("*")) == []

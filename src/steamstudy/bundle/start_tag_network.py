@@ -40,8 +40,8 @@ def supported_python(version: tuple[int, int, int]) -> bool:
 
 
 def inside_zip(folder: Path) -> bool:
-    """Started from inside a zip (or from a single file Windows unpacked from one into a temp folder)."""
-    return any(part.lower().endswith(".zip") for part in folder.parts) or not (folder / "wheels").is_dir()
+    """Started from inside a zip (Windows runs a file opened in a zip from a folder named after the zip)."""
+    return any(part.lower().endswith(".zip") for part in folder.parts)
 
 
 def writable(folder: Path) -> bool:
@@ -64,6 +64,9 @@ def refusals(version: tuple[int, int, int], system: str, machine: str, folder: P
     if inside_zip(folder):
         return ["This App Bundle is still inside its zip. Extract the whole zip first (Windows: right-click it, "
                 "Extract All; macOS: double-click it), then start it from the extracted folder."]
+    if not (folder / "wheels").is_dir():
+        return [f"This folder ({folder}) is incomplete: it has no wheels folder. Extract the whole App Bundle "
+                "zip again and start it from the extracted folder."]
     out = []
     if not supported_python(version):
         shown = ".".join(str(v) for v in version[:3])

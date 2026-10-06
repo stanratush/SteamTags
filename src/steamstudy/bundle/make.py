@@ -137,13 +137,16 @@ def make_bundle(root: Path, *, builds: Sequence[str] = (), targets: Sequence[str
         out.mkdir(parents=True, exist_ok=True)
         target_zip = out / f"{name}.zip"
         partial = target_zip.with_suffix(".zip.partial")
-        with zipfile.ZipFile(partial, "w", zipfile.ZIP_DEFLATED) as zf:
-            for path in sorted(p for p in stage.rglob("*") if p.is_file()):
-                info = zipfile.ZipInfo(str(Path(name) / path.relative_to(stage)).replace("\\", "/"),
-                                       date_time=now.timetuple()[:6])
-                info.external_attr = EXECUTABLE if path.suffix in (".command", ".py") and path.parent == stage \
-                    else REGULAR
-                info.compress_type = zipfile.ZIP_STORED if path.suffix == ".whl" else zipfile.ZIP_DEFLATED
-                zf.writestr(info, path.read_bytes())
-        partial.replace(target_zip)
+        try:
+            with zipfile.ZipFile(partial, "w", zipfile.ZIP_DEFLATED) as zf:
+                for path in sorted(p for p in stage.rglob("*") if p.is_file()):
+                    info = zipfile.ZipInfo(str(Path(name) / path.relative_to(stage)).replace("\\", "/"),
+                                           date_time=now.timetuple()[:6])
+                    info.external_attr = EXECUTABLE if path.suffix in (".command", ".py") and path.parent == stage \
+                        else REGULAR
+                    info.compress_type = zipfile.ZIP_STORED if path.suffix == ".whl" else zipfile.ZIP_DEFLATED
+                    zf.writestr(info, path.read_bytes())
+            partial.replace(target_zip)
+        finally:
+            partial.unlink(missing_ok=True)  # never leave a half-written zip behind
     return target_zip

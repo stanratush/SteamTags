@@ -1188,7 +1188,7 @@ wheels = [
 name = "steamstudy"
 version = "0.1.0"
 source = { editable = "." }
-default-groups = ["dev", "pipeline"]
+default-groups = ["bundle", "dev", "pipeline"]
 dependencies = [
     { name = "dash" },
     { name = "dash-ag-grid" },
@@ -1204,6 +1204,9 @@ dependencies = [
 ]
 
 [package.dev-dependencies]
+bundle = [
+    { name = "packaging" },
+]
 dev = [
     { name = "mypy" },
     { name = "pytest" },
@@ -1211,7 +1214,6 @@ dev = [
 pipeline = [
     { name = "lxml" },
     { name = "markdown" },
-    { name = "packaging" },
     { name = "pandas" },
     { name = "requests" },
 ]
@@ -1232,6 +1234,7 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
+bundle = [{ name = "packaging", specifier = ">=24" }]
 dev = [
     { name = "mypy", specifier = ">=1.20" },
     { name = "pytest", specifier = ">=9.0" },
@@ -1239,7 +1242,6 @@ dev = [
 pipeline = [
     { name = "lxml", specifier = ">=6.0" },
     { name = "markdown", specifier = ">=3.9" },
-    { name = "packaging", specifier = ">=24" },
     { name = "pandas", specifier = ">=3.0" },
     { name = "requests", specifier = ">=2.34" },
 ]

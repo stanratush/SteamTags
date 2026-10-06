@@ -6,7 +6,7 @@ Before a **full** collection, the project has one-time obligations (contacting t
 
 ## Install
 
-You need [uv](https://docs.astral.sh/uv/) and Python 3.14 (uv can install it: `uv python install 3.14`). The repository pins the development environment to 3.14 (`.python-version`); the `steamstudy` package itself declares only the Tag Network app's dependencies and supports Python 3.12–3.14 (not 3.14.1), so the app can be delivered as an App Bundle. The pipeline's own dependencies (pandas, requests, lxml, markdown, packaging) are the `pipeline` dependency group, which `uv sync` installs by default.
+You need [uv](https://docs.astral.sh/uv/) and Python 3.14 (uv can install it: `uv python install 3.14`). The repository pins the development environment to 3.14 (`.python-version`); the `steamstudy` package itself declares only the Tag Network app's dependencies and supports Python 3.12–3.14 (not 3.14.1), so the app can be delivered as an App Bundle. The pipeline's own dependencies (pandas, requests, lxml, markdown) are the `pipeline` dependency group, and `packaging` (for `steamstudy bundle`) is the `bundle` group; `uv sync` installs both by default.
 
 ```bash
 uv sync --compile-bytecode

@@ -25,7 +25,7 @@ from steamstudy.app import renderer as R
 from steamstudy.app.renderer import cluster_color
 from steamstudy.network.cluster import Cluster
 from steamstudy.network.graph import filter_games
-from steamstudy.network.layout import cluster_separated_positions, relayout
+from steamstudy.network.layout import ASPECT, cluster_separated_positions, relayout
 from steamstudy.network.model import Settings, resolution_text
 from steamstudy.network.sensitivity import removal_sensitivity
 from steamstudy.network.state import compute_state
@@ -204,8 +204,9 @@ def current_global_positions(base: dict[str, Any], relayout_store: dict | None) 
     return base["positions"], False
 
 
-def render_graph(base, layout_mode, relayout_store, selection):
-    """The `graph-data` payload: every visible node and edge with its target position (no AppIDs)."""
+def render_graph(base, layout_mode, relayout_store, selection, aspect=None):
+    """The `graph-data` payload: every visible node and edge with its target position (no AppIDs). Cluster-separated
+    rows are packed for the canvas's aspect ratio (exports use the default, 1.4)."""
     if not base:
         raise PreventUpdate
     positions, _ = current_global_positions(base, relayout_store)
@@ -221,7 +222,7 @@ def render_graph(base, layout_mode, relayout_store, selection):
                     sorted(by_cluster.items(), key=lambda kv: int(kv[0][1:]))]
         start = {int(k): (v[0], v[1]) for k, v in positions.items()}
         sep, regions = cluster_separated_positions(_graph_from_base(base), clusters, start, base["seed"],
-                                                   centers=centers, sizes=_sizes(base))
+                                                   centers=centers, sizes=_sizes(base), aspect=aspect or ASPECT)
         positions = {str(k): list(v) for k, v in sep.items()}
         for r in regions:
             r["color"] = R.REGION_COLOR if r["cluster"] == "one_tag_pool" else cluster_color(r["cluster"], "multi_tag")
@@ -566,7 +567,7 @@ def register(app: dash.Dash) -> None:
        Input("gamma", "value"), Input("seed", "value"), Input("removed", "data"), State("verify", "data"),
        prevent_initial_call="initial_duplicate")(recompute)
     cb(Output(R.DATA_ID, "data"), Input("elements-base", "data"), Input("layout-mode", "value"),
-       Input("relayout", "data"), State("selection", "data"))(render_graph)
+       Input("relayout", "data"), State("selection", "data"), Input(R.ASPECT_ID, "data"))(render_graph)
     cb(Output(R.DATA_ID, "data", allow_duplicate=True), Input("selection", "data"),
        prevent_initial_call=True)(show_selection)
     app.clientside_callback(R.RENDER, Output(R.ACK_ID, "data"), Input(R.DATA_ID, "data"))

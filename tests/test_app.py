@@ -482,3 +482,20 @@ def _walk(component):
     elif component is not None and not isinstance(component, (str, int, float)):
         yield component
         yield from _walk(getattr(component, "children", None))
+
+
+def test_cluster_separated_rows_are_packed_for_the_canvas_shape(build_folder):
+    meta, tables, base, *_ = _recompute(build_folder, **{"min-games": 1, "min-shared": 1})
+
+    def shape(payload):
+        r = payload["regions"]
+        w = max(x["x"] + x["w"] / 2 for x in r) - min(x["x"] - x["w"] / 2 for x in r)
+        h = max(x["y"] + x["h"] / 2 for x in r) - min(x["y"] - x["h"] / 2 for x in r)
+        return w / h
+
+    tall = CB.render_graph(base, "separated", None, None, 0.6)
+    wide = CB.render_graph(base, "separated", None, None, 2.4)
+    assert shape(tall) < shape(wide)
+    assert CB.render_graph(base, "separated", None, None, None) == CB.render_graph(base, "separated", None, None, 1.4)
+    assert CB.render_graph(base, "global", None, None, 0.6)["positions"] == \
+           CB.render_graph(base, "global", None, None, 2.4)["positions"]  # only the regions are packed

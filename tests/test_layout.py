@@ -134,3 +134,13 @@ def test_region_side_grows_with_the_square_root_of_its_members(ctx):
     big, small = multi[0], multi[-1]
     if sizes[big["cluster"]] > sizes[small["cluster"]]:
         assert big["width"] > small["width"]
+
+
+def test_overlap_removal_always_ends_without_overlaps_even_when_rounds_run_out():
+    from steamstudy.network.layout import remove_overlaps
+
+    crowd = {i: (float(i), 0.0) for i in range(10)}  # a chain of size-20 nodes 1 unit apart: one round is not enough
+    sizes = {i: 20.0 for i in crowd}
+    out = remove_overlaps(crowd, sizes, max_rounds=1, fixed=[0])
+    assert _overlaps(out, sizes) == [] and out[0] == crowd[0]
+    assert remove_overlaps(crowd, sizes, max_rounds=1, fixed=[0]) == out  # still deterministic
