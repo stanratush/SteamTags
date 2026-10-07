@@ -35,3 +35,9 @@ Spec: [Graph readability spec](../spec.md): "Cluster-separated layout".
 
   No visible overlap anywhere. Screenshot (Overall, 1440 × 900): three tinted regions C1 · 26, C2 · 18, C3 · 11 in a row, each with its diamond Center in the middle and every member's label readable below its node; the four one-tag clusters sit in a small grid underneath.
 - Timing on the real Build: the Global layout alone takes 100–170 ms per default state; with the Cluster-separated layout (which starts from it), 245–500 ms. That is over the 300 ms budget in some cases. The perf test on the test Build passes.
+- 2026-10-07, after code review:
+  - A region's clamp never moves its pinned Center.
+  - A region is clamped only when its own main component holds at least half its members. Before, a Center outside the linked core of a mostly unlinked cluster flew off to about 1e15, or the pass never settled.
+  - ForceAtlas2 is skipped for fewer than two tags; a one-tag network gave NaN, and Tidy then failed.
+
+  Tests: `test_a_center_outside_its_clusters_linked_core_stays_in_the_middle_of_its_region`, `test_a_one_tag_network_is_laid_out_and_tidied`.

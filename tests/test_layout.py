@@ -19,7 +19,8 @@ from steamstudy.build.writer import write_build
 from steamstudy.config import load_config
 from steamstudy.network.layout import (LABEL_HEIGHT, LABEL_MARGIN, MIN_ZOOM, REFERENCE_CANVAS, TITLE_ROOM, Canvas, Layout,
                                       LayoutParams, label_width, layout_input, layout_state, loose_layout,
-                                      node_sizes, restore, tidy)
+                                      node_sizes, restore, tidy, cluster_separated_positions)
+from steamstudy.network.cluster import Cluster
 from steamstudy.network.model import Game, Settings
 from steamstudy.network.state import compute_state
 from steamstudy.snapshot import Snapshot
@@ -435,6 +436,51 @@ def test_an_old_relayout_export_with_far_away_tags_opens_readable(ctx):
     xs_before = sorted(main, key=lambda t: stored[t][0])
     left, right = xs_before[0], xs_before[-1]
     assert positions[left][0] < positions[right][0]
+
+
+def test_a_center_outside_its_clusters_linked_core_stays_in_the_middle_of_its_region():
+    """Louvain can return a cluster whose members are not all linked; its Center stays pinned in the middle."""
+    graph = nx.Graph()
+    graph.add_nodes_from(range(1, 12))
+    graph.add_edges_from([(1, 2), (1, 3), (2, 3)], w=5.0)
+    members = frozenset(range(1, 12))
+    start = {t: (100.0 * math.cos(t), 100.0 * math.sin(t)) for t in members}
+    sizes = {t: 20.0 for t in members}
+    widths = {t: label_width(f"tag {t}") for t in members}
+    for center in (4, 11):
+        positions, regions, _ = cluster_separated_positions(
+            graph, [Cluster("C1", members)], start, centers={"C1": center}, sizes=sizes, widths=widths)
+        (region,) = regions
+        assert all(math.isfinite(v) for p in positions.values() for v in p)
+        assert positions[center] == pytest.approx((region["x"] + region["width"] / 2, region["y"] + region["height"] / 2))
+        assert region["width"] < 2000 and region["height"] < 2000
+
+
+def test_a_one_tag_network_is_laid_out_and_tidied():
+    games = [Game(i, f"g{i}", i + 1, 12, (7,), ("Lonely",)) for i in range(3)]
+    state = compute_state(games, Settings(build_id="one", dataset="overall", min_games_per_tag=1,
+                                          min_shared_games=1, seed=2, null_replicates=2, noise_seeds=2))
+    assert state.nodes == [7]
+    layout = layout_state(state)
+    assert all(math.isfinite(v) for v in layout.positions[7] + layout.separated[7])
+    positions, _ = tidy(layout_input(state), layout.positions, REFERENCE_CANVAS, zoom=layout.zoom)
+    assert all(math.isfinite(v) for v in positions[7])
+
+
+def test_tidy_settles_the_others_around_where_nodes_were_dropped(ctx):
+    """The dragged nodes anchor Tidy's frame: dragging the whole picture somewhere else moves the rest with it."""
+    state = _state(ctx, "overall")
+    layout = layout_state(state)
+    shift = (700.0, 400.0)
+    moved = {t: (x + shift[0], y + shift[1]) for t, (x, y) in layout.positions.items()}
+    pinned = dict(list(moved.items())[:3])
+    positions, _ = tidy(layout_input(state), {**layout.positions, **pinned}, REFERENCE_CANVAS, pinned=pinned,
+                        zoom=layout.zoom)
+    others = [t for t in state.nodes if t not in pinned]
+    centre = lambda ps, ts: (sum(ps[t][0] for t in ts) / len(ts), sum(ps[t][1] for t in ts) / len(ts))  # noqa: E731
+    dropped = centre(pinned, list(pinned))
+    gap = lambda c: math.dist(c, dropped)  # noqa: E731
+    assert gap(centre(positions, others)) < 0.8 * gap(centre(layout.positions, others))  # the rest followed them
 
 
 def test_overlap_removal_always_ends_without_overlaps_even_when_rounds_run_out():

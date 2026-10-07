@@ -79,7 +79,7 @@ def payload(nodes: list[dict[str, Any]], edges: list[dict[str, Any]], positions:
         out_nodes.append({"id": n["id"], "label": n["label"], "cluster": n["cluster"],
                           "color": cluster_color(n["cluster"], n["kind"]), "size": n["size"],
                           "lw": label_width(n["label"]),
-                          "classes": " ".join(classes), "prio": ranks.get(n["id"])})
+                          "classes": " ".join(classes), "prio": ranks[n["id"]]})
     out_edges = [{"id": f"{e['source']}-{e['target']}", "source": e["source"], "target": e["target"],
                   "width": 0.4 + 2.6 * (e["shared"] / max(max_shared, 1)),
                   "classes": ("intra" if e["intra"] else "inter") + (" separated" if separated else "")}

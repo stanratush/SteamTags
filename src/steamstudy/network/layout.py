@@ -1,7 +1,8 @@
 """Graph positions: the Global layout and the Cluster-separated layout. Never part of the Network State.
 
 Layout is downstream of analysis (ADR 0002): `layout_state(state, canvas)` takes a finished Network State
-and only reads it. No analysis module imports this one, so no coordinate can reach a metric.
+and only reads it. No module that computes a result (state, metrics, clusters, stability, sensitivity, sweep,
+tables) imports this one, so no coordinate can reach a metric.
 
 Positions and node sizes share model units, so no node hides another at any zoom: a node's size is a
 fixed function of its `n_games` relative to the dataset's most frequent tag (never of what is visible),
@@ -296,8 +297,8 @@ def separate(xy: np.ndarray, boxes: Boxes, *, free: np.ndarray | None = None, cl
     vertical overlap counts `aspect` times, so a wide canvas grows the layout sideways), half each (all of it on
     the free one when the other is pinned; two pinned boxes are left as they are). Only pairs near each other
     are checked between full checks; it stops only when a full check finds no overlap. If that takes more than
-    `max_rounds`, the free boxes spread out by a tenth and it starts again, so it always ends. A `clamp` is kept
-    before every full check; a spread also widens the main component the clamp follows."""
+    `max_rounds`, the free boxes spread out by a tenth from their centre and it starts again, so it always ends.
+    A `clamp` is kept before every full check; a spread also widens the main component the clamp follows."""
     n = len(xy)
     free = np.ones(n) if free is None else free
     if n < 2:
@@ -307,7 +308,8 @@ def separate(xy: np.ndarray, boxes: Boxes, *, free: np.ndarray | None = None, cl
     i_all, j_all = i_all[keep], j_all[keep]
     need = np.stack([boxes.half_width[i_all] + boxes.half_width[j_all],
                      boxes.half_height[i_all] + boxes.half_height[j_all]], axis=1) + boxes.gap
-    anchor = xy[free == 0].mean(axis=0) if (free == 0).any() else xy.mean(axis=0)
+    # Spreads go out from the free boxes' own centre, so they never drift away from the pinned ones.
+    anchor = xy[free > 0].mean(axis=0) if (free > 0).any() else xy.mean(axis=0)
     while not _push_apart(xy, free, i_all, j_all, need, max_rounds, clamp, aspect):
         xy[free > 0] = anchor + (xy[free > 0] - anchor) * 1.1
         if clamp is not None:
@@ -387,7 +389,7 @@ def global_layout(graph: nx.Graph, start: Mapping[int, tuple[float, float]], siz
     shape = _shape(_forceatlas2(graph, keys, start, params.gravity), main, canvas)
     s = np.array([sizes[t] for t in keys], dtype=float)
     w = np.array([widths[t] for t in keys], dtype=float)
-    xy, zoom = _place(shape, main if params.clamp and main.sum() >= 2 else None, s, w, canvas)
+    xy, zoom = _place(shape, main if params.clamp else None, s, w, canvas)
     return {t: (float(x), float(y)) for t, (x, y) in zip(keys, xy)}, zoom
 
 
@@ -400,6 +402,8 @@ def _forceatlas2(graph: nx.Graph, keys: list[int], start: Mapping[int, tuple[flo
     for u, v, w in sorted(graph.edges(data="w")):
         g.add_edge(u, v, w=float(w) / top)
     init = {t: np.array(start[t], dtype=float) / SCALE for t in keys if t in start}
+    if len(keys) < 2:  # nothing to lay out (and ForceAtlas2's gravity would divide by a zero distance)
+        return np.zeros((len(keys), 2))
     pos = nx.forceatlas2_layout(g, pos=init or None, max_iter=FA2_ITERATIONS, gravity=gravity,
                                 distributed_action=True, weight="w", seed=0)
     return np.array([pos[t] for t in keys], dtype=float)
@@ -433,7 +437,7 @@ def _place(shape: np.ndarray, main: np.ndarray | None, sizes: np.ndarray, widths
     for attempt in range(ATTEMPTS):
         boxes = Boxes(sizes, widths, zoom)
         xy = shape * min(FILL / zoom, _neighbour_cap(shape, boxes, main))
-        clamp = Clamp(main, CLAMP_ROOM / zoom) if main is not None else None
+        clamp = _clamp_for(main, zoom) if main is not None else None
         if clamp is not None:
             clamp(xy)
         separate(xy, boxes, clamp=clamp, aspect=canvas.aspect)
@@ -484,6 +488,16 @@ def _neighbour_cap(shape: np.ndarray, boxes: Boxes, main: np.ndarray | None) -> 
     return NEIGHBOUR_ROOM / widest if widest > 1e-12 else math.inf
 
 
+def _clamp_for(main: np.ndarray, zoom: float, fixed: np.ndarray | None = None, *,
+               share: float = 0.0) -> Clamp | None:
+    """The clamp for labels spaced for `zoom`, when there is a main graph to stay next to: a main component of
+    two or more tags, holding at least `share` of them. A region asks for half: its own box keeps its members
+    together, and a small linked core could not hold the rest of a mostly unlinked cluster."""
+    if main.sum() < 2 or main.sum() < share * len(main):
+        return None
+    return Clamp(main, CLAMP_ROOM / zoom, fixed)
+
+
 class Clamp:
     """Keeps every tag within the main component's radius plus `room` of its centre, per axis: a tag outside is
     moved towards the centre onto that bound. The main component's own tags and the `fixed` ones (dragged, for
@@ -517,13 +531,18 @@ def tidy(inp: LayoutInput, current: Mapping[int, tuple[float, float]], canvas: C
         return {}, zoom
     pinned = pinned or {}
     now = np.array([pinned.get(t, current[t]) for t in keys], dtype=float)
-    xy = _onto(_forceatlas2(inp.graph, keys, {t: tuple(p) for t, p in zip(keys, now)}, GRAVITY), now)
     fixed = np.array([t in pinned for t in keys])
+    # The dragged nodes weigh three times all the others together, so the rest settles around where they were
+    # dropped rather than where ForceAtlas2 moved them.
+    weight = np.ones(len(keys))
+    if fixed.any() and not fixed.all():
+        weight[fixed] = 3.0 * (~fixed).sum() / fixed.sum()
+    xy = _onto(_forceatlas2(inp.graph, keys, {t: tuple(p) for t, p in zip(keys, now)}, GRAVITY), now, weight)
     xy[fixed] = now[fixed]
     s = np.array([inp.sizes[t] for t in keys], dtype=float)
     boxes = Boxes(s, np.array([inp.widths[t] for t in keys], dtype=float), zoom)
     main = _main_component(inp.graph, keys)
-    clamp = Clamp(main, CLAMP_ROOM / zoom, fixed) if main.sum() >= 2 else None
+    clamp = _clamp_for(main, zoom, fixed)
     if clamp is not None:
         clamp(xy)
     separate(xy, boxes, free=(~fixed).astype(float), clamp=clamp, aspect=canvas.aspect)
@@ -532,19 +551,21 @@ def tidy(inp: LayoutInput, current: Mapping[int, tuple[float, float]], canvas: C
     return out, zoom
 
 
-def _onto(xy: np.ndarray, target: np.ndarray) -> np.ndarray:
-    """`xy` turned, scaled and moved to match `target` as closely as possible (Procrustes, no mirroring)."""
-    a, b = xy - xy.mean(axis=0), target - target.mean(axis=0)
-    norm = float(np.sqrt((a * a).sum()))
+def _onto(xy: np.ndarray, target: np.ndarray, weight: np.ndarray) -> np.ndarray:
+    """`xy` turned, scaled and moved to match `target` as closely as possible, each point counting `weight`
+    (weighted Procrustes, no mirroring)."""
+    w = weight[:, None] / weight.sum()
+    a, b = xy - (w * xy).sum(axis=0), target - (w * target).sum(axis=0)
+    norm = float(np.sqrt((w * a * a).sum()))
     if norm < 1e-12:
-        return np.repeat(target.mean(axis=0)[None, :], len(xy), axis=0)
-    u, sv, vt = np.linalg.svd(a.T @ b)
+        return np.repeat((w * target).sum(axis=0)[None, :], len(xy), axis=0)
+    u, sv, vt = np.linalg.svd((w * a).T @ b)
     turn = u @ vt
     if np.linalg.det(turn) < 0:
         u[:, -1] *= -1
         sv[-1] *= -1
         turn = u @ vt
-    return (a @ turn) * (sv.sum() / norm ** 2) + target.mean(axis=0)
+    return (a @ turn) * (sv.sum() / norm ** 2) + (w * target).sum(axis=0)
 
 
 def restore(inp: LayoutInput, stored: Mapping[int, tuple[float, float]],
@@ -562,7 +583,7 @@ def restore(inp: LayoutInput, stored: Mapping[int, tuple[float, float]],
     extent = np.maximum(basis.max(axis=0) - basis.min(axis=0), 1e-9)
     shape = (xy - centre) * float(min(canvas.width / extent[0], canvas.height / extent[1]))
     s = np.array([inp.sizes[t] for t in keys], dtype=float)
-    out, zoom = _place(shape, main if main.sum() >= 2 else None, s,
+    out, zoom = _place(shape, main, s,
                        np.array([inp.widths[t] for t in keys], dtype=float), canvas)
     return {t: (float(x), float(y)) for t, (x, y) in zip(keys, out)}, zoom
 
@@ -622,7 +643,7 @@ def _region_shape(graph: nx.Graph, cluster: Cluster, center: int | None, start: 
     members' own main component."""
     keys = sorted(cluster.members)
     if center not in cluster.members:
-        center = max(keys, key=lambda t: (sizes.get(t, MIN_SIZE), -t))
+        center = max(keys, key=lambda t: (sizes[t], -t))
     sub = graph.subgraph(keys)
     xy = _forceatlas2(sub, keys, start, GRAVITY)
     i = keys.index(center)
@@ -647,7 +668,7 @@ def _region_members(shape: tuple[list[int], int, np.ndarray, np.ndarray], sizes:
     xy[center] = 0.0
     free = np.ones(len(keys))
     free[center] = 0.0
-    clamp = Clamp(main, CLAMP_ROOM / zoom) if main.sum() >= 2 else None
+    clamp = _clamp_for(main, zoom, free == 0, share=0.5)  # the Center stays put
     if clamp is not None:
         clamp(xy)
     separate(xy, boxes, free=free, clamp=clamp)
