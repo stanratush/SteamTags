@@ -231,6 +231,7 @@ def build_layout(ctx: BuildContext) -> html.Div:
         dcc.Store(id="graph-only-on", data=False),
         dcc.Store(id="removed", data=[]), dcc.Store(id="rs-view"), dcc.Store(id="rs-request"),
         dcc.Store(id="rs-done"), dcc.Store(id="pending-open"), dcc.Store(id="verify"),
+        dcc.Store(id="help-target"),  # {"target": "<guide file>#<anchor>", "n": click time}, set by workbench.js
         dcc.Download(id="download"),
     ]
     header = html.Header([

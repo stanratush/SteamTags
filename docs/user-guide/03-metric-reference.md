@@ -696,11 +696,21 @@ The clustering (community detection in the methods literature) splits the tags i
 
 ### Cluster labels and counts
 
+> **In short.** Groups of tags more linked to each other than to the rest; C1 is the largest.
+>
+> **Higher →** more multi-tag clusters: the tags split into more, smaller groups.
+>
+> **Here:** each cluster is a candidate bundle of features that recurs among the most-played games.
+>
+> **Caution:** the count depends on γ, the thresholds and the seed; one-tag clusters are usually isolated tags, not findings.
+
 Columns: `cluster`, `kind`, `size`, `member_tag_ids` / `members` (clusters and nodes); `n_multi_tag_clusters`, `n_one_tag_clusters` (cluster quality).
 
 Shown in the app as “Cluster” (Inspector; tables and exports keep the column names).
 
 Clusters are labelled `C1`, `C2`, … by size, largest first, never named. `kind` is `multi_tag` (two or more tags) or `one_tag`. Counts are always reported as "k multi-tag + s one-tag", never as one total; One-Tag Clusters are usually isolated tags, not a finding. Members are listed by medoid score. k depends heavily on γ, the thresholds and the seed. Modularity cannot reliably separate groups smaller than a scale set by the network's total weight (the resolution limit; Fortunato & Barthélemy 2007, abstract and §IV), so small groups can be merged into bigger clusters.
+
+*Why it matters here.* A Multi-Tag Cluster is the study's unit of "a recurring combination of characteristics": tags that the most-played games of the dataset tend to carry together. Read a cluster through its members and its Cluster Center, not through its label: `C1` only means "largest in this Network State", and the same group of tags can be `C2` after a small change. Before treating a cluster as a finding, check that it survives other seeds (Membership Stability, the Seed-Noise Floor) and other γ values (the Resolution Sweep).
 
 *Example.* "5 multi-tag + 3 one-tag": five clusters of two or more tags and three single tags.
 
@@ -712,9 +722,21 @@ Clusters are labelled `C1`, `C2`, … by size, largest first, never named. `kind
 
 ### Network size
 
+> **In short.** How big the network is: the games it is built from, the tags shown as nodes, and the links between tags that share enough games.
+>
+> **Higher →** more tags and links: a denser network, usually from looser thresholds.
+>
+> **Here:** shows how much of the dataset and its tags the clusters describe.
+>
+> **Caution:** most other numbers shift with size; compare states of similar size.
+
 Columns: `n_dataset_games`, `n_nodes`, `n_edges`, `total_weight` in `cluster_quality.csv`.
 
+Shown in the app as “Games”, “Tags”, “Links” (summary row above the graph).
+
 Context for every other number: N (games after the Minimum Months Filter), the number of tags and edges, and the sum of the active Clustering Weight over all edges. Denser networks behave differently (see the null model). `total_weight` is in shared games or in summed lift, depending on the Clustering Weight, and the two are not comparable.
+
+*Why it matters here.* Every pattern the network shows is a pattern among these N games and these tags only. "100 of 100" games means the whole Top-100 Dataset is in the network; a lower N (from the Minimum Months Filter) means the clusters describe only the games tracked long enough. Tags below the minimum games per tag are left out entirely, so a characteristic shared by only a handful of successful games cannot appear in any cluster; the Not in network table lists them.
 
 *Example.* 100 games, 54 tags, 312 edges, total weight 4,120 shared games.
 
@@ -726,9 +748,21 @@ Context for every other number: N (games after the Minimum Months Filter), the n
 
 ### Modularity Q
 
+> **In short.** How much more of the link weight falls inside clusters than a random split would put there.
+>
+> **Higher →** clusters more separated from each other; 0 = no better than random.
+>
+> **Here:** the clustering's own score; read it through its excess over the null model.
+>
+> **Caution:** random networks also reach high Q; not comparable across γ, weights, thresholds or datasets.
+
 Columns: `modularity`, `modularity_status` in `cluster_quality.csv`.
 
+Shown in the app as “Q” (summary row and Cluster quality).
+
 How much more of the network's weight falls inside clusters than would be expected if links were spread at random while keeping each tag's total strength (Newman & Girvan 2004; weighted form, Newman 2004, §II.C). It is the objective the clustering maximises, reported at the γ that was optimised ("Q (γ = 1.00)"). Random networks with no real groups also reach high Q (Guimerà, Sales-Pardo & Amaral 2004), which is why the null model exists; many different partitions reach almost the same Q; and Q is not comparable across γ, Clustering Weights, thresholds or datasets. The only published Steam tag network found reports Q = 0.414 after pruning the five most common tags and 0.150 with them kept (Li & Zhang 2020, §5.2): context for how much near-universal tags lower Q, not a benchmark, since its network was built differently.
+
+*Why it matters here.* Q says how clearly the tags of these successful games fall into separate groups, but on its own it cannot tell real feature bundles from the groups that tag popularity alone would produce. That is why the app always shows it with its excess over the null model: "Q 0.42 · excess +0.11" means the null model already reaches about 0.31, and only the remaining 0.11 is structure that tag frequencies do not explain. Use Q to compare states that differ only in the seed or the algorithm, never across datasets.
 
 *Example.* Total weight 100, two clusters each with 40 inside and 20 between them: each cluster's summed strength is 2 × 40 + 20 = 100, so Q = 2 × (40 / 100 − (100 / 200)²) = 0.30.
 
@@ -740,9 +774,19 @@ How much more of the network's weight falls inside clusters than would be expect
 
 ### Null-model baseline
 
+> **In short.** The Q the same procedure reaches when each game's tags are shuffled, keeping how common every tag is.
+>
+> **Higher →** tag popularity alone already produces much of the clustering.
+>
+> **Here:** separates how features combine in successful games from the fact that some tags are everywhere.
+>
+> **Caution:** the SD from 20 shuffles is rough; shuffled networks differ in link count.
+
 Columns: `q_null_mean`, `q_null_sd`, `null_n_edges_mean` (cluster quality); `replicate`, `seed`, `modularity`, `n_edges` in `null_model.csv`.
 
 The Q this pipeline produces when the link between games and tags is scrambled, keeping how many tags each game has and how many games each tag has. It answers "how much Q would tag frequencies alone produce?". This matters most with the default shared-games weight, where frequency alone creates structure. The shuffled networks are rebuilt with the same thresholds, so they usually have a different number of edges from the real one, and Q depends on density (Guimerà, Sales-Pardo & Amaral 2004): compare `null_n_edges_mean` with `n_edges`. Twenty replicates give only a rough SD.
+
+*Why it matters here.* Tags such as Singleplayer or Indie appear on a large share of the games, so they share many games with almost every other tag, and that alone creates groups. The null model keeps every tag exactly as common as it is and every game with as many tags as it has, but pairs them at random. Whatever Q the shuffled networks still reach is what popularity explains; only Q above it says something about which features successful games combine.
 
 *Example.* "null 0.31 ± 0.01 … null networks average 640 edges vs 702": the scrambled networks reach Q 0.31 on average, with a sample SD of 0.01, and have fewer edges than the real one.
 
@@ -754,9 +798,21 @@ The Q this pipeline produces when the link between games and tags is scrambled, 
 
 ### Excess modularity and z-score
 
+> **In short.** Q minus the null-model mean: the part of the clustering not explained by how common tags are.
+>
+> **Higher →** more structure than tag frequencies alone produce; 0 = none beyond them.
+>
+> **Here:** the main check that clusters reflect how features combine, not just popularity.
+>
+> **Caution:** the z-score can be large for a modest excess; never read it alone.
+
 Columns: `q_excess`, `modularity_z` in `cluster_quality.csv`.
 
+Shown in the app as “excess” (summary row) and “Null-model excess” (Cluster quality).
+
 `q_excess` is the part of Q not explained by tag frequencies: Q minus the null-model mean. `modularity_z` expresses the same gap in null-model SDs. The z-score is never shown alone: with a small null SD, z can be very large even when the excess is modest, it is not a p value, and z-scores of modularity against random graphs have "a number of problems" (Karrer, Levina & Newman 2008, §I). The app and the report always show it inside the full line "Q … vs null … ± … (excess …, z …; null networks average … edges vs …)".
+
+*Why it matters here.* The excess is the most direct answer to "do these successful games combine features in recognisable groups, beyond popular tags being everywhere?". An excess near 0 means the clusters could be an artefact of tag popularity; a clearly positive excess means the grouping carries information about how the games combine features. It still says nothing about which cluster is meaningful: for that, read the clusters themselves and their stability.
 
 *Example.* Q 0.32, null 0.20 ± 0.01: excess 0.12, z = 0.12 / 0.01 = 12.
 
@@ -796,9 +852,21 @@ Whether a cluster's tags can all reach each other through edges inside the clust
 
 ### Mean silhouette
 
+> **In short.** Whether each tag's games overlap more with its own cluster than with the nearest other; descriptive diagnostic, not a selection criterion.
+>
+> **Higher →** clearer separation on game overlap; 0 = between clusters; below 0 = closer to another.
+>
+> **Here:** an independent check using the games themselves, not link weights.
+>
+> **Caution:** the clustering does not optimise it, so low values are expected.
+
 Columns: `mean_silhouette`, `silhouette_status` in `cluster_quality.csv` (over every Multi-Tag Cluster member) and `clusters.csv` (over one cluster's members).
 
+Shown in the app as “Silhouette” (summary row and Cluster quality).
+
 The average of the per-tag silhouettes: an independent check on the clustering that uses game overlap instead of graph weights. It is labelled "silhouette (Jaccard game-set distance), descriptive diagnostic, not a selection criterion". One-Tag Cluster members are left out of every mean, and the overall value averages tags, not clusters, so big clusters weigh more. Comparing values across Network States is only indicative.
+
+*Why it matters here.* Clusters are found from link weights; the silhouette asks a different question of the same result: do the games that carry a cluster's tags really overlap more with each other than with the games of the next cluster? A value near 0 is common here, because many successful games carry tags from several clusters at once (an open-world RPG with crafting and survival tags, for example). Use it to compare clusters with each other or one state with a close variant, not as a pass mark.
 
 *Example.* Three members with silhouettes 0.6875, 0.875 and 0.875 have a mean of 0.8125.
 

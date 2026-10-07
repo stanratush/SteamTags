@@ -190,6 +190,18 @@ body[data-form=narrow] #root.workbench .inspector:not(.has-sel){display:none}
 .help-modal{position:fixed;right:24px;top:70px;width:560px;max-width:calc(100vw - 48px);max-height:80vh;overflow:auto;
  z-index:1000;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 40px #0003;padding:12px 20px}
 .help-modal .x{float:right}
+.help-modal blockquote{margin:0 0 12px;padding:8px 12px;background:var(--bg);border-left:3px solid var(--acc);border-radius:4px}
+.help-modal blockquote p{margin:0 0 4px}
+/* metric help: a dotted term opens its guide entry; the tooltip shows its In short lines (workbench.js) */
+.term{text-decoration:underline dotted var(--faint);text-underline-offset:3px}
+[data-help]{cursor:help}
+[data-help]:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:4px}
+.tip{position:fixed;z-index:1100;display:none;max-width:340px;padding:8px 11px;background:var(--panel);color:var(--ink2);
+ border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 24px #0002;font-size:12.5px;line-height:1.4;pointer-events:none}
+.tip p{margin:0 0 4px}
+.tip b{color:var(--ink);font-weight:600}
+.tip .now{color:var(--mute);border-top:1px solid var(--line2);padding-top:4px;margin-top:6px}
+.tip .more{color:var(--faint);font-size:11.5px;margin:6px 0 0}
 .section-heading{display:none}
 
 /* ------------------------------------------------------------------ medium and narrow: the pill bar */

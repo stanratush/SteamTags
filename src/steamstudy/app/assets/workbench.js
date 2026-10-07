@@ -116,6 +116,85 @@
     handle.addEventListener("pointerup", up);
   });
 
+  // ------------------------------------------------------------------ metric help (spec: .scratch/metric-help)
+
+  // Layer 1: an element's data-tip (its guide entry's In short lines, see help.py) in one floating box, on hover
+  // or keyboard focus, never over the element itself. Layer 2: a click (or Enter) on a data-help element opens its
+  // guide entry in the help modal through the help-target store. A touch tap goes straight to layer 2.
+  const TIP_LABEL = /^(In short\.|Higher →|Lower →|Raising it →|Here:|Caution:|Now:)\s*/;
+  let tipBox = null, tipFor = null, lastPointer = "mouse";
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})[c]);
+  }
+
+  function showTip(el) {
+    if (!tipBox) {
+      tipBox = document.createElement("div");
+      tipBox.className = "tip";
+      tipBox.setAttribute("role", "tooltip");
+      tipBox.id = "help-tip";
+      document.body.appendChild(tipBox);
+    }
+    tipBox.innerHTML = el.dataset.tip.split("\n").map((line) => {
+      const m = line.match(TIP_LABEL);
+      const cls = m && m[1] === "Now:" ? ' class="now"' : "";
+      return m ? `<p${cls}><b>${escapeHtml(m[1])}</b> ${escapeHtml(line.slice(m[0].length))}</p>`
+               : `<p>${escapeHtml(line)}</p>`;
+    }).join("") + (el.dataset.help ? '<p class="more">Click for the full User Guide entry</p>' : "");
+    tipFor = el;
+    el.setAttribute("aria-describedby", "help-tip");
+    tipBox.style.display = "block";
+    const r = el.getBoundingClientRect(), t = tipBox.getBoundingClientRect(), gap = 8, margin = 8;
+    const below = r.bottom + gap + t.height <= window.innerHeight - margin || r.top - gap - t.height < margin;
+    const top = below ? r.bottom + gap : r.top - gap - t.height;
+    const left = Math.min(Math.max(margin, r.left + r.width / 2 - t.width / 2), window.innerWidth - t.width - margin);
+    tipBox.style.top = Math.max(margin, top) + "px";
+    tipBox.style.left = left + "px";
+  }
+
+  function hideTip() {
+    if (!tipFor) return;
+    tipFor.removeAttribute("aria-describedby");
+    tipFor = null;
+    tipBox.style.display = "none";
+  }
+
+  function within(ev, selector) {
+    return ev.target instanceof Element ? ev.target.closest(selector) : null;
+  }
+
+  function openHelp(el) {
+    hideTip();
+    window.dash_clientside.set_props("help-target", {data: {target: el.dataset.help, n: Date.now()}});
+  }
+
+  document.addEventListener("pointerdown", (ev) => { lastPointer = ev.pointerType || "mouse"; }, true);
+  document.addEventListener("mouseover", (ev) => {
+    const el = within(ev, "[data-tip]");
+    if (el === tipFor) return;
+    if (!el || lastPointer === "touch") { hideTip(); return; }
+    showTip(el);
+  });
+  document.addEventListener("mouseout", (ev) => {
+    if (tipFor && !(ev.relatedTarget && tipFor.contains(ev.relatedTarget))) hideTip();
+  });
+  document.addEventListener("focusin", (ev) => {
+    const el = within(ev, "[data-tip]");
+    if (el && lastPointer !== "touch") showTip(el); else hideTip();
+  });
+  document.addEventListener("focusout", hideTip);
+  document.addEventListener("scroll", hideTip, true);
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape") hideTip();
+    const el = within(ev, "[data-help]");
+    if (el && (ev.key === "Enter" || ev.key === " ") && el === ev.target) { ev.preventDefault(); openHelp(el); }
+  });
+  document.addEventListener("click", (ev) => {
+    const el = within(ev, "[data-help]");
+    if (el) openHelp(el);
+  });
+
   // ------------------------------------------------------------------ live values (clientside callback)
 
   function pills(dataset, mgV, mgD, msV, msD, mmV, mmD, genre, defining, weight, algorithm, gamma, seed,

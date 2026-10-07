@@ -23,7 +23,7 @@ from dash.exceptions import PreventUpdate
 from steamstudy.app import rs_cache
 from steamstudy.app import view as V
 from steamstudy.app.export import BuildNotFound, OpenRefused, export_zip, open_export
-from steamstudy.app.guide import help_markdown
+from steamstudy.app.guide import help_markdown, help_markdown_at
 from steamstudy.app.layout import PILLS, SLIDERS, block_styles, root_class
 from steamstudy.app.loader import BuildContext, load_build
 from steamstudy.app import renderer as R
@@ -210,7 +210,7 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
                                 [str(names.get(t, t)) for t in settings.hidden_tag_ids],
                                 defining.name if defining else None,
                                 [str(names.get(t, t)) for t in settings.removed_tag_ids], state.state_id)
-    return (meta, store_tables, base, legend, V.summary_row(q, rows_total, gamma_text), sentence,
+    return (meta, store_tables, base, legend, V.summary_row(q, rows_total, gamma_text, settings.null_replicates), sentence,
             V.quality_boxes(q, gamma_text, k, settings.null_replicates),
             V.grid_rows(tables["not_in_network.csv"]), V.grid_rows(tables["nodes.csv"]), V.grid_rows(edges_view),
             V.grid_rows(tables["clusters.csv"]), V.grid_rows(tables["cluster_connections.csv"]),
@@ -638,13 +638,20 @@ def clear_cache(_n, build_path):
     return f"Cleared {removed} cached Removal Sensitivity result(s).", None
 
 
-def show_help(_clicks, _close):
+def show_help(_clicks, _close, target=None):
+    """The help modal: a panel's `?` opens its guide section; a metric or control (workbench.js sets `help-target`
+    to `<file>#<anchor>`) opens its own entry."""
     trigger = ctx.triggered_id
+    shown = {"display": "block", "width": "560px"}
+    if trigger == "help-target":
+        if not target or "#" not in target.get("target", ""):
+            raise PreventUpdate
+        return shown, help_markdown_at(*target["target"].split("#", 1))
     if trigger == "help-close" or not isinstance(trigger, dict):
         return {"display": "none"}, ""
     if not any(_clicks or []):
         raise PreventUpdate
-    return {"display": "block", "width": "560px"}, help_markdown(trigger["panel"])
+    return shown, help_markdown(trigger["panel"])
 
 
 # ----------------------------------------------------------------------------- registration
@@ -746,4 +753,4 @@ def register(app: dash.Dash) -> None:
        Input("clear-cache-btn", "n_clicks"), State("build-path", "data"), prevent_initial_call=True)(clear_cache)
     cb(Output("help-modal", "style"), Output("help-body", "children"),
        Input({"type": "help", "panel": ALL}, "n_clicks"), Input("help-close", "n_clicks"),
-       prevent_initial_call=True)(show_help)
+       Input("help-target", "data"), prevent_initial_call=True)(show_help)

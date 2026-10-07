@@ -114,3 +114,58 @@ def test_every_inspector_label_is_a_schema_column_whose_guide_entry_names_it():
             assert f"“{label}”" in shown, (label, name)
     for word in ("hub", "importance"):
         assert all(word not in label.lower() for label in INSPECTOR_LABELS)
+
+
+# ----------------------------------------------------------------------------- metric help (In short)
+
+def _glossary_terms() -> list[str]:
+    return re.findall(r"^\*\*(.+?)\*\*:", (REPO / "CONTEXT.md").read_text(encoding="utf-8"), flags=re.M)
+
+
+BANNED = ("good", "bad", "strong", "strongly", "weak", "stable", "robust", "important", "significant", "reliable",
+          "excellent")
+
+
+def test_in_short_parser_reads_labelled_lines_in_order():
+    from steamstudy.app.guide import in_short, in_short_problems
+
+    entry = ("### Lift\n\n> **In short.** How often two tags meet, against chance.\n>\n"
+             "> **Higher →** above 1: more than chance.\n>\n> **Caution:** rare tags give big values.\n\nColumns: x\n")
+    lines = in_short(entry)
+    assert lines == [("In short.", "How often two tags meet, against chance."),
+                     ("Higher →", "above 1: more than chance."), ("Caution:", "rare tags give big values.")]
+    assert in_short_problems(lines) == []
+    assert in_short("### X\n\nColumns: x\n") == []
+    assert in_short_problems([("Here:", "a"), ("In short.", "b")])
+    assert in_short_problems([("In short.", "a"), ("Caution:", "b"), ("Here:", "c")])
+    assert in_short_problems([("In short.", "word " * 61)])
+
+
+def test_every_in_short_block_keeps_the_form_and_avoids_quality_words():
+    from steamstudy.app.guide import in_short, in_short_problems
+
+    exempt = [t.lower() for t in _glossary_terms()]
+    found = 0
+    for path in GUIDE.glob("*.md"):
+        for entry in re.split(r"^#{2,3} ", path.read_text(encoding="utf-8"), flags=re.M)[1:]:
+            lines = in_short("### " + entry)
+            if not lines:
+                continue
+            found += 1
+            assert in_short_problems(lines) == [], (path.name, entry.splitlines()[0])
+            text = " ".join(t for _, t in lines).lower()
+            for term in exempt:
+                text = text.replace(term, "")
+            for word in BANNED:
+                assert not re.search(rf"\b{word}\b", text), (path.name, entry.splitlines()[0], word)
+    assert found >= 6
+
+
+def test_every_app_help_key_resolves_to_an_entry_with_in_short_and_why_it_matters():
+    from steamstudy.app.guide import chapter, in_short_at, section
+    from steamstudy.app.help import HELP
+
+    for key, (file, anchor) in HELP.items():
+        assert anchor in _anchors(file), key
+        assert in_short_at(file, anchor), key
+        assert "*Why it matters here.*" in section(chapter(file), anchor), key

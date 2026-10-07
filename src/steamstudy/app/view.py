@@ -9,6 +9,7 @@ from typing import Any
 
 from dash import html
 
+from steamstudy.app import help as H
 from steamstudy.export import schema as S
 from steamstudy.network.metrics import within_z_cap
 
@@ -414,27 +415,33 @@ def _excess(q: dict[str, Any]) -> str:
     return "n/a" if q["q_excess"] is None else f"{q['q_excess']:+.2f}"
 
 
-def _stat(label: str, value: str, sub: str, tip: str, cls: str) -> html.Div:
-    return html.Div([html.B(value, className="num"), html.Span(label), html.Small(sub) if sub else None],
-                    title=tip, className=cls)
+def _stat(label: str, value: str, sub: str, key: str, now: str | None) -> html.Div:
+    """One summary number: hover or focus shows its In short, a click opens its guide entry."""
+    return html.Div([html.B(value, className="num"), html.Span(label, className="term"),
+                     html.Small(sub) if sub else None], className="m", tabIndex="0", **H.attrs(key, now))
 
 
-def summary_row(q: dict[str, Any], n_rows: int, gamma: str) -> list[Any]:
-    """The key numbers above the graph, each large with a muted label and a tooltip."""
+def summary_row(q: dict[str, Any], n_rows: int, gamma: str, r: int) -> list[Any]:
+    """The key numbers above the graph, each large with a muted label and the two help layers."""
     q_value = "n/a" if q["modularity"] is None else f"{num(q['modularity'])} · excess {_excess(q)}"
     sil = num(q["mean_silhouette"]) if q["mean_silhouette"] is not None else "n/a"
+    q_now = (f"γ = {gamma}; no links, so no Q." if q["modularity"] is None else
+             f"γ = {gamma}; null mean {num(q['q_null_mean'])} ± {num(q['q_null_sd'])} from R = {r} shuffled "
+             "networks; excess = Q − null mean.")
     items = [
-        ("Games", f"{q['n_dataset_games']} of {n_rows}", "", "Games left after the Minimum Months Filter, of the "
-                                                           "dataset's games."),
-        ("Tags", str(q["n_nodes"]), "", "Tags in the network (nodes)."),
-        ("Links", str(q["n_edges"]), "", "Pairs of tags sharing at least the minimum number of games (edges)."),
+        ("Games", f"{q['n_dataset_games']} of {n_rows}", "", "summary.games",
+         f"{q['n_dataset_games']} of the dataset's {n_rows} games pass the Minimum Months Filter."),
+        ("Tags", str(q["n_nodes"]), "", "summary.tags", None),
+        ("Links", str(q["n_edges"]), "", "summary.links",
+         None if q["null_n_edges_mean"] is None else f"shuffled networks average {q['null_n_edges_mean']:.0f} links."),
         ("Clusters", f"{q['n_multi_tag_clusters']} + {q['n_one_tag_clusters']}", "multi-tag + one-tag",
-         "Multi-Tag and One-Tag Clusters, counted apart: One-Tag Clusters are usually isolated tags."),
-        ("Q", q_value, "", f"Modularity Q at γ = {gamma}. Excess = Q minus the null-model mean "
-                           f"({num(q['q_null_mean'])}): how much more than tag frequencies alone produce."),
-        ("Silhouette", f"{sil} · descriptive", "", SILHOUETTE_TIP),
+         "summary.clusters", None if q["seed_k_min"] is None else
+         f"other seeds give {q['seed_k_min']}–{q['seed_k_max']} multi-tag clusters."),
+        ("Q", q_value, "", "summary.q", q_now),
+        ("Silhouette", f"{sil} · descriptive", "", "summary.silhouette",
+         None if q["seed_silhouette_sd"] is None else f"SD across seeds {num(q['seed_silhouette_sd'])}."),
     ]
-    return [_stat(label, value, sub, tip, "m") for label, value, sub, tip in items]
+    return [_stat(*item) for item in items]
 
 
 def quality_boxes(q: dict[str, Any], gamma: str, k: int, r: int) -> list[Any]:

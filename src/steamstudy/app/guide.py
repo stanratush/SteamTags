@@ -1,4 +1,5 @@
-"""In-app help: each panel's `?` opens the matching User Guide section, rendered offline with dcc.Markdown.
+"""In-app help: each panel's `?` opens the matching User Guide section, rendered offline with dcc.Markdown, and
+each metric's In short block is its tooltip (see `steamstudy.app.help`).
 
 The guide files are the repository's `docs/user-guide/*.md`, shipped as package data (`steamstudy/guide/`).
 """
@@ -6,6 +7,7 @@ The guide files are the repository's `docs/user-guide/*.md`, shipped as package 
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from pathlib import Path
 
 # panel -> (guide file, heading anchor)
@@ -64,10 +66,75 @@ def section(markdown: str, anchor: str) -> str | None:
     return "\n".join(lines[start:]) if start is not None else None
 
 
-def help_markdown(panel: str) -> str:
-    file, anchor = PANEL_SECTIONS.get(panel, ("00-three-rules.md", "three-rules"))
+@lru_cache(maxsize=None)
+def chapter(file: str) -> str | None:
+    """A guide chapter's Markdown, read once per process."""
     path = guide_dir() / file
-    if not path.is_file():
+    return path.read_text(encoding="utf-8") if path.is_file() else None
+
+
+def help_markdown_at(file: str, anchor: str) -> str:
+    """The guide section under one heading, for the help modal."""
+    text = chapter(file)
+    if text is None:
         return f"The User Guide file {file} is not installed."
-    text = section(path.read_text(encoding="utf-8"), anchor)
-    return text if text is not None else f"Section #{anchor} not found in {file}."
+    found = section(text, anchor)
+    return found if found is not None else f"Section #{anchor} not found in {file}."
+
+
+def help_markdown(panel: str) -> str:
+    return help_markdown_at(*PANEL_SECTIONS.get(panel, ("00-three-rules.md", "three-rules")))
+
+
+# ----------------------------------------------------------------------------- In short (the tooltip layer)
+
+# An entry's In short block: a blockquote right under its heading, one labelled line per paragraph, in this order.
+IN_SHORT_LABELS = ("In short.", "Higher →", "Lower →", "Raising it →", "Here:", "Caution:")
+_LABEL_ORDER = {"In short.": 0, "Higher →": 1, "Lower →": 1, "Raising it →": 1, "Here:": 2, "Caution:": 3}
+IN_SHORT_MAX_WORDS = 60
+
+
+def plain(markdown: str) -> str:
+    """Inline Markdown as plain text: links keep their text; emphasis and code marks go."""
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", markdown)
+    return re.sub(r"[`*_]", "", text).strip()
+
+
+def in_short(entry: str) -> list[tuple[str, str]]:
+    """The (label, text) lines of the In short block that opens an entry, or [] if it has none.
+
+    The block is the first blockquote after the heading, before any other paragraph."""
+    lines = entry.splitlines()[1:]
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    quote = []
+    for line in lines:
+        if not line.startswith(">"):
+            break
+        quote.append(line[1:].strip())
+    out = []
+    for para in " ".join(q if q else "\n" for q in quote).split("\n"):
+        m = re.match(r"^\*\*(.+?)\*\*\s*(.*)$", para.strip())
+        if m and m.group(1) in IN_SHORT_LABELS:
+            out.append((m.group(1), plain(m.group(2))))
+    return out
+
+
+def in_short_at(file: str, anchor: str) -> list[tuple[str, str]]:
+    text = chapter(file)
+    entry = section(text, anchor) if text is not None else None
+    return in_short(entry) if entry else []
+
+
+def in_short_problems(lines: list[tuple[str, str]]) -> list[str]:
+    """What breaks the In short form: no first line, labels out of order or repeated, over the word cap."""
+    problems = []
+    if not lines or lines[0][0] != "In short.":
+        problems.append("does not open with 'In short.'")
+    order = [_LABEL_ORDER[label] for label, _ in lines]
+    if order != sorted(set(order)):
+        problems.append(f"labels out of order or repeated: {[label for label, _ in lines]}")
+    words = sum(len(text.split()) for _, text in lines)
+    if words > IN_SHORT_MAX_WORDS:
+        problems.append(f"{words} words, over {IN_SHORT_MAX_WORDS}")
+    return problems

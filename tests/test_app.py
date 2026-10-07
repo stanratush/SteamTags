@@ -491,8 +491,9 @@ def _texts(component) -> list[str]:
             for x in c:
                 walk(x)
         else:
-            if getattr(c, "title", None):
-                out.append(c.title)
+            for attr in ("title", "data-tip"):
+                if getattr(c, attr, None):
+                    out.append(getattr(c, attr))
             walk(getattr(c, "children", None))
     walk(component)
     return out
