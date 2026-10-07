@@ -33,7 +33,7 @@ Only sources whose cited passage was verified at page, section or equation level
 
 ## Software documentation
 
-- NetworkX: `louvain_communities`, `modularity`, `spring_layout` (version 3.7). https://networkx.org/documentation/stable/
+- NetworkX: `louvain_communities`, `modularity`, `spring_layout`, `forceatlas2_layout` (version 3.7). https://networkx.org/documentation/stable/
 - leidenalg: `find_partition`, `RBConfigurationVertexPartition` (version 0.12.0). https://leidenalg.readthedocs.io/
 - scikit-learn: `adjusted_rand_score` ("between -0.5 and 1.0"; random labelling near 0) and `silhouette_samples` (members of one-member clusters get 0). https://scikit-learn.org/stable/
 - SciPy: `fisher_exact` (two-sided definition) and `false_discovery_control`. https://docs.scipy.org/doc/scipy/

@@ -577,6 +577,8 @@ The layout mode and the isolated-tags policy (always kept) are not part of the k
   - No multiprocessing in v1.
 - Cache key: the Network State key plus a method-version string.
 
+> Overridden by the [Graph readability spec](../graph-readability/spec.md): Global positions are a pure function of (dataset, Minimum Months Filter, Clustering Weight, seed, visible set, canvas size), from ForceAtlas2 on the visible network started from the loose spring layout, so thresholds do move the graph.
+
 **Global positions**: a pure function of (dataset, Minimum Months Filter, Clustering Weight, seed). They come from a weighted, seeded `networkx.spring_layout` on the active Clustering Weight, run at the loosest thresholds, so thresholds don't move the graph. Recomputed on each change, not cached.
 
 **Cluster-separated positions**: computed from the elements alone (each node's cluster plus its global position).

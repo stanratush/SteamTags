@@ -18,6 +18,9 @@ The Tag Network app is readable from the first view: labels can be read at the s
 ## Decisions
 
 ### Renderer
+
+> Overridden in part by the [Graph readability spec](../graph-readability/spec.md) (see its Overrides section): the render-time stretch of x by the canvas aspect ratio is removed; the layout is made for the canvas size.
+
 - The graph is drawn with plain **Cytoscape.js 3.34** (vendored, MIT, served from the app's `assets/`; never a CDN), in our own wrapper `assets/graph.js`. dash-cytoscape is removed from the dependencies. The canvas renderer stays; the WebGL mode stays off.
 - `renderer.py` stays the only Python module that knows the renderer. Together with `graph.js` it is the renderer boundary: replacing the renderer means replacing those two files.
 - Dash → graph: one store carries elements (ids, labels, cluster, size, classes), target positions, regions and view commands (fit, focus, center). Graph → Dash: taps on a node, an edge, a region title or the background are sent with `dash_clientside.set_props` to one `graph-event` store. AppID lists stay on the server.
@@ -26,6 +29,9 @@ The Tag Network app is readable from the first view: labels can be read at the s
 - At render time, x is stretched by the canvas aspect ratio (capped at 1.6×) so the first fit fills a wide canvas. Exports keep the true coordinates.
 
 ### Layout (positions only; never part of the Network State)
+
+> Overridden in part by the [Graph readability spec](../graph-readability/spec.md) (see its Overrides section): the Global layout is ForceAtlas2 on the visible network, so thresholds do move the graph; overlap removal is label-aware; Cluster-separated regions are sized by label area; Re-layout became Tidy.
+
 - **No overlaps by default.** After the seeded spring layout, a deterministic overlap-removal pass pushes overlapping nodes apart with a 4-unit gap. It runs in Python on the full loose layout (so moving a threshold slider still never moves the graph), inside each Cluster-separated region, and after Re-layout.
 - Node size becomes a fixed function of `n_games` relative to the dataset's most frequent tag (not of what is visible), so sizes and positions share model units and no visible set can overlap at any zoom.
 - **Cluster-separated layout:** each region's side grows with √(members); members are laid out by a short seeded spring layout from their global positions with the Cluster Center pinned in the middle, then de-overlapped; regions are shelf-packed biggest first with small even gaps, rows aimed at the canvas aspect ratio; One-Tag Clusters share one compact grid region packed as the last box. Region titles ("C1 · 26 tags") are shown at a constant readable size.
@@ -34,12 +40,18 @@ The Tag Network app is readable from the first view: labels can be read at the s
 - **Dragging:** nodes can be dragged (users may overlap them on purpose). Dragged positions are view-only: kept while the layout basis is unchanged (like Re-layout), dropped when the dataset, Minimum Months Filter, Clustering Weight or seed changes, and never exported.
 
 ### Labels
+
+> Overridden in part by the [Graph readability spec](../graph-readability/spec.md) (see its Overrides section): every label is a constant-size label with a halo; the 7 px rule is gone; white boxes are only for selected and highlighted labels.
+
 - **Priority labels** are drawn at a constant on-screen size (about 11.5 px) at any zoom: the selected element and its neighbours, the Cluster Centers, the 15 largest tags by `n_games` (ties by tag id) and, in Cluster-separated mode, the largest tag of each cluster.
 - After each zoom, a priority label whose box overlaps a higher-ranked one is hidden. Rank: the selected tag and its neighbours (never hidden), then Centers, then `n_games`.
 - Every other label scales with zoom and is hidden below 7 px on screen.
 - Priority labels have a white background (B), so they stay legible over edges.
 
 ### Motion (brief, never continuous physics)
+
+> Overridden in part by the [Graph readability spec](../graph-readability/spec.md) (see its Overrides section): Re-layout became Tidy; threshold and panel changes also move the graph.
+
 - When the dataset stays the same and positions change (Minimum Months Filter, Clustering Weight, seed, Re-layout, the Global ↔ Cluster-separated switch, and algorithm or γ in Cluster-separated mode), nodes move from old to new positions over about 350 ms, ease-in-out.
 - Tags that enter fade in; tags that leave fade out, then are removed. Colour changes cross-fade.
 - A dataset change does not animate moves: it is a fresh set, so it only fits (animated).

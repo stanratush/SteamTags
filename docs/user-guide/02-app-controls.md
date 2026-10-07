@@ -18,7 +18,7 @@ Each control below either sets a field of the Network State key (and so changes 
 | Seed | Seeds the clustering; the null-model and noise seeds derive from it. Sends on Enter or when the box loses focus | integer ≥ 0; config value | `seed` | Partition, null model, Seed-Noise Floor, Global layout |
 | Remove (node inspector), Restore, Reset all | Removes a tag from the network as a what-if, or brings it back | any node; none removed | `removed_tag_ids` | Node set; not N or any `lift` |
 | Global / Cluster-separated | Moves nodes only: one layout for the whole network, or one region per cluster | Global | none | Positions only |
-| Re-layout | Refines the positions from the current ones; kept until the dataset, filter, weight or seed changes | none | none (`layout_source` in exports) | Positions only |
+| Tidy | Settles the Global layout from the current positions, keeping the nodes you dragged where you dropped them; kept until the dataset, filter, weight, seed or the visible tags change | none | none (`layout_source` in exports) | Positions only |
 | Mode | Workbench or Analysis Report mode | Workbench | none | none |
 | Controls / Inspector / Tables | Collapse each panel independently | all shown | none | none |
 | Graph only | Switches to the narrowest form (pill bar, floating Inspector, bottom sheet) at any width; press again to leave it | off | none | none |
@@ -48,7 +48,7 @@ The Workbench rearranges itself as the window narrows. Nothing is lost in a narr
 - **Medium (1024–1279 px)**: the Controls panel becomes a **pill bar** under the header. Each pill shows the current value ("Min games 8", "γ 1.00"); click it to open a small panel holding that control, and click anywhere else (or press Esc) to close it. The Inspector becomes a **floating card** over the right of the graph: it opens when you click a node, an edge or a cluster, and closes with ×. The graph refits so that nothing hides under the card.
 - **Narrow (under 1024 px)**: as medium, and the tables become a **bottom sheet**: a strip of tabs along the bottom of the graph. Click a tab or the grip on the left to open the sheet, and the grip again to close it.
 
-**Graph only** gives the narrow form at any width. Collapsing the Inspector in the wide form also makes it a floating card. The legend sits at the bottom left of the graph; the Global / Cluster-separated switch, Re-layout and Fit sit at the top right.
+**Graph only** gives the narrow form at any width. Collapsing the Inspector in the wide form also makes it a floating card. The legend sits at the bottom left of the graph; the Global / Cluster-separated switch, Tidy and Fit sit at the top right.
 
 ## Task recipes
 
