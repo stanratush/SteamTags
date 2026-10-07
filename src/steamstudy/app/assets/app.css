@@ -167,6 +167,10 @@ body[data-form=narrow] #root.workbench .inspector[data-pending]{display:block;po
 /* A tap is drawn on the graph at once (graph.js); until the Inspector's content for it arrives, the old content
    fades slightly. The 60 ms delay keeps a quick answer from flickering. */
 #inspector-body{transition:opacity 80ms ease}
+/* The selected tag's ring (graph.js): transform and opacity only, so the compositor animates it. */
+.sel-ring{position:absolute;z-index:4;pointer-events:none;border:2px solid #2457d6;border-radius:50%;
+ animation:sel-ring 320ms cubic-bezier(.2,.7,.3,1) forwards;will-change:transform,opacity}
+@keyframes sel-ring{from{transform:scale(1);opacity:.75}to{transform:scale(1.9);opacity:0}}
 .inspector[data-pending] #inspector-body{opacity:.45;transition:opacity 80ms ease 60ms}
 #root.workbench .inspector:not(.docked).has-sel .x,
 body[data-form=medium] #root.workbench .inspector.has-sel .x,
@@ -225,7 +229,7 @@ body[data-form=narrow][data-sheet=open] #root.workbench .inspector.has-sel{botto
 body[data-form=narrow] #root.workbench .grip{display:inline-block}
 body[data-form=narrow] #root.workbench #blk-tabs{min-height:44px}
 body[data-form=narrow] #root.workbench .ov-bl{bottom:54px}
-@media (prefers-reduced-motion:reduce){.tables-area,#inspector-body{transition:none!important}}
+@media (prefers-reduced-motion:reduce){.tables-area,#inspector-body{transition:none!important}.sel-ring{display:none}}
 
 /* ------------------------------------------------------------------ Analysis Report mode: one scrolling page */
 #root.report .app-body{align-items:start}

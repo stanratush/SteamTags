@@ -247,11 +247,26 @@ def test_every_tap_kind_selects_the_right_inspector_view(event, expected):
 
 def test_panels_collapse_independently_and_graph_only_is_a_form():
     sel = {"kind": "node", "id": "5001"}
-    out = CB.arrange("workbench", "quality", ["controls", "tables"], True, sel, False)
-    assert out[-2] == "inspector has-sel" and out[-1] == "workbench controls-on tables-on"
-    out = CB.arrange("workbench", "quality", ["controls", "inspector", "tables"], True, sel, True)
-    assert out[-2] == "inspector docked has-sel" and out[-1].endswith("tables-on graph-only")
-    assert CB.arrange("report", "quality", [], False, None, False)[-2:] == ["inspector", "report"]
+    assert CB.arrange("workbench", "quality", ["controls", "tables"], False)[-1] == "workbench controls-on tables-on"
+    assert CB.arrange("workbench", "quality", ["controls", "inspector", "tables"], True)[-1].endswith(
+        "tables-on graph-only")
+    assert CB.arrange("report", "quality", [], False)[-1] == "report"
+    assert CB.inspector_form(["controls", "tables"], True, sel) == "inspector has-sel"
+    assert CB.inspector_form(["controls", "inspector", "tables"], True, sel) == "inspector docked has-sel"
+    assert CB.inspector_form([], False, None) == "inspector"
+
+
+def test_a_selection_does_not_re_arrange_the_page(build_folder):
+    """Only the Inspector's form follows the selection: re-sending every block's style made React re-render
+    the tables under them on every click."""
+    from steamstudy.app.server import create_app
+
+    app = create_app(build_folder)
+    inputs = {key: [i["id"] for i in spec["inputs"]] for key, spec in app.callback_map.items()}
+    arrange = next(ids for key, ids in inputs.items() if "blk-dataset.style" in key)
+    form = next(ids for key, ids in inputs.items() if "inspector-panel.className" in key)
+    assert "selection" not in arrange and "floating-open" not in arrange
+    assert {"selection", "floating-open", "panels"} <= set(form)
 
 
 def test_the_app_draws_the_exported_coordinates_in_both_layouts(build_folder):

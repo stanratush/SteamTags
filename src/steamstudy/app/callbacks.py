@@ -478,13 +478,18 @@ def edit_removed(_remove, _restore, _reset, selection, pick, removed):
 # ----------------------------------------------------------------------------- 5. modes and panels
 
 
-def arrange(mode, tab, panels, floating_open, selection, graph_only):
-    """Block order and visibility, the Inspector's form and the root classes (app.css does the layout)."""
+def arrange(mode, tab, panels, graph_only):
+    """Block order and visibility and the root classes (app.css does the layout). A selection never changes
+    them, so it never re-renders the blocks."""
     panels = panels or []
     styles = block_styles(mode, tab, panels)
-    inspector_class = ("inspector" + (" docked" if "inspector" in panels else "")
-                       + (" has-sel" if floating_open and selection else ""))
-    return [styles[b] for b in BLOCKS] + [inspector_class, root_class(mode, panels, bool(graph_only))]
+    return [styles[b] for b in BLOCKS] + [root_class(mode, panels, bool(graph_only))]
+
+
+def inspector_form(panels, floating_open, selection):
+    """The Inspector's form: docked as a pane, or (with a selection to show) a floating card."""
+    return ("inspector" + (" docked" if "inspector" in (panels or []) else "")
+            + (" has-sel" if floating_open and selection else ""))
 
 
 def fit_view(_n):
@@ -691,9 +696,11 @@ def register(app: dash.Dash) -> None:
     cb(Output("removed", "data", allow_duplicate=True), Input("remove-btn", "n_clicks"),
        Input("restore-btn", "n_clicks"), Input("reset-btn", "n_clicks"), State("selection", "data"),
        State("restore-pick", "value"), State("removed", "data"), prevent_initial_call=True)(edit_removed)
-    cb(*[Output(b, "style") for b in BLOCKS], Output("inspector-panel", "className"), Output("root", "className"),
-       Input("mode", "value"), Input("wb-tab", "value"), Input("panels", "value"), Input("floating-open", "data"),
-       Input("selection", "data"), Input("graph-only-on", "data"))(arrange)
+    cb(*[Output(b, "style") for b in BLOCKS], Output("root", "className"),
+       Input("mode", "value"), Input("wb-tab", "value"), Input("panels", "value"),
+       Input("graph-only-on", "data"))(arrange)
+    cb(Output("inspector-panel", "className"), Input("panels", "value"), Input("floating-open", "data"),
+       Input("selection", "data"))(inspector_form)
     cb(Output("graph-only-on", "data"), Input("graph-only", "n_clicks"), State("graph-only-on", "data"),
        prevent_initial_call=True)(lambda _n, on: not on)
     cb(Output(R.DATA_ID, "data", allow_duplicate=True), Input("fit-btn", "n_clicks"),

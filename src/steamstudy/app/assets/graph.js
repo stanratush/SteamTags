@@ -19,8 +19,9 @@
    overlaps a higher-ranked one is hidden after every zoom (rank: `hot`, then the `prio` sent by Python:
    Centers, then n_games).
 
-   Motion is brief and never continuous: moves, fades, the selection pulse and animated fits take about
-   350 ms, and all of it is instant under prefers-reduced-motion. A new dataset only fits (animated).
+   Motion is brief and never continuous: moves, fades and animated fits take about 350 ms; a selected tag
+   gets one 320 ms ring that CSS animates over the canvas (smooth even while the main thread is busy). All of
+   it is instant (or absent) under prefers-reduced-motion. A new dataset only fits (animated).
    A tap is drawn at once (selectNow); the server's matching answer changes nothing, and an answer for an
    earlier tap is dropped. Selecting never asks for a layout or any analysis.
    Dragged positions are view-only: kept (per layout) while the layout basis is the same, dropped when the
@@ -124,7 +125,10 @@
       G.dragged[G.data.layout][n.id()] = {x: n.position("x"), y: n.position("y")};
       if (G.data.layout === "global") reportDragged();
     });
-    cy.on("viewport", () => { if (performance.now() > G.quietUntil) G.userMoved = true; });
+    cy.on("viewport", () => {
+      dropRing();  // it would no longer sit on its node
+      if (performance.now() > G.quietUntil) G.userMoved = true;
+    });
     // Labels are re-sized and re-culled once a zoom settles, not on every frame: a new font size makes every
     // label redraw from scratch, about twice the cost of a frame. While zooming they scale with the graph.
     cy.on("zoom", () => {
@@ -199,6 +203,8 @@
   // Pan the selected tag into view when a transient overlay (the floating Inspector) covers it.
   function revealSelection() {
     if (!G.cy || !G.selected || !G.cy.width()) return;
+    const panel = document.getElementById("inspector-panel");
+    if (panel && panel.dataset.pending) { G.revealLater = true; return; }  // after the content lands (smoother)
     const sel = JSON.parse(G.selected);
     if (!sel || sel.kind !== "node") return;
     const n = G.cy.getElementById(sel.id);
@@ -437,11 +443,11 @@
 
   // ------------------------------------------------------------------ selection and view
 
-  // A tag dims all but its closed neighbourhood (and pulses once), an edge all but itself and its two tags,
+  // A tag dims all but its closed neighbourhood (and rings once), an edge all but itself and its two tags,
   // a cluster all but its members.
   function applySelection(sel, changed) {
     const cy = G.cy;
-    let pulse = null;
+    let ringed = null;
     cy.batch(() => {
       cy.elements().removeClass("sel hot dim nb");
       if (!sel) return;
@@ -453,7 +459,7 @@
         if (el.isNode()) {
           keep = el.closedNeighborhood();
           el.connectedEdges().addClass("nb");
-          pulse = el;
+          ringed = el;
         } else {
           keep = el.union(el.connectedNodes());
         }
@@ -465,12 +471,25 @@
       cy.elements().not(keep).not(".region, .leaving").addClass("dim");
     });
     sizeLabels();
-    if (pulse && changed && dur()) {
-      const s = pulse.data("size");
-      pulse.animate({style: {width: s * 1.45, height: s * 1.45}}, {duration: 140,
-        complete: () => pulse.animate({style: {width: s, height: s}}, {duration: 200,
-          complete: () => pulse.removeStyle("width height")})});
-    }
+    if (ringed && changed && dur()) ring(ringed);
+  }
+
+  // The selected tag's ring: a DOM element over the canvas that only CSS animates (transform and opacity), so the
+  // compositor runs it smoothly even while Dash applies the Inspector, and the canvas never redraws for it.
+  function ring(node) {
+    dropRing();
+    const p = node.renderedPosition(), d = node.renderedOuterWidth();
+    const el = document.createElement("div");
+    el.className = "sel-ring";
+    el.style.cssText = `left:${G.el.offsetLeft + p.x - d / 2}px;top:${G.el.offsetTop + p.y - d / 2}px;` +
+                       `width:${d}px;height:${d}px`;
+    el.addEventListener("animationend", dropRing);
+    G.el.parentElement.appendChild(el);
+    G.ring = el;
+  }
+
+  function dropRing() {
+    if (G.ring) { G.ring.remove(); G.ring = null; }
   }
 
   // Zoom to a cluster: its region in Cluster-separated mode, its members' bounding box in Global.
@@ -507,15 +526,18 @@
     G.data = data;
     const moveSig = JSON.stringify([data.layout, data.positions, data.regions]);
     const sig = JSON.stringify([data.dataset, data.nodes, data.edges, moveSig]);
-    if (sig !== G.sig) {
+    const elementsChanged = sig !== G.sig;
+    if (elementsChanged) {
       const fresh = !prev || prev.dataset !== data.dataset, moved = moveSig !== G.moveSig;
       sync(data, fresh);
       if (fresh || moved) G.userMoved = false;
       if (!G.userMoved) fit(!!prev);  // the move and the fit run together; a new dataset only fits
       G.sig = sig; G.moveSig = moveSig;
     }
+    // The answer for a selection already drawn at the tap changes nothing: re-applying it would only take main
+    // thread time while the selection ring is still running.
     const selSig = JSON.stringify(data.selected);
-    if (!staleAnswer(selSig)) {
+    if (!staleAnswer(selSig) && (selSig !== G.selected || elementsChanged)) {
       applySelection(data.selected, selSig !== G.selected);
       G.selected = selSig;
     }
@@ -553,10 +575,20 @@
     if (!on) { delete panel.dataset.pending; return; }
     panel.dataset.pending = "1";
     if (!G.waitObserver) {
-      G.waitObserver = new MutationObserver(() => { delete panel.dataset.pending; clearTimeout(G.waitTimer); });
+      G.waitObserver = new MutationObserver(() => {
+        if (!panel.dataset.pending) return;
+        delete panel.dataset.pending;
+        clearTimeout(G.waitTimer);
+        // Now the main thread is free: show the selected tag if the (possibly already open) card covers it.
+        G.revealLater = false;
+        setTimeout(revealSelection, 0);
+      });
       G.waitObserver.observe(body, {childList: true, subtree: true, characterData: true});
     }
-    G.waitTimer = setTimeout(() => { delete panel.dataset.pending; }, 3000);  // never wait visibly for long
+    G.waitTimer = setTimeout(() => {  // never wait visibly for long
+      delete panel.dataset.pending;
+      if (G.revealLater) { G.revealLater = false; revealSelection(); }
+    }, 3000);
   }
 
   // A row of the Inspector's connected tags (one HTML block, see view.py) selects its link, like a tap on it.
