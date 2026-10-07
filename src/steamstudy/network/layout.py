@@ -59,6 +59,7 @@ class Layout:
     separated: Positions
     regions: list[dict[str, Any]]
     zoom: float = 1.0  # the zoom the Global labels are spaced for: the first fit on the canvas is at least this
+    separated_zoom: float = 1.0  # the same for the Cluster-separated layout
 
 
 @dataclass(frozen=True)
@@ -95,26 +96,24 @@ def layout_state(state: NetworkState, canvas: Canvas = REFERENCE_CANVAS, params:
 
 
 def lay_out(inp: LayoutInput, canvas: Canvas = REFERENCE_CANVAS, params: LayoutParams | None = None, *,
-            positions: Mapping[int, tuple[float, float]] | None = None) -> Layout:
-    """Both layouts for a canvas. `positions` replaces the computed Global positions (a Re-layout); the
-    Cluster-separated layout always starts from the Global one."""
+            positions: Mapping[int, tuple[float, float]] | None = None, separated: bool = True) -> Layout:
+    """Both layouts for a canvas (only the Global one without `separated`). `positions` replaces the computed
+    Global positions (a Re-layout); the Cluster-separated layout always starts from the Global one."""
     nodes = sorted(inp.graph.nodes)
     zoom = 1.0
     if positions is None:
         positions, zoom = global_layout(inp.graph, inp.start, inp.sizes, inp.widths, canvas, params or LayoutParams())
     global_ = {t: positions[t] for t in nodes}
-    separated, regions = cluster_separated_positions(inp.graph, inp.clusters, global_, inp.seed, centers=inp.centers,
-                                                     sizes=inp.sizes, aspect=canvas.aspect)
-    return Layout(global_, dict(inp.sizes), separated, regions, zoom)
+    if not separated:
+        return Layout(global_, dict(inp.sizes), {}, [], zoom)
+    apart, regions, apart_zoom = cluster_separated_positions(
+        inp.graph, inp.clusters, global_, centers=inp.centers, sizes=inp.sizes, widths=inp.widths, canvas=canvas,
+        zoom=zoom)
+    return Layout(global_, dict(inp.sizes), apart, regions, zoom, apart_zoom)
 
 
 GAP = 4.0  # free space kept between two nodes
 MIN_SIZE, SIZE_RANGE = 18.0, 30.0  # node diameter: MIN_SIZE + SIZE_RANGE * sqrt(n_games / most frequent tag's)
-REGION_UNIT = 90.0  # a Cluster-separated region's side per square root of its members
-REGION_GAP = 24.0  # between packed regions
-TITLE_ROOM = 26.0  # above each row of regions, for the region titles
-REGION_PAD = 8.0  # between a region's edge and its members
-ASPECT = 1.4  # default canvas aspect ratio the packed rows aim at
 
 
 def node_size(n_games: int, most_frequent: int) -> float:
@@ -297,7 +296,7 @@ def separate(xy: np.ndarray, boxes: Boxes, *, free: np.ndarray | None = None, cl
     the free one when the other is pinned; two pinned boxes are left as they are). Only pairs near each other
     are checked between full checks; it stops only when a full check finds no overlap. If that takes more than
     `max_rounds`, the free boxes spread out by a tenth and it starts again, so it always ends. A `clamp` is kept
-    after every round; a spread also widens the main component the clamp follows."""
+    before every full check; a spread also widens the main component the clamp follows."""
     n = len(xy)
     free = np.ones(n) if free is None else free
     if n < 2:
@@ -319,7 +318,9 @@ def _push_apart(xy: np.ndarray, free: np.ndarray, i_all: np.ndarray, j_all: np.n
     """`separate`'s rounds; whether a full check found no overlap."""
     pairs = np.zeros(0, dtype=int)
     for round_ in range(max_rounds):
-        if round_ % 5 == 0:  # refresh the pairs close enough to touch soon
+        if round_ % 5 == 0:  # keep the clamp, then refresh the pairs close enough to touch soon
+            if clamp is not None:
+                clamp(xy)
             near = np.abs(xy[i_all] - xy[j_all]) < need * 1.5 + 10.0
             pairs = np.flatnonzero(near[:, 0] & near[:, 1])
         i, j = i_all[pairs], j_all[pairs]
@@ -340,12 +341,11 @@ def _push_apart(xy: np.ndarray, free: np.ndarray, i_all: np.ndarray, j_all: np.n
         # Slightly more than the overlap, so pairs settle instead of creeping towards exactly the gap.
         step[rows, along] = sign * over[rows, along] * 1.02
         both = free[i] * free[j]
-        delta = np.zeros_like(xy)
-        np.add.at(delta, i, step * np.where(both > 0, 0.5, free[i])[:, None])
-        np.add.at(delta, j, -step * np.where(both > 0, 0.5, free[j])[:, None])
-        xy += delta
-        if clamp is not None:
-            clamp(xy)
+        share_i, share_j = np.where(both > 0, 0.5, free[i]), np.where(both > 0, 0.5, free[j])
+        n = len(xy)
+        for axis in (0, 1):
+            xy[:, axis] += (np.bincount(i, step[:, axis] * share_i, minlength=n)
+                            - np.bincount(j, step[:, axis] * share_j, minlength=n))
     over = need - np.abs(xy[i_all] - xy[j_all])
     return not (over > 1e-7).all(axis=1).any()
 
@@ -353,7 +353,7 @@ def _push_apart(xy: np.ndarray, free: np.ndarray, i_all: np.ndarray, j_all: np.n
 # ----------------------------------------------------------------------------- Global layout
 
 GRAVITY = 1.0  # ForceAtlas2 gravity: pulls tags without a visible link towards the graph
-FA2_ITERATIONS = 200
+FA2_ITERATIONS = 100
 FILL = 0.7  # the main component's share of the canvas, before the label-aware pass
 MAX_STRETCH = 1.6  # at most this much wider (or taller) than the layout's own shape, to fill the canvas
 CLAMP_ROOM = 1.5 * LABEL_HEIGHT  # how far beyond the main component's radius a tag may sit, in pixels
@@ -439,18 +439,24 @@ def _place(shape: np.ndarray, main: np.ndarray | None, sizes: np.ndarray, widths
         fit = fit_zoom(xy, sizes, widths, canvas)
         if fit >= zoom or zoom <= MIN_ZOOM or attempt == ATTEMPTS - 1:
             return xy, zoom
-        zoom = max(MIN_ZOOM, min(fit, zoom * 0.95))
+        zoom = _next_zoom(zoom, fit)
     raise AssertionError("unreachable")
 
 
-def _crowding_zoom(sizes: np.ndarray, widths: np.ndarray, canvas: Canvas) -> float:
-    """The highest zoom, at most 1, at which the boxes cover at most CROWDING of the canvas on screen."""
+def _next_zoom(zoom: float, fit: float) -> float:
+    """After an attempt at `zoom` fitted only at `fit`: lower labels grow in model units, so the next attempt
+    goes as far again below the fit (by the square root of the shortfall), but not below MIN_ZOOM."""
+    return max(MIN_ZOOM, min(fit, zoom * 0.95) * math.sqrt(min(fit / zoom, 1.0)))
+
+
+def _crowding_zoom(sizes: np.ndarray, widths: np.ndarray, canvas: Canvas, crowding: float = CROWDING) -> float:
+    """The highest zoom, at most 1, at which the boxes cover at most `crowding` of the canvas on screen."""
     def area(zoom: float) -> float:
         width = np.maximum(sizes * zoom, widths) + BOX_GAP
         height = sizes * zoom + LABEL_MARGIN + LABEL_HEIGHT + BOX_GAP
         return float((width * height).sum())
 
-    budget = CROWDING * canvas.width * canvas.height
+    budget = crowding * canvas.width * canvas.height
     if area(1.0) <= budget:
         return 1.0
     low, high = MIN_ZOOM, 1.0
@@ -507,82 +513,151 @@ def relayout(graph: nx.Graph, start: Mapping[Any, tuple[float, float]], seed: in
 
 # ----------------------------------------------------------------------------- Cluster-separated
 
-
-def cluster_separated_positions(graph: nx.Graph, clusters: list[Cluster], start: Mapping[Any, tuple[float, float]],
-                                seed: int, *, centers: Mapping[str, Any] | None = None,
-                                sizes: Mapping[Any, float] | None = None,
-                                aspect: float = ASPECT) -> tuple[dict[Any, tuple[float, float]], list[dict[str, Any]]]:
-    """One region per Multi-Tag Cluster, its side growing with the square root of its members; One-Tag Clusters
-    share one compact grid region, packed last. Regions are shelf-packed biggest first (label order), with
-    rows aimed at the canvas aspect ratio. Returns positions and the regions (top-left corner, width, height,
-    label and cluster)."""
-    sizes = sizes or {}
-    size = lambda t: float(sizes.get(t, MIN_SIZE))  # noqa: E731
-    boxes: list[tuple[str, str, dict[Any, tuple[float, float]], float, float]] = []
-    singles: list[Any] = []
-    for c in clusters:  # already in label order: multi-tag by size, then one-tag
-        members = sorted(c.members, key=_sort_key)
-        if c.size < 2:
-            singles.extend(members)
-            continue
-        center = (centers or {}).get(c.label)
-        if center not in c.members:
-            center = max(members, key=lambda t: (size(t), _neg(t)))
-        local, side = _region(graph, members, center, start, seed, size)
-        boxes.append((f"{c.label} · {len(members)} tags", c.label, local, side, side))
-    if singles:
-        cell = max(size(t) for t in singles) + GAP + 2 * REGION_PAD
-        cols = max(1, math.ceil(math.sqrt(len(singles))))
-        rows = math.ceil(len(singles) / cols)
-        local = {t: (((i % cols) - (cols - 1) / 2) * cell, ((i // cols) - (rows - 1) / 2) * cell)
-                 for i, t in enumerate(singles)}
-        boxes.append((f"one-tag clusters · {len(singles)} tags", "one_tag_pool", local, cols * cell, rows * cell))
-    corners = _shelf_pack([(w, h) for *_, w, h in boxes], aspect)
-    positions: dict[Any, tuple[float, float]] = {}
-    regions = []
-    for (label, cluster, local, w, h), (x, y) in zip(boxes, corners):
-        cx, cy = x + w / 2, y + h / 2
-        for t, (px, py) in local.items():
-            positions[t] = (cx + px, cy + py)
-        regions.append({"label": label, "cluster": cluster, "x": x, "y": y, "width": w, "height": h})
-    return positions, regions
+REGION_FILL = 2.5  # a region's area: its members' node-plus-label boxes times this
+REGION_GAP = 16.0  # between packed regions, in model units
+REGION_PAD = 8.0  # between a region's edge and its members' boxes, in model units
+REGION_START = FILL  # the members' share of the region's half side before the label-aware pass
+REGION_CROWDING = 0.3  # where the zoom search starts: packed regions take about three times their members' boxes
+TITLE_ROOM = 22.0  # above each row of regions, for the region titles (constant on screen), in pixels
 
 
-def _region(graph: nx.Graph, members: list[Any], center: Any, start: Mapping[Any, tuple[float, float]], seed: int,
-            size: Any) -> tuple[dict[Any, tuple[float, float]], float]:
-    """Members laid out around the pinned Cluster Center (at 0, 0) by a short seeded spring layout from their
-    global positions, then de-overlapped; returns their positions and the region's side."""
-    side = REGION_UNIT * math.sqrt(len(members))
-    origin = start.get(center, (0.0, 0.0))
-    init = {}
-    for i, t in enumerate(members):
-        if t in start:
-            init[t] = ((start[t][0] - origin[0]) / SCALE, (start[t][1] - origin[1]) / SCALE)
-        else:
-            init[t] = (0.01 * math.cos(i * 2.399963), 0.01 * math.sin(i * 2.399963))
-    init[center] = (0.0, 0.0)
-    pos = nx.spring_layout(graph.subgraph(members), pos=init, fixed=[center], iterations=30, weight="w", seed=seed)
-    others = [t for t in members if t != center]
-    # The others' centroid moves onto the Center and each axis fills the region, so members surround it.
-    mx = sum(float(pos[t][0]) for t in others) / len(others)
-    my = sum(float(pos[t][1]) for t in others) / len(others)
-    shifted = {t: (float(pos[t][0]) - mx, float(pos[t][1]) - my) for t in others}
-    ex = max(abs(x) for x, _ in shifted.values()) or 1.0
-    ey = max(abs(y) for _, y in shifted.values()) or 1.0
-    inner = side / 2 - REGION_PAD - max(size(t) for t in members) / 2
-    local = {t: (x / ex * inner, y / ey * inner) for t, (x, y) in shifted.items()}
-    local[center] = (0.0, 0.0)
-    local = remove_overlaps(local, {t: size(t) for t in members}, fixed=[center])
-    needed = max(max(abs(x), abs(y)) + size(t) / 2 for t, (x, y) in local.items()) + REGION_PAD
-    return local, max(side, 2 * needed)
+def cluster_separated_positions(graph: nx.Graph, clusters: list[Cluster], start: Mapping[int, tuple[float, float]],
+                                *, centers: Mapping[str, int | None], sizes: Mapping[int, float],
+                                widths: Mapping[int, float], canvas: Canvas = REFERENCE_CANVAS,
+                                zoom: float = 1.0) -> tuple[Positions, list[dict[str, Any]], float]:
+    """One region per Multi-Tag Cluster, with its Center pinned in the middle; One-Tag Clusters share one grid
+    region, listed last. Regions are shelf-packed in label order or tallest first, whichever packs tighter, rows
+    aimed at the canvas aspect.
+    Like the Global layout, the labels are spaced for the highest zoom (down to MIN_ZOOM) at which the first fit
+    holds them all, starting from `zoom` (the Global layout's: regions never need less room). Returns positions,
+    the regions (top-left corner, width, height, label and cluster) and that zoom."""
+    multi = [c for c in clusters if c.size >= 2]
+    singles = sorted(t for c in clusters if c.size < 2 for t in c.members)
+    shapes = {c.label: _region_shape(graph, c, centers.get(c.label), start, sizes) for c in multi}
+    tags = sorted(t for c in clusters for t in c.members)
+    zoom = min(zoom, _crowding_zoom(np.array([sizes[t] for t in tags], dtype=float),
+                                    np.array([widths[t] for t in tags], dtype=float), canvas, REGION_CROWDING))
+    for attempt in range(ATTEMPTS):
+        boxes: list[tuple[str, str, Positions, float, float]] = []
+        for c in multi:
+            local, w, h = _region_members(shapes[c.label], sizes, widths, zoom)
+            boxes.append((f"{c.label} · {c.size} tags", c.label, local, w, h))
+        if singles:
+            local, w, h = _pool(singles, sizes, widths, zoom)
+            boxes.append((f"one-tag clusters · {len(singles)} tags", "one_tag_pool", local, w, h))
+        corners = _pack([(w, h) for *_, w, h in boxes], canvas.aspect, TITLE_ROOM / zoom)
+        positions: Positions = {}
+        regions = []
+        for (label, cluster, local, w, h), (x, y) in zip(boxes, corners):
+            for t, (px, py) in local.items():
+                positions[t] = (x + w / 2 + px, y + h / 2 + py)
+            regions.append({"label": label, "cluster": cluster, "x": x, "y": y, "width": w, "height": h})
+        fit = _regions_fit(regions, canvas)
+        if fit >= zoom or zoom <= MIN_ZOOM or attempt == ATTEMPTS - 1:
+            return positions, regions, zoom
+        zoom = _next_zoom(zoom, fit)
+    raise AssertionError("unreachable")
 
 
-def _shelf_pack(boxes: list[tuple[float, float]], aspect: float) -> list[tuple[float, float]]:
+def _region_shape(graph: nx.Graph, cluster: Cluster, center: int | None, start: Mapping[int, tuple[float, float]],
+                  sizes: Mapping[int, float]) -> tuple[list[int], int, np.ndarray, np.ndarray]:
+    """ForceAtlas2 on a cluster's members from their Global positions, centred on the Center (or, without one,
+    on the largest member). Members, the Center's index among them, their positions and the mask of the
+    members' own main component."""
+    keys = sorted(cluster.members)
+    if center not in cluster.members:
+        center = max(keys, key=lambda t: (sizes.get(t, MIN_SIZE), -t))
+    sub = graph.subgraph(keys)
+    xy = _forceatlas2(sub, keys, start, GRAVITY)
+    i = keys.index(center)
+    return keys, i, xy - xy[i], _main_component(sub, keys)
+
+
+def _region_members(shape: tuple[list[int], int, np.ndarray, np.ndarray], sizes: Mapping[int, float],
+                    widths: Mapping[int, float], zoom: float) -> tuple[Positions, float, float]:
+    """A region's members around its pinned Center (at 0, 0), the Global layout's way: the shape scaled to FILL
+    of a square of REGION_FILL times the members' box area, the clamp, and the label-aware pass. The region is
+    that square, or larger when its members need it, with the Center in the middle. Returns the members'
+    positions and the region's size."""
+    keys, center, raw, main = shape
+    s = np.array([sizes[t] for t in keys], dtype=float)
+    boxes = Boxes(s, np.array([widths[t] for t in keys], dtype=float), zoom)
+    side = math.sqrt(REGION_FILL * float((4 * boxes.half_width * boxes.half_height).sum()))
+    # The other members' centroid moves onto the Center and each axis fills the square, so members surround it.
+    others = np.arange(len(keys)) != center
+    xy = raw - (raw[others].mean(axis=0) if others.any() else 0.0)
+    reach = np.abs(xy[others]).max(axis=0) if others.any() else np.zeros(2)
+    xy = xy * np.where(reach > 1e-9, REGION_START * side / 2 / np.maximum(reach, 1e-9), 0.0)
+    xy[center] = 0.0
+    free = np.ones(len(keys))
+    free[center] = 0.0
+    clamp = Clamp(main, CLAMP_ROOM / zoom) if main.sum() >= 2 else None
+    if clamp is not None:
+        clamp(xy)
+    separate(xy, boxes, free=free, clamp=clamp)
+    half_w = float((np.abs(xy[:, 0]) + boxes.half_width).max())
+    half_h = float(max((-(xy[:, 1] + boxes.top)).max(), (xy[:, 1] + boxes.bottom).max()))
+    width = max(side, 2 * (half_w + REGION_PAD))
+    height = max(side, 2 * (half_h + REGION_PAD))
+    return {t: (float(x), float(y)) for t, (x, y) in zip(keys, xy)}, width, height
+
+
+def _pool(singles: list[int], sizes: Mapping[int, float], widths: Mapping[int, float],
+          zoom: float) -> tuple[Positions, float, float]:
+    """The One-Tag Clusters' grid: every cell as wide as the longest label (or node) and as tall as the biggest
+    node with its label; about as many columns as rows by area."""
+    s = np.array([sizes[t] for t in singles], dtype=float)
+    boxes = Boxes(s, np.array([widths[t] for t in singles], dtype=float), zoom)
+    cell_w = 2 * float(boxes.half_width.max()) + boxes.gap
+    cell_h = float(s.max()) + (LABEL_MARGIN + LABEL_HEIGHT) / zoom + boxes.gap
+    cols = max(1, math.ceil(math.sqrt(len(singles) * cell_h / cell_w)))
+    rows = math.ceil(len(singles) / cols)
+    drop = (LABEL_MARGIN + LABEL_HEIGHT) / zoom / 2  # the node sits above its label, the pair centred in the cell
+    local = {t: (((i % cols) - (cols - 1) / 2) * cell_w, ((i // cols) - (rows - 1) / 2) * cell_h - drop)
+             for i, t in enumerate(singles)}
+    return local, cols * cell_w + 2 * REGION_PAD, rows * cell_h + 2 * REGION_PAD
+
+
+def _regions_fit(regions: list[dict[str, Any]], canvas: Canvas) -> float:
+    """The first fit of packed regions with their titles (constant on screen): the largest zoom, at most 1."""
+    if not regions:
+        return 1.0
+    x1 = min(r["x"] for r in regions)
+    x2 = max(r["x"] + r["width"] for r in regions)
+    y2 = max(r["y"] + r["height"] for r in regions)
+
+    def fits(zoom: float) -> bool:
+        y1 = min(r["y"] - TITLE_ROOM / zoom for r in regions)
+        return (x2 - x1) * zoom <= canvas.width and (y2 - y1) * zoom <= canvas.height
+
+    if fits(1.0):
+        return 1.0
+    low, high = 1e-3, 1.0
+    for _ in range(40):
+        mid = (low + high) / 2
+        low, high = (mid, high) if fits(mid) else (low, mid)
+    return low
+
+
+def _pack(boxes: list[tuple[float, float]], aspect: float, title_room: float) -> list[tuple[float, float]]:
+    """`_shelf_pack` of the boxes in their order and tallest first (ties in their order); the better one wins."""
+    tallest = sorted(range(len(boxes)), key=lambda i: (-boxes[i][1], i))
+    score, corners = _shelf_pack(boxes, aspect, title_room)
+    other_score, other = _shelf_pack([boxes[i] for i in tallest], aspect, title_room)
+    if other_score < score - 1e-9:
+        corners = [(0.0, 0.0)] * len(boxes)
+        for k, i in enumerate(tallest):
+            corners[i] = other[k]
+    return corners
+
+
+def _shelf_pack(boxes: list[tuple[float, float]], aspect: float,
+                title_room: float) -> tuple[float, list[tuple[float, float]]]:
     """Top-left corners for boxes placed in rows (each row topped by room for the titles), each box in the first
     row with room for it. Every contiguous run of boxes is tried as the row width; the packing whose bounding
-    box is smallest, weighted by how far its shape is from `aspect`, wins."""
+    box is smallest, weighted by how far its shape is from `aspect`, wins. Returns its score and corners."""
     if not boxes:
-        return []
+        return 0.0, []
     widths = [w for w, _ in boxes]
     candidates = sorted({sum(widths[i:j]) + REGION_GAP * (j - i - 1)
                          for i in range(len(boxes)) for j in range(i + 1, len(boxes) + 1)})
@@ -590,16 +665,17 @@ def _shelf_pack(boxes: list[tuple[float, float]], aspect: float) -> list[tuple[f
     for row_width in candidates:
         if row_width < max(widths) - 1e-9:
             continue
-        corners, width, height = _shelves(boxes, row_width)
+        corners, width, height = _shelves(boxes, row_width, title_room)
         ratio = width / height if height else aspect
         score = width * height * max(ratio / aspect, aspect / ratio) ** 0.5
         if best is None or score < best[0] - 1e-9:
             best = (score, corners)
     assert best is not None
-    return best[1]
+    return best
 
 
-def _shelves(boxes: list[tuple[float, float]], row_width: float) -> tuple[list[tuple[float, float]], float, float]:
+def _shelves(boxes: list[tuple[float, float]], row_width: float,
+             title_room: float) -> tuple[list[tuple[float, float]], float, float]:
     """First fit: rows are [used width, height]; a box opens a new row only when no row has room for it."""
     rows: list[list[float]] = []
     placed: list[tuple[int, float]] = []
@@ -613,10 +689,10 @@ def _shelves(boxes: list[tuple[float, float]], row_width: float) -> tuple[list[t
         else:
             placed.append((len(rows), 0.0))
             rows.append([w, h])
-    tops, y = [], TITLE_ROOM
+    tops, y = [], title_room
     for _, h in rows:
         tops.append(y)
-        y += h + REGION_GAP + TITLE_ROOM
+        y += h + REGION_GAP + title_room
     width = max(used for used, _ in rows)
     return [(x, tops[i]) for i, x in placed], width, tops[-1] + rows[-1][1]
 
@@ -627,8 +703,3 @@ def _sort_key(key: Any) -> tuple[int, Any]:
         return 0, int(key)
     except (TypeError, ValueError):
         return 1, str(key)
-
-
-def _neg(key: Any) -> Any:
-    k = _sort_key(key)
-    return (-k[1],) if k[0] == 0 else (0,)

@@ -15,6 +15,8 @@ No analytical result changes. Layout parameters (gravity, canvas size, spacing, 
 
 **Amendment (2026-10-07, during implementation):** "the first fit in a 1440 × 900 and a 1280 × 800 Workbench" means the Workbench with the **Tables and the Inspector closed** (Controls open). Measured free graph areas: 1116 × 678 and 956 × 561. With every panel docked the free area is only 764 × 352 and 604 × 252. There, the default states' node-plus-label boxes need 127–153k px² even at the smallest zoom that keeps nodes at 14 px, which is 47–57 % and 83–100 % of the free area. A force layout that keeps the graph's structure cannot pack that densely. The reference canvas for exports is 1116 × 678. With more panels open, the same layout fits zoomed out and labels are culled by rank, as for a large set.
 
+**Amendment (2026-10-07, during issue 05):** the Goal holds strictly for the **Global** layout. The **Cluster-separated** layout is best effort. A region needs at least 2.5× its members' node-plus-label area and packing adds 1.2–1.9×, so it needs about twice the Global layout's room. Its labels are spaced for the highest zoom down to 0.55 at which the first fit holds them. Where the regions don't fit even at 0.55, the first fit is lower and labels are culled by rank, as for a large set. Measured on Build `20261006T062622Z-7a23ae9f`: at 1116 × 678 Overall, Puzzle and RPG fit at 0.78–0.86, Strategy and Simulation need about 0.5. At 956 × 561 all five need 0.40–0.53.
+
 ## Facts found while grilling
 
 Measured on Build `20261006T062622Z-7a23ae9f`, default states (thresholds 8 / 8, Genre Tags and the defining tag hidden, seed 20261003):

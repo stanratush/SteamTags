@@ -17,8 +17,8 @@ from steamstudy.app.loader import load_build
 from steamstudy.build.core import build
 from steamstudy.build.writer import write_build
 from steamstudy.config import load_config
-from steamstudy.network.layout import (LABEL_HEIGHT, LABEL_MARGIN, Canvas, Layout, LayoutParams, label_width,
-                                      layout_state, loose_layout, node_sizes, relayout)
+from steamstudy.network.layout import (LABEL_HEIGHT, LABEL_MARGIN, MIN_ZOOM, TITLE_ROOM, Canvas, Layout,
+                                      LayoutParams, label_width, layout_state, loose_layout, node_sizes, relayout)
 from steamstudy.network.model import Game, Settings
 from steamstudy.network.state import compute_state
 from steamstudy.snapshot import Snapshot
@@ -243,10 +243,12 @@ def _box_overlaps(boxes):
             and boxes[a][1] < boxes[b][3] and boxes[b][1] < boxes[a][3]]
 
 
-def _fit_zoom(state, positions, sizes, canvas):
-    """The first fit: the largest zoom, at most 1, at which every node and label is inside the canvas."""
+def _fit_zoom(state, positions, sizes, canvas, regions=()):
+    """The first fit: the largest zoom, at most 1, at which every node and label (and every region with its
+    title, 22 px above it) is inside the canvas."""
     def fits(zoom):
-        boxes = _boxes(state, positions, sizes, zoom).values()
+        boxes = list(_boxes(state, positions, sizes, zoom).values())
+        boxes += [(r["x"], r["y"] - TITLE_ROOM / zoom, r["x"] + r["width"], r["y"] + r["height"]) for r in regions]
         width = max(b[2] for b in boxes) - min(b[0] for b in boxes)
         height = max(b[3] for b in boxes) - min(b[1] for b in boxes)
         return width * zoom <= canvas.width and height * zoom <= canvas.height
@@ -296,7 +298,7 @@ def test_a_small_set_sits_centred_at_its_designed_size():
             dx = abs((x1 + x2) / 2 - (ox1 + ox2) / 2) / (((x2 - x1) + (ox2 - ox1)) / 2)
             dy = abs((y1 + y2) / 2 - (oy1 + oy2) / 2) / (((y2 - y1) + (oy2 - oy1)) / 2)
             return max(dx, dy)
-        assert min(need(u) for u in boxes if u != t) <= 3.0
+        assert min(need(u) for u in boxes if u != t) <= 3.0 + 1e-9
     assert _box_overlaps(boxes) == []
 
 
@@ -312,7 +314,8 @@ def test_label_widths_come_from_a_fixed_table():
 @pytest.mark.parametrize("loosest", [False, True])
 def test_regions_are_packed_tightly_with_each_center_in_the_middle(ctx, dataset, loosest):
     state = _state(ctx, dataset, loosest)
-    positions, regions = _separated(state)
+    layout = layout_state(state)
+    positions, regions, zoom = layout.separated, layout.regions, layout.separated_zoom
     multi = [c for c in state.clusters if c.size >= 2]
     assert [r["cluster"] for r in regions[:len(multi)]] == [c.label for c in multi]
     x1 = min(r["x"] for r in regions)
@@ -320,30 +323,65 @@ def test_regions_are_packed_tightly_with_each_center_in_the_middle(ctx, dataset,
     x2 = max(r["x"] + r["width"] for r in regions)
     y2 = max(r["y"] + r["height"] for r in regions)
     assert (x2 - x1) * (y2 - y1) <= 1.5 * sum(r["width"] * r["height"] for r in regions)
+    boxes = _boxes(state, positions, layout.sizes, zoom)
     for c, r in zip(multi, regions):
         center = state.centers[c.label].center
         cx, cy = positions[center]
         assert cx == pytest.approx(r["x"] + r["width"] / 2) and cy == pytest.approx(r["y"] + r["height"] / 2)
-        for t in c.members:  # every member inside its region
-            px, py = positions[t]
-            radius = layout_state(state).sizes[t] / 2
-            assert r["x"] <= px - radius and px + radius <= r["x"] + r["width"]
-            assert r["y"] <= py - radius and py + radius <= r["y"] + r["height"]
+    members = {t: r for c, r in zip(multi, regions) for t in c.members}
     if len(state.clusters) > len(multi):
         assert regions[-1]["cluster"] == "one_tag_pool"
+        members.update({min(c.members): regions[-1] for c in state.clusters if c.size == 1})
+    for t, r in members.items():  # every member's node and label inside its region
+        bx1, by1, bx2, by2 = boxes[t]
+        assert r["x"] <= bx1 and bx2 <= r["x"] + r["width"] and r["y"] <= by1 and by2 <= r["y"] + r["height"]
 
 
-def test_region_side_grows_with_the_square_root_of_its_members(ctx):
+def test_a_region_is_sized_by_its_members_label_boxes(ctx):
     state = _state(ctx, "overall", loosest=True)
-    _, regions = _separated(state)
-    sizes = {c.label: c.size for c in state.clusters}
-    multi = [r for r in regions if r["cluster"] in sizes]
-    assert len(multi) >= 2
-    for r in multi:
-        assert r["width"] == pytest.approx(r["height"])
-    big, small = multi[0], multi[-1]
-    if sizes[big["cluster"]] > sizes[small["cluster"]]:
-        assert big["width"] > small["width"]
+    layout = layout_state(state)
+    boxes = _boxes(state, layout.separated, layout.sizes, layout.separated_zoom)
+    area = {c.label: sum((boxes[t][2] - boxes[t][0]) * (boxes[t][3] - boxes[t][1]) for t in c.members)
+            for c in state.clusters if c.size >= 2}
+    regions = [r for r in layout.regions if r["cluster"] in area]
+    assert len(regions) >= 2
+    for r in regions:
+        assert 2.5 * area[r["cluster"]] <= r["width"] * r["height"] <= 6 * area[r["cluster"]]
+    big = max(regions, key=lambda r: area[r["cluster"]])
+    small = min(regions, key=lambda r: area[r["cluster"]])
+    assert big["width"] * big["height"] > small["width"] * small["height"]
+
+
+def test_the_one_tag_pool_is_a_grid_as_wide_as_its_longest_label():
+    names = {i: f"tag {i}" for i in range(1, 7)} | {7: "A Very Long Single Tag Name", 8: "x"}
+    rows = [(1, 2, 3)] * 3 + [(4, 5, 6)] * 3 + [(7,)] * 2 + [(8,)] * 2
+    games = [Game(i, f"g{i}", i + 1, 12, tags, tuple(names[t] for t in tags)) for i, tags in enumerate(rows)]
+    state = compute_state(games, Settings(build_id="pool", dataset="overall", min_games_per_tag=1,
+                                          min_shared_games=2, seed=2, null_replicates=2, noise_seeds=2))
+    singles = [min(c.members) for c in state.clusters if c.size == 1]
+    assert sorted(singles) == [7, 8]
+    layout = layout_state(state)
+    pool = layout.regions[-1]
+    assert pool["cluster"] == "one_tag_pool"
+    assert pool["width"] >= label_width(names[7]) / layout.separated_zoom
+    boxes = _boxes(state, layout.separated, layout.sizes, layout.separated_zoom)
+    assert _box_overlaps({t: boxes[t] for t in singles}) == []
+
+
+@pytest.mark.parametrize("canvas", CANVASES, ids=["1440x900", "1280x800"])
+@pytest.mark.parametrize("dataset", DATASETS)
+def test_the_cluster_separated_labels_fit_at_the_first_fit_when_the_regions_allow(ctx, dataset, canvas):
+    """Best effort (the spec's amendment): the labels never overlap at the zoom they were spaced for, and the first
+    fit is at least that zoom unless even MIN_ZOOM could not hold the regions."""
+    state = _state(ctx, dataset)
+    layout = layout_state(state, canvas)
+    assert layout.separated_zoom >= MIN_ZOOM
+    assert _box_overlaps(_boxes(state, layout.separated, layout.sizes, layout.separated_zoom)) == []
+    zoom = _fit_zoom(state, layout.separated, layout.sizes, canvas, layout.regions)
+    if layout.separated_zoom > MIN_ZOOM:
+        assert zoom >= layout.separated_zoom - 1e-6
+    assert _box_overlaps(_boxes(state, layout.separated, layout.sizes, zoom)) == [] or zoom < layout.separated_zoom
+    assert min(layout.sizes.values()) * layout.separated_zoom >= 14.0
 
 
 def test_overlap_removal_always_ends_without_overlaps_even_when_rounds_run_out():

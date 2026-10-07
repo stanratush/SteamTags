@@ -234,17 +234,19 @@ def render_graph(base, layout_mode, relayout_store, selection, canvas=None):
     the canvas the browser reports (exports use the reference canvas)."""
     if not base:
         raise PreventUpdate
-    layout = lay_out(layout_input_from_base(base), canvas_of(canvas), positions=relayout_positions(base, relayout_store))
+    layout = lay_out(layout_input_from_base(base), canvas_of(canvas), positions=relayout_positions(base, relayout_store),
+                     separated=layout_mode == "separated")
     regions: list[dict[str, Any]] = []
-    positions = layout.positions
+    positions, zoom = layout.positions, layout.zoom
     if layout_mode == "separated":
+        zoom = layout.separated_zoom
         positions = layout.separated
         regions = [dict(r) for r in layout.regions]
         for r in regions:
             r["color"] = R.REGION_COLOR if r["cluster"] == "one_tag_pool" else cluster_color(r["cluster"], "multi_tag")
     return R.payload(base["nodes"], base["edges"], {str(t): list(p) for t, p in positions.items()},
                      dataset=base["dataset"], layout=layout_mode, regions=regions, selection=selection,
-                     max_shared=base["max_shared"], basis=base["basis"], zoom=layout.zoom)
+                     max_shared=base["max_shared"], basis=base["basis"], zoom=zoom)
 
 
 def show_selection(selection):
@@ -262,7 +264,7 @@ def do_relayout(_n, base, relayout_store, canvas=None):
     if not base:
         raise PreventUpdate
     inp = layout_input_from_base(base)
-    positions = relayout_positions(base, relayout_store) or lay_out(inp, canvas_of(canvas)).positions
+    positions = relayout_positions(base, relayout_store) or lay_out(inp, canvas_of(canvas), separated=False).positions
     refined = relayout(inp.graph, positions, base["seed"], sizes=inp.sizes)
     return {"basis": base["basis"], "positions": {str(k): list(v) for k, v in refined.items()}}
 

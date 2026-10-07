@@ -259,7 +259,8 @@
   }
 
   // Zoomed out below the zoom the layout spaced the labels for (or below the first fit), hide each label that
-  // overlaps a higher-ranked one; the selection and its neighbours always show. Otherwise every label shows.
+  // overlaps a higher-ranked one or another tag's node; the selection and its neighbours always show. Otherwise
+  // every label shows.
   function cull() {
     const cy = G.cy;
     const labelled = cy.nodes().not(".region, .leaving");
@@ -270,15 +271,22 @@
     }
     const hot = labelled.filter(".hot");
     const rest = labelled.not(".hot").sort((a, b) => a.data("prio") - b.data("prio"));
-    const area = (n) => n.boundingBox({includeNodes: false, includeEdges: false, includeLabels: true,
-                                       includeOverlays: false});
+    const halo = HALO / cy.zoom();
+    const area = (n) => {  // the label's text box with its halo (boundingBox() pads labels by several pixels)
+      const b = n.boundingBox({includeNodes: false, includeEdges: false, includeLabels: true, includeOverlays: false});
+      const r = n._private.rstyle;
+      if (r.labelX == null) return b;
+      return {x1: r.labelX - r.labelWidth / 2 - halo, x2: r.labelX + r.labelWidth / 2 + halo,
+              y1: r.labelY - r.labelHeight / 2 - halo, y2: r.labelY + r.labelHeight / 2 + halo};
+    };
     const hits = (a, b) => a.x1 < b.x2 && b.x1 < a.x2 && a.y1 < b.y2 && b.y1 < a.y2;
     const kept = hot.map(area);
+    const nodes = labelled.map((n) => ({id: n.id(), box: n.boundingBox({includeLabels: false, includeOverlays: false})}));
     cy.batch(() => {
       hot.removeClass("lbl-off");
-      rest.forEach((n) => {
+      rest.forEach((n) => {  // a label also never covers another tag's node
         const b = area(n);
-        if (kept.some((k) => hits(k, b))) n.addClass("lbl-off");
+        if (kept.some((k) => hits(k, b)) || nodes.some((o) => o.id !== n.id() && hits(o.box, b))) n.addClass("lbl-off");
         else { kept.push(b); n.removeClass("lbl-off"); }
       });
     });
