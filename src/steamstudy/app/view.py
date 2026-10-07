@@ -7,7 +7,7 @@ import math
 import re
 from typing import Any
 
-from dash import dcc, html
+from dash import html
 
 from steamstudy.export import schema as S
 from steamstudy.network.metrics import within_z_cap
@@ -139,7 +139,7 @@ class Markup(str):
     """HTML that is already escaped (a value with its note, a bold number) for `_kv`."""
 
 
-def _kv(rows: list[tuple[str, Any]]) -> dcc.Markdown:
+def _kv(rows: list[tuple[str, Any]]) -> html.Div:
     """Metrics as a two-column list: muted plain names (tooltip: description and column), values. One component
     (see `_html`)."""
     items = "".join(f'<dt title="{_e(label_tip(label))}">{_e(label)}</dt>'
@@ -181,13 +181,15 @@ def connected_tags(tables: dict[str, Any], tag: int) -> list[dict[str, Any]]:
     return sorted(out, key=lambda c: (-c["shared"], str(c["tag"]).lower()))
 
 
-# Long lists in the Inspector are one component of escaped HTML each: Dash's renderer costs grow faster than the
+# Long lists in the Inspector are one element of escaped HTML each: Dash's renderer costs grow faster than the
 # number of components it mounts, so a table of a few hundred cells took seconds to swap for the next tag's.
+# workbench.js puts the HTML in place (no Markdown parsing, no React element per cell).
 
 
-def _html(text: str) -> dcc.Markdown:
-    """Escaped HTML (one line, so no Markdown applies) as a single component."""
-    return dcc.Markdown(text, dangerously_allow_html=True, className="html-block")
+def _html(text: str) -> html.Div:
+    """Escaped HTML as a single element; workbench.js sets it as the element's content."""
+    attrs: dict[str, Any] = {"data-html": text}
+    return html.Div(className="html-block", **attrs)
 
 
 def _e(value: Any) -> str:

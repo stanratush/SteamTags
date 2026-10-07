@@ -21,6 +21,8 @@
 
    Motion is brief and never continuous: moves, fades, the selection pulse and animated fits take about
    350 ms, and all of it is instant under prefers-reduced-motion. A new dataset only fits (animated).
+   A tap is drawn at once (selectNow); the server's matching answer changes nothing, and an answer for an
+   earlier tap is dropped. Selecting never asks for a layout or any analysis.
    Dragged positions are view-only: kept (per layout) while the layout basis is the same, dropped when the
    dataset, Minimum Months Filter, Clustering Weight or seed changes. Those dragged in the Global layout go
    back on the `graph-dragged` store only for Tidy, which keeps them where they were dropped. The canvas reports its
@@ -72,20 +74,10 @@
       {selector: "node.sel", style: {"border-width": 3, "border-color": "#2457d6", "z-index": 30}},
       {selector: "edge.sel", style: {"line-color": "#2457d6", "opacity": 0.95}},
       {selector: "node.lbl-off", style: {"text-opacity": 0, "text-background-opacity": 0}},
-      // Colour changes and dimming cross-fade (off under reduced motion, see transitions()).
-      {selector: "node, edge", style: {"transition-property": "background-color, line-color, opacity",
-                                       "transition-duration": 0, "transition-timing-function": "ease-in-out"}},
+      // No style cross-fades: a selection dims or lights up every element at once, and fading them all costs
+      // more per frame than the change itself.
     ];
   }
-
-  // Style transitions follow prefers-reduced-motion, also when it changes while the page is open.
-  function transitions() {
-    if (G.cy && G.transition !== dur()) {
-      G.transition = dur();
-      G.cy.style().selector("node, edge").style("transition-duration", G.transition / 1000).update();
-    }
-  }
-  reduced.addEventListener("change", transitions);
 
   function emit(event) {
     event.nonce = Date.now() + Math.random();  // repeated taps on the same element still fire
@@ -103,18 +95,29 @@
   function mount(el) {
     const cy = cytoscape({container: el, style: style(), elements: [], minZoom: 0.05, maxZoom: 5,
                           boxSelectionEnabled: false, autounselectify: true});
+    // A tap is sent to the server (which still decides the selection and fills the Inspector) and drawn at once
+    // (selectNow) while the request is on its way; the server's matching answer then changes nothing.
     cy.on("tap", "node", (ev) => {
       const n = ev.target;
       if (n.hasClass("leaving")) return;
-      if (!n.hasClass("region")) emit({kind: "node", id: n.id()});
-      else if (onTitle(n, ev.position)) emit({kind: "region", cluster: n.data("cluster")});
-      else emit({kind: "background"});  // only a region's title is clickable
+      if (!n.hasClass("region")) {
+        emit({kind: "node", id: n.id()});
+        selectNow({kind: "node", id: n.id()});
+      } else if (onTitle(n, ev.position)) {
+        emit({kind: "region", cluster: n.data("cluster")});
+        if (n.data("cluster") !== "one_tag_pool") selectNow({kind: "cluster", id: n.data("cluster")});
+      } else {
+        emit({kind: "background"});  // only a region's title is clickable
+        selectNow(null);
+      }
     });
     cy.on("tap", "edge", (ev) => {
       const e = ev.target;
-      if (!e.hasClass("leaving")) emit({kind: "edge", id: e.id(), source: e.data("source"), target: e.data("target")});
+      if (e.hasClass("leaving")) return;
+      emit({kind: "edge", id: e.id(), source: e.data("source"), target: e.data("target")});
+      selectNow({kind: "edge", id: e.id()});
     });
-    cy.on("tap", (ev) => { if (ev.target === cy) emit({kind: "background"}); });
+    cy.on("tap", (ev) => { if (ev.target === cy) { emit({kind: "background"}); selectNow(null); } });
     cy.on("dragfree", "node", (ev) => {  // a dragged position, kept per layout
       const n = ev.target;
       if (!G.data || !G.data.positions[n.id()] || n.hasClass("region")) return;
@@ -297,13 +300,18 @@
 
   // ------------------------------------------------------------------ labels
 
+  // Label sizes follow the zoom; they are set again only when it (or the set of elements) changed, so a new
+  // selection only re-culls.
   function sizeLabels() {
     const cy = G.cy, z = cy.zoom();
-    cy.batch(() => {
-      cy.nodes().not(".region").style({"font-size": LABEL_PX / z, "text-margin-y": 2 / z,
-                                       "text-outline-width": HALO / z, "text-background-padding": 2 / z});
-      cy.nodes(".region").style({"font-size": TITLE_PX / z, "text-margin-y": -4 / z});
-    });
+    if (z !== G.sizedZoom) {
+      cy.batch(() => {
+        cy.nodes().not(".region").style({"font-size": LABEL_PX / z, "text-margin-y": 2 / z,
+                                         "text-outline-width": HALO / z, "text-background-padding": 2 / z});
+        cy.nodes(".region").style({"font-size": TITLE_PX / z, "text-margin-y": -4 / z});
+      });
+      G.sizedZoom = z;
+    }
     cull();
   }
 
@@ -371,6 +379,7 @@
   }
 
   function sync(data, fresh) {
+    G.sizedZoom = null;  // new elements need their label sizes
     const cy = G.cy;
     if (JSON.stringify(data.basis) !== JSON.stringify(G.basis)) {
       G.dragged = {global: {}, separated: {}};
@@ -491,9 +500,8 @@
     if (!data || !data.nodes || !el) return noUpdate;
     if (!G.cy || G.el !== el) {
       if (G.cy) G.cy.destroy();
-      G.el = el; G.cy = mount(el); G.data = null; G.sig = null; G.moveSig = null; G.transition = null;
+      G.el = el; G.cy = mount(el); G.data = null; G.sig = null; G.moveSig = null; G.local = [];
     }
-    transitions();
     if (!G.canvas) reportCanvas(); else scheduleReport();
     const prev = G.data;
     G.data = data;
@@ -507,10 +515,48 @@
       G.sig = sig; G.moveSig = moveSig;
     }
     const selSig = JSON.stringify(data.selected);
-    applySelection(data.selected, selSig !== G.selected);
-    G.selected = selSig;
+    if (!staleAnswer(selSig)) {
+      applySelection(data.selected, selSig !== G.selected);
+      G.selected = selSig;
+    }
     runView(data.view);
     return Date.now();
+  }
+
+  // ------------------------------------------------------------------ instant selection
+
+  // Draw a tapped selection at once, before the server answers, and mark the Inspector as waiting for it.
+  function selectNow(ref) {
+    const sig = JSON.stringify(ref);
+    G.local = (G.local || []).concat([sig]).slice(-8);  // drawn here, not yet confirmed by the server
+    if (sig === G.selected) return;
+    applySelection(ref, true);  // at once: drawing later only competes with Dash handling the answers
+    G.selected = sig;
+    inspectorWaiting(ref !== null);
+  }
+
+  // The server answers taps in order. An answer for an earlier tap than the last one drawn here is stale: drop
+  // it (and everything before it) instead of flashing back to it. Any other answer stands.
+  function staleAnswer(sig) {
+    const local = G.local || [], i = local.lastIndexOf(sig);
+    if (i < 0) { G.local = []; return false; }
+    G.local = local.slice(i + 1);
+    return i < local.length - 1;
+  }
+
+  // Until the Inspector's new content arrives, app.css fades the old one slightly (after 60 ms, so a quick answer
+  // never flickers) and opens a floating card at once. Any change of its content ends the wait.
+  function inspectorWaiting(on) {
+    const panel = document.getElementById("inspector-panel"), body = document.getElementById("inspector-body");
+    if (!panel || !body) return;
+    clearTimeout(G.waitTimer);
+    if (!on) { delete panel.dataset.pending; return; }
+    panel.dataset.pending = "1";
+    if (!G.waitObserver) {
+      G.waitObserver = new MutationObserver(() => { delete panel.dataset.pending; clearTimeout(G.waitTimer); });
+      G.waitObserver.observe(body, {childList: true, subtree: true, characterData: true});
+    }
+    G.waitTimer = setTimeout(() => { delete panel.dataset.pending; }, 3000);  // never wait visibly for long
   }
 
   // A row of the Inspector's connected tags (one HTML block, see view.py) selects its link, like a tap on it.
@@ -520,6 +566,7 @@
     if (ev.type === "keydown") ev.preventDefault();
     const [source, target] = row.dataset.edge.split("-");
     emit({kind: "edge", id: row.dataset.edge, source, target, pan: true});
+    selectNow({kind: "edge", id: row.dataset.edge});
   }
   document.addEventListener("click", selectLink);
   document.addEventListener("keydown", selectLink);

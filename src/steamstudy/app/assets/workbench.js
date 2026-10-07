@@ -41,6 +41,26 @@
     if (stage) ro.observe(stage);
     window.addEventListener("resize", updateForm);
     updateForm();
+    watchHtml();
+  }
+
+  // ------------------------------------------------------------------ HTML blocks
+
+  // The Inspector's long lists arrive as one escaped HTML string each (view.py `_html`, in data-html) and are put
+  // in place here, in one step: no Markdown parsing and no React element per cell. React keeps the element (and
+  // may only change its data-html) when the next selection has the same shape, so changes are watched too.
+  function fillHtml(root) {
+    root.querySelectorAll("[data-html]").forEach((el) => {
+      if (el.htmlShown !== el.dataset.html) { el.innerHTML = el.dataset.html; el.htmlShown = el.dataset.html; }
+    });
+  }
+
+  function watchHtml() {
+    const body = document.getElementById("inspector-body");
+    if (!body) { setTimeout(watchHtml, 50); return; }
+    new MutationObserver(() => fillHtml(body)).observe(body, {childList: true, subtree: true, attributes: true,
+                                                               attributeFilter: ["data-html"]});
+    fillHtml(body);
   }
 
   // ------------------------------------------------------------------ pills

@@ -157,10 +157,17 @@ details[open]>.more{color:var(--mute)}
 .inspector h4:not(.i-title){font-size:15px;margin:6px 0}
 #root.workbench .inspector:not(.docked).has-sel,
 body[data-form=medium] #root.workbench .inspector.has-sel,
-body[data-form=narrow] #root.workbench .inspector.has-sel{display:block;position:absolute;z-index:20;right:12px;
+body[data-form=narrow] #root.workbench .inspector.has-sel,
+#root.workbench .inspector:not(.docked)[data-pending],
+body[data-form=medium] #root.workbench .inspector[data-pending],
+body[data-form=narrow] #root.workbench .inspector[data-pending]{display:block;position:absolute;z-index:20;right:12px;
  grid-area:1/1/-1/-1; /* placed over the whole body grid: its own column is empty (0 px) while it floats */
  top:calc(var(--stage-top,0px) + 52px);bottom:calc(var(--stage-bottom,0px) + 56px);width:352px;max-width:calc(100% - 24px);
  border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 34px #00000022}
+/* A tap is drawn on the graph at once (graph.js); until the Inspector's content for it arrives, the old content
+   fades slightly. The 60 ms delay keeps a quick answer from flickering. */
+#inspector-body{transition:opacity 80ms ease}
+.inspector[data-pending] #inspector-body{opacity:.45;transition:opacity 80ms ease 60ms}
 #root.workbench .inspector:not(.docked).has-sel .x,
 body[data-form=medium] #root.workbench .inspector.has-sel .x,
 body[data-form=narrow] #root.workbench .inspector.has-sel .x{display:inline-block}
@@ -218,7 +225,7 @@ body[data-form=narrow][data-sheet=open] #root.workbench .inspector.has-sel{botto
 body[data-form=narrow] #root.workbench .grip{display:inline-block}
 body[data-form=narrow] #root.workbench #blk-tabs{min-height:44px}
 body[data-form=narrow] #root.workbench .ov-bl{bottom:54px}
-@media (prefers-reduced-motion:reduce){.tables-area{transition:none!important}}
+@media (prefers-reduced-motion:reduce){.tables-area,#inspector-body{transition:none!important}}
 
 /* ------------------------------------------------------------------ Analysis Report mode: one scrolling page */
 #root.report .app-body{align-items:start}

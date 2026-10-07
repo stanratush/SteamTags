@@ -96,6 +96,42 @@ def on_dataset(dataset: str, build_path: str, pending: dict | None):
 # ----------------------------------------------------------------------------- 2. recompute
 
 
+def browser_tables(tables: dict[str, Any]) -> dict[str, Any]:
+    """The state's tables as the browser holds them (no AppID lists)."""
+    return {"nodes": tables["nodes.csv"], "clusters": tables["clusters.csv"], "quality": tables["cluster_quality.csv"][0],
+            "edges": [{k: v for k, v in r.items() if k != "appids"} for r in tables["edges.csv"]],
+            "connections": tables["cluster_connections.csv"], "null": tables["null_model.csv"],
+            "seed": tables["seed_noise.csv"], "nin": tables["not_in_network.csv"]}
+
+
+# The tables of recent states by state_id, so a selection's request only names its state. A pure function of the
+# state key: a missing entry (a restarted server) is recomputed.
+_MEMO_LOCK = threading.Lock()  # guards STATE_TABLES and LAYOUTS (Dash may answer callbacks in threads)
+STATE_TABLES: OrderedDict[str, dict[str, Any]] = OrderedDict()
+STATE_TABLES_KEPT = 4
+
+
+def remember_tables(state_id: str, tables: dict[str, Any]) -> None:
+    with _MEMO_LOCK:
+        STATE_TABLES[state_id] = tables
+        STATE_TABLES.move_to_end(state_id)
+        while len(STATE_TABLES) > STATE_TABLES_KEPT:
+            STATE_TABLES.popitem(last=False)
+
+
+def tables_of(meta: dict[str, Any], build_path: str) -> dict[str, Any]:
+    with _MEMO_LOCK:
+        known = STATE_TABLES.get(meta["state_id"])
+    if known is not None:
+        return known
+    c = load_build(build_path)
+    settings = Settings.from_key(meta["key"])
+    state = compute_state(c.games(settings.dataset), settings, c.context(settings.dataset))
+    tables = browser_tables(state_tables(state))
+    remember_tables(state.state_id, tables)
+    return tables
+
+
 def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidden, defining_hidden, weight,
               algorithm, gamma, seed, removed, verify):
     if not _valid_gamma(gamma) or seed is None or int(seed) < 0:
@@ -112,11 +148,9 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
     meta = {"state_id": state.state_id, "key": settings.key(), "n_nodes": len(state.nodes),
             "clustering_seconds": state.clustering_seconds, "k": k, "gamma": gamma_text, "dataset": dataset,
             "weight": settings.clustering_weight}
-    edges_view = [{kk: v for kk, v in r.items() if kk != "appids"} for r in tables["edges.csv"]]
-    store_tables = {"nodes": tables["nodes.csv"], "clusters": tables["clusters.csv"], "quality": q,
-                    "edges": edges_view, "connections": tables["cluster_connections.csv"],
-                    "null": tables["null_model.csv"], "seed": tables["seed_noise.csv"],
-                    "nin": tables["not_in_network.csv"]}
+    store_tables = browser_tables(tables)
+    edges_view = store_tables["edges"]
+    remember_tables(state.state_id, store_tables)
     kind_of = {r["cluster"]: r["kind"] for r in tables["clusters.csv"]}
     base = {
         "nodes": [{"id": str(r["tag_id"]), "label": r["tag"], "cluster": r["cluster"], "kind": kind_of[r["cluster"]],
@@ -242,7 +276,6 @@ def relayout_positions(base: dict[str, Any],
 # Recent layouts, newest last: opening and closing a panel (or switching the layout back) costs nothing.
 LAYOUTS: OrderedDict[str, Layout] = OrderedDict()
 LAYOUTS_KEPT = 12
-_LAYOUTS_LOCK = threading.Lock()
 
 
 def cached_layout(base: dict[str, Any], layout_mode: str, relayout_store: dict | None, canvas: dict | None) -> Layout:
@@ -251,14 +284,14 @@ def cached_layout(base: dict[str, Any], layout_mode: str, relayout_store: dict |
     separated = layout_mode == "separated"
     key = hashlib.sha256(json.dumps([base, separated, relayout_store, size.width, size.height], sort_keys=True,
                                     separators=(",", ":")).encode("utf-8")).hexdigest()
-    with _LAYOUTS_LOCK:
+    with _MEMO_LOCK:
         if key in LAYOUTS:
             LAYOUTS.move_to_end(key)
             return LAYOUTS[key]
     tidied = relayout_positions(base, relayout_store)
     layout = lay_out(layout_input_from_base(base), size, positions=tidied[0] if tidied else None,
                      zoom=tidied[1] if tidied else 1.0, separated=separated)
-    with _LAYOUTS_LOCK:
+    with _MEMO_LOCK:
         LAYOUTS[key] = layout
         while len(LAYOUTS) > LAYOUTS_KEPT:
             LAYOUTS.popitem(last=False)
@@ -351,6 +384,12 @@ def select(event, _legend, cluster_rows, rs_rows, node_rows, panels, search=None
     if sel is None:
         raise PreventUpdate
     return sel, True  # opens the floating Inspector wherever the Inspector is not docked
+
+
+def inspect(selection, meta, rs_view, build_path, dataset, min_months):
+    """The Inspector for a selection. The request carries only the state's id; its tables stay on the server."""
+    tables = tables_of(meta, build_path) if meta else None
+    return inspector(selection, tables, rs_view, build_path, dataset, min_months, meta)
 
 
 def inspector(selection, tables, rs_view, build_path, dataset, min_months, meta):
@@ -647,9 +686,8 @@ def register(app: dash.Dash) -> None:
        State("removed", "data"), State("genre-hidden", "value"), State("defining-hidden", "value"),
        State("build-path", "data"), State("dataset", "value"), prevent_initial_call=True)(on_nin_action)
     cb(Output("inspector-body", "children"), Output("remove-btn", "style"), Output("rs-run-tag", "style"),
-       Input("selection", "data"), Input("state-tables", "data"), Input("rs-view", "data"),
-       State("build-path", "data"), State("dataset", "value"), State("min-months", "value"),
-       State("state-meta", "data"))(inspector)
+       Input("selection", "data"), Input("state-meta", "data"), Input("rs-view", "data"),
+       State("build-path", "data"), State("dataset", "value"), State("min-months", "value"))(inspect)
     cb(Output("removed", "data", allow_duplicate=True), Input("remove-btn", "n_clicks"),
        Input("restore-btn", "n_clicks"), Input("reset-btn", "n_clicks"), State("selection", "data"),
        State("restore-pick", "value"), State("removed", "data"), prevent_initial_call=True)(edit_removed)

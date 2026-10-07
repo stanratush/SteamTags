@@ -616,3 +616,15 @@ def test_the_floating_inspector_is_a_transient_overlay_of_the_graph(build_folder
     inspector = next(c for c in _walk(build_layout(load_build(build_folder)))
                      if getattr(c, "id", None) == "inspector-panel")
     assert inspector.to_plotly_json()["props"].get("data-graph-transient") == "yes"
+
+
+def test_the_inspector_never_needs_the_tables_sent_back_from_the_browser(build_folder):
+    """Selecting is light: the request names the state, and the server finds its tables (or recomputes them)."""
+    meta, tables, base, *_ = _recompute(build_folder)
+    node = max(tables["nodes"], key=lambda r: r["degree"])
+    selection = {"kind": "node", "id": str(node["tag_id"])}
+    expected = CB.inspector(selection, tables, None, str(build_folder), "overall", 0, meta)
+    as_json = lambda out: json.dumps([[b.to_plotly_json() for b in out[0]], out[1], out[2]], default=str)  # noqa: E731
+    assert as_json(CB.inspect(selection, meta, None, str(build_folder), "overall", 0)) == as_json(expected)
+    CB.STATE_TABLES.clear()  # the server restarted, or the state is old
+    assert as_json(CB.inspect(selection, meta, None, str(build_folder), "overall", 0)) == as_json(expected)
