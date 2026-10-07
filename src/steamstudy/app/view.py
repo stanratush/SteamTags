@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import html as markup
 import math
+import re
 from typing import Any
 
-from dash import html
+from dash import dcc, html
 
 from steamstudy.export import schema as S
 from steamstudy.network.metrics import within_z_cap
@@ -133,16 +135,20 @@ def label_tip(label: str) -> str:
                      for f, c in INSPECTOR_LABELS[label])
 
 
-def _kv(rows: list[tuple[str, Any]]) -> html.Dl:
-    """Metrics as a two-column list: muted plain names (tooltip: description and column), values."""
-    items: list[Any] = []
-    for label, value in rows:
-        items += [html.Dt(label, title=label_tip(label)), html.Dd(value)]
-    return html.Dl(items, className="kv")
+class Markup(str):
+    """HTML that is already escaped (a value with its note, a bold number) for `_kv`."""
 
 
-def _note(value: str, note: str) -> list[Any]:
-    return [value, " ", html.Small(note)]
+def _kv(rows: list[tuple[str, Any]]) -> dcc.Markdown:
+    """Metrics as a two-column list: muted plain names (tooltip: description and column), values. One component
+    (see `_html`)."""
+    items = "".join(f'<dt title="{_e(label_tip(label))}">{_e(label)}</dt>'
+                    f'<dd>{value if isinstance(value, Markup) else _e(value)}</dd>' for label, value in rows)
+    return _html(f'<dl class="kv">{items}</dl>')
+
+
+def _note(value: str, note: str) -> Markup:
+    return Markup(f"{_e(value)} <small>{_e(note)}</small>")
 
 
 def _swatch(color: str) -> html.Span:
@@ -175,12 +181,45 @@ def connected_tags(tables: dict[str, Any], tag: int) -> list[dict[str, Any]]:
     return sorted(out, key=lambda c: (-c["shared"], str(c["tag"]).lower()))
 
 
-def _games_table(games: list[dict[str, Any]], with_appid: bool = False) -> html.Table:
-    head = [html.Th("Rank", className="r")] + ([html.Th("AppID")] if with_appid else []) + [html.Th("Name")]
-    body = [html.Tr([html.Td(g["rank"], className="r mute")] + ([html.Td(g["appid"], className="mono mute")]
-                                                               if with_appid else []) +
-                    [html.Td(g["name"], className="name")]) for g in games]
-    return html.Table([html.Thead(html.Tr(head)), html.Tbody(body)], className="tl")
+# Long lists in the Inspector are one component of escaped HTML each: Dash's renderer costs grow faster than the
+# number of components it mounts, so a table of a few hundred cells took seconds to swap for the next tag's.
+
+
+def _html(text: str) -> dcc.Markdown:
+    """Escaped HTML (one line, so no Markdown applies) as a single component."""
+    return dcc.Markdown(text, dangerously_allow_html=True, className="html-block")
+
+
+def _e(value: Any) -> str:
+    return markup.escape(str(value), quote=True)
+
+
+def _cell(value: Any, cls: str | None = None, tag: str = "td", title: str | None = None) -> str:
+    attrs = (f' class="{_e(cls)}"' if cls else "") + (f' title="{_e(title)}"' if title else "")
+    return f"<{tag}{attrs}>{_e(value)}</{tag}>"
+
+
+def _table(head: str, rows: list[str]) -> str:
+    return f'<table class="tl"><thead><tr>{head}</tr></thead><tbody>{"".join(rows)}</tbody></table>'
+
+
+def _swatch_html(color: str) -> str:
+    safe = color if re.fullmatch(r"#[0-9a-fA-F]{3,8}", color) else "#999"
+    return f'<span class="sw" style="background:{safe}"></span>'
+
+
+def _games_table(games: list[dict[str, Any]], with_appid: bool = False) -> str:
+    head = _cell("Rank", "r", "th") + (_cell("AppID", tag="th") if with_appid else "") + _cell("Name", tag="th")
+    return _table(head, [f'<tr>{_cell(g["rank"], "r mute")}{_cell(g["appid"], "mono mute") if with_appid else ""}'
+                         f'{_cell(g["name"], "name")}</tr>' for g in games])
+
+
+def _connected_table(connected: list[dict[str, Any]]) -> str:
+    """Connected tags; a row selects its link (graph.js listens for clicks on `data-edge`)."""
+    head = _cell("Tag", tag="th") + _cell("Shared games", "r", "th") + _cell("Lift", "r", "th")
+    return _table(head, [f'<tr class="click" data-edge="{_e(c["edge"])}" tabindex="0" title="Select this link">'
+                         f'<td>{_swatch_html(c["color"])}{_e(c["tag"])}</td>{_cell(c["shared"], "r")}'
+                         f'{_cell(num(c["lift"]), "r")}</tr>' for c in connected])
 
 
 def node_inspector(node: dict[str, Any], weight: str, rs_row: dict[str, Any] | None, cluster_size: int,
@@ -203,18 +242,13 @@ def node_inspector(node: dict[str, Any], weight: str, rs_row: dict[str, Any] | N
         html.P(f"Tag {node['tag_id']} · {node['cluster']} ({cluster_size} tags)", className="i-sub"),
         html.P([html.B(str(n)), f" game{'' if n == 1 else 's'} in the network {'has' if n == 1 else 'have'} this tag"],
                className="lead"),
-        _games_table(games[:GAMES_SHOWN]),
+        _html(_games_table(games[:GAMES_SHOWN]) + (
+            f'<details><summary class="more">Show all {n}</summary>{_games_table(games[GAMES_SHOWN:])}</details>'
+            if n > GAMES_SHOWN else "")),
     ]
-    if n > GAMES_SHOWN:
-        out.append(html.Details([html.Summary(f"Show all {n}", className="more"), _games_table(games[GAMES_SHOWN:])]))
     out.append(html.Div(["Connected tags ", html.Span(f"{len(connected)}, by shared games", className="cnt")],
                         className="i-h"))
-    out.append(html.Table([
-        html.Thead(html.Tr([html.Th("Tag"), html.Th("Shared games", className="r"), html.Th("Lift", className="r")])),
-        html.Tbody([html.Tr([html.Td([_swatch(c["color"]), c["tag"]]), html.Td(c["shared"], className="r"),
-                             html.Td(num(c["lift"]), className="r")],
-                            id={"type": "conn", "edge": c["edge"]}, className="click", title="Select this link")
-                    for c in connected])], className="tl"))
+    out.append(_html(_connected_table(connected)))
     out.append(html.Div("Metrics", className="i-h"))
     out.append(_kv([
         ("Cluster", node["cluster"]),
@@ -259,9 +293,9 @@ def edge_inspector(edge: dict[str, Any], games: list[dict[str, Any]]) -> list[An
         html.H4([edge["source_tag"], html.Span(" — ", className="mute"), edge["target_tag"]], className="i-title"),
         html.P(f"Inside {edge['source_cluster']}" if same
                else f"Between {edge['source_cluster']} and {edge['target_cluster']}", className="i-sub"),
-        _kv([("Shared games", html.B(str(edge["shared_games"]))), ("Lift", num(edge["lift"]))]),
+        _kv([("Shared games", Markup(f"<b>{_e(edge['shared_games'])}</b>")), ("Lift", num(edge["lift"]))]),
         html.Div(["Games having both tags ", html.Span(str(len(games)), className="cnt")], className="i-h"),
-        _games_table(games, with_appid=True),
+        _html(_games_table(games, with_appid=True)),
     ]
 
 
@@ -286,13 +320,11 @@ def cluster_inspector(cluster: dict[str, Any], members: list[dict[str, Any]], we
                         className="i-h"))
     head = [("Tag", None), ("Games", "Games"), ("Mean game-set distance to members", "Mean game-set distance to members"),
             ("Membership Stability", "Membership Stability")]
-    out.append(html.Table([
-        html.Thead(html.Tr([html.Th(h, className="r" if tip else None, title=label_tip(tip) if tip else None)
-                            for h, tip in head])),
-        html.Tbody([html.Tr([html.Td(("◆ " if m["is_center"] else "") + m["tag"]), html.Td(m["n_games"], className="r"),
-                             html.Td(num(m["medoid_score"], 3), className="r"),
-                             html.Td(num(m["membership_stability"]), className="r")]) for m in members])],
-        className="tl"))
+    out.append(_html(_table(
+        "".join(_cell(h, "r" if tip else None, "th", label_tip(tip) if tip else None) for h, tip in head),
+        [f'<tr>{_cell(("◆ " if m["is_center"] else "") + m["tag"])}{_cell(m["n_games"], "r")}'
+         f'{_cell(num(m["medoid_score"], 3), "r")}{_cell(num(m["membership_stability"]), "r")}</tr>'
+         for m in members])))
     return out
 
 

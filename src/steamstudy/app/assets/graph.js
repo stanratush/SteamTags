@@ -513,6 +513,17 @@
     return Date.now();
   }
 
+  // A row of the Inspector's connected tags (one HTML block, see view.py) selects its link, like a tap on it.
+  function selectLink(ev) {
+    const row = ev.target.closest && ev.target.closest("#inspector-body tr[data-edge]");
+    if (!row || (ev.type === "keydown" && ev.key !== "Enter" && ev.key !== " ")) return;
+    if (ev.type === "keydown") ev.preventDefault();
+    const [source, target] = row.dataset.edge.split("-");
+    emit({kind: "edge", id: row.dataset.edge, source, target, pan: true});
+  }
+  document.addEventListener("click", selectLink);
+  document.addEventListener("keydown", selectLink);
+
   window.dash_clientside = Object.assign({}, window.dash_clientside, {tagGraph: {render}});
   window.tagGraph = G;  // for inspection in the browser console and browser checks
 })();

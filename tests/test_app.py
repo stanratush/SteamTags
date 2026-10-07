@@ -412,9 +412,56 @@ def test_the_tag_view_lists_its_games_then_its_connected_tags_then_the_metrics(b
 
 
 def test_a_connected_tag_row_selects_its_edge_and_pans_to_it():
-    triggered('{"edge":"5000-5001","type":"conn"}.n_clicks', 1)
-    sel, _ = CB.select(None, [], None, None, None, [], None, [1])
+    """A row of the Inspector's connected tags sends the same event as tapping the link (workbench.js)."""
+    triggered("graph-event.data", {"kind": "edge", "id": "5000-5001", "source": "5000", "target": "5001", "pan": True})
+    sel, _ = CB.select({"kind": "edge", "id": "5000-5001", "source": "5000", "target": "5001", "pan": True},
+                       [], None, None, None, [])
     assert sel == {"kind": "edge", "id": "5000-5001", "source": "5000", "target": "5001", "pan": True}
+
+
+def _components(tree) -> int:
+    """How many Dash components a children tree mounts in the browser."""
+    if isinstance(tree, (list, tuple)):
+        return sum(_components(c) for c in tree)
+    if tree is None or isinstance(tree, (str, int, float)):
+        return 0
+    return 1 + _components(getattr(tree, "children", None))
+
+
+def test_the_inspector_stays_a_few_components_however_many_games_and_links_a_tag_has(build_folder):
+    """Dash's renderer costs grow faster than the component count, so long lists are one HTML component each:
+    switching between two well-linked tags must not take seconds."""
+    meta, tables, base, *_ = _recompute(build_folder, **{"min-games": 1, "min-shared": 1})
+    by_degree = sorted(tables["nodes"], key=lambda r: r["degree"])
+    counts = []
+    for node in (by_degree[0], by_degree[-1]):
+        body, *_ = CB.inspector({"kind": "node", "id": str(node["tag_id"])}, tables, None, str(build_folder),
+                                "overall", 0, meta)
+        counts.append(_components(body))
+    assert by_degree[-1]["degree"] >= 20 and counts[1] <= 80 and counts[1] - counts[0] <= 5
+    edge = max(tables["edges"], key=lambda e: e["shared_games"])
+    body, *_ = CB.inspector({"kind": "edge", "id": "x", "source": str(edge["source_tag_id"]),
+                             "target": str(edge["target_tag_id"])}, tables, None, str(build_folder), "overall", 0, meta)
+    assert _components(body) <= 40
+    cluster = max(tables["clusters"], key=lambda c: c["size"])
+    body, *_ = CB.inspector({"kind": "cluster", "id": cluster["cluster"]}, tables, None, str(build_folder),
+                            "overall", 0, meta)
+    assert _components(body) <= 40
+
+
+def test_inspector_tables_escape_names_and_carry_the_link_to_select():
+    from steamstudy.app import view as V
+
+    node = {"tag": "Tag <b>", "tag_id": 1, "cluster": "C1", "n_games": 1, "is_center": False, "within_z": None,
+            "silhouette": None, "silhouette_status": "n/a", "strength_shared": 1, "strength_lift": 1,
+            "strength_shared_intra": 1, "strength_lift_intra": 1, "degree": 1, "degree_intra": 1,
+            "membership_stability": None, "participation": 0, "medoid_score": None}
+    games = [{"appid": 7, "name": "<script>alert(1)</script> & Co", "rank": 1}]
+    connected = [{"edge": "1-2", "tag": "Rock & <Roll>", "cluster": "C1", "color": "#123456", "shared": 3, "lift": 2.0}]
+    html_text = json.dumps([c.to_plotly_json() for c in V.node_inspector(node, "shared_games", None, 2, False, games,
+                                                                         connected)], default=str)
+    assert "<script>" not in html_text and "&lt;script&gt;alert(1)&lt;/script&gt; &amp; Co" in html_text
+    assert "Rock &amp; &lt;Roll&gt;" in html_text and 'data-edge=\\"1-2\\"' in html_text
 
 
 def _texts(component) -> list[str]:

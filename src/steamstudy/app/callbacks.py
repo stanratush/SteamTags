@@ -317,15 +317,10 @@ def do_tidy(_n, base, relayout_store, canvas=None, dragged=None):
 # ----------------------------------------------------------------------------- 4. selection and inspector
 
 
-def select(event, _legend, cluster_rows, rs_rows, node_rows, panels, search=None, _connected=None):
+def select(event, _legend, cluster_rows, rs_rows, node_rows, panels, search=None):
     trigger = ctx.triggered_id
     sel: dict[str, Any] | None = None
-    if isinstance(trigger, dict) and trigger.get("type") == "conn":
-        if not ctx.triggered[0]["value"]:
-            raise PreventUpdate  # the Inspector was re-rendered, not clicked
-        source, _, target = trigger["edge"].partition("-")
-        sel = {"kind": "edge", "id": trigger["edge"], "source": source, "target": target, "pan": True}
-    elif trigger == "tag-search":
+    if trigger == "tag-search":
         if not search:
             raise PreventUpdate  # the search was cleared after a pick
         kind, _, tag = str(search).partition(":")
@@ -339,8 +334,10 @@ def select(event, _legend, cluster_rows, rs_rows, node_rows, panels, search=None
             sel = {"kind": "cluster", "id": cluster} if cluster and cluster != "one_tag_pool" else None
         elif kind == "node":
             sel = {"kind": "node", "id": str(event["id"])}
-        elif kind == "edge":
+        elif kind == "edge":  # a link tapped in the graph, or a connected tag's row in the Inspector (pan)
             sel = {"kind": "edge", "id": str(event["id"]), "source": event["source"], "target": event["target"]}
+            if event.get("pan"):
+                sel["pan"] = True
     elif isinstance(trigger, dict) and trigger.get("type") == "legend":
         if not ctx.triggered[0]["value"]:
             raise PreventUpdate  # the legend was re-rendered, not clicked
@@ -641,8 +638,7 @@ def register(app: dash.Dash) -> None:
        Input(R.EVENT_ID, "data"),
        Input({"type": "legend", "cluster": ALL}, "n_clicks"), Input("clusters-grid", "selectedRows"),
        Input("rs-grid", "selectedRows"), Input("nodes-grid", "selectedRows"),
-       State("panels", "value"), Input("tag-search", "value"), Input({"type": "conn", "edge": ALL}, "n_clicks"),
-       prevent_initial_call=True)(select)
+       State("panels", "value"), Input("tag-search", "value"), prevent_initial_call=True)(select)
     cb(Output("tag-search", "value", allow_duplicate=True), Input("tag-search", "value"),
        prevent_initial_call=True)(lambda v: None if v else no_update)  # ready for the next pick
     cb(Output("removed", "data", allow_duplicate=True), Output("genre-hidden", "value", allow_duplicate=True),
