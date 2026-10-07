@@ -190,6 +190,7 @@ body[data-form=narrow] #root.workbench .inspector:not(.has-sel){display:none}
 .help-modal{position:fixed;right:24px;top:70px;width:560px;max-width:calc(100vw - 48px);max-height:80vh;overflow:auto;
  z-index:1000;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 40px #0003;padding:12px 20px}
 .help-modal .x{float:right}
+.help-modal .back{font-size:12px;padding:2px 8px;margin-top:4px}
 .help-modal blockquote{margin:0 0 12px;padding:8px 12px;background:var(--bg);border-left:3px solid var(--acc);border-radius:4px}
 .help-modal blockquote p{margin:0 0 4px}
 /* metric help: a dotted term opens its guide entry; the tooltip shows its In short lines (workbench.js) */

@@ -169,3 +169,61 @@ def test_every_app_help_key_resolves_to_an_entry_with_in_short_and_why_it_matter
         assert anchor in _anchors(file), key
         assert in_short_at(file, anchor), key
         assert "*Why it matters here.*" in section(chapter(file), anchor), key
+
+
+# ----------------------------------------------------------------------------- links inside the help modal
+
+@pytest.mark.parametrize("href, expected", [
+    ("#modularity-q", "03-metric-reference.md#modularity-q"),
+    ("04-files.md#nodescsv", "04-files.md#nodescsv"),
+    ("05-citing-and-reproducing.md", "05-citing-and-reproducing.md"),
+    ("https://www.python.org/downloads/", None),
+    ("../running-guide.md", None),
+    ("../../CONTEXT.md", None),
+])
+def test_in_guide_links_resolve_to_a_modal_target(href, expected):
+    from steamstudy.app.guide import resolve_link
+
+    assert resolve_link(href, "03-metric-reference.md") == expected
+
+
+def test_modal_links_point_in_guide_links_at_the_modal_and_leave_the_rest():
+    from steamstudy.app.guide import HELP_LINK, modal_links
+
+    text = "See [Q](#modularity-q), [files](04-files.md) and [Python](https://www.python.org/downloads/)."
+    assert modal_links(text, "03-metric-reference.md") == (
+        f"See [Q]({HELP_LINK}03-metric-reference.md#modularity-q), [files]({HELP_LINK}04-files.md) "
+        "and [Python](https://www.python.org/downloads/).")
+
+
+def test_a_chapter_without_an_anchor_opens_its_first_section():
+    from steamstudy.app.guide import help_markdown_at
+
+    shown = help_markdown_at("03-metric-reference.md")
+    assert shown.startswith("# Metric reference")
+    assert "## How to read this chapter" in shown and "## Settings that change the numbers" not in shown
+    assert help_markdown_at("appendix-b-column-index.md").startswith("# Appendix B")
+
+
+def test_help_markdown_at_rewrites_the_links_it_shows():
+    from steamstudy.app.guide import HELP_LINK, help_markdown_at
+
+    assert f"]({HELP_LINK}03-metric-reference.md#null-model-baseline)" in help_markdown_at(
+        "03-metric-reference.md", "modularity-q")
+
+
+def test_every_in_guide_link_the_modal_follows_points_to_an_existing_heading():
+    from steamstudy.app.guide import LINK, resolve_link
+
+    followed, broken = 0, []
+    for path in GUIDE.glob("*.md"):
+        for _, href in LINK.findall(path.read_text(encoding="utf-8")):
+            target = resolve_link(href, path.name)
+            if target is None:
+                continue
+            followed += 1
+            file, _, anchor = target.partition("#")
+            if not (GUIDE / file).is_file() or (anchor and anchor not in _anchors(file)):
+                broken.append((path.name, href))
+    assert followed > 200
+    assert broken == []

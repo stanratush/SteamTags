@@ -121,6 +121,7 @@
   // Layer 1: an element's data-tip (its guide entry's In short lines, see help.py) in one floating box, on hover
   // or keyboard focus, never over the element itself. Layer 2: a click (or Enter) on a data-help element opens its
   // guide entry in the help modal through the help-target store. A touch tap goes straight to layer 2.
+  const HELP_LINK = "#help:";  // guide.py HELP_LINK
   const TIP_LABEL = /^(In short\.|Higher →|Lower →|Raising it →|Here:|Caution:|Now:)\s*/;
   let tipBox = null, tipFor = null, lastPointer = "mouse";
 
@@ -193,7 +194,24 @@
   document.addEventListener("click", (ev) => {
     const el = within(ev, "[data-help]");
     if (el) openHelp(el);
+    // A guide link inside the modal (guide.py points it at "#help:<file>#<anchor>") opens its entry there, on top
+    // of the modal's history for ← Back. Other links keep their own behaviour.
+    const link = within(ev, `#help-body a[href^="${HELP_LINK}"]`);
+    if (link) {
+      ev.preventDefault();
+      const target = link.getAttribute("href").slice(HELP_LINK.length);
+      window.dash_clientside.set_props("help-target", {data: {target, n: Date.now(), follow: true}});
+    }
   });
+
+  // Each newly opened entry starts at its top.
+  function watchHelpBody() {
+    const helpBody = document.getElementById("help-body");
+    if (!helpBody) { setTimeout(watchHelpBody, 50); return; }
+    new MutationObserver(() => { helpBody.parentElement.scrollTop = 0; }).observe(helpBody, {childList: true});
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", watchHelpBody);
+  else watchHelpBody();
 
   // ------------------------------------------------------------------ live values (clientside callback)
 

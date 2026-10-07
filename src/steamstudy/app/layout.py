@@ -231,7 +231,9 @@ def build_layout(ctx: BuildContext) -> html.Div:
         dcc.Store(id="graph-only-on", data=False),
         dcc.Store(id="removed", data=[]), dcc.Store(id="rs-view"), dcc.Store(id="rs-request"),
         dcc.Store(id="rs-done"), dcc.Store(id="pending-open"), dcc.Store(id="verify"),
-        dcc.Store(id="help-target"),  # {"target": "<guide file>#<anchor>", "n": click time}, set by workbench.js
+        # {"target": "<guide file>#<anchor>", "n": click time, "follow": a link inside the modal}, set by workbench.js
+        dcc.Store(id="help-target"),
+        dcc.Store(id="help-history", data=[]),  # the entries opened in the modal, for ← Back
         dcc.Download(id="download"),
     ]
     header = html.Header([
@@ -251,6 +253,7 @@ def build_layout(ctx: BuildContext) -> html.Div:
         ], className="hdr-right"),
     ], className="app-header")
     help_modal = html.Div([html.Button("×", id="help-close", className="x"),
+                           html.Button("← Back", id="help-back", className="btn back", style={"display": "none"}),
                            dcc.Markdown(id="help-body", link_target="_blank")],
                           id="help-modal", className="help-modal", style={"display": "none"})
     return html.Div([

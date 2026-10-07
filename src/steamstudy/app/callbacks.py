@@ -23,7 +23,7 @@ from dash.exceptions import PreventUpdate
 from steamstudy.app import rs_cache
 from steamstudy.app import view as V
 from steamstudy.app.export import BuildNotFound, OpenRefused, export_zip, open_export
-from steamstudy.app.guide import help_markdown, help_markdown_at
+from steamstudy.app.guide import PANEL_SECTIONS, help_markdown_at
 from steamstudy.app.layout import PILLS, SLIDERS, block_styles, root_class
 from steamstudy.app.loader import BuildContext, load_build
 from steamstudy.app import renderer as R
@@ -638,20 +638,32 @@ def clear_cache(_n, build_path):
     return f"Cleared {removed} cached Removal Sensitivity result(s).", None
 
 
-def show_help(_clicks, _close, target=None):
+def show_help(_clicks, _close, target=None, _back=None, history=None):
     """The help modal: a panel's `?` opens its guide section; a metric or control (workbench.js sets `help-target`
-    to `<file>#<anchor>`) opens its own entry."""
+    to `<file>#<anchor>`) opens its own entry. A guide link inside the modal (`follow`) opens its target on top of
+    the history, which ← Back walks down and closing clears."""
     trigger = ctx.triggered_id
-    shown = {"display": "block", "width": "560px"}
+    history = list(history or [])
     if trigger == "help-target":
-        if not target or "#" not in target.get("target", ""):
+        if not target or not target.get("target"):
             raise PreventUpdate
-        return shown, help_markdown_at(*target["target"].split("#", 1))
-    if trigger == "help-close" or not isinstance(trigger, dict):
-        return {"display": "none"}, ""
-    if not any(_clicks or []):
-        raise PreventUpdate
-    return shown, help_markdown(trigger["panel"])
+        if not target.get("follow"):
+            history = [target["target"]]
+        elif history[-1:] != [target["target"]]:
+            history.append(target["target"])
+    elif trigger == "help-back":
+        if len(history) < 2:
+            raise PreventUpdate
+        history.pop()
+    elif isinstance(trigger, dict):
+        if not any(_clicks or []):
+            raise PreventUpdate
+        history = ["#".join(PANEL_SECTIONS[trigger["panel"]])]
+    else:  # help-close
+        return {"display": "none"}, "", [], {"display": "none"}
+    file, _, anchor = history[-1].partition("#")
+    return ({"display": "block", "width": "560px"}, help_markdown_at(file, anchor or None), history,
+            {"display": "inline-block" if len(history) > 1 else "none"})
 
 
 # ----------------------------------------------------------------------------- registration
@@ -751,6 +763,8 @@ def register(app: dash.Dash) -> None:
        prevent_initial_call=True)(do_open)
     cb(Output("cache-message", "children"), Output("rs-view", "data", allow_duplicate=True),
        Input("clear-cache-btn", "n_clicks"), State("build-path", "data"), prevent_initial_call=True)(clear_cache)
-    cb(Output("help-modal", "style"), Output("help-body", "children"),
+    cb(Output("help-modal", "style"), Output("help-body", "children"), Output("help-history", "data"),
+       Output("help-back", "style"),
        Input({"type": "help", "panel": ALL}, "n_clicks"), Input("help-close", "n_clicks"),
-       Input("help-target", "data"), prevent_initial_call=True)(show_help)
+       Input("help-target", "data"), Input("help-back", "n_clicks"), State("help-history", "data"),
+       prevent_initial_call=True)(show_help)

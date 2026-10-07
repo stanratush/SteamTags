@@ -644,3 +644,40 @@ def test_the_inspector_never_needs_the_tables_sent_back_from_the_browser(build_f
     assert as_json(CB.inspect(selection, meta, None, str(build_folder), "overall", 0)) == as_json(expected)
     CB.STATE_TABLES.clear()  # the server restarted, or the state is old
     assert as_json(CB.inspect(selection, meta, None, str(build_folder), "overall", 0)) == as_json(expected)
+
+
+def test_help_modal_follows_guide_links_with_a_back_stack():
+    from steamstudy.app.guide import help_markdown_at
+
+    q = "03-metric-reference.md#modularity-q"
+    null = "03-metric-reference.md#null-model-baseline"
+
+    triggered("help-target.data", {"target": q, "n": 1})  # a metric label opened from the app
+    style, body, history, back = CB.show_help(None, None, {"target": q, "n": 1}, None, ["02-app-controls.md"])
+    assert style["display"] == "block" and body == help_markdown_at("03-metric-reference.md", "modularity-q")
+    assert history == [q] and back["display"] == "none"
+
+    triggered("help-target.data", {"target": null, "n": 2, "follow": True})  # a link inside the modal
+    style, body, history, back = CB.show_help(None, None, {"target": null, "n": 2, "follow": True}, None, history)
+    assert body.startswith("### Null-model baseline") and history == [q, null] and back["display"] != "none"
+    _, _, history, _ = CB.show_help(None, None, {"target": null, "n": 3, "follow": True}, None, history)
+    assert history == [q, null]  # a link to the entry already shown adds no Back step
+
+    triggered("help-back.n_clicks")
+    style, body, history, back = CB.show_help(None, None, None, 1, history)
+    assert body.startswith("### Modularity Q") and history == [q] and back["display"] == "none"
+
+    triggered('{"panel":"controls","type":"help"}.n_clicks')  # a panel `?` starts afresh too
+    style, body, history, back = CB.show_help([1], None, None, None, [q, null])
+    assert body.startswith("## Control reference") and history == ["02-app-controls.md#control-reference"]
+
+    triggered("help-close.n_clicks")
+    style, body, history, back = CB.show_help([1], 1, None, None, history)
+    assert style["display"] == "none" and history == []
+
+
+def test_a_chapter_link_in_the_help_modal_opens_its_first_section():
+    triggered("help-target.data", {"target": "05-citing-and-reproducing.md", "n": 3, "follow": True})
+    _, body, history, _ = CB.show_help(None, None, {"target": "05-citing-and-reproducing.md", "n": 3, "follow": True},
+                                       None, ["03-metric-reference.md#modularity-q"])
+    assert body.startswith("# Citing and reproducing") and history[-1] == "05-citing-and-reproducing.md"

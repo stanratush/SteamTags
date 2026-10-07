@@ -768,7 +768,7 @@ How much more of the network's weight falls inside clusters than would be expect
 
 *Bounds.* At γ = 1 on an unweighted network, −½ to 1 (Brandes et al. 2008, Lemma 3.1); the reachable maximum is below 1 and depends on the network (Fortunato & Barthélemy 2007, §III). Isolated tags add nothing. Empty when the network has no edges (`modularity_status` `no_edges`).
 
-*Compare with.* 0 = no better than random (Newman & Girvan 2004, §IV); the null model (`q_null_mean`); the Seed-Noise Floor (`seed_modularity_sd`).
+*Compare with.* 0 = no better than random (Newman & Girvan 2004, §IV); the [null model](#null-model-baseline) (`q_null_mean`); the Seed-Noise Floor ([`seed_modularity_sd`](#seed-spread-of-modularity-and-silhouette)).
 
 **Exact definition:** Q = Σ_c [ L_c / m − γ (d_c / 2m)² ], with L_c the active weight inside cluster c, d_c the summed strength of its members and m the total weight (NetworkX `modularity`).
 

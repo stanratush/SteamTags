@@ -1,5 +1,6 @@
 """In-app help: each panel's `?` opens the matching User Guide section, rendered offline with dcc.Markdown, and
-each metric's In short block is its tooltip (see `steamstudy.app.help`).
+each metric's In short block is its tooltip (see `steamstudy.app.help`). Guide links inside the modal open their
+target entry there.
 
 The guide files are the repository's `docs/user-guide/*.md`, shipped as package data (`steamstudy/guide/`).
 """
@@ -73,13 +74,49 @@ def chapter(file: str) -> str | None:
     return path.read_text(encoding="utf-8") if path.is_file() else None
 
 
-def help_markdown_at(file: str, anchor: str) -> str:
-    """The guide section under one heading, for the help modal."""
+def first_section(markdown: str) -> str:
+    """A chapter's opening: its title and introduction with the first `##` section, up to the second."""
+    lines = markdown.splitlines()
+    starts = [i for i, line in enumerate(lines) if re.match(r"^#{1,2}\s", line)]
+    return "\n".join(lines[:starts[2]] if len(starts) > 2 else lines)
+
+
+# ----------------------------------------------------------------------------- links inside the help modal
+
+# An in-guide link shown in the modal points here, followed by its target (`<file>#<anchor>` or `<file>`):
+# workbench.js opens that entry in the modal instead of following the link.
+HELP_LINK = "#help:"
+# A Markdown link: (`[text]`, href)
+LINK = re.compile(r"(\[[^\]]*\])\(([^)\s]+)\)")
+
+
+def resolve_link(href: str, file: str) -> str | None:
+    """Where an in-guide link opens in the modal, as `<file>#<anchor>` or `<file>`; None for any other link."""
+    if href.startswith("#"):
+        return file + href
+    path, _, anchor = href.partition("#")
+    if not re.fullmatch(r"[\w.-]+\.md", path):
+        return None
+    return f"{path}#{anchor}" if anchor else path
+
+
+def modal_links(markdown: str, file: str) -> str:
+    """The Markdown with every in-guide link pointed at the modal; other links stay as they are."""
+    def point(m: re.Match) -> str:
+        target = resolve_link(m.group(2), file)
+        return m.group(0) if target is None else f"{m.group(1)}({HELP_LINK}{target})"
+    return LINK.sub(point, markdown)
+
+
+def help_markdown_at(file: str, anchor: str | None = None) -> str:
+    """The guide section under one heading (the chapter's first section without one), for the help modal."""
     text = chapter(file)
     if text is None:
         return f"The User Guide file {file} is not installed."
-    found = section(text, anchor)
-    return found if found is not None else f"Section #{anchor} not found in {file}."
+    found = section(text, anchor) if anchor else first_section(text)
+    if found is None:
+        return f"Section #{anchor} not found in {file}."
+    return modal_links(found, file)
 
 
 def help_markdown(panel: str) -> str:
