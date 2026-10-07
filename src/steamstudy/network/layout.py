@@ -318,8 +318,10 @@ def separate(xy: np.ndarray, boxes: Boxes, *, free: np.ndarray | None = None, cl
 
 def _push_apart(xy: np.ndarray, free: np.ndarray, i_all: np.ndarray, j_all: np.ndarray, need: np.ndarray,
                 max_rounds: int, clamp: Clamp | None, aspect: float) -> bool:
-    """`separate`'s rounds; whether a full check found no overlap."""
+    """`separate`'s rounds; whether a full check found no overlap. Gives up early (to spread) once the total
+    overlap stops shrinking: a jammed set only creeps, and every round costs the same."""
     pairs = np.zeros(0, dtype=int)
+    last = math.inf
     for round_ in range(max_rounds):
         if round_ % 5 == 0:  # keep the clamp, then refresh the pairs close enough to touch soon
             if clamp is not None:
@@ -335,6 +337,11 @@ def _push_apart(xy: np.ndarray, free: np.ndarray, i_all: np.ndarray, j_all: np.n
                 return True  # a full check found nothing
             continue
         i, j, d, over = i[hit], j[hit], d[hit], over[hit]
+        if round_ % STALL_ROUNDS == 0 and round_:
+            total = float(over.min(axis=1).sum())
+            if total > STALL_SHARE * last:
+                return False
+            last = total
         along = (over[:, 1] * aspect <= over[:, 0]).astype(int)  # 0: x, 1: y
         rows = np.arange(len(i))
         tie = np.where((i + j) % 2 == 0, 1.0, -1.0)  # a fixed side for coincident boxes
@@ -351,6 +358,9 @@ def _push_apart(xy: np.ndarray, free: np.ndarray, i_all: np.ndarray, j_all: np.n
                             - np.bincount(j, step[:, axis] * share_j, minlength=n))
     over = need - np.abs(xy[i_all] - xy[j_all])
     return not (over > 1e-7).all(axis=1).any()
+
+
+STALL_ROUNDS, STALL_SHARE = 25, 0.9  # the label-aware pass spreads early when 25 rounds cut the overlap < 10 %
 
 
 # ----------------------------------------------------------------------------- Global layout
@@ -396,17 +406,27 @@ def global_layout(graph: nx.Graph, start: Mapping[int, tuple[float, float]], siz
 def _forceatlas2(graph: nx.Graph, keys: list[int], start: Mapping[int, tuple[float, float]],
                  gravity: float) -> np.ndarray:
     """`nx.forceatlas2_layout` on the active Clustering Weight (scaled to at most 1), with hub dissuasion."""
+    edges = [(u, v, float(w)) for u, v, w in graph.edges(data="w")]
+    top = max((w for *_, w in edges), default=1.0) or 1.0
     g = nx.Graph()
     g.add_nodes_from(keys)
-    top = max((float(w) for *_, w in graph.edges(data="w")), default=1.0) or 1.0
-    for u, v, w in sorted(graph.edges(data="w")):
-        g.add_edge(u, v, w=float(w) / top)
+    g.add_weighted_edges_from(((u, v, w / top) for u, v, w in sorted(edges)), weight="w")
     init = {t: np.array(start[t], dtype=float) / SCALE for t in keys if t in start}
     if len(keys) < 2:  # nothing to lay out (and ForceAtlas2's gravity would divide by a zero distance)
         return np.zeros((len(keys), 2))
     pos = nx.forceatlas2_layout(g, pos=init or None, max_iter=FA2_ITERATIONS, gravity=gravity,
                                 distributed_action=True, weight="w", seed=0)
     return np.array([pos[t] for t in keys], dtype=float)
+
+
+def _induced(graph: nx.Graph, keys: list[int]) -> nx.Graph:
+    """The subgraph on `keys` as a plain graph, read once from the adjacency: NetworkX's subgraph views filter
+    every step of every later walk over them."""
+    keyset = set(keys)
+    sub = nx.Graph()
+    sub.add_nodes_from(keys)
+    sub.add_edges_from((u, v, {"w": d["w"]}) for u in keys for v, d in graph.adj[u].items() if v in keyset and u < v)
+    return sub
 
 
 def _main_component(graph: nx.Graph, keys: list[int]) -> np.ndarray:
@@ -644,7 +664,7 @@ def _region_shape(graph: nx.Graph, cluster: Cluster, center: int | None, start: 
     keys = sorted(cluster.members)
     if center not in cluster.members:
         center = max(keys, key=lambda t: (sizes[t], -t))
-    sub = graph.subgraph(keys)
+    sub = _induced(graph, keys)
     xy = _forceatlas2(sub, keys, start, GRAVITY)
     i = keys.index(center)
     return keys, i, xy - xy[i], _main_component(sub, keys)
