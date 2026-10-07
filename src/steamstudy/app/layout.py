@@ -154,7 +154,8 @@ def build_layout(ctx: BuildContext) -> html.Div:
         html.Div([
             *graph_component(),
             html.Div([_seg("layout-mode", [("global", "Global"), ("separated", "Cluster-separated")], "global"),
-                      html.Button("Re-layout", id="relayout-btn", className="btn", title="Refine the positions"),
+                      html.Button("Tidy", id="relayout-btn", className="btn",
+                                  title="Settle the graph around the nodes you dragged; positions only"),
                       html.Button("⤢", id="fit-btn", className="btn", title="Fit the graph to the view")],
                      className="ov ov-tr", **_data(graph_overlay="top")),
             html.Div(html.Div(id="legend", className="legend"), className="ov ov-bl",

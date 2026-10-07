@@ -20,7 +20,7 @@ from steamstudy.build.core import build
 from steamstudy.build.writer import write_build
 from steamstudy.config import load_config
 from steamstudy.export.writer import read_csv
-from steamstudy.network.layout import Canvas, LayoutParams, layout_state, relayout
+from steamstudy.network.layout import REFERENCE_CANVAS, Canvas, LayoutParams, layout_input, layout_state, tidy
 from steamstudy.network.sensitivity import removal_sensitivity
 from steamstudy.network.state import compute_state
 from steamstudy.snapshot import Snapshot
@@ -153,7 +153,7 @@ def test_open_network_state_round_trip(build_folder):
     settings = ctx.default_settings("overall").with_(min_games_per_tag=10, removed_tag_ids=(5000,), resolution=1.2)
     state = compute_state(ctx.games("overall"), settings, ctx.context("overall"))
     layout = layout_state(state)
-    moved = relayout(state.graph, layout.positions, settings.seed, iterations=5, sizes=layout.sizes)
+    moved, _ = tidy(layout_input(state), layout.positions, REFERENCE_CANVAS, zoom=layout.zoom)
     rows = removal_sensitivity(state)[:2]
     _, data = export_zip(ctx, settings, relayout_positions=moved, removal_rows=rows, state=state)
     for payload in (data, json.dumps(read_export(data)[0]).encode("utf-8")):

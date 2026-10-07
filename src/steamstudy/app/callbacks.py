@@ -26,7 +26,7 @@ from steamstudy.app.renderer import cluster_color
 from steamstudy.network.cluster import Cluster
 from steamstudy.network.graph import filter_games
 from steamstudy.network.layout import (REFERENCE_CANVAS, Canvas, LayoutInput, lay_out, label_width, layout_input,
-                                      relayout)
+                                      restore, tidy)
 from steamstudy.network.model import Settings, resolution_text
 from steamstudy.network.sensitivity import removal_sensitivity
 from steamstudy.network.state import compute_state
@@ -219,13 +219,18 @@ def canvas_of(reported: dict | None) -> Canvas:
     return Canvas(max(float(reported["w"]), MIN_CANVAS.width), max(float(reported["h"]), MIN_CANVAS.height))
 
 
-def relayout_positions(base: dict[str, Any], relayout_store: dict | None) -> dict[int, tuple[float, float]] | None:
-    """The Re-layout's Global positions, while the layout basis is the one they were made for."""
+def relayout_positions(base: dict[str, Any],
+                       relayout_store: dict | None) -> tuple[dict[int, tuple[float, float]], float] | None:
+    """Tidy's Global positions and the zoom their labels are spaced for, while the layout basis and the visible
+    tags are the ones they were made for. Positions opened from an older export (`restore`) are first brought
+    into the reference canvas, clamped and spaced for their labels."""
     if relayout_store and relayout_store.get("basis") == base["basis"]:
         nodes = {int(n["id"]) for n in base["nodes"]}
         kept = {int(k): (v[0], v[1]) for k, v in relayout_store["positions"].items() if int(k) in nodes}
         if set(kept) == nodes:
-            return kept
+            if relayout_store.get("restore"):
+                return restore(layout_input_from_base(base), kept, REFERENCE_CANVAS)
+            return kept, float(relayout_store.get("zoom", 1.0))
     return None
 
 
@@ -234,8 +239,9 @@ def render_graph(base, layout_mode, relayout_store, selection, canvas=None):
     the canvas the browser reports (exports use the reference canvas)."""
     if not base:
         raise PreventUpdate
-    layout = lay_out(layout_input_from_base(base), canvas_of(canvas), positions=relayout_positions(base, relayout_store),
-                     separated=layout_mode == "separated")
+    tidied = relayout_positions(base, relayout_store)
+    layout = lay_out(layout_input_from_base(base), canvas_of(canvas), positions=tidied[0] if tidied else None,
+                     zoom=tidied[1] if tidied else 1.0, separated=layout_mode == "separated")
     regions: list[dict[str, Any]] = []
     positions, zoom = layout.positions, layout.zoom
     if layout_mode == "separated":
@@ -260,13 +266,23 @@ def show_selection(selection):
     return patch
 
 
-def do_relayout(_n, base, relayout_store, canvas=None):
+def do_tidy(_n, base, relayout_store, canvas=None, dragged=None):
+    """Tidy: settle the Global layout from what is drawn now, the nodes dragged in it (sent by graph.js under
+    the same layout basis) staying where they were dropped."""
     if not base:
         raise PreventUpdate
     inp = layout_input_from_base(base)
-    positions = relayout_positions(base, relayout_store) or lay_out(inp, canvas_of(canvas), separated=False).positions
-    refined = relayout(inp.graph, positions, base["seed"], sizes=inp.sizes)
-    return {"basis": base["basis"], "positions": {str(k): list(v) for k, v in refined.items()}}
+    tidied = relayout_positions(base, relayout_store)
+    if tidied is None:
+        layout = lay_out(inp, canvas_of(canvas), separated=False)
+        tidied = layout.positions, layout.zoom
+    current, zoom = tidied
+    pinned = {}
+    if dragged and dragged.get("basis") == base["basis"]:
+        pinned = {int(k): (float(v[0]), float(v[1])) for k, v in (dragged.get("positions") or {}).items()
+                  if int(k) in current}
+    positions, zoom = tidy(inp, {**current, **pinned}, canvas_of(canvas), pinned=pinned, zoom=zoom)
+    return {"basis": base["basis"], "positions": {str(k): list(v) for k, v in positions.items()}, "zoom": zoom}
 
 
 # ----------------------------------------------------------------------------- 4. selection and inspector
@@ -509,7 +525,8 @@ def do_export(_a, _b, build_path, meta, relayout_store, base, rs_view):
         raise PreventUpdate
     c = load_build(build_path)
     settings = Settings.from_key(meta["key"])
-    positions = relayout_positions(base, relayout_store) if base else None
+    tidied = relayout_positions(base, relayout_store) if base else None
+    positions = tidied[0] if tidied else None
     rows = None
     if rs_view and rs_view.get("rows") and rs_view.get("state_id") == meta["state_id"] and not rs_view.get("stale"):
         rows = rs_view["rows"]  # only results under the exact current key; stale results are never exported
@@ -532,8 +549,8 @@ def do_open(contents, filename, builds_root):
     c = load_build(opened.build_path)
     values = controls_from_settings(c, opened.settings)
     basis = [opened.settings.dataset, opened.settings.min_months, opened.settings.clustering_weight, opened.settings.seed]
-    relayout_store = ({"basis": basis, "positions": {str(k): list(v) for k, v in opened.relayout_positions.items()}}
-                      if opened.relayout_positions else None)
+    relayout_store = ({"basis": basis, "positions": {str(k): list(v) for k, v in opened.relayout_positions.items()},
+                       "restore": True} if opened.relayout_positions else None)
     rs_view = ({"state_id": opened.recorded_state_id, "rows": opened.removal_rows, "done": len(opened.removal_rows),
                 "total": opened.removal_total or len(opened.removal_rows), "from_export": True}
                if opened.removal_rows else None)
@@ -590,7 +607,7 @@ def register(app: dash.Dash) -> None:
     app.clientside_callback(R.RENDER, Output(R.ACK_ID, "data"), Input(R.DATA_ID, "data"))
     cb(Output("relayout", "data", allow_duplicate=True), Input("relayout-btn", "n_clicks"),
        State("elements-base", "data"), State("relayout", "data"), State(R.CANVAS_ID, "data"),
-       prevent_initial_call=True)(do_relayout)
+       State(R.DRAGGED_ID, "data"), prevent_initial_call=True)(do_tidy)
     cb(Output("selection", "data"), Output("floating-open", "data", allow_duplicate=True),
        Input(R.EVENT_ID, "data"),
        Input({"type": "legend", "cluster": ALL}, "n_clicks"), Input("clusters-grid", "selectedRows"),

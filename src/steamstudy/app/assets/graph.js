@@ -20,7 +20,8 @@
    Motion is brief and never continuous: moves, fades, the selection pulse and animated fits take about
    350 ms, and all of it is instant under prefers-reduced-motion. A new dataset only fits (animated).
    Dragged positions are view-only: kept (per layout) while the layout basis is the same, dropped when the
-   dataset, Minimum Months Filter, Clustering Weight or seed changes, never sent back. The canvas reports its
+   dataset, Minimum Months Filter, Clustering Weight or seed changes. Those dragged in the Global layout go
+   back on the `graph-dragged` store only for Tidy, which keeps them where they were dropped. The canvas reports its
    free area {w, h} on the `graph-canvas` store, each side rounded down to steps of 8 % from the reference
    canvas (1116 x 678), so small resizes never trigger a new layout and the layout always fits the real area.
 */
@@ -115,6 +116,7 @@
       const n = ev.target;
       if (!G.data || !G.data.positions[n.id()] || n.hasClass("region")) return;
       G.dragged[G.data.layout][n.id()] = {x: n.position("x"), y: n.position("y")};
+      if (G.data.layout === "global") reportDragged();
     });
     cy.on("viewport", () => { if (performance.now() > G.quietUntil) G.userMoved = true; });
     cy.on("zoom", () => {  // re-size and re-cull the labels once per frame
@@ -161,6 +163,13 @@
   function spot(data, id) {
     const drag = G.dragged[data.layout][id];
     return drag && data.positions[id] ? [drag.x, drag.y] : data.positions[id];
+  }
+
+  // Tell Dash the nodes dragged in the Global layout, for Tidy (which keeps them where they were dropped).
+  function reportDragged() {
+    const positions = {};
+    for (const [id, p] of Object.entries(G.dragged.global)) positions[id] = [p.x, p.y];
+    window.dash_clientside.set_props("graph-dragged", {data: {basis: G.basis, positions}});
   }
 
   // Tell Dash the free canvas area whenever its step changes: each side rounded down to REF * STEP^k (a side
@@ -323,8 +332,11 @@
 
   function sync(data, fresh) {
     const cy = G.cy;
-    if (JSON.stringify(data.basis) !== JSON.stringify(G.basis)) G.dragged = {global: {}, separated: {}};
-    G.basis = data.basis;
+    if (JSON.stringify(data.basis) !== JSON.stringify(G.basis)) {
+      G.dragged = {global: {}, separated: {}};
+      G.basis = data.basis;
+      reportDragged();
+    }
     const ms = fresh ? 0 : dur();
     const nodeIds = new Set(data.nodes.map((n) => n.id)), edgeIds = new Set(data.edges.map((e) => e.id));
     cy.batch(() => {

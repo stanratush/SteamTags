@@ -17,8 +17,9 @@ from steamstudy.app.loader import load_build
 from steamstudy.build.core import build
 from steamstudy.build.writer import write_build
 from steamstudy.config import load_config
-from steamstudy.network.layout import (LABEL_HEIGHT, LABEL_MARGIN, MIN_ZOOM, TITLE_ROOM, Canvas, Layout,
-                                      LayoutParams, label_width, layout_state, loose_layout, node_sizes, relayout)
+from steamstudy.network.layout import (LABEL_HEIGHT, LABEL_MARGIN, MIN_ZOOM, REFERENCE_CANVAS, TITLE_ROOM, Canvas, Layout,
+                                      LayoutParams, label_width, layout_input, layout_state, loose_layout,
+                                      node_sizes, restore, tidy)
 from steamstudy.network.model import Game, Settings
 from steamstudy.network.state import compute_state
 from steamstudy.snapshot import Snapshot
@@ -99,14 +100,14 @@ def test_compute_state_holds_no_coordinates_and_layout_state_only_reads_it(ctx):
 
 @pytest.mark.parametrize("loosest", [False, True])
 @pytest.mark.parametrize("dataset", DATASETS)
-def test_no_two_nodes_overlap_in_either_layout_or_after_relayout(ctx, dataset, loosest):
+def test_no_two_nodes_overlap_in_either_layout_or_after_tidy(ctx, dataset, loosest):
     state = _state(ctx, dataset, loosest)
     layout = layout_state(state)
     assert state.nodes and set(layout.sizes) >= set(state.nodes)
     assert _overlaps(layout.positions, layout.sizes) == []
     assert _overlaps(layout.separated, layout.sizes) == []
-    refined = relayout(state.graph, layout.positions, state.settings.seed, sizes=layout.sizes)
-    assert _overlaps(refined, layout.sizes) == []
+    tidied, _ = tidy(layout_input(state), layout.positions, REFERENCE_CANVAS, zoom=layout.zoom)
+    assert _overlaps(tidied, layout.sizes) == []
 
 
 def test_the_global_layout_has_no_overlap_on_the_full_loose_network(ctx):
@@ -132,8 +133,8 @@ def test_node_size_is_fixed_by_n_games_relative_to_the_most_frequent_tag(ctx):
 def test_the_same_inputs_give_identical_positions(ctx):
     a, b = layout_state(_state(ctx, "overall")), layout_state(_state(ctx, "overall"))
     assert a == b
-    graph = _state(ctx, "overall").graph
-    assert relayout(graph, a.positions, 3, sizes=a.sizes) == relayout(graph, b.positions, 3, sizes=b.sizes)
+    inp = layout_input(_state(ctx, "overall"))
+    assert tidy(inp, a.positions, REFERENCE_CANVAS, zoom=a.zoom) == tidy(inp, b.positions, REFERENCE_CANVAS, zoom=b.zoom)
 
 
 def _main_component(state):
@@ -382,6 +383,58 @@ def test_the_cluster_separated_labels_fit_at_the_first_fit_when_the_regions_allo
         assert zoom >= layout.separated_zoom - 1e-6
     assert _box_overlaps(_boxes(state, layout.separated, layout.sizes, zoom)) == [] or zoom < layout.separated_zoom
     assert min(layout.sizes.values()) * layout.separated_zoom >= 14.0
+
+
+# ----------------------------------------------------------------------------- Tidy and old exports
+
+
+@pytest.mark.parametrize("canvas", CANVASES, ids=["1440x900", "1280x800"])
+@pytest.mark.parametrize("dataset", DATASETS)
+def test_every_label_fits_at_the_first_fit_after_tidy(ctx, dataset, canvas):
+    state = _state(ctx, dataset)
+    layout = layout_state(state, canvas)
+    positions, zoom = tidy(layout_input(state), layout.positions, canvas, zoom=layout.zoom)
+    fit = _fit_zoom(state, positions, layout.sizes, canvas)
+    assert fit >= zoom - 1e-6 and zoom >= layout.zoom - 1e-6  # Tidy never needs a lower zoom
+    assert _box_overlaps(_boxes(state, positions, layout.sizes, fit)) == []
+    assert min(layout.sizes.values()) * fit >= 14.0
+    assert _clamp_violations(state, positions, zoom) == []
+
+
+def test_tidy_keeps_dragged_nodes_exactly_where_they_were_dropped(ctx):
+    state = _state(ctx, "overall")
+    layout = layout_state(state)
+    hub, other = sorted(state.nodes, key=lambda t: -state.network.n(t))[:2]
+    (hx, hy), (ox, oy) = layout.positions[hub], layout.positions[other]
+    dropped = {hub: (hx + 120.5, hy - 60.25), other: ((hx + ox) / 2, (hy + oy) / 2)}
+    current = {**layout.positions, **dropped}
+    positions, zoom = tidy(layout_input(state), current, REFERENCE_CANVAS, pinned=dropped, zoom=layout.zoom)
+    assert {t: positions[t] for t in dropped} == dropped  # exactly, not approximately
+    boxes = _boxes(state, positions, layout.sizes, zoom)
+    assert _box_overlaps(boxes) == []
+    assert set(_clamp_violations(state, positions, zoom)) <= set(dropped)
+
+
+def test_an_old_relayout_export_with_far_away_tags_opens_readable(ctx):
+    state = _state(ctx, "puzzle")
+    loose = loose_layout(ctx.games("puzzle"), state.settings.min_months, state.settings.clustering_weight,
+                         state.settings.seed)
+    stored = {t: loose[t] for t in state.nodes}  # the old layout: spring layout units, about 1,000 across
+    lonely = [t for t in state.nodes if state.graph.degree(t) == 0]
+    assert lonely
+    for i, t in enumerate(lonely):  # thrown about 1,000 units out, as the old Re-layout did
+        angle = i * 2.4
+        stored[t] = (1100 * math.cos(angle), 1100 * math.sin(angle))
+    positions, zoom = restore(layout_input(state), stored, REFERENCE_CANVAS)
+    sizes = layout_state(state).sizes
+    assert _clamp_violations(state, positions, zoom) == []
+    fit = _fit_zoom(state, positions, sizes, REFERENCE_CANVAS)
+    assert fit >= zoom - 1e-6
+    assert _box_overlaps(_boxes(state, positions, sizes, fit)) == []
+    main = sorted(_main_component(state))  # the shape is kept: tags far apart left to right stay in that order
+    xs_before = sorted(main, key=lambda t: stored[t][0])
+    left, right = xs_before[0], xs_before[-1]
+    assert positions[left][0] < positions[right][0]
 
 
 def test_overlap_removal_always_ends_without_overlaps_even_when_rounds_run_out():

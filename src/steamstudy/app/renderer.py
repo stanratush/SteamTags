@@ -20,6 +20,7 @@ GRAPH_ID = "cy"
 DATA_ID = "graph-data"
 EVENT_ID = "graph-event"
 ACK_ID = "graph-ack"
+DRAGGED_ID = "graph-dragged"  # {basis, positions}: the nodes dragged in the Global layout, reported by graph.js
 CANVAS_ID = "graph-canvas"  # the canvas's free area {w, h} in pixels, in steps, reported by graph.js
 # Slightly muted cluster colours (prototype variant B); One-Tag Clusters stay grey.
 PALETTE = ["#5b7fb0", "#d08a4e", "#6a9c64", "#c0646a", "#6ea8a5", "#c9ad4f", "#9a7fa8", "#d79aa4", "#8f7766",
@@ -42,7 +43,8 @@ def graph_component() -> list[Any]:
     """The canvas container plus the stores of the boundary. The canvas fills `.graph-canvas` (app.css) and
     follows its size."""
     return [html.Div(id=GRAPH_ID, className="graph-canvas"),
-            dcc.Store(id=DATA_ID, data={}), dcc.Store(id=EVENT_ID), dcc.Store(id=ACK_ID), dcc.Store(id=CANVAS_ID)]
+            dcc.Store(id=DATA_ID, data={}), dcc.Store(id=EVENT_ID), dcc.Store(id=ACK_ID), dcc.Store(id=CANVAS_ID),
+            dcc.Store(id=DRAGGED_ID)]
 
 
 def selection_ref(selection: dict[str, Any] | None) -> dict[str, str] | None:

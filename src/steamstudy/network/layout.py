@@ -90,17 +90,18 @@ def layout_input(state: NetworkState) -> LayoutInput:
 
 
 def layout_state(state: NetworkState, canvas: Canvas = REFERENCE_CANVAS, params: LayoutParams | None = None, *,
-                 positions: Mapping[int, tuple[float, float]] | None = None) -> Layout:
+                 positions: Mapping[int, tuple[float, float]] | None = None, zoom: float = 1.0) -> Layout:
     """The layout of a finished Network State, which it only reads."""
-    return lay_out(layout_input(state), canvas, params, positions=positions)
+    return lay_out(layout_input(state), canvas, params, positions=positions, zoom=zoom)
 
 
 def lay_out(inp: LayoutInput, canvas: Canvas = REFERENCE_CANVAS, params: LayoutParams | None = None, *,
-            positions: Mapping[int, tuple[float, float]] | None = None, separated: bool = True) -> Layout:
-    """Both layouts for a canvas (only the Global one without `separated`). `positions` replaces the computed
-    Global positions (a Re-layout); the Cluster-separated layout always starts from the Global one."""
+            positions: Mapping[int, tuple[float, float]] | None = None, zoom: float = 1.0,
+            separated: bool = True) -> Layout:
+    """Both layouts for a canvas (only the Global one without `separated`). `positions` (with the `zoom` their
+    labels are spaced for) replace the computed Global positions: Tidy's, or an older export's restored ones.
+    The Cluster-separated layout always starts from the Global one."""
     nodes = sorted(inp.graph.nodes)
-    zoom = 1.0
     if positions is None:
         positions, zoom = global_layout(inp.graph, inp.start, inp.sizes, inp.widths, canvas, params or LayoutParams())
     global_ = {t: positions[t] for t in nodes}
@@ -485,11 +486,12 @@ def _neighbour_cap(shape: np.ndarray, boxes: Boxes, main: np.ndarray | None) -> 
 
 class Clamp:
     """Keeps every tag within the main component's radius plus `room` of its centre, per axis: a tag outside is
-    moved towards the centre onto that bound. The main component's own tags are never moved, so the bound grows
-    with it."""
+    moved towards the centre onto that bound. The main component's own tags and the `fixed` ones (dragged, for
+    Tidy) are never moved, so the bound grows with the main component."""
 
-    def __init__(self, main: np.ndarray, room: float):
+    def __init__(self, main: np.ndarray, room: float, fixed: np.ndarray | None = None):
         self.main, self.room = main, room
+        self.fixed = np.zeros(len(main), dtype=bool) if fixed is None else fixed
 
     def __call__(self, xy: np.ndarray) -> None:
         inner = xy[self.main]
@@ -498,17 +500,71 @@ class Clamp:
         d = xy - centre
         with np.errstate(divide="ignore"):
             shrink = np.min(np.where(np.abs(d) > 1e-12, bound / np.abs(d), np.inf), axis=1)
-        xy[:] = centre + d * np.minimum(1.0, shrink)[:, None]
+        moved = centre + d * np.minimum(1.0, shrink)[:, None]
+        xy[~self.fixed] = moved[~self.fixed]
 
 
-def relayout(graph: nx.Graph, start: Mapping[Any, tuple[float, float]], seed: int, iterations: int = 50, *,
-             sizes: Mapping[Any, float]) -> dict[Any, tuple[float, float]]:
-    """Re-layout: refine positions on the current graph, starting from the current ones, then remove overlaps."""
-    if graph.number_of_nodes() == 0:
-        return {}
-    init = {t: (start[t][0] / SCALE, start[t][1] / SCALE) for t in graph.nodes if t in start}
-    pos = nx.spring_layout(graph, weight="w", seed=seed, pos=init or None, iterations=iterations)
-    return remove_overlaps({t: (float(x) * SCALE, float(y) * SCALE) for t, (x, y) in pos.items()}, sizes)
+# ----------------------------------------------------------------------------- Tidy and old exports
+
+
+def tidy(inp: LayoutInput, current: Mapping[int, tuple[float, float]], canvas: Canvas, *,
+         pinned: Mapping[int, tuple[float, float]] | None = None, zoom: float = 1.0) -> tuple[Positions, float]:
+    """Tidy: settle the Global layout from the current positions, the dragged (`pinned`) nodes staying exactly
+    where they were dropped. ForceAtlas2 from the current positions, its result turned and scaled back onto
+    them, then the clamp and the label-aware pass with labels spaced for `zoom` (the current layout's)."""
+    keys = sorted(inp.graph.nodes)
+    if not keys:
+        return {}, zoom
+    pinned = pinned or {}
+    now = np.array([pinned.get(t, current[t]) for t in keys], dtype=float)
+    xy = _onto(_forceatlas2(inp.graph, keys, {t: tuple(p) for t, p in zip(keys, now)}, GRAVITY), now)
+    fixed = np.array([t in pinned for t in keys])
+    xy[fixed] = now[fixed]
+    s = np.array([inp.sizes[t] for t in keys], dtype=float)
+    boxes = Boxes(s, np.array([inp.widths[t] for t in keys], dtype=float), zoom)
+    main = _main_component(inp.graph, keys)
+    clamp = Clamp(main, CLAMP_ROOM / zoom, fixed) if main.sum() >= 2 else None
+    if clamp is not None:
+        clamp(xy)
+    separate(xy, boxes, free=(~fixed).astype(float), clamp=clamp, aspect=canvas.aspect)
+    out = {t: (float(x), float(y)) for t, (x, y) in zip(keys, xy)}
+    out.update({t: (float(pinned[t][0]), float(pinned[t][1])) for t in keys if t in pinned})
+    return out, zoom
+
+
+def _onto(xy: np.ndarray, target: np.ndarray) -> np.ndarray:
+    """`xy` turned, scaled and moved to match `target` as closely as possible (Procrustes, no mirroring)."""
+    a, b = xy - xy.mean(axis=0), target - target.mean(axis=0)
+    norm = float(np.sqrt((a * a).sum()))
+    if norm < 1e-12:
+        return np.repeat(target.mean(axis=0)[None, :], len(xy), axis=0)
+    u, sv, vt = np.linalg.svd(a.T @ b)
+    turn = u @ vt
+    if np.linalg.det(turn) < 0:
+        u[:, -1] *= -1
+        sv[-1] *= -1
+        turn = u @ vt
+    return (a @ turn) * (sv.sum() / norm ** 2) + target.mean(axis=0)
+
+
+def restore(inp: LayoutInput, stored: Mapping[int, tuple[float, float]],
+            canvas: Canvas = REFERENCE_CANVAS) -> tuple[Positions, float]:
+    """Global positions from an older export's Re-layout: their shape kept (one scale for both axes), scaled into
+    the canvas, then the clamp and the label-aware pass, so tags thrown far out by the old Re-layout come back
+    next to the graph."""
+    keys = sorted(inp.graph.nodes)
+    if not keys:
+        return {}, 1.0
+    xy = np.array([stored[t] for t in keys], dtype=float)
+    main = _main_component(inp.graph, keys)
+    basis = xy[main] if main.sum() >= 2 else xy
+    centre = (basis.min(axis=0) + basis.max(axis=0)) / 2
+    extent = np.maximum(basis.max(axis=0) - basis.min(axis=0), 1e-9)
+    shape = (xy - centre) * float(min(canvas.width / extent[0], canvas.height / extent[1]))
+    s = np.array([inp.sizes[t] for t in keys], dtype=float)
+    out, zoom = _place(shape, main if main.sum() >= 2 else None, s,
+                       np.array([inp.widths[t] for t in keys], dtype=float), canvas)
+    return {t: (float(x), float(y)) for t, (x, y) in zip(keys, out)}, zoom
 
 
 # ----------------------------------------------------------------------------- Cluster-separated

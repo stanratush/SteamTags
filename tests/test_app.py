@@ -121,10 +121,15 @@ def test_layout_switch_keeps_the_partition_and_export_has_both_coordinate_sets(b
     assert all(r["x_global"] and r["y_global"] and r["x_cluster_separated"] and r["y_cluster_separated"] for r in rows)
 
 
-def test_relayout_is_recorded_and_dropped_when_the_basis_changes(build_folder):
+def test_tidy_pins_dragged_nodes_is_exported_and_dropped_when_the_basis_changes(build_folder):
     meta, tables, base, *_ = _recompute(build_folder)
-    relayout_store = CB.do_relayout(1, base, None)
-    assert CB.relayout_positions(base, relayout_store) is not None
+    node = base["nodes"][0]["id"]
+    dragged = {"basis": base["basis"], "positions": {node: [400.0, -250.0]}}
+    relayout_store = CB.do_tidy(1, base, None, None, dragged)
+    positions, zoom = CB.relayout_positions(base, relayout_store)
+    assert positions[int(node)] == (400.0, -250.0) and 0 < zoom <= 1
+    stale = {"basis": [*base["basis"][:3], base["basis"][3] + 1], "positions": {node: [9.0, 9.0]}}
+    assert CB.relayout_positions(base, CB.do_tidy(1, base, None, None, stale))[0][int(node)] != (9.0, 9.0)
     sent = CB.do_export(1, None, str(build_folder), meta, relayout_store, base, None)
     export = read_export(base64.b64decode(sent["content"]))[0]
     assert export["layout_source"] == "relayout"
@@ -184,6 +189,28 @@ def test_open_restores_every_control(build_folder):
     refused = CB.do_open("data:x;base64," + base64.b64encode(b"not an export").decode("ascii"), "y.json",
                          str(build_folder.parents[1]))
     assert refused[-1].startswith("Refused")
+
+
+def test_an_old_relayout_export_opens_with_every_tag_next_to_the_graph(build_folder):
+    from steamstudy.app.export import export_zip
+
+    ctx = load_build(build_folder)
+    settings = ctx.default_settings("overall")
+    state = compute_state(ctx.games("overall"), settings, ctx.context("overall"))
+    layout = layout_state(state)
+    far = sorted(state.nodes)[0]
+    old = {t: (x * 2.0, y * 2.0) for t, (x, y) in layout.positions.items()} | {far: (2600.0, -2400.0)}
+    _, data = export_zip(ctx, settings, relayout_positions=old, state=state)
+    out = CB.do_open("data:application/zip;base64," + base64.b64encode(data).decode("ascii"), "old.zip",
+                     str(build_folder.parents[1]))
+    store = out[len(CB.CONTROL_IDS) + 2]
+    assert store["restore"] is True and store["positions"][str(far)] == [2600.0, -2400.0]
+    meta, tables, base, *_ = _recompute(build_folder)
+    positions, zoom = CB.relayout_positions(base, store)
+    others = [positions[t][0] for t in state.nodes if t != far]
+    assert min(others) - 200 < positions[far][0] < max(others) + 200  # pulled in next to the graph
+    sent = CB.do_export(1, None, str(build_folder), meta, store, base, None)
+    assert read_export(base64.b64decode(sent["content"]))[0]["layout_source"] == "relayout"
 
 
 def test_mode_layout_orders():
