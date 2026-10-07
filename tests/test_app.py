@@ -543,3 +543,29 @@ def test_the_graph_is_laid_out_for_the_canvas_the_browser_reports(build_folder, 
     assert payload["zoom"] == layout.zoom
     names = state.network.tag_names
     assert {n["id"]: n["lw"] for n in payload["nodes"]} == {str(t): label_width(names[t]) for t in state.nodes}
+
+
+def test_a_layout_already_made_for_these_inputs_is_not_computed_again(build_folder, monkeypatch):
+    meta, tables, base, *_ = _recompute(build_folder)
+    calls = []
+    real = CB.lay_out
+    monkeypatch.setattr(CB, "lay_out", lambda *a, **k: calls.append(1) or real(*a, **k))
+    CB.LAYOUTS.clear()
+    wide, narrow = {"w": 1116, "h": 678}, {"w": 957, "h": 538}
+    first = CB.render_graph(base, "global", None, None, wide)
+    CB.render_graph(base, "global", None, None, narrow)
+    again = CB.render_graph(base, "global", None, None, wide)  # a panel opened and closed again
+    assert len(calls) == 2 and again == first
+    selected = CB.render_graph(base, "global", None, {"kind": "node", "id": base["nodes"][0]["id"]}, wide)
+    assert len(calls) == 2 and selected["positions"] == first["positions"]  # the selection is not a layout input
+    CB.render_graph(dict(base, seed=base["seed"] + 1), "global", None, None, wide)
+    assert len(calls) == 3
+
+
+def test_the_floating_inspector_is_a_transient_overlay_of_the_graph(build_folder):
+    """It covers the graph only while a selection is shown, so it never changes the canvas the layout is made for."""
+    from steamstudy.app.layout import build_layout
+
+    inspector = next(c for c in _walk(build_layout(load_build(build_folder)))
+                     if getattr(c, "id", None) == "inspector-panel")
+    assert inspector.to_plotly_json()["props"].get("data-graph-transient") == "yes"

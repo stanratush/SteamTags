@@ -221,7 +221,7 @@ def build_layout(ctx: BuildContext) -> html.Div:
         html.Div([html.Button("Remove this tag", id="remove-btn", className="btn", style={"display": "none"}),
                   html.Button("Run for this tag", id="rs-run-tag", className="btn", style={"display": "none"})],
                  className="row-inline"),
-    ], id="inspector-panel", className="inspector docked", **_data(graph_overlay="right"))
+    ], id="inspector-panel", className="inspector docked", **_data(graph_overlay="right", graph_transient="yes"))
 
     stores = [
         dcc.Store(id="build-path", data=str(ctx.path)),

@@ -7,9 +7,11 @@
 
    The canvas follows its container (a ResizeObserver), and the view refits until the user zooms or
    pans. Every fit targets where the nodes and their labels end up, never zooms past 100 %, and leaves
-   room for the overlays drawn over the canvas (elements marked data-graph-overlay="top|right|bottom|left",
-   e.g. the floating Inspector). Python lays the graph out for the free area this canvas reports, so one
-   model unit is one screen pixel at the first fit (layout.py's fit_zoom fits the same way).
+   room for the overlays drawn over the canvas (elements marked data-graph-overlay="top|right|bottom|left").
+   Python lays the graph out for the free area this canvas reports, so one model unit is one screen pixel at
+   the first fit (layout.py's fit_zoom fits the same way). Transient overlays (also data-graph-transient: the
+   floating Inspector, shown only with a selection) never change the layout or the fit; when one covers the
+   selected tag, the view pans to show it.
 
    Labels: every label keeps a constant 11.5 px on screen, with a white halo; the selection and its
    neighbours (`hot`) get a solid white box and bold type. Python spaces the layout so no label overlaps
@@ -30,6 +32,7 @@
   const PAD = 30, TITLE_ROOM = 22;
   const LABEL_H = 15, LABEL_MARGIN = 2;  // a label's box below its node, in pixels (layout.py's LABEL_HEIGHT, LABEL_MARGIN)
   const REF = {w: 1116, h: 678}, STEP = 1.08;  // the reference canvas and the canvas report's steps
+  const REPORT_SETTLE = 150, LABEL_SETTLE = 120;  // ms a size or a zoom must stay put before acting on it
   const LABEL_PX = 11.5, TITLE_PX = 12.5, HALO = 2;  // constant on-screen sizes of labels and region titles
   const MOTION = 350, EASE = "ease-in-out-cubic";
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -119,28 +122,37 @@
       if (G.data.layout === "global") reportDragged();
     });
     cy.on("viewport", () => { if (performance.now() > G.quietUntil) G.userMoved = true; });
-    cy.on("zoom", () => {  // re-size and re-cull the labels once per frame
-      if (!G.labelFrame) G.labelFrame = requestAnimationFrame(() => { G.labelFrame = 0; sizeLabels(); });
+    // Labels are re-sized and re-culled once a zoom settles, not on every frame: a new font size makes every
+    // label redraw from scratch, about twice the cost of a frame. While zooming they scale with the graph.
+    cy.on("zoom", () => {
+      clearTimeout(G.labelTimer);
+      G.labelTimer = setTimeout(sizeLabels, LABEL_SETTLE);
     });
-    // After a resize: report the canvas and refit (browser checks call it directly, as a hidden page skips it).
+    // After a resize: refit at once, and report the canvas once the size has settled.
     G.refresh = () => {
       cy.resize();
-      reportCanvas();
+      scheduleReport();
       if (G.data && !G.userMoved) fit(false);
       if (G.data) sizeLabels();
     };
     const ro = new ResizeObserver(() => G.refresh());
     ro.observe(el);
-    document.querySelectorAll("[data-graph-overlay]").forEach((o) => ro.observe(o));
+    document.querySelectorAll("[data-graph-overlay]:not([data-graph-transient])").forEach((o) => ro.observe(o));
+    // A transient overlay (the floating Inspector) never changes the layout or the fit; it only makes sure the
+    // selected tag is not hidden under it.
+    const shown = new ResizeObserver(() => revealSelection());
+    document.querySelectorAll("[data-graph-transient]").forEach((o) => shown.observe(o));
     return cy;
   }
 
   // ------------------------------------------------------------------ geometry
 
-  // The canvas area left free by the overlays that cover it, as insets from each side.
+  // The canvas area left free by the overlays that cover it, as insets from each side. Transient overlays
+  // (data-graph-transient: the floating Inspector, shown only with a selection) are not counted, so selecting
+  // and deselecting never re-lays out or refits the graph.
   function insets() {
     const c = G.el.getBoundingClientRect(), pad = {top: PAD, right: PAD, bottom: PAD, left: PAD};
-    for (const o of document.querySelectorAll("[data-graph-overlay]")) {
+    for (const o of document.querySelectorAll("[data-graph-overlay]:not([data-graph-transient])")) {
       const r = o.getBoundingClientRect(), side = o.dataset.graphOverlay;
       if (!r.width || !r.height || r.right <= c.left || r.left >= c.right || r.bottom <= c.top || r.top >= c.bottom) {
         continue;
@@ -174,6 +186,34 @@
 
   // Tell Dash the free canvas area whenever its step changes: each side rounded down to REF * STEP^k (a side
   // up to about 1 % short of a step still counts as that step).
+  // Report once the canvas size has stayed put for REPORT_SETTLE ms: a panel opening animates through many
+  // sizes, and each report costs a layout on the server.
+  function scheduleReport() {
+    clearTimeout(G.reportTimer);
+    G.reportTimer = setTimeout(reportCanvas, G.canvas ? REPORT_SETTLE : 0);
+  }
+
+  // Pan the selected tag into view when a transient overlay (the floating Inspector) covers it.
+  function revealSelection() {
+    if (!G.cy || !G.selected || !G.cy.width()) return;
+    const sel = JSON.parse(G.selected);
+    if (!sel || sel.kind !== "node") return;
+    const n = G.cy.getElementById(sel.id);
+    if (n.empty()) return;
+    const c = G.el.getBoundingClientRect(), p = n.renderedPosition(), r = n.renderedWidth() / 2;
+    for (const o of document.querySelectorAll("[data-graph-transient]")) {
+      const b = o.getBoundingClientRect();
+      if (!b.width || !b.height) continue;
+      const x1 = b.left - c.left, x2 = b.right - c.left, y1 = b.top - c.top, y2 = b.bottom - c.top;
+      if (p.x + r < x1 || p.x - r > x2 || p.y + r < y1 || p.y - r > y2) continue;
+      // Just far enough to clear the overlay's left edge (labels need about one label width of room).
+      const target = Math.max(PAD + r, x1 - r - Math.max(n.data("lw") || 0, 40));
+      const pan = G.cy.pan();
+      viewport(G.cy.zoom(), {x: pan.x + (target - p.x), y: pan.y}, true);
+      return;
+    }
+  }
+
   function reportCanvas() {
     if (!G.cy || !G.cy.width() || !G.cy.height()) return;
     const a = freeArea();
@@ -304,7 +344,7 @@
   // ------------------------------------------------------------------ elements
 
   function nodeData(n) {
-    return {id: n.id, label: n.label, cluster: n.cluster, color: n.color, size: n.size, prio: n.prio};
+    return {id: n.id, label: n.label, cluster: n.cluster, color: n.color, size: n.size, prio: n.prio, lw: n.lw};
   }
 
   function fadeIn(el, ms) {
@@ -454,7 +494,7 @@
       G.el = el; G.cy = mount(el); G.data = null; G.sig = null; G.moveSig = null; G.transition = null;
     }
     transitions();
-    reportCanvas();
+    if (!G.canvas) reportCanvas(); else scheduleReport();
     const prev = G.data;
     G.data = data;
     const moveSig = JSON.stringify([data.layout, data.positions, data.regions]);

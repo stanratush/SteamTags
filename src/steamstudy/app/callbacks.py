@@ -1,5 +1,6 @@
 """The app's callbacks. The server is stateless: every settings change recomputes the whole Network State
-from the loaded dataset; the browser holds only plain data in dcc.Store components.
+from the loaded dataset; the browser holds only plain data in dcc.Store components. The only memory is a
+small memo of recent layouts (`LAYOUTS`), a pure function of the inputs it is keyed by.
 
 Functions are module-level so background jobs (Removal Sensitivity) can import them in a spawned process.
 """
@@ -7,7 +8,11 @@ Functions are module-level so background jobs (Removal Sensitivity) can import t
 from __future__ import annotations
 
 import base64
+import hashlib
+import json
+import threading
 import time
+from collections import OrderedDict
 from typing import Any
 
 import dash
@@ -25,8 +30,8 @@ from steamstudy.app import renderer as R
 from steamstudy.app.renderer import cluster_color
 from steamstudy.network.cluster import Cluster
 from steamstudy.network.graph import filter_games
-from steamstudy.network.layout import (REFERENCE_CANVAS, Canvas, LayoutInput, lay_out, label_width, layout_input,
-                                      restore, tidy)
+from steamstudy.network.layout import (REFERENCE_CANVAS, Canvas, Layout, LayoutInput, lay_out, label_width,
+                                      layout_input, restore, tidy)
 from steamstudy.network.model import Settings, resolution_text
 from steamstudy.network.sensitivity import removal_sensitivity
 from steamstudy.network.state import compute_state
@@ -234,14 +239,38 @@ def relayout_positions(base: dict[str, Any],
     return None
 
 
+# Recent layouts, newest last: opening and closing a panel (or switching the layout back) costs nothing.
+LAYOUTS: OrderedDict[str, Layout] = OrderedDict()
+LAYOUTS_KEPT = 12
+_LAYOUTS_LOCK = threading.Lock()
+
+
+def cached_layout(base: dict[str, Any], layout_mode: str, relayout_store: dict | None, canvas: dict | None) -> Layout:
+    """`lay_out` for the browser's graph, memoised on everything it reads (never on the selection)."""
+    size = canvas_of(canvas)
+    separated = layout_mode == "separated"
+    key = hashlib.sha256(json.dumps([base, separated, relayout_store, size.width, size.height], sort_keys=True,
+                                    separators=(",", ":")).encode("utf-8")).hexdigest()
+    with _LAYOUTS_LOCK:
+        if key in LAYOUTS:
+            LAYOUTS.move_to_end(key)
+            return LAYOUTS[key]
+    tidied = relayout_positions(base, relayout_store)
+    layout = lay_out(layout_input_from_base(base), size, positions=tidied[0] if tidied else None,
+                     zoom=tidied[1] if tidied else 1.0, separated=separated)
+    with _LAYOUTS_LOCK:
+        LAYOUTS[key] = layout
+        while len(LAYOUTS) > LAYOUTS_KEPT:
+            LAYOUTS.popitem(last=False)
+    return layout
+
+
 def render_graph(base, layout_mode, relayout_store, selection, canvas=None):
     """The `graph-data` payload: every visible node and edge with its target position (no AppIDs), laid out for
     the canvas the browser reports (exports use the reference canvas)."""
     if not base:
         raise PreventUpdate
-    tidied = relayout_positions(base, relayout_store)
-    layout = lay_out(layout_input_from_base(base), canvas_of(canvas), positions=tidied[0] if tidied else None,
-                     zoom=tidied[1] if tidied else 1.0, separated=layout_mode == "separated")
+    layout = cached_layout(base, layout_mode, relayout_store, canvas)
     regions: list[dict[str, Any]] = []
     positions, zoom = layout.positions, layout.zoom
     if layout_mode == "separated":

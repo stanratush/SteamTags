@@ -158,6 +158,7 @@ details[open]>.more{color:var(--mute)}
 #root.workbench .inspector:not(.docked).has-sel,
 body[data-form=medium] #root.workbench .inspector.has-sel,
 body[data-form=narrow] #root.workbench .inspector.has-sel{display:block;position:absolute;z-index:20;right:12px;
+ grid-area:1/1/-1/-1; /* placed over the whole body grid: its own column is empty (0 px) while it floats */
  top:calc(var(--stage-top,0px) + 52px);bottom:calc(var(--stage-bottom,0px) + 56px);width:352px;max-width:calc(100% - 24px);
  border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 34px #00000022}
 #root.workbench .inspector:not(.docked).has-sel .x,
