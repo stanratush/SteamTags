@@ -5,6 +5,7 @@ from __future__ import annotations
 import html as markup
 import math
 import re
+from functools import lru_cache
 from typing import Any
 
 from dash import html
@@ -96,7 +97,7 @@ NODES, EDGES, CLUSTERS, RS = ("app_export/nodes.csv", "app_export/edges.csv", "a
                               "app_export/removal_sensitivity.csv")
 
 # The Inspector's plain names. Grids, exports and the Column Index keep the column names; each label's tooltip
-# gives the column's description and name, and its guide entry says "Shown in the app as" this label.
+# is its guide entry's In short with the column names, and the entry says "Shown in the app as" this label.
 INSPECTOR_LABELS: dict[str, tuple[tuple[str, str], ...]] = {
     "Cluster": ((NODES, "cluster"),),
     "Games": ((NODES, "n_games"),),
@@ -130,10 +131,11 @@ INSPECTOR_LABELS: dict[str, tuple[tuple[str, str], ...]] = {
 GAMES_SHOWN = 10
 
 
-def label_tip(label: str) -> str:
-    """A plain name's tooltip: each column's description and name."""
-    return "  ".join(f"{S.file(f).column(c).description} Column: {c} ({f.split('/')[-1]})."
-                     for f, c in INSPECTOR_LABELS[label])
+@lru_cache(maxsize=None)
+def label_help(label: str, cls: str = "term") -> str:
+    """A plain name's two help layers as escaped HTML attributes (see `steamstudy.app.help`)."""
+    attrs = {"class": cls, "tabindex": "0", **H.column_attrs(INSPECTOR_LABELS[label])}
+    return " ".join(f'{k}="{_e(v)}"' for k, v in attrs.items())
 
 
 class Markup(str):
@@ -141,9 +143,9 @@ class Markup(str):
 
 
 def _kv(rows: list[tuple[str, Any]]) -> html.Div:
-    """Metrics as a two-column list: muted plain names (tooltip: description and column), values. One component
-    (see `_html`)."""
-    items = "".join(f'<dt title="{_e(label_tip(label))}">{_e(label)}</dt>'
+    """Metrics as a two-column list: muted plain names (with both help layers), values. One component (see
+    `_html`)."""
+    items = "".join(f'<dt {label_help(label)}>{_e(label)}</dt>'
                     f'<dd>{value if isinstance(value, Markup) else _e(value)}</dd>' for label, value in rows)
     return _html(f'<dl class="kv">{items}</dl>')
 
@@ -197,9 +199,14 @@ def _e(value: Any) -> str:
     return markup.escape(str(value), quote=True)
 
 
-def _cell(value: Any, cls: str | None = None, tag: str = "td", title: str | None = None) -> str:
-    attrs = (f' class="{_e(cls)}"' if cls else "") + (f' title="{_e(title)}"' if title else "")
+def _cell(value: Any, cls: str | None = None, tag: str = "td") -> str:
+    attrs = f' class="{_e(cls)}"' if cls else ""
     return f"<{tag}{attrs}>{_e(value)}</{tag}>"
+
+
+def _label_th(label: str) -> str:
+    """A right-aligned table header that is an Inspector label, with its help."""
+    return f"<th {label_help(label, 'term r')}>{_e(label)}</th>"
 
 
 def _table(head: str, rows: list[str]) -> str:
@@ -219,7 +226,7 @@ def _games_table(games: list[dict[str, Any]], with_appid: bool = False) -> str:
 
 def _connected_table(connected: list[dict[str, Any]]) -> str:
     """Connected tags; a row selects its link (graph.js listens for clicks on `data-edge`)."""
-    head = _cell("Tag", tag="th") + _cell("Shared games", "r", "th") + _cell("Lift", "r", "th")
+    head = _cell("Tag", tag="th") + _label_th("Shared games") + _label_th("Lift")
     return _table(head, [f'<tr class="click" data-edge="{_e(c["edge"])}" tabindex="0" title="Select this link">'
                          f'<td>{_swatch_html(c["color"])}{_e(c["tag"])}</td>{_cell(c["shared"], "r")}'
                          f'{_cell(num(c["lift"]), "r")}</tr>' for c in connected])
@@ -321,10 +328,10 @@ def cluster_inspector(cluster: dict[str, Any], members: list[dict[str, Any]], we
     ]))
     out.append(html.Div(["Members ", html.Span("by game-set distance to the others", className="cnt")],
                         className="i-h"))
-    head = [("Tag", None), ("Games", "Games"), ("Mean game-set distance to members", "Mean game-set distance to members"),
-            ("Membership Stability", "Membership Stability")]
+    head = _cell("Tag", tag="th") + "".join(_label_th(label) for label in (
+        "Games", "Mean game-set distance to members", "Membership Stability"))
     out.append(_html(_table(
-        "".join(_cell(h, "r" if tip else None, "th", label_tip(tip) if tip else None) for h, tip in head),
+        head,
         [f'<tr>{_cell(("◆ " if m["is_center"] else "") + m["tag"])}{_cell(m["n_games"], "r")}'
          f'{_cell(num(m["medoid_score"], 3), "r")}{_cell(num(m["membership_stability"]), "r")}</tr>'
          for m in members])))
@@ -401,16 +408,6 @@ def nin_inspector(row: dict[str, Any], min_games: int) -> list[Any]:
 
 # ----------------------------------------------------------------------------- summary row and quality boxes
 
-SILHOUETTE_TIP = ("Mean silhouette on Jaccard game-set distance. Descriptive diagnostic, not a selection criterion: "
-                  "it is not what the clustering optimises.")
-
-
-def ari_tip(k: int) -> str:
-    return ("ARI (adjusted Rand index) compares two partitions: 1 = identical clusters, about 0 = no more agreement "
-            f"than chance. Here: each of the K = {k} noise seeds against the clusters shown; min is the seed that "
-            "differed most.")
-
-
 def _excess(q: dict[str, Any]) -> str:
     return "n/a" if q["q_excess"] is None else f"{q['q_excess']:+.2f}"
 
@@ -445,28 +442,32 @@ def summary_row(q: dict[str, Any], n_rows: int, gamma: str, r: int) -> list[Any]
 
 
 def quality_boxes(q: dict[str, Any], gamma: str, k: int, r: int) -> list[Any]:
-    """The Cluster quality tab: five boxes with tooltips, then the two full sentences once, small and muted."""
+    """The Cluster quality tab: five boxes with both help layers, then the two full sentences once, small and muted."""
+    null = f"null mean {num(q['q_null_mean'])} ± {num(q['q_null_sd'])} from R = {r} shuffled networks"
     if q["modularity"] is None:
-        excess_sub = "no edges"
+        excess_sub, q_now, excess_now = "no edges", f"γ = {gamma}; no links, so no Q.", None
     else:
         excess_sub = (f"z {z_text(q['modularity_z'])} · null {num(q['q_null_mean'])} ± {num(q['q_null_sd'])} "
                       f"· excess over the null mean")
+        q_now = f"γ = {gamma}; {null}."
+        excess_now = f"Q {num(q['modularity'])} − {null}; z {z_text(q['modularity_z'])}."
     sil = num(q["mean_silhouette"]) if q["mean_silhouette"] is not None else f"n/a ({q['silhouette_status']})"
     boxes = [
-        ("Q", num(q["modularity"]), f"γ = {gamma}", "Modularity: how much more link weight falls inside clusters "
-                                                   "than expected for these tags. Compare it with the null model."),
-        ("Null-model excess", _excess(q), excess_sub,
-         f"Q minus the mean Q of R = {r} null networks with the same games and tag frequencies (null mean ± SD). "
-         "z is never read alone: the null SD is small."),
-        ("Coverage", num(q["coverage"]), "link weight inside clusters", "Share of total link weight inside clusters."),
-        ("Silhouette", sil, "descriptive", SILHOUETTE_TIP),
-        ("Seed noise", num(q["seed_ari_min"]), f"ARI min · mean {num(q['seed_ari_mean'])}", ari_tip(k)),
+        ("Q", num(q["modularity"]), f"γ = {gamma}", "quality.q", q_now),
+        ("Null-model excess", _excess(q), excess_sub, "quality.excess", excess_now),
+        ("Coverage", num(q["coverage"]), "link weight inside clusters", "quality.coverage", None),
+        ("Silhouette", sil, "descriptive", "quality.silhouette",
+         None if q["seed_silhouette_sd"] is None else f"SD across the K = {k} seeds {num(q['seed_silhouette_sd'])}."),
+        ("Seed noise", num(q["seed_ari_min"]), f"ARI min · mean {num(q['seed_ari_mean'])}", "quality.seed_noise",
+         f"each of the K = {k} extra seeds against the clusters shown; min is the seed that differed most."),
     ]
     return [
-        html.Div([html.Div([html.Div([label, html.I("i", className="qi")], className="l"),
+        html.Div([html.Div([html.Div(html.Span(label, className="term"), className="l"),
                             html.Div(value, className="v"), html.Div(sub, className="s")],
-                           className="qbox", title=tip) for label, value, sub, tip in boxes], className="qboxes"),
-        html.Div([html.P(quality_line(q, gamma)), html.P(noise_line(q, k))], className="sentences"),
+                           className="qbox", tabIndex="0", **H.attrs(key, now))
+                  for label, value, sub, key, now in boxes], className="qboxes"),
+        html.Div([html.P(quality_line(q, gamma), tabIndex="0", **H.attrs("quality.sentence")),
+                  html.P(noise_line(q, k), tabIndex="0", **H.attrs("quality.noise_sentence"))], className="sentences"),
     ]
 
 

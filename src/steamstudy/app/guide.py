@@ -157,10 +157,12 @@ def in_short(entry: str) -> list[tuple[str, str]]:
     return out
 
 
-def in_short_at(file: str, anchor: str) -> list[tuple[str, str]]:
+@lru_cache(maxsize=None)
+def in_short_at(file: str, anchor: str) -> tuple[tuple[str, str], ...]:
+    """An entry's In short lines, read once per process (the Inspector asks on every selection)."""
     text = chapter(file)
     entry = section(text, anchor) if text is not None else None
-    return in_short(entry) if entry else []
+    return tuple(in_short(entry)) if entry else ()
 
 
 def in_short_problems(lines: list[tuple[str, str]]) -> list[str]:

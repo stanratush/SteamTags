@@ -227,3 +227,14 @@ def test_every_in_guide_link_the_modal_follows_points_to_an_existing_heading():
                 broken.append((path.name, href))
     assert followed > 200
     assert broken == []
+
+
+def test_every_inspector_label_resolves_to_an_entry_with_in_short_and_why_it_matters():
+    from steamstudy.app.guide import chapter, in_short_at, section
+    from steamstudy.app.help import column_entry
+    from steamstudy.app.view import INSPECTOR_LABELS
+
+    for label, columns in INSPECTOR_LABELS.items():
+        file, anchor = column_entry(columns)
+        assert in_short_at(file, anchor), label
+        assert "*Why it matters here.*" in section(chapter(file), anchor), label

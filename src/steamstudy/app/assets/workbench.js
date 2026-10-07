@@ -122,7 +122,8 @@
   // or keyboard focus, never over the element itself. Layer 2: a click (or Enter) on a data-help element opens its
   // guide entry in the help modal through the help-target store. A touch tap goes straight to layer 2.
   const HELP_LINK = "#help:";  // guide.py HELP_LINK
-  const TIP_LABEL = /^(In short\.|Higher →|Lower →|Raising it →|Here:|Caution:|Now:)\s*/;
+  // guide.py IN_SHORT_LABELS, the Now line and help.py column_line
+  const TIP_LABEL = /^(In short\.|Higher →|Lower →|Raising it →|Here:|Caution:|Now:|Columns?:)\s*/;
   let tipBox = null, tipFor = null, lastPointer = "mouse";
 
   function escapeHtml(s) {
@@ -139,7 +140,9 @@
     }
     tipBox.innerHTML = el.dataset.tip.split("\n").map((line) => {
       const m = line.match(TIP_LABEL);
-      const cls = m && m[1] === "Now:" ? ' class="now"' : "";
+      let cls = "";
+      if (m && m[1] === "Now:") cls = ' class="now"';
+      else if (m && m[1].startsWith("Column")) cls = ' class="col"';
       return m ? `<p${cls}><b>${escapeHtml(m[1])}</b> ${escapeHtml(line.slice(m[0].length))}</p>`
                : `<p>${escapeHtml(line)}</p>`;
     }).join("") + (el.dataset.help ? '<p class="more">Click for the full User Guide entry</p>' : "");

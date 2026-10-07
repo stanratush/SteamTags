@@ -681,3 +681,54 @@ def test_a_chapter_link_in_the_help_modal_opens_its_first_section():
     _, body, history, _ = CB.show_help(None, None, {"target": "05-citing-and-reproducing.md", "n": 3, "follow": True},
                                        None, ["03-metric-reference.md#modularity-q"])
     assert body.startswith("# Citing and reproducing") and history[-1] == "05-citing-and-reproducing.md"
+
+
+def _help_attrs(html_text: str) -> list[tuple[str, dict[str, str]]]:
+    """(label, attributes) of every element with help in an escaped-HTML block."""
+    import html as markup
+
+    return [(markup.unescape(label), {k: markup.unescape(v) for k, v in re.findall(r'([\w-]+)="([^"]*)"', attrs)})
+            for attrs, label in re.findall(r"<(?:dt|th) ([^>]*data-help[^>]*)>([^<]*)</(?:dt|th)>", html_text)]
+
+
+def test_inspector_labels_show_their_in_short_and_open_their_guide_entry():
+    from steamstudy.app import view as V
+
+    block = V._kv([("Membership Stability", "0.95"), ("Links · in own cluster", "9 · 5")])
+    text = block.to_plotly_json()["props"]["data-html"]
+    (first, a), (second, b) = _help_attrs(text)
+    assert first == "Membership Stability" and a["data-help"] == "03-metric-reference.md#membership-stability"
+    assert a["tabindex"] == "0" and "term" in a["class"] and "title" not in a
+    lines = a["data-tip"].split("\n")
+    assert lines[0].startswith("In short. ") and lines[-1] == "Column: membership_stability (nodes.csv)"
+    assert b["data-tip"].split("\n")[-1] == "Columns: degree, degree_intra (nodes.csv)"
+    assert b["data-help"] == "03-metric-reference.md#degree-and-isolated-tags"
+
+
+def test_inspector_table_headers_carry_the_help_of_their_label():
+    from steamstudy.app import view as V
+
+    cluster = {"cluster": "C1", "size": 3, "kind": "multi_tag", "connected": True, "center": "A", "center_status": None,
+               "center_medoid_score": 0.2, "top_strength_tag": "A", "center_is_top_strength": True,
+               "mean_membership_stability": 1.0, "conductance": 0.1, "conductance_status": None}
+    members = [{"tag": "A", "is_center": True, "n_games": 9, "medoid_score": 0.2, "membership_stability": 1.0}]
+    text = "".join(c.to_plotly_json()["props"].get("data-html", "")
+                   for c in V.cluster_inspector(cluster, members, "shared_games"))
+    labels = [label for label, _ in _help_attrs(text)]
+    assert {"Games", "Mean game-set distance to members", "Membership Stability", "Cluster Center"} <= set(labels)
+    assert "title=" not in text
+
+
+def test_quality_boxes_and_sentences_show_the_guide_text_with_now_lines(build_folder):
+    out = _recompute(build_folder)
+    ctx = load_build(build_folder)
+    s = ctx.default_settings("overall")
+    boxes, sentences = out[6][0].children, out[6][1].children
+    props = [b.to_plotly_json()["props"] for b in [*boxes, *sentences]]
+    assert [p["data-help"].split("#")[1] for p in props] == [
+        "modularity-q", "excess-modularity-and-z-score", "coverage-and-inter-cluster-weight-share", "mean-silhouette",
+        "adjusted-rand-index", "clusters-and-partition-quality", "stability"]
+    assert all(p["data-tip"].startswith("In short. ") and "title" not in p for p in props)
+    now = {p["data-help"].split("#")[1]: p["data-tip"].split("Now: ")[-1] for p in props if "Now: " in p["data-tip"]}
+    assert "γ = 1.00" in now["modularity-q"] and f"R = {s.null_replicates}" in now["excess-modularity-and-z-score"]
+    assert f"K = {s.noise_seeds}" in now["adjusted-rand-index"]
