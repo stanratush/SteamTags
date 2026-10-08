@@ -239,7 +239,7 @@ The Global layout places all visible tags by their links on the Clustering Weigh
 
 *Why it matters here.* Global is the view to see how groups of characteristics connect; Cluster-separated is the view to read and screenshot one cluster's members.
 
-*Caution.* Positions are drawn after every metric is computed and never feed back into one. Two tags drawn close together may share few games.
+*Caution.* Positions are drawn after every metric is computed and never feed back into one. Two tags drawn close together may share few games, and a tag can sit among another cluster's tags ([Position](#position)).
 
 *Example.* Switch to Cluster-separated to read a large cluster's members without the other clusters' tags in between.
 
@@ -318,6 +318,26 @@ Colours come from a fixed palette of 16 in label order: C1 has the first colour,
 *Why it matters here.* A colour is the quickest way to see a candidate combination of characteristics among the most-played games. It says nothing about what the cluster means: read its members, its Cluster Center and its Membership Stability.
 
 *Example.* After raising the minimum shared games, the second-largest cluster can become the largest: it is then labelled C1 and takes C1's colour.
+
+### Position
+
+> **In short.** A tag is drawn where its links pull it; its colour is the cluster the clustering gave it. The two can disagree.
+>
+> **Here:** a tag drawn among another cluster's tags is often a hub or a boundary characteristic of the most-played games.
+>
+> **Caution:** never read a tag's cluster from where it sits; read its colour and the Inspector.
+
+In the Global layout every link pulls its two tags together, in proportion to its weight on the Clustering Weight in use, and every pair of tags pushes apart ([Layout positions](03-metric-reference.md#layout-positions)). The clustering asks something else: it puts a tag in the cluster where its links are strongest *compared with what the tags' game counts alone would give* ([Modularity Q](03-metric-reference.md#modularity-q)). So a tag can sit among one cluster's tags and carry another's colour. This is common, not an error; there are three usual reasons.
+
+- **Most of its links go to another cluster's common tags.** Links to tags that are on many games count for less in the clustering, because such tags share games with almost everything; in the drawing they pull at full strength. In the Inspector, *Shared games in own cluster* (under Lift, *Lift in own cluster*) is then less than half of *Total shared games* (*Total lift*).
+- **It is a hub.** A tag such as Singleplayer or Multiplayer links to almost every other tag, so it sits where all those pulls balance, rarely inside its own cluster. Tags with many links are also pulled less by each one and push each other apart harder, so hubs drift outwards, and tags whose only link is to a hub are drawn next to it. In the Inspector, most of its *Links · in own cluster* fall outside the own cluster, and *Spread across clusters* is high.
+- **Its membership is uncertain.** With a low *Membership Stability*, other seeds often put the tag in another cluster: the drawing shows a boundary that really is blurred.
+
+No layout setting removes this: a flat drawing cannot keep every cluster in one piece when a few tags link to all of them. The Cluster-separated layout always shows each cluster in one piece.
+
+*Why it matters here.* Where a tag's colour and position disagree is where the clusters of the most-played games' characteristics meet, which is often the most telling part of the graph. Read which cluster a tag is in from its colour, and how firmly from the Inspector, never from its neighbours on screen.
+
+*Example.* A tag shares 30 games with the tags of C2 and 50 with those of C1, but C1's tags are on many games each, so the clustering puts it in C2. The Inspector shows *Shared games in own cluster* 30 of *Total shared games* 80, and the Global layout draws it at the edge of C1, in C2's colour.
 
 ### Grey One-Tag Clusters
 

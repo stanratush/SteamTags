@@ -268,7 +268,7 @@ def test_the_control_reference_links_each_analytical_row_to_its_entry():
         assert f"](#{slug(name)})" in table, name
 
 
-GRAPH_ENTRIES = ("Node size", "Edge thickness", "Cluster colour", "Grey One-Tag Clusters")
+GRAPH_ENTRIES = ("Node size", "Edge thickness", "Cluster colour", "Position", "Grey One-Tag Clusters")
 
 
 def test_reading_the_graph_explains_each_part_of_the_drawing():

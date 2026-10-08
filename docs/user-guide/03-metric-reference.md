@@ -1060,7 +1060,7 @@ The **Cluster-separated** layout gives each Multi-Tag Cluster its own region. A 
 
 Exports are laid out for a fixed **reference canvas**, the graph area of a 1440 × 900 window with the Tables and the Inspector closed (1,116 × 678 pixels), so the same state exports the same coordinates on every machine; the app draws the same layout for its own graph area, so what you see can differ from the exported coordinates. An export made after Tidy (or after the older Re-layout) reopens with its positions kept in shape, scaled into the reference canvas, clamped and spaced for their labels.
 
-*Why it matters here.* The drawing helps to find tags and to see the clusters, but two tags drawn close together may share few games, and the picture changes with gravity, open panels and Tidy. Read how tags relate from the links, the Inspector and the tables, never from where they sit in the drawing.
+*Why it matters here.* The drawing helps to find tags and to see the clusters, but two tags drawn close together may share few games, a tag can sit among another cluster's tags ([why](02-app-controls.md#position)), and the picture changes with gravity, open panels and Tidy. Read how tags relate from the links, the Inspector and the tables, never from where they sit in the drawing.
 
 *Example.* Two exports of the same state with the default layout have identical positions. Exporting it with 10 times the gravity changes only these four columns: every other byte of the export is the same.
 
