@@ -288,3 +288,13 @@ def test_plain_keeps_identifiers_whole():
     assert plain("records it in `layout_source`") == "records it in layout_source"
     assert plain("**bold**, *italic*, _also_ and a [link](#x)") == "bold, italic, also and a link"
     assert plain("n_small / n_large") == "n_small / n_large"
+
+
+def test_every_metric_entry_opens_with_in_short_and_says_why_it_matters():
+    """Issue 08: every entry reads the same way, linked from the app or not."""
+    from steamstudy.app.guide import in_short
+
+    entries = re.split(r"^### ", _text("03-metric-reference.md"), flags=re.M)[1:]
+    missing = [entry.splitlines()[0] for entry in entries
+               if not in_short("### " + entry.split("\n## ")[0]) or "*Why it matters here.*" not in entry.split("\n## ")[0]]
+    assert missing == []

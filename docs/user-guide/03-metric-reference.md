@@ -4,7 +4,7 @@
 
 Every number the software computes, displays or exports is explained here, in concept order: ranking and data, then the feature analysis, then the Tag Network, its clusters and their quality, their stability, and Removal Sensitivity. The [column index](appendix-b-column-index.md) lists every column name alphabetically with a link to its entry.
 
-Entries that the app links to open with an **In short** block, which the app shows as the tooltip: what the number is, which direction is which (**Higher →** or **Lower →**), why it is useful in this study (**Here:**) and the main **Caution:**. Each entry then says what the number measures and how to read it; entries the app links to add a *Why it matters here.* paragraph on its use in this study of the most-played games. A worked example with made-up numbers follows. Then come the theoretical **bounds**, the **reference points and comparisons** to read it against, and one marked **Exact definition** line.
+Every entry opens with an **In short** block, which the app shows as the tooltip where it displays the number: what the number is, which direction is which (**Higher →** or **Lower →**), why it is useful in this study (**Here:**) and the main **Caution:**. Each entry then says what the number measures and how to read it, and a *Why it matters here.* paragraph gives its use in this study of the most-played games. A worked example with made-up numbers follows. Then come the theoretical **bounds**, the **reference points and comparisons** to read it against, and one marked **Exact definition** line.
 
 The guide never says that a value is "good", "strong" or "stable". Published rules of thumb such as "Q above 0.3" were made for other kinds of data and other procedures; [Appendix A](appendix-a-rules-of-thumb.md) lists them and explains why they do not transfer. Read every value against:
 
@@ -36,9 +36,17 @@ These are inputs, not metrics. Values are the shipped defaults.
 
 ### Identifiers, names and lists
 
+> **In short.** Columns that identify a row: a game's AppID, a tag's or genre's id with its name, the dataset, and the Network State's `state_id`.
+>
+> **Here:** lets every number be traced to the exact game, tag and Network State it describes.
+>
+> **Caution:** names are labels and can change; the software matches on ids.
+
 Columns: `appid`, `name`, `dataset`, `state_id`, `tag_id` / `tag`, `tag_ids` / `tags`, `genre_ids` / `genres`, `genre_id` / `genre`, `member_tag_ids` / `members`, `source_tag_id` / `source_tag`, `target_tag_id` / `target_tag`, `tag_id_a` / `tag_a`, `tag_id_b` / `tag_b`, `top_strength_tag_id`.
 
 These columns identify rows. A game is identified by its Steam AppID; a tag by its Steam tag id, always paired with the tag's name; a store genre by its genre id and description. `dataset` is the dataset key (`overall`, `puzzle`, `rpg`, `strategy`, `simulation`). `state_id` identifies the Network State a network row belongs to. List columns hold `;`-separated values, and an id list always comes with the matching name list in the same order (for example `tag_ids` and `tags` in display order). Names are labels: the software matches tags on their ids, because names can change or be misspelt.
+
+*Why it matters here.* A finding about the most-played games can be checked only if each row can be traced: a tag by its id rather than its name, which can change or be misspelt, and a network number by its `state_id`. Quote ids, not only names, when a result must be reproduced.
 
 *Example.* A `top100_overall.csv` row with `tag_ids` `87918;3964` and `tags` `Farming Sim;Pixel Graphics` means the game's store page shows Farming Sim first and Pixel Graphics second.
 
@@ -50,9 +58,19 @@ These columns identify rows. A game is identified by its Steam AppID; a tag by i
 
 ### Monthly Avg. Players
 
+> **In short.** Steam Charts' figure for one month: how many people played a game at the same moment, averaged over the month.
+>
+> **Higher →** more people playing at once.
+>
+> **Here:** the monthly figure behind Mean Monthly Players, the score that selects the most-played games.
+>
+> **Caution:** concurrent players, not different people or sales; long or idle sessions count more.
+
 Columns: `avg_players`, `peak_players`, `month` in `monthly_players.csv`.
 
 Steam Charts' figure for one game in one month: the mean number of people playing at the same moment (concurrent players), averaged over the month. Peak Players is the single highest moment of the month; it is stored but never used for ranking. It is not a count of different people and not sales. A missing month means Steam Charts did not track the game that month, not that nobody played, and it is never filled with zero. Concurrent players favour games played in long sessions or left running (idle games, Desktop Companion apps, which carry a Content Flag). `monthly_players.csv` holds exactly the months each Top-100 game's score averages, and is not published until the Steam Charts operator agrees.
+
+*Why it matters here.* Every Top-100 Dataset rests on these monthly figures, so what they measure sets what "most-played" means in this study: how many people play at once, not how many own or buy a game. Games played in long sessions or left running, such as Desktop Companion apps, score higher on this measure than their number of players suggests; the Content Flags mark them.
 
 *Example.* A row `2024-03, 30.0, 50` means that in March 2024 an average of 30 people were playing at any moment, and at most 50 at once.
 
@@ -64,9 +82,19 @@ Steam Charts' figure for one game in one month: the mean number of people playin
 
 ### Mean Monthly Players
 
+> **In short.** The score that ranks games: the mean of a game's Monthly Avg. Players over its observed months in the Observation Window.
+>
+> **Higher →** more people playing at once, on average.
+>
+> **Here:** decides which games are the most-played ones in each Top-100 Dataset.
+>
+> **Caution:** recent releases are averaged over their launch months, when counts are usually highest; read it with Months Observed.
+
 Column: `mean_monthly_players` in `top100_<dataset>.csv`, `ties.csv`, `exclusions.csv`.
 
 The study's success score, one number per game: the mean of its Monthly Avg. Players over the months the game was tracked inside the 60-month Observation Window, from its Release Month on. Missing Months and Placeholder Rows are skipped, never counted as zero. No minimum number of months applies when ranking, so a recent release is averaged over its launch months, when player counts are usually highest, while a game released years earlier is judged on 60 later months. Always read it with `months_observed`. Free-to-Play Games are included (`is_free`), so a high score is not a high revenue. It is written with 6 decimals, and the ranking uses that rounded value, so the published value reproduces the rank.
+
+*Why it matters here.* Everything else in the study describes the games this score selects. It favours games that keep many concurrent players over the years and, because no minimum number of months applies, also recent releases measured on their busiest months. Free-to-Play Games are included, so a high score says how many people play, not how much a game earns.
 
 *Example.* A game released in July 2026, with the window ending in September 2026, July 50,000, August 30,000 and September missing, scores (50,000 + 30,000) / 2 = 40,000 with `months_observed` 2.
 
@@ -78,9 +106,19 @@ The study's success score, one number per game: the mean of its Monthly Avg. Pla
 
 ### Months Observed
 
+> **In short.** How many months a game's Mean Monthly Players averages, out of the 60-month Observation Window.
+>
+> **Higher →** the score covers more of the game's life; 60 = the whole window.
+>
+> **Here:** tells a long-running game from a recent release whose score rests on a few months.
+>
+> **Caution:** a low value can also come from months Steam Charts did not track.
+
 Column: `months_observed` in `top100_<dataset>.csv`, `ties.csv`.
 
 How many months the score averages. Close to 60 means the score covers a long stretch of the game's life; a low value means a recent release or a game Steam Charts often did not track. The number alone cannot tell the two apart. The feature-analysis report shows its distribution per dataset, and the app's Minimum Months Filter drops games below a threshold.
+
+*Why it matters here.* The most-played games include both long-running titles and recent releases. Months Observed shows which is which, and the app's Minimum Months Filter uses it to check whether a pattern holds among the games with a long player record.
 
 *Example.* Scorn's Steam Charts table has a Placeholder Row in September 2017 and real rows from October 2022 to September 2026: its Release Month is 2022-10 and, in the window October 2021 – September 2026, `months_observed` is 48.
 
@@ -92,9 +130,19 @@ How many months the score averages. Close to 60 means the score covers a long st
 
 ### Rank and ties
 
+> **In short.** A game's position in one Top-100 Dataset by Mean Monthly Players; 1 is the highest.
+>
+> **Lower →** a higher score in that dataset.
+>
+> **Here:** decides which games are among the most-played; ties at rank 100 are listed so the cut is visible.
+>
+> **Caution:** ranks are ordinal and not comparable across datasets; the feature analysis never weights games by rank.
+
 Columns: `rank` in `top100_<dataset>.csv`; `position`, `mean_monthly_players`, `months_observed` in `ties.csv`.
 
 A game's position in one Top-100 Dataset, 1 being the highest score. Ranks are ordinal: the gap between ranks 1 and 2 can be far larger than between ranks 50 and 51. A rank in one dataset is not comparable with a rank in another, since each dataset has its own Eligible Pool. The feature analysis counts every game once; it never weights a game by its rank. Games outside the 100 whose score equals rank 100's are listed in `ties.csv` with the position they take after the tie-break.
+
+*Why it matters here.* The study treats the Top 100 as a group: every game counts once, whatever its rank. The rank matters for who is in the group, which is why games tied with rank 100 are listed in `ties.csv` with the tie-break that decided them.
 
 *Example.* Two games tie on score at ranks 99–100; the one with more `months_observed` takes rank 99. A third game with the same score but fewer months is listed in `ties.csv` at position 101.
 
@@ -106,9 +154,17 @@ A game's position in one Top-100 Dataset, 1 being the highest score. Ranks are o
 
 ### Release Month and store release date
 
+> **In short.** The first month Steam Charts has real data for a game, beside the store's own release date, which is stored but not used.
+>
+> **Here:** sets where a game's score starts, and so how many months it averages.
+>
+> **Caution:** pre-launch and Early Access months move it earlier than the store date.
+
 Columns: `release_month`, `store_release_date` in `top100_<dataset>.csv`.
 
 The Release Month is the first month for which Steam Charts has real data for the game. Small nonzero months before the official launch (a beta, for instance) count. The store's own release date is stored as given but never used. The two can differ: Early Access games show the 1.0 date on the store, and small pre-launch months move the Release Month earlier.
+
+*Why it matters here.* A game's score averages its months from the Release Month on, so this month decides whether its launch months fall inside the Observation Window. Early Access and beta months count, which is why it can differ from the store date by years, as for Baldur's Gate 3.
 
 *Example.* Stardew Valley's Steam Charts table starts with 0.60 and 0.53 average players in December 2015 and January 2016, before its store date of 26 February 2016: its Release Month is 2015-12.
 
@@ -120,9 +176,17 @@ The Release Month is the first month for which Steam Charts has real data for th
 
 ### Release-month gap
 
+> **In short.** Top-100 games whose Release Month and store release date are more than a set number of months apart (default 3).
+>
+> **Here:** points to unusual histories worth checking by hand before a game's score is used.
+>
+> **Caution:** a diagnostic list, not a rule; noisy for Early Access games.
+
 Columns: `months_apart`, `release_month`, `store_release_date` in `release_month_check.csv`.
 
 A diagnostic list, never a rule: Top-100 games whose Release Month and store release date are more than the configured number of months apart (default 3), plus games whose store date cannot be read (empty `months_apart`). It helps to check unusual histories by hand. It is noisy for Early Access games.
+
+*Why it matters here.* Large gaps usually mean Early Access or a long beta, so the score includes months before the official launch. Checking the listed games confirms that each score covers the history the researcher expects.
 
 *Example.* Baldur's Gate 3 has Steam Charts data from October 2020 (Early Access) and the store date 3 August 2023: `months_apart` = (2023 × 12 + 8) − (2020 × 12 + 10) = 34.
 
@@ -134,9 +198,17 @@ A diagnostic list, never a rule: Top-100 games whose Release Month and store rel
 
 ### Placeholder Rows
 
+> **In short.** Steam Charts month rows with 0.00 average and 0 peak players, which are not data and are treated as absent.
+>
+> **Here:** keeps empty rows from starting a game's history early or pulling its score down.
+>
+> **Caution:** a row with 0.00 average but a peak of 1 or more is real data and counts.
+
 Columns: `month`, `position` in `placeholder_rows.csv`; the count in `completeness.csv`.
 
 A Steam Charts month row with Avg. Players 0.00 and Peak Players 0 is a Placeholder Row: it is not data and is treated as if the row were absent, wherever it is. Every one in the Candidate Pool is listed so the rule's effect can be checked. `position` says where it sits relative to the game's real data rows: `leading` (before the Release Month), `interior` (between data rows) or `trailing` (after the last data row).
+
+*Why it matters here.* Without this rule, an empty row years before launch would start a game's history in the wrong month and add zeros to its mean. Every Placeholder Row is listed, so the rule's effect on the most-played games can be checked.
 
 *Example.* Scorn's September 2017 row (0.00 / 0) is a leading Placeholder Row: it neither starts the game's history in 2017 nor lowers its score.
 
@@ -148,9 +220,17 @@ A Steam Charts month row with Avg. Players 0.00 and Peak Players 0 is a Placehol
 
 ### Store metadata
 
+> **In short.** Facts from the Steam store: the free-to-play flag, the app type, where the tags come from, and the game's Content Flags.
+>
+> **Here:** shows which of the most-played games are free to play and whose tags come from manual entries.
+>
+> **Caution:** manual and tags-only entries rest on the researcher's sourcing; check `manual_metadata.csv`.
+
 Columns: `is_free`, `app_type`, `metadata_source`, `content_flags` in `top100_<dataset>.csv`.
 
 Facts about each game from the Steam store: `is_free` is the store's free-to-play flag, `app_type` its app type (only `game` can rank). `metadata_source` says where the tags and details come from: `store`, `manual` (a full Manual Metadata Entry for a game the store no longer provides) or `manual_tags` (a tags-only entry for a game whose store page shows no tags). Rows with `manual` or `manual_tags` depend on the researcher's sourcing; their citations are in `manual_metadata.csv`. `content_flags` lists the Content Flags the game carries; a Content Flag never removes a game.
+
+*Why it matters here.* Free-to-Play Games are part of the study, so a high score is not a high revenue; `is_free` lets them be told apart. Tags from a Manual Metadata Entry are cited in `manual_metadata.csv`, so any finding that depends on such a game can be traced to its source.
 
 *Example.* A row with `is_free` true, `metadata_source` store and `content_flags` `desktop_companion` is a free game whose store tags include Desktop Companion.
 
@@ -162,9 +242,19 @@ Facts about each game from the Steam store: `is_free` is the store's free-to-pla
 
 ### Listing rank and the depth check
 
+> **In short.** Where a game stood in Steam Charts' Top Games listing, by current players, on the collection date.
+>
+> **Higher →** fewer current players: the game has declined since its busiest months.
+>
+> **Here:** the depth check shows that declined games were still found and scored.
+>
+> **Caution:** a one-day snapshot, not a score; never compare it with the rank.
+
 Column: `top_listing_rank` in `top100_<dataset>.csv`; the depth-check rows in `completeness.csv`.
 
 Where the game stood in Steam Charts' "Top Games" listing, which is sorted by *current* players, on the collection date: the best rank across the listing passes. A large number for a Top-100 member means the game scores high on Mean Monthly Players but had few players at collection time, so it has declined. The depth check in `completeness.csv` (deepest and median listing rank of each dataset's members, members beyond ranks 1,000, 5,000 and 10,000) shows that declined games were caught. Empty for test-mode edge cases added outside the listing.
+
+*Why it matters here.* The Top 100 is chosen by mean players over five years, not by who is playing today. Members found far down the current listing show that the collection reached deep enough to include games that were among the most-played earlier in the Observation Window and have since declined.
 
 *Example.* A member with `top_listing_rank` 7,412 had few current players but enough earlier in the window to rank.
 
@@ -176,9 +266,17 @@ Where the game stood in Steam Charts' "Top Games" listing, which is sorted by *c
 
 ### Completeness counts
 
+> **In short.** One count per row: how many apps were listed, scored and excluded, and why the rest did not reach the Top 100.
+>
+> **Here:** shows what the most-played games were drawn from and that no large group was lost on the way.
+>
+> **Caution:** large unscored counts are expected: the listing includes demos, tools and long-dead apps.
+
 Columns: `section`, `item`, `dataset`, `value`, `note` in `completeness.csv`.
 
 One count per row, showing what the Top 100 was drawn from and why the rest did not reach it: listing rows per pass and AppIDs seen in only one pass; the Candidate Pool size; scored apps and scored apps of type `game`; unscored apps split into no month rows, only Placeholder Rows, or month rows but none in the window (plus Steam Charts 404s and skipped pages); the Placeholder Row count; exclusion counts per rule, overlapping and partitioned by primary reason; and the depth check. Large unscored counts are expected, since the listing includes demos, tools and long-dead apps.
+
+*Why it matters here.* A Top-100 Dataset is only as complete as the pool it was drawn from. These counts show how big that pool was, how many apps could not be scored and why, and how many each exclusion rule removed, so the coverage of the study can be reported.
 
 *Example.* `scoring, unscored_only_placeholder_rows, , 37` means 37 apps in the pool have nothing but Placeholder Rows.
 
@@ -190,9 +288,17 @@ One count per row, showing what the Top 100 was drawn from and why the rest did 
 
 ### Exclusions and would-be ranks
 
+> **In short.** One row per excluded game and matched rule, with the rank the game would otherwise have had in each dataset.
+>
+> **Here:** shows what each exclusion rule costs: which of the most-played games it keeps out.
+>
+> **Caution:** a game matching several rules appears once per rule; its primary reason is the first match.
+
 Columns: `reason`, `detail`, `primary_reason`, `would_be_rank_<dataset>` in `exclusions.csv`.
 
 One row per excluded game and matched rule, so a game matching several rules appears once per rule. Rules are evaluated in a fixed order: `store_data_unavailable`, `app_type`, `no_tags`, `adult_content`, `software_tag`, `dating_sim_tag`, `manual`. The first two stop the evaluation, because nothing else can be checked. `primary_reason` is the first match. `detail` says what matched: the app type, the tags with their display positions, the adult-content signals (Adult Only notice, content descriptor 3, the Hentai tag), or the manual reason. The would-be ranks show which excluded games would otherwise be in a Top 100, so the cost of each rule is visible.
+
+*Why it matters here.* Exclusions decide which apps count as commercial games for this study. The would-be ranks make each decision visible: a rule that removes a game at rank 1 changes the Top 100 far more than one that removes games far below it, and an Exclusion Override can keep a game in.
 
 *Example.* A farming game with Dating Sim at display position 17 is excluded by `dating_sim_tag` at the default rank limit, with `would_be_rank_overall` 1: it would otherwise top the Overall dataset. An Exclusion Override can keep it in.
 
@@ -204,9 +310,17 @@ One row per excluded game and matched rule, so a game matching several rules app
 
 ### Impact report
 
+> **In short.** Tables for reviewing each exclusion rule before the datasets are frozen: removals, near misses, disagreeing adult-content signals and borderline games no rule removed.
+>
+> **Here:** lets the researcher check that the rules keep out what they should and nothing more.
+>
+> **Caution:** a tag counts for a rule only within its rank limit; near misses show where that limit cuts.
+
 Columns: `rule`, `signal`, `is_primary_reason`, `rank_limit`, `position`, `excluded`, `adult_only_notice`, `content_descriptor_3`, `hentai_tag`, `rank` (impact) in the `impact_*.csv` files.
 
 The impact report lets the researcher review each rule before the lists are frozen. `impact_removals.csv` lists every removal per rule and per tag or signal, with would-be ranks. `impact_near_misses.csv` lists exclusion tags present on a scored game beyond their rank limit (so they did not exclude it), with the tag's `position` and the `rank_limit` that applied, and whether another rule excluded the game anyway. `impact_adult_signals.csv` lists games where the Adult Only notice and content descriptor 3 disagree. `impact_unexcluded.csv` lists Top-100 members that no rule excluded but that carry content descriptor 1 or 4, a software store genre or a Content Flag.
+
+*Why it matters here.* The exclusion rules shape which games are in the study, and tag-based rules can misfire. The impact report shows each rule's effect from both sides, the games it removed and the ones it nearly removed, so the researcher can adjust rank limits or add an Exclusion Override with the evidence in hand.
 
 *Example.* A near-miss row `dating_sim_tag, 9551, Dating Sim, …, 17, 10, false` means Dating Sim sits at position 17, beyond a per-tag limit of 10, so it did not exclude the game.
 
@@ -218,9 +332,17 @@ The impact report lets the researcher review each rule before the lists are froz
 
 ### Build diagnostics
 
+> **In short.** Files that document how the data was read: skipped apps, parse errors, the tag vocabulary, Manual Metadata sources and the SteamDB cross-check.
+>
+> **Here:** makes every gap and manual source in the data behind the most-played games traceable.
+>
+> **Caution:** a Build with parse errors is never published; skipped apps have no score.
+
 Columns: `source`, `request_key`, `error` (`parse_errors.csv`); `url`, `reason`, `last_status`, `timestamp` (`skipped_apps.csv`); `kind`, `id`, `app_count`, `in_vocabulary` (`tag_vocabulary.csv`); `entry_kind`, `field`, `value`, `source_url`, `retrieved` (`manual_metadata.csv`); `steamdb_batch`, `store_tag_ids`, `steamdb_tag_ids`, `steamdb_tags`, `only_store_tag_ids`, `only_steamdb_tag_ids`, `same_tag_set` (`steamdb_crosscheck.csv`).
 
 Files that document how the data was read rather than describing games. `skipped_apps.csv` lists the apps whose Steam Charts page kept failing to load or parse during collection: they were skipped so that collection could go on, and they have no score. `parse_errors.csv` lists every response the parsers could not read; any row fails the Build unless `--allow-parse-errors` was given, and such Builds are never published. `tag_vocabulary.csv` lists every tag and store genre seen, with how many scored apps show it and, for tags, whether the id is in the `GetTagList` snapshot. `manual_metadata.csv` copies the source and retrieval date of every field of every Manual Metadata Entry. `steamdb_crosscheck.csv` compares store tags with SteamDB tags per game when a permitted SteamDB batch exists; SteamDB values never enter a dataset.
+
+*Why it matters here.* These files show where the data is incomplete or comes from a manual source: an app skipped during collection cannot be in any Top 100, and a tag missing from the vocabulary would point to a reading problem. They let a reviewer check that the data behind the most-played games was read in full.
 
 *Example.* A `tag_vocabulary.csv` row `tag, 19, Action, 812, true` means 812 scored apps show the Action tag.
 
@@ -236,9 +358,19 @@ Every table here uses the **full** Top-100 Dataset: the Minimum Months Filter do
 
 ### Tag count and share
 
+> **In short.** How many of the 100 games have the tag, and that as a share.
+>
+> **Higher →** a characteristic that more of the most-played games carry.
+>
+> **Here:** the most direct answer to which characteristics recur among the most-played games.
+>
+> **Caution:** generic tags are common in any group of games; read it with the share ratio.
+
 Columns: `count`, `share` in `tag_frequency.csv` and `genre_frequency.csv`.
 
 How many of the 100 games have the tag, and that as a share. This is the most direct answer to "which tags recur among the games with the highest Mean Monthly Players?". Generic tags such as Singleplayer are common in any group of games, so a high share alone does not mark the Top 100 as special; read it with the [share ratio](#share-ratio). Tags are community-voted and reflect the store page at collection time, not at release.
+
+*Why it matters here.* This is the plainest description of the Top 100: which characteristics most of these games carry. A share of 0.63 means 63 of the 100 games show the tag on their store page. Whether that is more than among the games they were drawn from is the share ratio's question.
 
 *Example.* A tag on 63 of the 100 games: `count` 63, `share` 0.63.
 
@@ -250,9 +382,19 @@ How many of the 100 games have the tag, and that as a share. This is the most di
 
 ### Median tag position
 
+> **In short.** Where the tag usually sits in the store tag lists of the games that have it.
+>
+> **Lower →** the tag is usually near the front of the list.
+>
+> **Here:** separates characteristics central to how players describe a game from ones listed in passing.
+>
+> **Caution:** rests on few values for rare tags; it never decides whether a game has the tag.
+
 Column: `median_position` in `tag_frequency.csv`.
 
 How prominently the tag is shown on the store pages of the games that have it. Steam shows the most-applied tags first, and only the top 20. A low value means the tag is usually near the front. For a tag on few games the median rests on very few values, and position never affects whether a game "has" the tag.
+
+*Why it matters here.* Two tags on the same number of games can differ in how prominent they are: one near the front of most lists is a characteristic players name first, one near position 20 is mentioned in passing. Read it beside the count when describing what the most-played games are known for.
 
 *Example.* A tag at positions 1, 2, 5 and 9 on four games has median position (2 + 5) / 2 = 3.5.
 
@@ -264,9 +406,17 @@ How prominently the tag is shown on the store pages of the games that have it. S
 
 ### Defining tag
 
+> **In short.** Marks the tag that defines a Tag-Specific Dataset (Puzzle, RPG, Strategy or Simulation), on every game of it by construction.
+>
+> **Here:** keeps the dataset's own tag from dominating combinations, associations and clusters.
+>
+> **Caution:** only the exact tag qualifies; sub-genre tags such as RTS or 4X do not.
+
 Column: `defining_tag` in `tag_frequency.csv`.
 
 Marks the tag that defines a Tag-Specific Dataset (Puzzle, RPG, Strategy or Simulation). It is on every game of that dataset by construction, so it is listed at 100% and left out of combinations, associations, clusters, the Resolution Sweep and the Build's Removal Sensitivity, where it would dominate. Only the exact tag qualifies; sub-genre tags such as RTS or 4X do not.
+
+*Why it matters here.* In the RPG dataset every game is an RPG, so the RPG tag says nothing about which characteristics those games combine. Marking it keeps it at 100% in the frequency table and out of every analysis of combinations.
 
 *Example.* In the Puzzle dataset the Puzzle row has `count` 100, `share` 1.0 and `defining_tag` true.
 
@@ -278,9 +428,17 @@ Marks the tag that defines a Tag-Specific Dataset (Puzzle, RPG, Strategy or Simu
 
 ### Eligible Pool baseline
 
+> **In short.** How common the tag is among all the games the Top 100 was drawn from.
+>
+> **Here:** the reference that shows whether a characteristic is more common among the most-played games than among the games they were drawn from.
+>
+> **Caution:** the pool includes many games with very few players; it is not all of Steam.
+
 Columns: `baseline_count`, `baseline_share` in `tag_frequency.csv` and `genre_frequency.csv`; the Eligible Pool size in `analysis.json`.
 
 How common the tag (or genre) is among all the games the Top 100 was drawn from: every scored, non-excluded game for Overall, and those with the defining tag for a Tag-Specific Dataset. The Top 100 itself is part of the Eligible Pool. The baseline is the share one would expect if the Top 100 looked like its pool. The pool includes many games with very few players; it is not "all of Steam".
+
+*Why it matters here.* A tag on 63 of the 100 games stands out only if it is less common in the pool; Singleplayer, for example, is common everywhere. The baseline gives that reference share, and the share ratio compares the two.
 
 *Example.* A tag on 840 of 4,000 Eligible Pool games has `baseline_share` 0.21.
 
@@ -292,9 +450,19 @@ How common the tag (or genre) is among all the games the Top 100 was drawn from:
 
 ### Share ratio
 
+> **In short.** A tag's share in the Top 100 divided by its share in the Eligible Pool.
+>
+> **Higher →** above 1: more common among the most-played games than in their pool.
+>
+> **Here:** points to characteristics that set the most-played games apart from their pool.
+>
+> **Caution:** pulled towards 1, since the Top 100 is part of its pool; read it with the count.
+
 Column: `share_ratio` in `tag_frequency.csv` and `genre_frequency.csv`.
 
 How over- or under-represented a tag is in the Top 100 compared with its Eligible Pool: above 1 means more common among the top games. Because the Top 100 is inside its own baseline, the ratio is pulled towards 1, more so the smaller the pool, and it cannot exceed (Eligible Pool size) / 100; the report prints the pool size so this ceiling is visible. A tag on 2 Top-100 games can show a large ratio by chance; always read it with `count`. Over-representation is a description: games may share a tag because of their genre, their era or Steam's recommendation system.
+
+*Why it matters here.* It is the study's main comparison for single characteristics: a share ratio of 3 means the tag is three times as common among the most-played games as among all eligible games. It describes and does not explain: games may share a tag because of their genre, their era or Steam's recommendations.
 
 *Example.* A tag on 63 of the 100 games (0.63) and on 21% of the Eligible Pool (0.21) has `share_ratio` 0.63 / 0.21 = 3.0. With an Eligible Pool of 4,000 games, no tag can exceed 40.
 
@@ -306,9 +474,17 @@ How over- or under-represented a tag is in the Top 100 compared with its Eligibl
 
 ### Archived tag category
 
+> **In short.** The category the tag had in Steam's archived tag table, such as Genres, Themes & Moods or Features.
+>
+> **Here:** groups tags by kind when describing the most-played games' characteristics.
+>
+> **Caution:** information only, never used in a calculation; newer tags have none.
+
 Column: `archived_category` in `tag_frequency.csv`.
 
 An information column: the category the tag had in Steam's archived Steamworks tag table (Top-Level Genres, Genres, Sub-Genres, Visuals & Viewpoint, Themes & Moods, Features, Players, …). A few tags appear in two categories, joined with " / ". Tags added after the table was archived have none. It is never used in any calculation.
+
+*Why it matters here.* A list of tags mixes genres, visual styles, moods and features. The archived categories let a write-up say, for example, which features rather than which genres recur among the most-played games, without the software inventing its own classification.
 
 *Example.* Farming Sim → `Genres`; Base Building → `Genres / Features`.
 
@@ -320,9 +496,17 @@ An information column: the category the tag had in Steam's archived Steamworks t
 
 ### Genre frequency
 
+> **In short.** Count, share, baseline and share ratio for the store's developer-assigned Genre field, not the tags of the same name.
+>
+> **Here:** a second description of the most-played games, from what developers chose rather than what players voted.
+>
+> **Caution:** some values are business labels such as Free To Play or Early Access; headlines use only `kind` = genre rows.
+
 Columns: `genre_id`, `genre`, `kind` and the count, share and baseline columns in `genre_frequency.csv`.
 
 The same count, share, baseline and ratio for the store's developer-assigned **Genre** field, which is distinct from tags with the same name. Every observed genre value is listed with its id; nothing is dropped. `kind` is a config label (`genre`, `business`, `software`, or `unmapped` for a value the config does not know); headline sentences in the report use `kind = genre` rows only, so labels such as Free To Play or Early Access do not headline as gameplay genres. Puzzle is not a store genre, so the Puzzle dataset shows no Puzzle genre; the report says so.
+
+*Why it matters here.* Tags are voted by players; the Genre field is set by the developer. Comparing the two shows whether both describe the most-played games the same way. The `kind` column keeps labels such as Free To Play or Early Access from being read as gameplay genres.
 
 *Example.* Store genre Indie (id 23, kind `business`) on 48 of the 100 games: `count` 48.
 
@@ -334,9 +518,19 @@ The same count, share, baseline and ratio for the store's developer-assigned **G
 
 ### Combination support
 
+> **In short.** How many games have all tags of a combination (pairs and triples by default).
+>
+> **Higher →** more of the most-played games carry the whole combination.
+>
+> **Here:** shows which combinations of characteristics actually occur together on the same games.
+>
+> **Caution:** two common tags have high support just by being common; read it with the combination's lift.
+
 Columns: `size`, `support_count`, `support_share` in `combinations.csv`.
 
 How many games have **all** tags of a combination: pairs, triples and so on up to `max_itemset_size` (default 3). Only combinations on at least `min_support` games (default 10) are listed, and a triple is dropped when its support equals that of one of its pairs, because it adds no games. Every pair of a listed triple is listed too. Two common tags have high support simply because both are common; use [lift](#combination-lift) and the association table for whether they go together more than their frequencies predict.
+
+*Why it matters here.* Unlike a cluster, which can join tags that only meet in pairs, a combination counts games that carry every tag at once. That makes it the direct evidence for a statement such as "23 of the 100 games are pixel-art action roguelikes".
 
 *Example.* 23 games have Roguelike, Action and Pixel Graphics together: `size` 3, `support_count` 23, `support_share` 0.23.
 
@@ -348,9 +542,19 @@ How many games have **all** tags of a combination: pairs, triples and so on up t
 
 ### Combination lift
 
+> **In short.** How many times more often the tags of a combination occur together than their separate frequencies predict.
+>
+> **Higher →** above 1: together more often than chance; 1: as chance predicts.
+>
+> **Here:** shows combinations that go together beyond how common each tag is.
+>
+> **Caution:** high values come mostly from rare tags; a triple can inherit its lift from one pair inside it.
+
 Column: `lift` in `combinations.csv`.
 
 Whether the tags of a combination occur together more often than their separate frequencies predict: observed ÷ expected under independence, the "interest" of Brin, Motwani and Silverstein (1997, §3.1), extended to more than two tags as they describe. Above 1 means together more often than chance. High values tend to come from rare tags ("the cells with high interest have low counts", Brin et al. 1997, §3.1); the 10-game minimum limits this but does not remove it. A high triple lift can be inherited from one strong pair inside it; look up the pair rows, which are always listed.
+
+*Why it matters here.* Support alone favours common tags. Lift corrects for that, so a combination with lift well above 1 is one the most-played games carry together more often than their frequencies would produce. Check the pair rows of a high triple before describing the triple as a combination in its own right.
 
 *Example.* Tags A, B and C are on 60, 50 and 40 of the 100 games, and all three are on 20: lift = 20 × 100² / (60 × 50 × 40) = 1.67. For a pair on 40 games with counts 60 and 50: 40 × 100 / (60 × 50) = 1.33.
 
@@ -362,9 +566,19 @@ Whether the tags of a combination occur together more often than their separate 
 
 ### Confidence
 
+> **In short.** Among the games with tag A, the share that also have tag B, and the reverse.
+>
+> **Higher →** more of A's games also carry B.
+>
+> **Here:** reads a combination in one direction: how often one characteristic comes with another.
+>
+> **Caution:** a direction of reading, not of cause; confidence towards a very common tag is always high.
+
 Columns: `confidence_a_to_b`, `confidence_b_to_a` in `combinations.csv` (pairs only).
 
 Among games with tag A (the lower tag id), the share that also have tag B, and the reverse. "Confidence" is the standard association-rule term (Agrawal, Imieliński & Swami 1993, §2); it does not mean certainty, and "A → B" is a direction of reading, not of cause. Confidence towards a very common tag is always high, whatever the link.
+
+*Why it matters here.* Confidence answers questions such as "of the most-played roguelikes, how many are also action games?". Compare it with the other tag's share: if confidence equals that share, the two tags are independent and the high value says only that the second tag is common.
 
 *Example.* 40 games have Roguelike and 30 of them also have Action: 0.75. Action is on 70 games, so the other direction is 30 / 70 = 0.43.
 
@@ -376,9 +590,17 @@ Among games with tag A (the lower tag id), the share that also have tag B, and t
 
 ### Pair counts
 
+> **In short.** How many games have tag A, tag B, and both.
+>
+> **Here:** the raw numbers behind phi, lift, Jaccard and Fisher p for each pair of tags.
+>
+> **Caution:** check them before trusting a striking measure; small counts move every measure a lot.
+
 Columns: `count_a`, `count_b`, `count_ab` in `associations.csv`.
 
 Games with tag A, with tag B, and with both. Every pair of tags that each reach `min_support` games is listed, including pairs that never co-occur (`count_ab` = 0). These are the raw numbers behind phi, lift, Jaccard and Fisher p; check them before trusting a striking measure.
+
+*Why it matters here.* Every association measure is computed from these three counts and the 100 games. A lift of 5 from 2 shared games and one from 30 shared games say very different things about the most-played games; the counts show which is which.
 
 *Example.* A on 20 games, B on 30, both on 12.
 
@@ -390,9 +612,19 @@ Games with tag A, with tag B, and with both. Every pair of tags that each reach 
 
 ### Phi coefficient
 
+> **In short.** The correlation between "has tag A" and "has tag B" over the 100 games.
+>
+> **Higher →** above 0: together more than independence predicts; below 0: they tend to exclude each other.
+>
+> **Here:** a pair measure that also counts the games with neither tag.
+>
+> **Caution:** its maximum depends on the two frequencies, so a rare tag tied to a common one scores low.
+
 Column: `phi` in `associations.csv` (the table is sorted by |phi|, empty values last).
 
 The correlation between two yes/no variables, "has tag A" and "has tag B", over the 100 games. Positive means the tags co-occur more than independence predicts, negative that they tend to exclude each other. It uses all four cells of the table (both, only A, only B, neither). Its reachable maximum depends on how common each tag is: a rare tag tied to a common one looks weak. With N = 100, one or two games can move it noticeably. It is empty when either tag is on all 100 games (then the row keeps lift 1, a defined Jaccard and Fisher p 1).
+
+*Why it matters here.* Phi is the association table's sort order, so it decides which pairs of characteristics of the most-played games come first. Because it favours pairs of similar frequency, a niche tag that always comes with a common one can rank low; read lift and Jaccard beside it.
 
 *Example.* A on 20 games, B on 30, both on 12: phi = (0.12 − 0.20 × 0.30) / √(0.20 × 0.80 × 0.30 × 0.70) = 0.33. A tag on 10 games that **always** comes with a tag on 60 games reaches only phi = 0.27, its maximum.
 
@@ -404,9 +636,19 @@ The correlation between two yes/no variables, "has tag A" and "has tag B", over 
 
 ### Pair lift
 
+> **In short.** Shared games divided by the number expected if the two tags were independent.
+>
+> **Higher →** above 1: together more often than chance; 1: as chance predicts.
+>
+> **Here:** the same measure as the network's lift weight, over the full Top 100.
+>
+> **Caution:** rare pairs change a lot with one extra shared game; it ignores games with neither tag.
+
 Column: `lift` in `associations.csv`.
 
 Observed ÷ expected co-occurrence for two tags. It is the same quantity as the network's lift Clustering Weight, so the table and the network agree exactly when the Minimum Months Filter is 0. Van Eck and Waltman recommend this "association strength" for normalising co-occurrence data (2009, eq. 5 and §6), up to a constant factor. Lift favours rare pairs: one extra shared game between two rare tags changes it a lot. It ignores games that have neither tag and has no direction.
+
+*Why it matters here.* Lift is the clearest reading of "which characteristics go together more than their frequencies predict" among the most-played games, and it links the association table to the Tag Network's lift Clustering Weight. Read it with `count_ab`: a lift of 10 from two tags on 10 games each rests on those 10 games.
 
 *Example.* 12 × 100 / (20 × 30) = 2.0: the two tags share twice as many games as independence predicts. Two tags on 10 games each that always co-occur reach 10; a tag on 10 games that always comes with a tag on 60 reaches only 1.67.
 
@@ -418,9 +660,19 @@ Observed ÷ expected co-occurrence for two tags. It is the same quantity as the 
 
 ### Jaccard index
 
+> **In short.** The overlap of two tags' game sets: shared games divided by the games with either tag.
+>
+> **Higher →** 1: exactly the same games; 0: none in common.
+>
+> **Here:** the same overlap that lies behind the silhouette, the medoid score and the Cluster Center.
+>
+> **Caution:** does not correct for frequency; its maximum is capped when the two counts differ.
+
 Column: `jaccard` in `associations.csv`.
 
 The overlap of the two tags' game sets (Jaccard 1912, p. 39): 1 means exactly the same games, 0 none in common. The same quantity, as 1 − Jaccard, is the distance behind the silhouette, the medoid score and the Cluster Center, so it is worth learning once. Van Eck and Waltman class it as a set-theoretic measure that, unlike lift, does not correct for how common each tag is (2009, §3–4); its maximum is capped when the two frequencies differ.
+
+*Why it matters here.* Jaccard is the network's measure of how alike two characteristics are in the games that carry them: 1 − Jaccard is the distance used to find each cluster's most typical tag. Learning it once explains the silhouette and the Cluster Center as well.
 
 *Example.* 12 / (20 + 30 − 12) = 0.32.
 
@@ -432,9 +684,19 @@ The overlap of the two tags' game sets (Jaccard 1912, p. 39): 1 means exactly th
 
 ### Fisher exact p
 
+> **In short.** How unusual the co-occurrence would be if the two tags were placed on games independently.
+>
+> **Lower →** this much (or this little) co-occurrence is more unusual under independence.
+>
+> **Here:** a screen for pairs whose co-occurrence among these 100 games is unlikely by chance.
+>
+> **Caution:** hundreds of pairs are tested, so read `bh_q`; it says nothing beyond these 100 games.
+
 Column: `fisher_p` in `associations.csv`.
 
 How surprising the observed co-occurrence would be if the two tags had been placed on games independently, given how many games carry each: the two-sided Fisher exact test on the 2 × 2 table. Small means this much (or this little) co-occurrence would be unusual under independence **within these 100 games**. The Top 100 is not a random sample of anything, so p says nothing about Steam games in general. Hundreds of pairs are tested, so small p values appear by chance; read `bh_q` instead. With N = 100 the test is discrete. The study never calls a result significant.
+
+*Why it matters here.* Some pairs of characteristics co-occur among the most-played games by chance. Fisher p measures how surprising each pair would be under independence within these 100 games; because the Top 100 is not a random sample, it describes this group of games and does not generalise to others.
 
 *Example.* A on 20 games, B on 30, both on 12: p = 0.002.
 
@@ -446,9 +708,19 @@ How surprising the observed co-occurrence would be if the two tags had been plac
 
 ### Benjamini-Hochberg q
 
+> **In short.** Each pair's Fisher p adjusted for how many pairs were tested in the dataset.
+>
+> **Lower →** keeping pairs up to this value, at most about that share would be chance findings.
+>
+> **Here:** the screen for pairs of characteristics whose co-occurrence is unlikely under independence.
+>
+> **Caution:** depends on how many pairs were tested; never turn it into a yes/no verdict.
+
 Column: `bh_q` in `associations.csv`.
 
 Each pair's p value adjusted for the number of pairs tested in that dataset, by the Benjamini–Hochberg procedure (Benjamini & Hochberg 1995, §3.1). If you kept every pair with q ≤ 0.05, the expected share of chance findings among those kept would be at most about 5%, under the method's assumptions (1995, Theorem 1). It is the project's descriptive screen for "co-occurrence unlikely under independence within this dataset". Its value depends on how many pairs were tested, which depends on `min_support`. Tag pairs share tags, so the tests are not independent; BH also controls the false discovery rate under positive regression dependency (Benjamini & Yekutieli 2001, Theorem 1.2), but tag-pair tests are not shown to satisfy it. The column is a BH-adjusted p value, not Storey's q-value.
+
+*Why it matters here.* With hundreds of tag pairs tested in each dataset, some small p values are expected by chance. The q value accounts for that, so a list of pairs with q at or below a chosen level describes the co-occurrences of the most-played games while keeping the expected share of chance findings in view.
 
 *Example.* Four p values 0.001, 0.01, 0.03, 0.04 become q = 0.004, 0.02, 0.04, 0.04.
 
@@ -460,9 +732,17 @@ Each pair's p value adjusted for the number of pairs tested in that dataset, by 
 
 ### Content Flag counts
 
+> **In short.** How many Top-100 games carry each Content Flag, such as Desktop Companion.
+>
+> **Here:** reports characteristics of the most-played games that may affect their scores, without removing them.
+>
+> **Caution:** a flag is never an Exclusion; flagged games count in every analysis.
+
 Columns: `flag`, `rank` in `content_flags.csv`; per-flag counts in `analysis.json`.
 
 How many Top-100 games carry each Content Flag (`desktop_companion`, `sexual_content_tag`), and which ones. A flag marks a characteristic worth reporting, such as Desktop Companion apps whose always-on use inflates concurrent players. It is never an Exclusion: flagged games are in every other analysis as normal.
+
+*Why it matters here.* Desktop Companion apps run in the background for hours, which inflates concurrent players and so Mean Monthly Players. Flagging such games instead of excluding them keeps them in the study while making their number visible, so a reader can judge how much they shape the results.
 
 *Example.* `desktop_companion: 2 games` means two Top-100 games carry the Desktop Companion tag.
 
@@ -1214,9 +1494,17 @@ How consistently a tag lands with the same other tags across the K extra seeds: 
 
 ### Resolution Sweep
 
+> **In short.** The report's clustering repeated at each γ of a fixed grid (default 0.50–1.50), everything else unchanged.
+>
+> **Here:** shows whether the clusters of the most-played games' tags hold at finer and coarser scales.
+>
+> **Caution:** Q at different γ must not be compared; compare cluster counts and the agreement with the report's clusters.
+
 Columns: `resolution`, `ari_vs_report` and the counts, modularity, silhouette and seed ARIs in `resolution_sweep.csv` (Build only).
 
 How the feature-analysis report's clustering changes when only γ changes: the clustering is repeated at each γ of a fixed grid (default 0.50–1.50; the report's γ is always a row), with everything else held at the report's settings, so the node set is identical across rows. If cluster counts and `ari_vs_report` change a lot over the grid, the cluster structure depends on the chosen resolution; compare `ari_vs_report` with `seed_ari_min` at the same γ to see whether the change exceeds seed noise. This makes visible that "the" clusters are one view among several (Fortunato & Barthélemy 2007; Good et al. 2010). The `modularity` column is Q at that row's γ: **values in different rows must not be compared**.
+
+*Why it matters here.* There is no single right resolution, so a cluster reported at γ = 1 is one view among several. If the cluster counts and the agreement with the report's partition change little across the grid, the reported clusters do not depend on that choice; if they change a lot, the report should say so. Compare `ari_vs_report` with `seed_ari_min` at the same γ to see whether a change exceeds seed noise.
 
 *Example.* "Between γ = 0.50 and 1.50 the number of multi-tag clusters ranged from 3 to 9; agreement with the γ = 1.00 partition ranged from 0.61 to 1.00 (ARI)."
 
