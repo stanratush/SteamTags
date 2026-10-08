@@ -273,9 +273,11 @@ def build_layout(ctx: BuildContext) -> html.Div:
             html.Button("Graph only", id="graph-only", className="btn", title="The narrowest form at any width"),
         ], className="hdr-right"),
     ], className="app-header")
-    help_modal = html.Div([html.Button("×", id="help-close", className="x"),
-                           html.Button("← Back", id="help-back", className="btn back", style={"display": "none"}),
-                           dcc.Markdown(id="help-body", link_target="_blank")],
+    # ← Back and × sit in a header that never scrolls; only the entry below it does.
+    help_modal = html.Div([html.Div([html.Button("← Back", id="help-back", className="btn back",
+                                                 style={"display": "none"}),
+                                     html.Button("×", id="help-close", className="x")], className="help-head"),
+                           html.Div(dcc.Markdown(id="help-body", link_target="_blank"), className="help-scroll")],
                           id="help-modal", className="help-modal", style={"display": "none"})
     return html.Div([
         *stores, html.Div(id="banners"), header,

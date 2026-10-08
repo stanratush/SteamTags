@@ -194,13 +194,13 @@ def page(build_path: Path) -> str:
         "- [x] **Self-explanatory controls carry no help** (decided 2026-10-08): the minimum games per tag, the minimum "
         "shared games, Hidden Genre Tags, Hide defining tag, Remove / Restore, Global / Cluster-separated and Tidy. "
         "Their entries stay in the guide, linked from the Control reference; Tidy keeps a native title.",
-        "- [ ] **A pill's click** (pill bar, medium and narrow forms) opens its popover, whose dotted label then opens "
-        "the entry; hover and Tab show the In short. The spec asked for the click to open the entry (issue 05).",
+        "- [x] **A pill's click** (pill bar, medium and narrow forms) keeps opening its popover, whose dotted label "
+        "then opens the entry; hover and Tab show the In short (accepted 2026-10-08 with all current tooltips).",
         "",
     ]
     first: dict[str, str] = {}
     for n, (title, rows) in enumerate(groups.items(), 1):
-        out += [f"## {n} {title}", "", "- [ ] Approved", "",
+        out += [f"## {n} {title}", "", "- [x] Approved (2026-10-08: all current tooltips)", "",
                 "| Element | Tooltip (layer 1) | Entry (layer 2) | Words |", "|---|---|---|---|"]
         for row in rows:
             guide, app = in_short_lines(row.tip)

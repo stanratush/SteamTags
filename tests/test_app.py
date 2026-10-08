@@ -654,7 +654,7 @@ def test_help_modal_follows_guide_links_with_a_back_stack():
 
     triggered("help-target.data", {"target": q, "n": 1})  # a metric label opened from the app
     style, body, history, back = CB.show_help(None, None, {"target": q, "n": 1}, None, ["02-app-controls.md"])
-    assert style["display"] == "block" and body == help_markdown_at("03-metric-reference.md", "modularity-q")
+    assert style["display"] == "flex" and body == help_markdown_at("03-metric-reference.md", "modularity-q")
     assert history == [q] and back["display"] == "none"
 
     triggered("help-target.data", {"target": null, "n": 2, "follow": True})  # a link inside the modal
@@ -868,3 +868,17 @@ def test_every_help_target_in_the_app_opens_an_entry_with_in_short_and_why_it_ma
         file, anchor = target.split("#")
         assert in_short_at(file, anchor), target
         assert "*Why it matters here.*" in section(chapter(file), anchor), target
+
+
+def test_the_help_modal_keeps_back_and_close_outside_the_scrolling_content(build_folder):
+    """Long entries scroll inside the modal; ← Back and × stay in a header that does not scroll."""
+    from steamstudy.app.layout import build_layout
+
+    modal = next(c for c in _walk(build_layout(load_build(build_folder))) if getattr(c, "id", None) == "help-modal")
+    head, scroll = modal.children
+    assert head.className == "help-head" and scroll.className == "help-scroll"
+    assert {getattr(c, "id", None) for c in _walk(head)} >= {"help-back", "help-close"}
+    assert [c.id for c in _walk(scroll) if getattr(c, "id", None)] == ["help-body"]
+    triggered('{"panel":"controls","type":"help"}.n_clicks')
+    style, *_ = CB.show_help([1], None, None, None, [])
+    assert style["display"] == "flex"

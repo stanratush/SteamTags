@@ -14,11 +14,11 @@ How to review (spec: *Review*; issue 07):
 
 - [x] **"the most-played games"**, not "successful games" (decided 2026-10-08). Entries the app links to that still say "success…" in their In short or Why it matters: none.
 - [x] **Self-explanatory controls carry no help** (decided 2026-10-08): the minimum games per tag, the minimum shared games, Hidden Genre Tags, Hide defining tag, Remove / Restore, Global / Cluster-separated and Tidy. Their entries stay in the guide, linked from the Control reference; Tidy keeps a native title.
-- [ ] **A pill's click** (pill bar, medium and narrow forms) opens its popover, whose dotted label then opens the entry; hover and Tab show the In short. The spec asked for the click to open the entry (issue 05).
+- [x] **A pill's click** (pill bar, medium and narrow forms) keeps opening its popover, whose dotted label then opens the entry; hover and Tab show the In short (accepted 2026-10-08 with all current tooltips).
 
 ## 1 Summary row (above the graph)
 
-- [ ] Approved
+- [x] Approved (2026-10-08: all current tooltips)
 
 | Element | Tooltip (layer 1) | Entry (layer 2) | Words |
 |---|---|---|---|
@@ -31,7 +31,7 @@ How to review (spec: *Review*; issue 07):
 
 ## 2 Cluster quality tab
 
-- [ ] Approved
+- [x] Approved (2026-10-08: all current tooltips)
 
 | Element | Tooltip (layer 1) | Entry (layer 2) | Words |
 |---|---|---|---|
@@ -45,7 +45,7 @@ How to review (spec: *Review*; issue 07):
 
 ## 3 Inspector (labels and table headers)
 
-- [ ] Approved
+- [x] Approved (2026-10-08: all current tooltips)
 
 | Element | Tooltip (layer 1) | Entry (layer 2) | Words |
 |---|---|---|---|
@@ -80,7 +80,7 @@ How to review (spec: *Review*; issue 07):
 
 ## 4 Grid column headers (one row per entry and grid)
 
-- [ ] Approved
+- [x] Approved (2026-10-08: all current tooltips)
 
 | Element | Tooltip (layer 1) | Entry (layer 2) | Words |
 |---|---|---|---|
@@ -127,7 +127,7 @@ How to review (spec: *Review*; issue 07):
 
 ## 5 Analytical controls (Controls panel, pill bar, graph overlay)
 
-- [ ] Approved
+- [x] Approved (2026-10-08: all current tooltips)
 
 | Element | Tooltip (layer 1) | Entry (layer 2) | Words |
 |---|---|---|---|
@@ -144,7 +144,7 @@ How to review (spec: *Review*; issue 07):
 
 ## 6 Legend
 
-- [ ] Approved
+- [x] Approved (2026-10-08: all current tooltips)
 
 | Element | Tooltip (layer 1) | Entry (layer 2) | Words |
 |---|---|---|---|
@@ -153,7 +153,7 @@ How to review (spec: *Review*; issue 07):
 
 ## 7 Dataset summary (Analysis Report §1) and Export
 
-- [ ] Approved
+- [x] Approved (2026-10-08: all current tooltips)
 
 | Element | Tooltip (layer 1) | Entry (layer 2) | Words |
 |---|---|---|---|

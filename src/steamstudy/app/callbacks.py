@@ -664,7 +664,7 @@ def show_help(_clicks, _close, target=None, _back=None, history=None):
     else:  # help-close
         return {"display": "none"}, "", [], {"display": "none"}
     file, _, anchor = history[-1].partition("#")
-    return ({"display": "block", "width": "560px"}, help_markdown_at(file, anchor or None), history,
+    return ({"display": "flex", "width": "560px"}, help_markdown_at(file, anchor or None), history,
             {"display": "inline-block" if len(history) > 1 else "none"})
 
 
