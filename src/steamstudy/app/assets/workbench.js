@@ -173,19 +173,22 @@
     window.dash_clientside.set_props("help-target", {data: {target: el.dataset.help, n: Date.now()}});
   }
 
-  document.addEventListener("pointerdown", (ev) => { lastPointer = ev.pointerType || "mouse"; }, true);
+  // A press hides the tooltip, so that it never covers what the press opens (a pill's popover, for example).
+  document.addEventListener("pointerdown", (ev) => { lastPointer = ev.pointerType || "mouse"; hideTip(); }, true);
   document.addEventListener("mouseover", (ev) => {
     const el = within(ev, "[data-tip]");
     if (el === tipFor) return;
-    if (!el || lastPointer === "touch" || el.classList.contains("hinfo")) { hideTip(); return; }
+    // A grid header's ⓘ: on hover the header shows ag-grid's own tooltip.
+    if (!el || lastPointer === "touch" || el.closest(".ag-header")) { hideTip(); return; }
     showTip(el);
   });
   document.addEventListener("mouseout", (ev) => {
     if (tipFor && !(ev.relatedTarget && tipFor.contains(ev.relatedTarget))) hideTip();
   });
+  // Keyboard focus shows the tooltip; focus from a press does not (the press already opened what it opens).
   document.addEventListener("focusin", (ev) => {
     const el = within(ev, "[data-tip]");
-    if (el && lastPointer !== "touch") showTip(el); else hideTip();
+    if (el && lastPointer !== "touch" && ev.target.matches(":focus-visible")) showTip(el); else hideTip();
   });
   document.addEventListener("focusout", hideTip);
   document.addEventListener("scroll", hideTip, true);

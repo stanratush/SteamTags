@@ -778,3 +778,18 @@ def test_the_joined_membership_stability_column_has_the_same_help(build_folder):
     joined = next(d for d in rs.columnDefs if d["headerName"] == "membership_stability (joined)")
     assert joined["headerComponentParams"]["innerHeaderComponentParams"]["help"].endswith("#membership-stability")
     assert joined["headerTooltip"].startswith("In short. ")
+
+
+def test_controls_and_their_pills_carry_the_help_of_their_guide_entry(build_folder):
+    from steamstudy.app.help import HELP
+    from steamstudy.app.layout import build_layout
+
+    components = list(_walk(build_layout(load_build(build_folder))))
+    helps = {getattr(c, "data-help", None) for c in components}
+    controls = {f"{file}#{anchor}" for key, (file, anchor) in HELP.items() if key.startswith("control.")}
+    assert len(controls) == 12 and controls <= helps
+    pills = {getattr(c, "data-pill"): getattr(c, "data-tip", None) for c in components
+             if getattr(c, "className", None) == "pill-btn"}
+    for pill in ("min-months", "min-games", "min-shared", "hidden", "weight", "algorithm", "gamma", "seed"):
+        assert (pills[pill] or "").startswith("In short. "), pill
+    assert not any(getattr(c, "title", None) == "0.1–3.0" for c in components)  # the range is in the entry now

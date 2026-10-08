@@ -17,6 +17,7 @@ from typing import Any
 import dash_ag_grid as dag
 from dash import dcc, html
 
+from steamstudy.app import help as H
 from steamstudy.app.loader import BuildContext
 from steamstudy.app.renderer import graph_component
 from steamstudy.app.view import column_defs, metric_header
@@ -32,19 +33,46 @@ def _data(**attrs: str) -> dict[str, Any]:
     return {"data-" + name.replace("_", "-"): value for name, value in attrs.items()}
 
 
+def _term(text: str, key: str) -> tuple[list[Any], dict[str, Any]]:
+    """A control's label text, dotted, and the attributes that give the label both help layers."""
+    return [html.Span(text, className="term")], {"tabIndex": "0", **H.attrs(key)}
+
+
+def _control_key(control: str) -> str | None:
+    """A control's help key (`steamstudy.app.help`), if it is an analytical control."""
+    return f"control.{control}" if f"control.{control}" in H.HELP else None
+
+
+def _label(text: str, key: str, *extra: Any, **kw: Any) -> html.Label:
+    """A control's label with both help layers: hover or focus shows its In short, a click opens its entry."""
+    children, help_ = _term(text, key)
+    return html.Label([*children, *extra], className="l", **help_, **kw)
+
+
+def _info(key: str, name: str) -> html.Span:
+    """An ⓘ for a control without a label of its own: hover or focus shows its In short, a click opens its entry."""
+    attrs: dict[str, Any] = {"role": "button", "tabIndex": "0", "aria-label": f"User Guide entry: {name}",
+                             **H.attrs(key)}
+    return html.Span("ⓘ", className="hinfo", **attrs)
+
+
 def _slider(id_: str, label: str, lo: int, hi: int, value: int) -> list[Any]:
     """A slider whose label shows its value while dragging; the value itself is sent on release."""
-    return [html.Label([label, html.B(str(value), id=f"{id_}-value", className="num")], htmlFor=id_,
-                       className="sl-label"),
+    children, help_ = _term(label, f"control.{id_}")
+    return [html.Label([*children, html.B(str(value), id=f"{id_}-value", className="num")], htmlFor=id_,
+                       className="sl-label", **help_),
             dcc.Slider(id=id_, min=lo, max=hi, step=1, value=value, updatemode="mouseup", allow_direct_input=False,
                        tooltip=None, marks={lo: str(lo), hi: str(hi)}, className="sl")]
 
 
 def _item(pill: str, pill_label: str, value: str, children: list[Any]) -> html.Div:
-    """One control: shown inline in the Controls panel, or as a pill with a popover in the pill bar."""
+    """One control: shown inline in the Controls panel, or as a pill with a popover in the pill bar. An analytical
+    control's pill shows its In short on hover or focus; its click opens the popover, whose label opens the entry."""
+    key = _control_key(pill)
+    tip = _data(tip=H.tip(key)) if key else {}
     return html.Div([
         html.Button([f"{pill_label} " if pill_label else "", html.B(value, id=f"pill-{pill}", className="num")],
-                    className="pill-btn", **_data(pill=pill)),
+                    className="pill-btn", **_data(pill=pill), **tip),
         html.Div(children, className="pill-pop"),
     ], className="ctl-item")
 
@@ -99,35 +127,37 @@ def _controls(ctx: BuildContext) -> html.Div:
               _slider("min-shared", "Minimum shared games", 1, 30, s.min_shared_games)),
         _item("hidden", "Hidden", f"{len(hidden)} Genre Tag{'' if len(hidden) == 1 else 's'}"
               + (" + defining" if defining and defining.id in s.hidden_tag_ids else ""), [
-            html.Label(["Hidden Genre Tags ", html.Span(f"{len(hidden)} of {len(genre_ids)}", id="genre-count",
-                                                          className="mute num")], className="l"),
+            _label("Hidden Genre Tags", "control.hidden", " ",
+                   html.Span(f"{len(hidden)} of {len(genre_ids)}", id="genre-count", className="mute num")),
             dcc.Checklist(id="genre-hidden", options=[{"label": t.name, "value": t.id} for t in ctx.genre_tags],
                           value=hidden, inline=True, className="chips"),
-            dcc.Checklist(id="defining-hidden",
-                          options=[{"label": f"hide defining tag ({defining.name})" if defining else "no defining tag",
-                                    "value": 1, "disabled": defining is None}],
-                          value=[1] if defining and defining.id in s.hidden_tag_ids else [], className="check"),
+            html.Div([dcc.Checklist(id="defining-hidden",
+                                    options=[{"label": f"hide defining tag ({defining.name})" if defining
+                                              else "no defining tag", "value": 1, "disabled": defining is None}],
+                                    value=[1] if defining and defining.id in s.hidden_tag_ids else [],
+                                    className="check"),
+                      _info("control.defining", "Hide defining tag")], className="row-inline"),
         ]),
     ])
     clustering = _section("Clustering", [
         _item("weight", "Weight", "Shared games" if s.clustering_weight == "shared_games" else "Lift", [
-            html.Label("Clustering weight", className="l"),
+            _label("Clustering weight", "control.weight"),
             _seg("weight", [("shared_games", "Shared games"), ("lift", "Lift")], s.clustering_weight)]),
         _item("algorithm", "", s.algorithm.capitalize(), [
-            html.Label("Clustering algorithm", className="l"),
+            _label("Clustering algorithm", "control.algorithm"),
             _seg("algorithm", [("louvain", "Louvain"), ("leiden", "Leiden")], s.algorithm)]),
         html.Div([
             _item("gamma", "γ", f"{s.resolution:.2f}", [
-                html.Label("Resolution γ", htmlFor="gamma", className="l", title="0.1–3.0"),
+                _label("Resolution γ", "control.gamma", htmlFor="gamma"),
                 dcc.Input(id="gamma", type="number", min=0.1, max=3.0, step=0.05, value=s.resolution, debounce=True)]),
             _item("seed", "Seed", str(s.seed), [
-                html.Label("Seed", htmlFor="seed", className="l"),
+                _label("Seed", "control.seed", htmlFor="seed"),
                 dcc.Input(id="seed", type="number", min=0, step=1, value=s.seed, debounce=True)]),
         ], className="two"),
     ])
     state = _section("State", [
         _item("state", "State", "…", [
-            html.Label("Removed tags", className="l"),
+            _label("Removed tags", "control.removed"),
             html.Div([dcc.Dropdown(id="restore-pick", options=[], placeholder="pick a removed tag"),
                       html.Button("Restore", id="restore-btn", className="btn")], className="row-inline"),
             html.Div([html.Button("Reset all", id="reset-btn", className="btn"),
@@ -153,8 +183,9 @@ def build_layout(ctx: BuildContext) -> html.Div:
         html.Div([
             *graph_component(),
             html.Div([_seg("layout-mode", [("global", "Global"), ("separated", "Cluster-separated")], "global"),
-                      html.Button("Tidy", id="relayout-btn", className="btn",
-                                  title="Settle the graph around the nodes you dragged; positions only"),
+                      _info("control.layout-mode", "Global / Cluster-separated"),
+                      html.Button("Tidy", id="relayout-btn", className="btn", **_data(tip=H.tip("control.tidy"))),
+                      _info("control.tidy", "Tidy"),
                       html.Button("⤢", id="fit-btn", className="btn", title="Fit the graph to the view")],
                      className="ov ov-tr", **_data(graph_overlay="top")),
             html.Div(html.Div(id="legend", className="legend"), className="ov ov-bl",

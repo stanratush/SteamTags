@@ -238,3 +238,31 @@ def test_every_inspector_label_resolves_to_an_entry_with_in_short_and_why_it_mat
         file, anchor = column_entry(columns)
         assert in_short_at(file, anchor), label
         assert "*Why it matters here.*" in section(chapter(file), anchor), label
+
+
+# ----------------------------------------------------------------------------- analytical controls
+
+CONTROL_ENTRIES = ("Minimum Months Filter", "Minimum games per tag", "Minimum shared games", "Hidden Genre Tags",
+                   "Hide defining tag", "Clustering weight", "Clustering algorithm", "Resolution γ", "Seed",
+                   "Remove / Restore", "Global / Cluster-separated", "Tidy")
+
+
+def test_every_analytical_control_has_an_entry_with_the_parts_the_spec_lists():
+    from steamstudy.app.guide import in_short, in_short_problems, section
+
+    text = _text("02-app-controls.md")
+    explained = section(text, "analytical-controls-explained")
+    assert [heading for level, heading, _ in headings(explained) if level == 3] == list(CONTROL_ENTRIES)
+    for name in CONTROL_ENTRIES:
+        entry = section(explained, slug(name))
+        assert in_short(entry) and in_short_problems(in_short(entry)) == [], name
+        for part in ("*Why it matters here.*", "*Caution.*", "*Example.*"):
+            assert part in entry, (name, part)
+
+
+def test_the_control_reference_links_each_analytical_row_to_its_entry():
+    from steamstudy.app.guide import section
+
+    table = section(_text("02-app-controls.md"), "control-reference")
+    for name in CONTROL_ENTRIES:
+        assert f"](#{slug(name)})" in table, name

@@ -14,6 +14,7 @@ from steamstudy.app.guide import in_short_at
 from steamstudy.export import schema as S
 
 METRIC_REFERENCE = "03-metric-reference.md"
+APP_CONTROLS = "02-app-controls.md"
 
 # help key -> (guide file, heading anchor)
 HELP: dict[str, tuple[str, str]] = {
@@ -30,6 +31,18 @@ HELP: dict[str, tuple[str, str]] = {
     "quality.seed_noise": (METRIC_REFERENCE, "adjusted-rand-index"),
     "quality.sentence": (METRIC_REFERENCE, "clusters-and-partition-quality"),
     "quality.noise_sentence": (METRIC_REFERENCE, "stability"),
+    "control.min-months": (APP_CONTROLS, "minimum-months-filter"),
+    "control.min-games": (APP_CONTROLS, "minimum-games-per-tag"),
+    "control.min-shared": (APP_CONTROLS, "minimum-shared-games"),
+    "control.hidden": (APP_CONTROLS, "hidden-genre-tags"),
+    "control.defining": (APP_CONTROLS, "hide-defining-tag"),
+    "control.weight": (APP_CONTROLS, "clustering-weight"),
+    "control.algorithm": (APP_CONTROLS, "clustering-algorithm"),
+    "control.gamma": (APP_CONTROLS, "resolution-γ"),
+    "control.seed": (APP_CONTROLS, "seed"),
+    "control.removed": (APP_CONTROLS, "remove--restore"),
+    "control.layout-mode": (APP_CONTROLS, "global--cluster-separated"),
+    "control.tidy": (APP_CONTROLS, "tidy"),
 }
 
 # (declared file, column name), as in `view.INSPECTOR_LABELS`

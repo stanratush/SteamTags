@@ -185,9 +185,7 @@ body[data-form=narrow] #root.workbench .inspector:not(.has-sel){display:none}
  --ag-border-color:var(--line);--ag-row-border:1px solid var(--line2);--ag-wrapper-border-radius:6px;
  --ag-accent-color:var(--acc);--ag-selected-row-background-color:var(--acc-bg);--ag-spacing:6px}
 .grid .num{font-variant-numeric:tabular-nums}
-/* a metric header's ⓘ opens its guide entry; the header tooltip keeps the In short lines apart */
-.grid .hinfo{flex:none;margin:0 3px;color:var(--faint);font-family:var(--sans);font-size:12px;cursor:help}
-.grid .hinfo:hover,.grid .hinfo:focus-visible{color:var(--acc)}
+/* the header tooltip keeps the In short lines apart */
 .grid .ag-tooltip{white-space:pre-line;max-width:360px;line-height:1.4}
 
 /* help */
@@ -200,6 +198,9 @@ body[data-form=narrow] #root.workbench .inspector:not(.has-sel){display:none}
 /* metric help: a dotted term opens its guide entry; the tooltip shows its In short lines (workbench.js) */
 .term{text-decoration:underline dotted var(--faint);text-underline-offset:3px}
 [data-help]{cursor:help}
+/* an ⓘ (grid header, overlay or control without a label) opens its guide entry */
+.hinfo{flex:none;margin:0 3px;color:var(--faint);font-family:var(--sans);font-size:12px;cursor:help}
+.hinfo:hover,.hinfo:focus-visible{color:var(--acc)}
 [data-help]:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:4px}
 .tip{position:fixed;z-index:1100;display:none;max-width:340px;padding:8px 11px;background:var(--panel);color:var(--ink2);
  border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 24px #0002;font-size:12.5px;line-height:1.4;pointer-events:none}
