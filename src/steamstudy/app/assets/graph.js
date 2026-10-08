@@ -38,6 +38,7 @@
   const REPORT_SETTLE = 150, LABEL_SETTLE = 120;  // ms a size or a zoom must stay put before acting on it
   const LABEL_PX = 11.5, TITLE_PX = 12.5, HALO = 2;  // constant on-screen sizes of labels and region titles
   const MOTION = 350, EASE = "ease-in-out-cubic";
+  const DASH_QUIET = 50;  // ms without a Dash update before a view animation starts (whenDashIdle)
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
   const G = {cy: null, el: null, data: null, sig: null, moveSig: null, userMoved: false,
              quietUntil: 0, viewNonce: null, labelFrame: 0, selected: null, basis: null,
@@ -505,12 +506,33 @@
   function runView(view) {
     if (!view || view.nonce === G.viewNonce) return;
     G.viewNonce = view.nonce;
-    if (view.cmd === "fit") { G.userMoved = false; fit(true); }
-    else if (view.cmd === "focus") focusCluster(view.cluster);
-    else if (view.cmd === "center") {
-      const el = G.cy.getElementById(view.id);
-      centerOn(el.nonempty() && el.isEdge() ? el.union(el.connectedNodes()) : el);
-    }
+    whenDashIdle(() => {
+      if (view.cmd === "fit") { G.userMoved = false; fit(true); }
+      else if (view.cmd === "focus") focusCluster(view.cluster);
+      else if (view.cmd === "center") {
+        const el = G.cy.getElementById(view.id);
+        centerOn(el.nonempty() && el.isEdge() ? el.union(el.connectedNodes()) : el);
+      }
+    });
+  }
+
+  // A view command arrives with the first answer to a selection, while Dash still applies the others (the
+  // Inspector, its form) and then tidies its callback records. Every Dash update makes each of the page's few
+  // hundred components re-check its props, which took most of an animated zoom's frames on a slower machine; so
+  // the zoom starts once Dash is idle and has made no update for DASH_QUIET ms (`window.store` is the Dash
+  // renderer's store; without it, at once). A newer command replaces a waiting one.
+  function whenDashIdle(run) {
+    if (G.idleCancel) G.idleCancel();
+    const store = window.store;
+    if (!store || !store.getState || !store.subscribe) { run(); return; }
+    let quiet = null;
+    const stop = () => { unsubscribe(); clearTimeout(quiet); clearTimeout(cap); G.idleCancel = null; };
+    const go = () => { stop(); requestAnimationFrame(run); };
+    const settle = () => { clearTimeout(quiet); if (!store.getState().isLoading) quiet = setTimeout(go, DASH_QUIET); };
+    const unsubscribe = store.subscribe(settle);
+    const cap = setTimeout(go, 1000);  // never wait long
+    G.idleCancel = stop;
+    settle();
   }
 
   function render(data) {
