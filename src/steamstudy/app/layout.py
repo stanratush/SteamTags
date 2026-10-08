@@ -19,8 +19,7 @@ from dash import dcc, html
 
 from steamstudy.app.loader import BuildContext
 from steamstudy.app.renderer import graph_component
-from steamstudy.app.view import column_defs
-from steamstudy.export import schema as S
+from steamstudy.app.view import column_defs, metric_header
 
 WB_TABS = [("quality", "Cluster quality"), ("clusters", "Clusters"), ("rs", "Removal sensitivity"),
            ("nodes", "Nodes"), ("edges", "Edges"), ("nin", "Not in network")]
@@ -178,7 +177,7 @@ def build_layout(ctx: BuildContext) -> html.Div:
                  className="row-inline"),
         html.Div(_grid("rs-grid", "app_export/removal_sensitivity.csv", height="300px", extra=[{
             "field": "membership_stability", "headerName": "membership_stability (joined)",
-            "headerTooltip": S.file("app_export/nodes.csv").column("membership_stability").description,
+            **metric_header("app_export/nodes.csv", "membership_stability"),
             "sortable": True, "filter": "agNumberColumnFilter", "type": "rightAligned"}]),
                  id="rs-grid-wrap"),
         html.Div(id="rs-footer", className="qline"),

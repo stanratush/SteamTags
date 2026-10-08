@@ -760,6 +760,12 @@ How evenly a tag's links are spread over clusters: 0 means all its weight is ins
 
 ### Layout positions
 
+> **In short.** Where each tag is drawn; computed after, and never used by, any metric.
+>
+> **Here:** a map for finding the most-played games' characteristics and their clusters.
+>
+> **Caution:** distance on screen is not a metric; never measure or report positions.
+
 Columns: `x_global`, `y_global`, `x_cluster_separated`, `y_cluster_separated` in `nodes.csv`; `layout_source` in `export.json`.
 
 Where each node is drawn. Positions are computed after, and never used by, any metric; gravity, canvas size and Tidy change only coordinates. Distance on screen is **not** a metric: two tags drawn close together may share few games. Never measure or report positions.
@@ -774,6 +780,8 @@ The **Cluster-separated** layout gives each Multi-Tag Cluster its own region. A 
 
 Exports are laid out for a fixed **reference canvas**, the graph area of a 1440 × 900 window with the Tables and the Inspector closed (1,116 × 678 pixels), so the same state exports the same coordinates on every machine; the app draws the same layout for its own graph area, so what you see can differ from the exported coordinates. An export made after Tidy (or after the older Re-layout) reopens with its positions kept in shape, scaled into the reference canvas, clamped and spaced for their labels.
 
+*Why it matters here.* The drawing helps to find tags and to see the clusters, but two tags drawn close together may share few games, and the picture changes with gravity, open panels and Tidy. Read how tags relate from the links, the Inspector and the tables, never from where they sit in the drawing.
+
 *Example.* Two exports of the same state with the default layout have identical positions. Exporting it with 10 times the gravity changes only these four columns: every other byte of the export is the same.
 
 *Bounds.* Model units: one unit is one pixel at the zoom the labels are spaced for.
@@ -784,9 +792,17 @@ Exports are laid out for a fixed **reference canvas**, the graph area of a 1440 
 
 ### Tags not in the network
 
+> **In short.** Every tag of the dataset that is not in the network, with each reason why.
+>
+> **Here:** shows which characteristics of the most-played games the network leaves out, and why.
+>
+> **Caution:** a tag below the minimum games here can be common in another dataset.
+
 Columns: `reasons` (with `tag_id`, `tag`, `n_games`) in `not_in_network.csv`.
 
 Every tag on at least one game of the loaded dataset that is not a node, with every reason why, so that nothing disappears unexplained. Reasons appear in a fixed order: `removed` (removed in the app), `defining_tag_hidden`, `genre_tag_hidden`, `below_min_games`. A tag below the threshold can still be very common in another dataset; check the frequency table.
+
+*Why it matters here.* The network describes only the tags it contains. A characteristic that only a handful of the Top 100 share falls below the minimum games per tag and cannot appear in any cluster; hidden and removed tags are left out by choice. Before writing that a characteristic is missing from the clusters, check here whether it was in the network at all.
 
 *Example.* The Puzzle tag in the Puzzle dataset: `defining_tag_hidden;genre_tag_hidden` (it is both the defining tag and a Genre Tag).
 
@@ -964,9 +980,17 @@ The share of the total weight on edges inside clusters, and the rest. These are 
 
 ### Disconnected clusters
 
+> **In short.** Whether all of a cluster's tags are joined by links inside the cluster.
+>
+> **Here:** keeps two separate groups of characteristics from being read as one cluster.
+>
+> **Caution:** a known defect of Louvain, not a finding; Leiden never produces it.
+
 Columns: `connected` (clusters); `n_disconnected_clusters` (cluster quality).
 
 Whether a cluster's tags can all reach each other through edges inside the cluster. `false` means the cluster is two or more separate pieces under one label. Louvain can return such clusters (Traag, Waltman & van Eck 2019, abstract); for unweighted networks some best-modularity partition always has connected clusters (Brandes et al. 2008, Lemma 3.4), so a disconnected cluster is a known Louvain defect, not a finding. The software flags it and never splits it; the app suggests the Leiden mode, which guarantees connected clusters.
+
+*Why it matters here.* A disconnected cluster would be described as one combination of characteristics when it is really two groups that happen to share a label. The Inspector warns about it and suggests the Leiden mode; switch to Leiden before describing such a cluster.
 
 *Example.* A cluster of six tags in two groups of three with no edge between them: `connected` false.
 
@@ -1004,9 +1028,19 @@ The average of the per-tag silhouettes: an independent check on the clustering t
 
 ### Internal edges, weight and densities
 
+> **In short.** How tightly a cluster's tags are linked among themselves: links and link weight, also per possible pair.
+>
+> **Higher →** more of the members' pairs linked, or more heavily; edge density 1 = every pair linked.
+>
+> **Here:** whether a cluster's characteristics occur together pairwise or through a few common tags.
+>
+> **Caution:** small clusters reach high density easily; weighted density is in Clustering Weight units.
+
 Columns: `internal_edges`, `internal_weight`, `edge_density`, `weighted_density` in `clusters.csv`.
 
 How tightly linked a cluster is inside. For a cluster of n tags there are n(n − 1)/2 possible pairs. Edge density is the share of those pairs that are linked; weighted density is the average active weight per possible pair, missing edges counting as 0. These are weighted analogues of Fortunato's intra-cluster density (2010, §III.B.1, eq. 1), which counts edges. Small clusters reach high density easily, and weighted density is in the units of the active Clustering Weight.
+
+*Why it matters here.* An edge density near 1 means almost every pair of the cluster's tags shares at least the minimum shared games: the most-played games carry these characteristics together pair by pair. A low density means the cluster hangs together through a few members that link to the rest. Compare clusters of similar size, and read it with the conductance, which says how much the cluster links outward.
 
 *Example.* 5 tags with 8 of their 10 possible edges and a total internal weight of 120: edge density 0.8, weighted density 12.
 
@@ -1044,9 +1078,19 @@ How much of a cluster's weight leaks to the rest of the network. The cut weight 
 
 ### Cluster connections
 
+> **In short.** How many links, and how much link weight, join each pair of clusters.
+>
+> **Higher →** more links, or more weight on the Clustering Weight in use, between the two clusters; 0 = none.
+>
+> **Here:** shows which groups of characteristics the most-played games tend to combine with each other.
+>
+> **Caution:** on shared games, big clusters of common tags connect to everything; compare with cluster sizes.
+
 Columns: `cluster_a`, `cluster_b`, `edge_count`, `weight` in `cluster_connections.csv`.
 
 How many edges and how much weight join each pair of Multi-Tag Clusters, zero pairs included, plus each cluster's links to the pooled One-Tag Clusters (`one_tag_pool`). Large values mean the two clusters overlap a lot in their games. On shared games, big clusters of common tags are strongly connected to everything; compare with cluster sizes.
+
+*Why it matters here.* Clusters are not sealed off from each other: a game often carries tags from several of them. A heavy connection between two clusters means many games combine the two groups of characteristics, so describe them as overlapping rather than as separate kinds of game. The `one_tag_pool` rows show how much the pooled One-Tag Clusters link to each cluster.
 
 *Example.* `C1, C2, 7, 58`: seven edges with a total weight of 58 shared games join C1 and C2.
 
@@ -1096,9 +1140,19 @@ How similar two partitions of the same tags are, corrected for the agreement exp
 
 ### Seed spread of modularity and silhouette
 
+> **In short.** How much Q and the mean silhouette vary when only the random seed changes.
+>
+> **Higher →** the seeds find splits that score more differently; 0 = all score the same.
+>
+> **Here:** the scale of seed noise for reading changes in Q across this study's Network States.
+>
+> **Caution:** an SD from K seeds is rough; Leiden often gives 0.
+
 Columns: `seed_modularity_sd`, `seed_silhouette_sd`, `seed_silhouette_status` (cluster quality); `modularity`, `silhouette`, `silhouette_status` in `seed_noise.csv`.
 
 How much Q and the mean silhouette vary across the K extra seeds on the unchanged network. A small SD means the seeds find equally good partitions, which may still differ (see ARI). It is the yardstick for whether a change in Q, for example a Removal Sensitivity ΔQ, is larger than seed noise. An SD from 10 values is itself rough, and Leiden often gives an SD of 0.
+
+*Why it matters here.* Read a change in Q or the silhouette, between Network States or after removing a tag, beside this SD: a change of similar size is what another run of the clustering can give. It is a scale, not a test: a removal's change in Q always includes the mechanical loss of the tag's links, and an SD of 0, common under Leiden, does not make every change meaningful. A small SD does not mean that the seeds find the same clusters; the adjusted Rand index answers that.
 
 *Example.* Seed Q values spread with sample SD 0.004: "SD Q 0.004" in the Seed-Noise Floor line.
 
@@ -1110,9 +1164,19 @@ How much Q and the mean silhouette vary across the K extra seeds on the unchange
 
 ### Seed range of cluster counts
 
+> **In short.** The fewest and the most Multi-Tag Clusters found when only the random seed changes.
+>
+> **Higher →** a wider range: the count depends more on the seed.
+>
+> **Here:** check it before reporting how many groups the most-played games' characteristics form.
+>
+> **Caution:** the count can stay the same while members move; read it with the ARI.
+
 Columns: `seed_k_min`, `seed_k_max` (cluster quality); `n_multi_tag_clusters`, `n_one_tag_clusters` in `seed_noise.csv`.
 
 The lowest and highest number of Multi-Tag Clusters across the K extra seeds: the most intuitive sign of seed dependence. The count can stay the same while membership changes, so read it with ARI.
+
+*Why it matters here.* Writing "the tags fall into five groups" holds only when other seeds also give five. If the range is 4–7, report the range, or that the count depends on the seed. The shown partition's own count lies within or at the edge of this range.
 
 *Example.* "multi-tag clusters 5–7": some seeds split or merge clusters.
 
@@ -1173,9 +1237,17 @@ Comparisons use all tags except the removed one. Every Δ is after removal − b
 
 ### Run order and identity
 
+> **In short.** The order in which Removal Sensitivity tests the tags: by active strength (link weight on the Clustering Weight), highest first.
+>
+> **Here:** a partial run has covered the most linked of the most-played games' tags.
+>
+> **Caution:** not a ranking of anything.
+
 Columns: `run_order`, `active_strength` (with `tag_id`, `tag`, `cluster`, `is_center`) in `removal_sensitivity.csv`.
 
 Which tag the row is about, and its strength on the active Clustering Weight. Tags are processed by active strength, highest first, then by tag id, so a cancelled or partial run has covered the most strongly linked tags and is a prefix of the full run. The run order is not a ranking of anything.
+
+*Why it matters here.* Testing every tag takes time, so the run starts with the tags that carry the most link weight. If you stop early, the rows you have are for those tags; the others are untested, not unaffected.
 
 *Example.* `run_order` 1 is the tag with the largest active strength.
 

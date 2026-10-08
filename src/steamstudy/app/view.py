@@ -67,7 +67,8 @@ def chance_footer(flagged: int, n: int, k: int) -> str:
 
 
 def column_defs(schema_key: str, columns: list[str] | None = None, *, extra: list[dict[str, Any]] | None = None) -> list[dict]:
-    """ag-grid columns for a declared file; every header shows the schema description as its tooltip."""
+    """ag-grid columns for a declared file. A metric column's header shows its guide entry's In short as the tooltip
+    and an ⓘ that opens the entry; an identifier column's shows the schema description."""
     schema = S.file(schema_key)
     names = columns or list(schema.column_names)
     defs = []
@@ -75,6 +76,8 @@ def column_defs(schema_key: str, columns: list[str] | None = None, *, extra: lis
         col = schema.column(name)
         d: dict[str, Any] = {"field": name, "headerName": name, "headerTooltip": col.description,
                              "sortable": True, "filter": True, "resizable": True}
+        if H.column_has_help((schema_key, name)):
+            d.update(metric_header(schema_key, name))
         if col.type in ("float", "float6"):
             d["valueFormatter"] = {"function": "params.value == null ? '' : d3.format('.3~f')(params.value)"}
             d.update(filter="agNumberColumnFilter", type="rightAligned")
@@ -84,6 +87,15 @@ def column_defs(schema_key: str, columns: list[str] | None = None, *, extra: lis
             d["valueFormatter"] = {"function": "params.value == null ? '' : params.value.join('; ')"}
         defs.append(d)
     return defs + list(extra or [])
+
+
+def metric_header(schema_key: str, name: str) -> dict[str, Any]:
+    """A metric column's header help: ag-grid's tooltip shows the In short lines and the Column line on hover, and
+    an ⓘ (workbench.js `MetricHeader`) shows them on keyboard focus and opens the entry."""
+    tip, target = H.column_help([(schema_key, name)])
+    return {"headerTooltip": tip,
+            "headerComponentParams": {"innerHeaderComponent": "MetricHeader",
+                                      "innerHeaderComponentParams": {"help": target, "tip": tip}}}
 
 
 def grid_rows(rows: list[dict[str, Any]], drop: tuple[str, ...] = ()) -> list[dict[str, Any]]:

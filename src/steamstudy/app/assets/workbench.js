@@ -177,7 +177,7 @@
   document.addEventListener("mouseover", (ev) => {
     const el = within(ev, "[data-tip]");
     if (el === tipFor) return;
-    if (!el || lastPointer === "touch") { hideTip(); return; }
+    if (!el || lastPointer === "touch" || el.classList.contains("hinfo")) { hideTip(); return; }
     showTip(el);
   });
   document.addEventListener("mouseout", (ev) => {
@@ -215,6 +215,27 @@
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", watchHelpBody);
   else watchHelpBody();
+
+  // A metric column's header (view.py `metric_header`): its name and an ⓘ that opens the guide entry. The ⓘ sits
+  // inside the label that sorts, so its click and Enter are taken in the capture phase, before ag-grid sees them;
+  // the rest of the header still sorts. On hover the header shows ag-grid's own tooltip (headerTooltip); the ⓘ's
+  // data-tip is for keyboard focus only.
+  function MetricHeader(props) {
+    const h = window.React.createElement;
+    return h(window.React.Fragment, null, props.displayName,
+             h("span", {className: "hinfo", role: "button", tabIndex: 0, "data-help": props.help, "data-tip": props.tip,
+                        "aria-label": `User Guide entry for ${props.displayName}`}, "ⓘ"));
+  }
+  window.dashAgGridComponentFunctions = Object.assign({}, window.dashAgGridComponentFunctions, {MetricHeader});
+
+  function headerInfo(ev) {
+    const el = within(ev, ".hinfo[data-help]");
+    if (!el || (ev.type === "keydown" && (el !== ev.target || (ev.key !== "Enter" && ev.key !== " ")))) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (ev.type !== "pointerdown") openHelp(el);
+  }
+  for (const type of ["pointerdown", "click", "keydown"]) document.addEventListener(type, headerInfo, true);
 
   // ------------------------------------------------------------------ live values (clientside callback)
 

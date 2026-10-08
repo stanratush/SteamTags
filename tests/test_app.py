@@ -732,3 +732,49 @@ def test_quality_boxes_and_sentences_show_the_guide_text_with_now_lines(build_fo
     now = {p["data-help"].split("#")[1]: p["data-tip"].split("Now: ")[-1] for p in props if "Now: " in p["data-tip"]}
     assert "γ = 1.00" in now["modularity-q"] and f"R = {s.null_replicates}" in now["excess-modularity-and-z-score"]
     assert f"K = {s.noise_seeds}" in now["adjusted-rand-index"]
+
+
+def _grids(build_folder) -> list:
+    from dash_ag_grid import AgGrid
+
+    from steamstudy.app.layout import build_layout
+
+    return [c for c in _walk(build_layout(load_build(build_folder))) if isinstance(c, AgGrid)]
+
+
+def test_every_grid_metric_header_shows_its_in_short_and_has_an_info_mark(build_folder):
+    from steamstudy.app.guide import chapter, section
+
+    grids = _grids(build_folder)
+    assert {g.id for g in grids} >= {"clusters-grid", "rs-grid", "nodes-grid", "edges-grid", "nin-grid"}
+    metric, info = 0, set()
+    for grid in grids:
+        for d in grid.columnDefs:
+            tip = d["headerTooltip"]
+            if "headerComponentParams" not in d:  # an identifier or row label: the schema description
+                assert not tip.startswith("In short."), (grid.id, d["field"])
+                continue
+            metric += 1
+            info.add((grid.id, d["field"]))
+            lines = tip.split("\n")
+            assert lines[0].startswith("In short. ") and lines[-1].startswith("Column: "), (grid.id, d["field"])
+            assert d["field"] in lines[-1], (grid.id, d["field"])
+            params = d["headerComponentParams"]
+            assert params["innerHeaderComponent"] == "MetricHeader"
+            assert params["innerHeaderComponentParams"]["tip"] == tip
+            file, anchor = params["innerHeaderComponentParams"]["help"].split("#")
+            assert "*Why it matters here.*" in section(chapter(file), anchor), (grid.id, d["field"])
+    assert metric > 60
+    assert {("nodes-grid", "n_games"), ("edges-grid", "lift"), ("clusters-grid", "conductance"), ("rs-grid", "rc_ari"),
+            ("rs-grid", "run_order"), ("nin-grid", "reasons"), ("seed-grid", "ari_vs_main")} <= info
+    assert not info & {("nodes-grid", "tag_id"), ("edges-grid", "source_cluster"), ("edges-grid", "is_intra_cluster"),
+                       ("null-grid", "seed"), ("null-grid", "replicate"), ("seed-grid", "noise_seed_index"),
+                       ("connections-grid", "cluster_a"), ("clusters-grid", "center_tag_id"),
+                       ("rs-grid", "rc_centers_lost_tag_ids")}
+
+
+def test_the_joined_membership_stability_column_has_the_same_help(build_folder):
+    rs = next(g for g in _grids(build_folder) if g.id == "rs-grid")
+    joined = next(d for d in rs.columnDefs if d["headerName"] == "membership_stability (joined)")
+    assert joined["headerComponentParams"]["innerHeaderComponentParams"]["help"].endswith("#membership-stability")
+    assert joined["headerTooltip"].startswith("In short. ")

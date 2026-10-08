@@ -65,6 +65,21 @@ def attrs(key: str, now: str | None = None) -> dict[str, Any]:
     return {"data-tip": tip(key, now), "data-help": target(key)}
 
 
+# Columns that identify or label a row have no help of their own (spec: identifier columns are out of scope): those
+# of the ids-and-names entry, tag id lists, and row labels that the schema files under a metric's entry.
+IDENTIFIERS_ENTRY = "identifiers-names-and-lists"
+ROW_LABELS = frozenset({"source_cluster", "target_cluster", "is_intra_cluster", "appids", "cluster_a", "cluster_b",
+                        "seed", "replicate", "noise_seed_index"})
+
+
+def column_has_help(column: tuple[str, str]) -> bool:
+    """Whether an export column (file, name) measures something with its own guide entry."""
+    file, name = column
+    entry = S.file(file).column(name).guide_entry
+    return (entry not in (None, IDENTIFIERS_ENTRY) and name not in ROW_LABELS
+            and not name.endswith(("tag_id", "tag_ids")))
+
+
 def column_entry(columns: Columns) -> tuple[str, str]:
     """The guide entry of a label shown for export columns: the first column's, from the export schema."""
     file, name = next(iter(columns))
@@ -83,8 +98,15 @@ def column_line(columns: Columns) -> str:
     return f"{'Column' if sum(map(len, by_file.values())) == 1 else 'Columns'}: {names}"
 
 
-def column_attrs(columns: Columns) -> dict[str, str]:
-    """Both help layers for a label shown for export columns: its entry's In short, then the column names."""
+def column_help(columns: Columns) -> tuple[str, str]:
+    """Both help layers for a label or header shown for export columns: the tooltip (its entry's In short, then the
+    column names) and where a click opens the help modal."""
     columns = list(columns)
     entry = column_entry(columns)
-    return {"data-tip": _tip(entry, last=column_line(columns)), "data-help": _target(entry)}
+    return _tip(entry, last=column_line(columns)), _target(entry)
+
+
+def column_attrs(columns: Columns) -> dict[str, str]:
+    """`column_help` as the data attributes workbench.js reads."""
+    tip_, target_ = column_help(columns)
+    return {"data-tip": tip_, "data-help": target_}

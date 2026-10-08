@@ -185,6 +185,10 @@ body[data-form=narrow] #root.workbench .inspector:not(.has-sel){display:none}
  --ag-border-color:var(--line);--ag-row-border:1px solid var(--line2);--ag-wrapper-border-radius:6px;
  --ag-accent-color:var(--acc);--ag-selected-row-background-color:var(--acc-bg);--ag-spacing:6px}
 .grid .num{font-variant-numeric:tabular-nums}
+/* a metric header's ⓘ opens its guide entry; the header tooltip keeps the In short lines apart */
+.grid .hinfo{flex:none;margin:0 3px;color:var(--faint);font-family:var(--sans);font-size:12px;cursor:help}
+.grid .hinfo:hover,.grid .hinfo:focus-visible{color:var(--acc)}
+.grid .ag-tooltip{white-space:pre-line;max-width:360px;line-height:1.4}
 
 /* help */
 .help-modal{position:fixed;right:24px;top:70px;width:560px;max-width:calc(100vw - 48px);max-height:80vh;overflow:auto;
