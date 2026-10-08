@@ -44,7 +44,7 @@ A **Tag** listed in the configurable genre-tag list; can be hidden from the **Ta
 Weighted undirected graph built from one loaded **Top-100 Dataset**: nodes are **Tags**, edge weight is the number of games having both tags, each edge keeps its AppIDs. The edge weight is always this shared-game count, whatever the **Clustering Weight**.
 
 **Clustering Weight**:
-The per-edge value that community detection runs on. Either the shared-game count (the default, which is the edge weight itself) or the edge's **Lift** (an optional mode). Choosing it never changes the edge weight that is shown or thresholded.
+The per-edge value that community detection runs on. Either the shared-game count (the default, which is the edge weight itself) or the edge's **Lift** (an optional mode). Choosing it never changes the edge weight (the shared-game count that is thresholded and inspected); edge thickness follows the Clustering Weight.
 _Avoid_: edge weight (when meaning the lift mode), normalised weight
 
 **Cluster**:

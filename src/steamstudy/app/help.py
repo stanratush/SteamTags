@@ -40,6 +40,7 @@ HELP: dict[str, tuple[str, str]] = {
     "control.seed": (APP_CONTROLS, "seed"),
     "legend.key": (APP_CONTROLS, "reading-the-graph"),
     "legend.one_tag": (APP_CONTROLS, "grey-one-tag-clusters"),
+    "legend.thickness": (APP_CONTROLS, "edge-thickness"),
     "state.n_games": (METRIC_REFERENCE, "network-size"),
     "state.null_replicates": (METRIC_REFERENCE, "null-model-baseline"),
     "state.noise_seeds": (METRIC_REFERENCE, "stability"),

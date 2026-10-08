@@ -122,7 +122,7 @@ One Python package, `steamstudy`, with three parts and two guides:
 73. As the researcher, I want every tag left out of the network listed with all its reasons (removed, defining tag hidden, Genre Tag hidden, below minimum games), so that nothing disappears unexplained.
 74. As the researcher, I want isolated tags kept as One-Tag Clusters and counted separately ("k multi-tag + s one-tag"), so that the cluster count is not inflated or hidden.
 75. As the researcher, I want to choose the Clustering Weight (shared games by default, or lift), the algorithm (Louvain by default, or Leiden), the resolution γ (default 1.00, range 0.1–3.0, step 0.05) and the seed, so that I can show how much results depend on these choices.
-76. As the researcher, I want edge thickness and thresholds always based on the shared-game count, whatever the Clustering Weight, so that the drawn network means the same thing in every mode.
+76. As the researcher, I want edge thickness and thresholds always based on the shared-game count, whatever the Clustering Weight, so that the drawn network means the same thing in every mode. *(Superseded for edge thickness by [Edge thickness follows the Clustering Weight](../edge-thickness/issues/01-thickness-follows-clustering-weight.md); thresholds unchanged.)*
 77. As the researcher, I want clusters coloured and labelled `C1…` by size, never named, so that no meaning is suggested by the tool.
 78. As the researcher, I want Cluster Centers drawn as ◆ with a heavier outline only for clusters of 3+ tags, with the most-frequent alternative (`top_strength_tag`) shown beside each center, so that typicality and frequency are both visible.
 79. As the researcher, I want disconnected Louvain clusters flagged (never split) with a suggestion to try Leiden, so that I know when a cluster isn't a connected group.
@@ -475,7 +475,7 @@ The layout mode and the isolated-tags policy (always kept) are not part of the k
 **Network build**
 - Games: the loaded Top-100 Dataset after the Minimum Months Filter, which drops games with `months_observed` below the threshold and never re-ranks or backfills. N is the number of these games.
 - Nodes: tags with at least `min_games_per_tag` games, excluding hidden and removed tags.
-- Edges: pairs of nodes with shared-game count ≥ `min_shared_games`. The edge weight is always the shared-game count. It drives the thresholds, edge thickness and the edge inspector.
+- Edges: pairs of nodes with shared-game count ≥ `min_shared_games`. The edge weight is always the shared-game count. It drives the thresholds and the edge inspector (edge thickness: superseded, see story 76).
 - Isolated tags (enough games, but no edge that qualifies) stay as One-Tag Clusters.
 - Every tag on at least one game that is not a node goes to "Not in network" with all its reasons, in the fixed order `removed;defining_tag_hidden;genre_tag_hidden;below_min_games`.
 - Edge games are the intersection of the two tags' game sets over dataset + filter. They are computed on demand (on click in the app) and written out in full in exports.
@@ -484,8 +484,8 @@ The layout mode and the isolated-tags policy (always kept) are not part of the k
 - `shared_games` (default): the edge weight itself.
 - `lift`: `shared · N / (n_i · n_j)`, with `n_i` = games having tag i among the N games. Edges with lift < 1 that pass the shared-games threshold are kept with weight = lift, so both modes cluster the same edge set.
 - Hiding or removing tags changes neither N nor any remaining edge's lift. At Minimum Months Filter 0, an edge's lift equals the pair's lift in `associations.csv`.
-- Follows the mode: community detection, every graph quality metric (Q and its null model, coverage, inter-cluster share, conductance, weighted density, cut weight), `within_z`, `participation`, `top_strength_tag`, the global layout, the Seed-Noise Floor and Removal Sensitivity.
-- Does not follow the mode: thresholds, edge thickness, the edge inspector, every Jaccard game-set measure (silhouette, medoid, Membership Stability), and degrees.
+- Follows the mode: edge thickness (superseded, see story 76), community detection, every graph quality metric (Q and its null model, coverage, inter-cluster share, conductance, weighted density, cut weight), `within_z`, `participation`, `top_strength_tag`, the global layout, the Seed-Noise Floor and Removal Sensitivity.
+- Does not follow the mode: thresholds, the edge inspector, every Jaccard game-set measure (silhouette, medoid, Membership Stability), and degrees.
 
 **Clustering algorithm**
 - `louvain` (default): NetworkX `louvain_communities(weight=<active Clustering Weight>, resolution=γ, seed=seed, threshold=1e-7)`, taking the final (highest-modularity) level.

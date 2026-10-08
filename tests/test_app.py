@@ -834,6 +834,69 @@ def test_the_legend_has_a_key_and_the_one_tag_chip_explains_itself(build_folder)
     assert getattr(one_tag, "data-help") == "02-app-controls.md#grey-one-tag-clusters"
 
 
+def _widths(payload):
+    return {e["id"]: e["width"] for e in payload["edges"]}
+
+
+def _expected_widths(base, measure):
+    top = max(e[measure] for e in base["edges"])
+    return {f"{e['source']}-{e['target']}": pytest.approx(0.4 + 2.6 * e[measure] / top) for e in base["edges"]}
+
+
+@pytest.mark.parametrize("layout_mode", ["global", "separated"])
+@pytest.mark.parametrize("weight, switch, measure", [("shared_games", [], "shared"), ("lift", [], "lift"),
+                                                     ("lift", [1], "shared"), ("shared_games", [1], "shared")])
+def test_edge_thickness_follows_the_clustering_weight_unless_switched_to_shared_games(build_folder, layout_mode,
+                                                                                      weight, switch, measure):
+    base = _recompute(build_folder, weight=weight)[2]
+    assert len({e["lift"] for e in base["edges"]}) > 1 and len({e["shared"] for e in base["edges"]}) > 1
+    assert _widths(CB.render_graph(base, layout_mode, None, None, None, switch)) == _expected_widths(base, measure)
+
+
+def test_the_default_edge_thickness_is_the_clustering_weight(build_folder):
+    base = _recompute(build_folder, weight="lift")[2]
+    assert _widths(CB.render_graph(base, "global", None, None)) == _expected_widths(base, "lift")
+
+
+@pytest.mark.parametrize("weight, switch, label, switch_shown", [
+    ("shared_games", [], "Edge thickness: shared games", False),
+    ("shared_games", [1], "Edge thickness: shared games", False),
+    ("lift", [], "Edge thickness: lift", True),
+    ("lift", [1], "Edge thickness: shared games", True)])
+def test_the_legend_names_what_edge_thickness_shows(weight, switch, label, switch_shown):
+    """The switch to shared-game thickness is offered only while the clustering runs on lift."""
+    text, style = CB.thickness_legend({"weight": weight}, switch)
+    assert text == label
+    assert (style.get("display") != "none") == switch_shown
+
+
+def test_the_edge_thickness_key_sits_in_the_legend_overlay_and_explains_itself(build_folder):
+    from steamstudy.app.layout import build_layout
+    from steamstudy.app.server import create_app
+
+    page = list(_walk(build_layout(load_build(build_folder))))
+    overlay = next(c for c in page if getattr(c, "data-graph-overlay", None) == "bottom")
+    ids = {getattr(c, "id", None) for c in _walk(overlay)}
+    assert {"legend", "thickness-label", "thickness-shared"} <= ids
+    label = next(c for c in _walk(overlay) if getattr(c, "id", None) == "thickness-label")
+    assert getattr(label, "data-help") == "02-app-controls.md#edge-thickness"
+    deps = create_app(build_folder).server.test_client().get("/_dash-dependencies").get_json()
+    drawing = next(d for d in deps if d["output"] == "graph-data.data" and "elements-base" in [i["id"] for i in d["inputs"]])
+    assert "thickness-shared" in [i["id"] for i in drawing["inputs"]]
+    key = next(d for d in deps if "thickness-label.children" in d["output"])
+    assert "elements-base" in [i["id"] for i in key["inputs"]]  # named for the state drawn, not the control
+    assert "weight" not in [i["id"] for i in key["inputs"]]
+
+
+def test_a_new_clustering_weight_starts_on_its_own_thickness(build_folder):
+    """A tick on the switch never carries over: switching weight unticks it, so Lift always starts on lift."""
+    from steamstudy.app.server import create_app
+
+    deps = create_app(build_folder).server.test_client().get("/_dash-dependencies").get_json()
+    reset = next(d for d in deps if d["output"] == "thickness-shared.value")
+    assert [i["id"] for i in reset["inputs"]] == ["weight"] and CB.untick_thickness("lift") == []
+
+
 def test_the_dataset_summary_explains_each_analytical_field(build_folder):
     from steamstudy.app import view as V
 

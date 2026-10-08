@@ -19,7 +19,7 @@ from dash import dcc, html
 
 from steamstudy.app import help as H
 from steamstudy.app.loader import BuildContext
-from steamstudy.app.renderer import graph_component
+from steamstudy.app.renderer import graph_component, thickness_key
 from steamstudy.app.view import column_defs, metric_header
 
 WB_TABS = [("quality", "Cluster quality"), ("clusters", "Clusters"), ("rs", "Removal sensitivity"),
@@ -167,6 +167,17 @@ def _controls(ctx: BuildContext) -> html.Div:
     ], id="controls-panel", className="controls")
 
 
+def _thickness_legend(ctx: BuildContext) -> html.Div:
+    """What edge width shows (`thickness_key`, kept current by a callback), and the switch that shows shared games
+    while the clustering runs on lift. A view choice only: never part of the Network State."""
+    label, style = thickness_key(ctx.default_settings(ctx.datasets[0].key).clustering_weight, False)
+    return html.Div([
+        html.Span(label, id="thickness-label", className="lkey term", tabIndex="0", **H.attrs("legend.thickness")),
+        dcc.Checklist(id="thickness-shared", options=[{"label": "show shared games", "value": 1}], value=[],
+                      className="check", style=style),
+    ], className="legend thickness-key")
+
+
 def build_layout(ctx: BuildContext) -> html.Div:
     graph_block = html.Div([
         html.H3(["3 Network", _help("network")], className="section-heading"),
@@ -179,7 +190,7 @@ def build_layout(ctx: BuildContext) -> html.Div:
                                   title="Settle the graph around the nodes you dragged; positions only"),
                       html.Button("⤢", id="fit-btn", className="btn", title="Fit the graph to the view")],
                      className="ov ov-tr", **_data(graph_overlay="top")),
-            html.Div(html.Div(id="legend", className="legend"), className="ov ov-bl",
+            html.Div([html.Div(id="legend", className="legend"), _thickness_legend(ctx)], className="ov ov-bl",
                      **_data(graph_overlay="bottom")),
             # Shown while a callback runs (callbacks.py: `running`); never a graph overlay, so it never resizes the
             # canvas the layout is made for. role="status" is a polite live region: screen readers announce the label.

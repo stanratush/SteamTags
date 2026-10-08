@@ -61,16 +61,32 @@ def priority(nodes: list[dict[str, Any]]) -> dict[str, int]:
     return {n["id"]: rank for rank, n in enumerate(ranked)}
 
 
+# What edge width can show, by Clustering Weight value: the payload's edge field and the legend's name for it.
+THICKNESS = {"shared_games": ("shared", "shared games"), "lift": ("lift", "lift")}
+
+
+def edge_thickness(weight: str, show_shared: bool) -> str:
+    """What edge width shows: the Clustering Weight, unless the switch asks for shared games under lift."""
+    return "shared_games" if show_shared else weight
+
+
+def thickness_key(weight: str, show_shared: bool) -> tuple[str, dict[str, str]]:
+    """The legend's name for what edge width shows, and the switch's style: offered only under lift."""
+    return (f"Edge thickness: {THICKNESS[edge_thickness(weight, show_shared)][1]}",
+            {} if weight == "lift" else {"display": "none"})
+
+
 def payload(nodes: list[dict[str, Any]], edges: list[dict[str, Any]], positions: dict[str, list[float]], *,
             dataset: str, layout: str = "global", regions: list[dict[str, Any]] | None = None,
-            selection: dict[str, Any] | None = None, max_shared: int = 1,
+            selection: dict[str, Any] | None = None, thickness: str = "shared_games",
             basis: list[Any] | None = None, zoom: float = 1.0) -> dict[str, Any]:
     """The `graph-data` store. nodes: {id, label, cluster, kind, size, center}; edges: {source, target, shared,
-    intra}; positions: node id -> [x, y]; regions: {label, cluster, color, x, y, width, height} (top-left corner).
+    lift, intra}; positions: node id -> [x, y]; regions: {label, cluster, color, x, y, width, height} (top-left corner).
     A node's size comes from the layout (fixed by its games, in the positions' units), never from what is visible;
     `lw` is its label's width on screen (`label_width`), for the fit. `basis` (dataset, Minimum Months Filter,
     Clustering Weight, seed) tells the canvas when to drop dragged positions. `zoom` is the zoom the labels are
-    spaced for: zoomed out further, the canvas hides labels that would overlap."""
+    spaced for: zoomed out further, the canvas hides labels that would overlap. `thickness` is what an edge's width
+    shows: "shared_games" or "lift", relative to the network's largest value of it."""
     separated = layout == "separated"
     ranks = priority(nodes)
     out_nodes = []
@@ -80,8 +96,10 @@ def payload(nodes: list[dict[str, Any]], edges: list[dict[str, Any]], positions:
                           "color": cluster_color(n["cluster"], n["kind"]), "size": n["size"],
                           "lw": label_width(n["label"]),
                           "classes": " ".join(classes), "prio": ranks[n["id"]]})
+    measure = THICKNESS[thickness][0]
+    top = max([e[measure] for e in edges] + [0]) or 1
     out_edges = [{"id": f"{e['source']}-{e['target']}", "source": e["source"], "target": e["target"],
-                  "width": 0.4 + 2.6 * (e["shared"] / max(max_shared, 1)),
+                  "width": 0.4 + 2.6 * (e[measure] / top),
                   "classes": ("intra" if e["intra"] else "inter") + (" separated" if separated else "")}
                  for e in edges]
     out_regions = [{"id": f"region-{r.get('cluster') or i}", "label": r["label"], "cluster": r.get("cluster", ""),

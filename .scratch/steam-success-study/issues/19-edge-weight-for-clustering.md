@@ -46,3 +46,7 @@ Resolved 2026-10-04 with the researcher. The brief's raw count stays the default
 - `clustering_weight` is part of every network-state cache key.
 
 **For the methods section**: "Edges are shown and thresholded by the number of shared games; communities are detected on the shared-game count by default, with lift (association strength) as an optional frequency-corrected alternative."
+
+## Comments
+
+- 2026-10-09: Edge thickness now follows the Clustering Weight (lift thickness under Lift, with a switch back to shared games); the thresholds and the edge inspector still use shared games. See [Edge thickness follows the Clustering Weight](../../edge-thickness/issues/01-thickness-follows-clustering-weight.md).

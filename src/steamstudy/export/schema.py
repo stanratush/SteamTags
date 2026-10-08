@@ -437,7 +437,7 @@ EDGES = declare(
         C("source_tag", "str", "Name of source_tag_id."),
         C("target_tag_id", "int", "The higher tag id of the pair."),
         C("target_tag", "str", "Name of target_tag_id."),
-        C("shared_games", "int", "Edge weight: games having both tags; drives thresholds and edge thickness."),
+        C("shared_games", "int", "Edge weight: games having both tags; drives thresholds."),
         C("lift", "float", "shared_games x N / (n_source x n_target); 1 = as often as independent tags would."),
         C("source_cluster", "str", "Cluster of the source tag."),
         C("target_cluster", "str", "Cluster of the target tag."),

@@ -12,7 +12,7 @@ Each control below either sets a field of the Network State key (and so changes 
 | [Minimum Months Filter](#minimum-months-filter) | Drops games with fewer Months Observed before the network is built; never re-ranks or backfills | 0–60; 0 (off) | `min_months` | N, every `n_games`, every `lift`, the Global layout, everything after |
 | [Hidden Genre Tags](#hidden-genre-tags) | Hides each ticked Genre Tag (the 11 Top-Level Genres) from the network, never from the dataset | 11 toggles; all hidden | `hidden_tag_ids` | Node set; not N, not any remaining edge's `lift` |
 | [Hide defining tag](#hide-defining-tag) | Hides the dataset's defining tag (Puzzle, RPG, Strategy or Simulation) | toggle; hidden | `hidden_tag_ids` | As above |
-| [Clustering weight](#clustering-weight) | What community detection runs on: shared games or lift. Edge thickness and thresholds always use shared games | Shared games, Lift; Shared games | `clustering_weight` | Partition, every weighted metric, null model, Seed-Noise Floor, Global layout |
+| [Clustering weight](#clustering-weight) | What community detection runs on: shared games or lift. Edge thickness follows it; thresholds always use shared games | Shared games, Lift; Shared games | `clustering_weight` | Partition, every weighted metric, null model, Seed-Noise Floor, Global layout, edge thickness |
 | [Clustering algorithm](#clustering-algorithm) | Louvain or Leiden (both seek high modularity) | Louvain, Leiden; Louvain | `algorithm` | Partition and everything computed from it |
 | [Resolution γ](#resolution-γ) | Higher γ gives more, smaller clusters. Sends on Enter or when the box loses focus | 0.1–3.0, step 0.05; 1.00 | `resolution` | Partition, the value of Q |
 | [Seed](#seed) | Seeds the clustering; the null-model and noise seeds derive from it. Sends on Enter or when the box loses focus | integer ≥ 0; config value | `seed` | Partition, null model, Seed-Noise Floor, Global layout |
@@ -89,7 +89,7 @@ Every tag of the dataset with at least this many of the N games becomes a node; 
 
 Range 1–30; default 8. Network State field: `min_shared_games`.
 
-Each pair of node tags sharing at least this many games gets a link, whose thickness shows the shared-games count. Raising the threshold removes the thinnest links first; a tag that loses all its links becomes isolated and forms a One-Tag Cluster. Lowering it adds links between tags that share few games, and the network becomes denser.
+Each pair of node tags sharing at least this many games gets a link. Raising the threshold removes the links with the fewest shared games first (the thinnest under the Shared games weight); a tag that loses all its links becomes isolated and forms a One-Tag Cluster. Lowering it adds links between tags that share few games, and the network becomes denser.
 
 *Why it matters here.* The clusters are built from these links, so the threshold decides which co-occurrences count as a pattern among the most-played games. A pairing seen in only a few games is left out at the default, which keeps chance pairings from shaping the clusters.
 
@@ -143,7 +143,7 @@ In the RPG dataset every game has the RPG tag. Shown, it shares with each tag ex
 
 Shared games or Lift; default Shared games. Network State field: `clustering_weight`.
 
-With shared games, a link counts the games that carry both tags, so common tags carry the most weight and clusters tend to gather around them. With lift, each link is weighted by how much more often the pair occurs than the two tags' frequencies predict, so pairs of less common tags that go together carry more weight. Edge thickness and both thresholds always use shared games.
+With shared games, a link counts the games that carry both tags, so common tags carry the most weight and clusters tend to gather around them. With lift, each link is weighted by how much more often the pair occurs than the two tags' frequencies predict, so pairs of less common tags that go together carry more weight. Both thresholds always use shared games; [edge thickness](#edge-thickness) follows the weight.
 
 *Why it matters here.* Shared games describes the most-played games as they are: which characteristics they carry together most often. Lift asks what they combine beyond popularity. Comparing the two weights shows which clusters reflect frequent tags and which reflect characteristics that go together.
 
@@ -263,13 +263,13 @@ Tidy re-runs the Global layout from the current positions, then the clamp and th
 
 ## Reading the graph
 
-> **In short.** What the drawing shows: node size = games, link thickness = shared games, colour = Multi-Tag Cluster, grey = One-Tag Cluster.
+> **In short.** What the drawing shows: node size = games, link thickness = the Clustering Weight (shared games or lift), colour = Multi-Tag Cluster, grey = One-Tag Cluster.
 >
 > **Here:** lets the tag network of the most-played games be read at a glance, before the numbers.
 >
 > **Caution:** positions and distances on screen are not metrics.
 
-The legend at the bottom left of the graph lists the Multi-Tag Clusters by colour, label and size ("C1 · 26"), then the number of One-Tag Clusters. Click a cluster's chip to select the cluster; click **Key** for this section. ◆ marks a Cluster Center. Everything below describes the drawing only; every number it shows is in the Inspector and the tables.
+The legend at the bottom left of the graph lists the Multi-Tag Clusters by colour, label and size ("C1 · 26"), then the number of One-Tag Clusters, and says what link thickness shows ("Edge thickness: shared games" or "Edge thickness: lift"). Click a cluster's chip to select the cluster; click **Key** for this section. ◆ marks a Cluster Center. Everything below describes the drawing only; every number it shows is in the Inspector and the tables.
 
 *Why it matters here.* The drawing is the quickest way to see which characteristics the most-played games carry together and how the clusters touch. Knowing what each visual property encodes keeps it from being read as more than it is: a big node is a common tag, not a central one, and two tags drawn side by side may share few games.
 
@@ -291,19 +291,21 @@ The diameter is 18 pixels plus up to 30 more, growing with the square root of th
 
 ### Edge thickness
 
-> **In short.** A link's thickness shows how many games carry both tags.
+> **In short.** A link's thickness shows the Clustering Weight: how many games carry both tags, or the pair's lift.
 >
-> **Higher →** thicker link: more shared games, relative to the network's most shared pair.
+> **Higher →** thicker link: more shared games, or a higher lift, relative to the network's largest value.
 >
-> **Here:** shows which pairs of characteristics the most-played games carry together most often.
+> **Here:** the thickest links are the pairs the clustering weighs most.
 >
-> **Caution:** thickness is always shared games, even when the clustering runs on lift.
+> **Caution:** the legend says which one is drawn; never compare thicknesses across the two.
 
-Every link is drawn thin and faint, from 0.4 pixels up to 3 pixels at 100 % zoom for the pair with the most shared games in the network, so that the dense network stays readable; the first fit is never above 100 %, so links usually look thinner. Selecting a tag darkens its links. A link exists only when the pair reaches the minimum shared games.
+Under the Shared games weight, thickness shows shared games. Under Lift it shows lift; tick **show shared games** beside "Edge thickness" in the legend to draw shared games while the clustering still runs on lift. The legend always says which one is drawn: "Edge thickness: shared games" or "Edge thickness: lift". The switch changes the drawing only, never the Network State, a threshold or any number.
 
-*Why it matters here.* The thickest links are the pairings that recur most among the most-played games, and they mostly join common tags. Under the Lift Clustering Weight, the clustering weighs pairs by lift instead, so a thin link can matter more to the clusters than a thick one; read the link's lift in the Inspector.
+Every link is drawn thin and faint, from 0.4 pixels up to 3 pixels at 100 % zoom for the pair with the largest value in the network, so that the dense network stays readable; the first fit is never above 100 %, so links usually look thinner. Selecting a tag darkens its links. A link exists only when the pair reaches the minimum shared games, whatever thickness shows.
 
-*Example.* If the most shared pair in the network shares 60 games, a link of 30 shared games is drawn 0.4 + 2.6 × 30 / 60 = 1.7 pixels wide at 100 % zoom.
+*Why it matters here.* Drawn by the Clustering Weight, the thick links are the ones that pull tags into the same cluster, so the drawing and the clusters tell the same story. Shared-game thickness picks out the pairings that recur most among the most-played games, which mostly join common tags; lift thickness picks out pairings carried together more often than the tags' frequencies predict, which often join rarer tags. Under lift, switching to shared games shows how many games stand behind a thick link; read both numbers in the Inspector.
+
+*Example.* If the most shared pair in the network shares 60 games, a link of 30 shared games is drawn 0.4 + 2.6 × 30 / 60 = 1.7 pixels wide at 100 % zoom. Under lift, with a largest lift of 8, a link of lift 2 is drawn 0.4 + 2.6 × 2 / 8 = 1.05 pixels wide.
 
 ### Cluster colour
 

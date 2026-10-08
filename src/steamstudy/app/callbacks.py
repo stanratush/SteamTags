@@ -162,7 +162,6 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
         "start": {str(t): list(p) for t, p in inp.start.items()},  # the loose layout: where the layout starts
         "basis": [dataset, settings.min_months, settings.clustering_weight, settings.seed],
         "weight": settings.clustering_weight, "seed": settings.seed, "dataset": dataset,
-        "max_shared": max([e.shared for e in state.network.edges] + [1]),
     }
     legend: list[Any] = [html.Span("Key", className="lkey term", tabIndex="0", **H.attrs("legend.key"))] + [
         html.Button([html.Span(className="sw", style={"background": cluster_color(r["cluster"], r["kind"])}),
@@ -300,9 +299,10 @@ def cached_layout(base: dict[str, Any], layout_mode: str, relayout_store: dict |
     return layout
 
 
-def render_graph(base, layout_mode, relayout_store, selection, canvas=None):
+def render_graph(base, layout_mode, relayout_store, selection, canvas=None, shared_switch=None):
     """The `graph-data` payload: every visible node and edge with its target position (no AppIDs), laid out for
-    the canvas the browser reports (exports use the reference canvas)."""
+    the canvas the browser reports (exports use the reference canvas). Edge width follows the Clustering Weight
+    unless `shared_switch` (the legend's switch) asks for shared games."""
     if not base:
         raise PreventUpdate
     layout = cached_layout(base, layout_mode, relayout_store, canvas)
@@ -316,7 +316,19 @@ def render_graph(base, layout_mode, relayout_store, selection, canvas=None):
             r["color"] = R.REGION_COLOR if r["cluster"] == "one_tag_pool" else cluster_color(r["cluster"], "multi_tag")
     return R.payload(base["nodes"], base["edges"], {str(t): list(p) for t, p in positions.items()},
                      dataset=base["dataset"], layout=layout_mode, regions=regions, selection=selection,
-                     max_shared=base["max_shared"], basis=base["basis"], zoom=zoom)
+                     thickness=R.edge_thickness(base["weight"], bool(shared_switch)), basis=base["basis"], zoom=zoom)
+
+
+def thickness_legend(base, shared_switch):
+    """The legend's thickness key for the state drawn now (never ahead of a recompute still running)."""
+    if not base:
+        raise PreventUpdate
+    return R.thickness_key(base["weight"], bool(shared_switch))
+
+
+def untick_thickness(_weight):
+    """A new Clustering Weight starts on its own thickness: the shared-games switch never carries over."""
+    return []
 
 
 def show_selection(selection):
@@ -694,7 +706,10 @@ def register(app: dash.Dash) -> None:
        prevent_initial_call="initial_duplicate")(recompute)
     cb(Output(R.DATA_ID, "data"), Input("elements-base", "data"), Input("layout-mode", "value"),
        Input("relayout", "data"), State("selection", "data"), Input(R.CANVAS_ID, "data"),
-       running=[(Output("busy-layout", "hidden"), False, True)])(render_graph)
+       Input("thickness-shared", "value"), running=[(Output("busy-layout", "hidden"), False, True)])(render_graph)
+    cb(Output("thickness-label", "children"), Output("thickness-shared", "style"), Input("elements-base", "data"),
+       Input("thickness-shared", "value"))(thickness_legend)
+    cb(Output("thickness-shared", "value"), Input("weight", "value"), prevent_initial_call=True)(untick_thickness)
     cb(Output(R.DATA_ID, "data", allow_duplicate=True), Input("selection", "data"),
        prevent_initial_call=True)(show_selection)
     app.clientside_callback(R.RENDER, Output(R.ACK_ID, "data"), Input(R.DATA_ID, "data"))

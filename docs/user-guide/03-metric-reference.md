@@ -770,7 +770,7 @@ Columns: `shared_games`, `appids`, `is_intra_cluster`, `source_cluster`, `target
 
 Shown in the app as “Shared games” (Inspector; tables and exports keep the column names).
 
-How many games have both tags: the network's basic fact. An edge exists only if it reaches the minimum shared games (default 8). Edge thickness, the thresholds and the edge inspector always use this count, whatever the Clustering Weight. `appids` lists the games having both tags, in dataset rank order. The count is dominated by frequent tags: two tags each on 80 of 100 games share at least 60 even if unrelated, which is why clusters on the default weight tend to gather around generic tags. A missing edge does not mean "never together"; the pair may simply be below the threshold.
+How many games have both tags: the network's basic fact. An edge exists only if it reaches the minimum shared games (default 8). The thresholds and the edge inspector always use this count, whatever the Clustering Weight; edge thickness shows it under the Shared games weight, or under Lift when the legend's switch asks for it. `appids` lists the games having both tags, in dataset rank order. The count is dominated by frequent tags: two tags each on 80 of 100 games share at least 60 even if unrelated, which is why clusters on the default weight tend to gather around generic tags. A missing edge does not mean "never together"; the pair may simply be below the threshold.
 
 *Why it matters here.* Shared games is the closest the network comes to the raw data: 12 shared games means that 12 of the network's games carry both tags, and the edge inspector lists them. It answers which characteristics the most-played games actually combine, counted in games. Because a tag on most of the Top 100 shares many games with almost every other tag, a large count alone does not show that two tags belong together; the edge's lift corrects for that.
 
@@ -792,7 +792,7 @@ How many games have both tags: the network's basic fact. An edge exists only if 
 >
 > **Caution:** pairs of rare tags reach high values from a few games; association within these games, not a test.
 
-Column: `lift` in `edges.csv` (the Clustering Weight in lift mode).
+Column: `lift` in `edges.csv` (the Clustering Weight in lift mode, and then what edge thickness shows).
 
 Shown in the app as “Lift” (Inspector; tables and exports keep the column names).
 
