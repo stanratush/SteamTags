@@ -603,6 +603,17 @@
   document.addEventListener("click", selectLink);
   document.addEventListener("keydown", selectLink);
 
+  // A cluster's legend chip (Dash id {"type": "legend", "cluster": <label>}) is drawn at once too, like a tap on its
+  // region title; Dash still sends the click, and the server's answer confirms it.
+  function selectLegendChip(ev) {
+    const chip = ev.target.closest && ev.target.closest("#legend button.lchip");
+    if (!chip || !G.cy) return;
+    let id;
+    try { id = JSON.parse(chip.id); } catch (e) { return; }
+    if (id && id.type === "legend" && id.cluster) selectNow({kind: "cluster", id: id.cluster});
+  }
+  document.addEventListener("click", selectLegendChip);
+
   window.dash_clientside = Object.assign({}, window.dash_clientside, {tagGraph: {render}});
   window.tagGraph = G;  // for inspection in the browser console and browser checks
 })();
