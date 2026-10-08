@@ -690,15 +690,18 @@ def register(app: dash.Dash) -> None:
        Input("min-shared", "value"), Input("min-months", "value"), Input("genre-hidden", "value"),
        Input("defining-hidden", "value"), Input("weight", "value"), Input("algorithm", "value"),
        Input("gamma", "value"), Input("seed", "value"), Input("removed", "data"), State("verify", "data"),
+       running=[(Output("busy-clustering", "hidden"), False, True)],
        prevent_initial_call="initial_duplicate")(recompute)
     cb(Output(R.DATA_ID, "data"), Input("elements-base", "data"), Input("layout-mode", "value"),
-       Input("relayout", "data"), State("selection", "data"), Input(R.CANVAS_ID, "data"))(render_graph)
+       Input("relayout", "data"), State("selection", "data"), Input(R.CANVAS_ID, "data"),
+       running=[(Output("busy-layout", "hidden"), False, True)])(render_graph)
     cb(Output(R.DATA_ID, "data", allow_duplicate=True), Input("selection", "data"),
        prevent_initial_call=True)(show_selection)
     app.clientside_callback(R.RENDER, Output(R.ACK_ID, "data"), Input(R.DATA_ID, "data"))
     cb(Output("relayout", "data", allow_duplicate=True), Input("relayout-btn", "n_clicks"),
        State("elements-base", "data"), State("relayout", "data"), State(R.CANVAS_ID, "data"),
-       State(R.DRAGGED_ID, "data"), prevent_initial_call=True)(do_tidy)
+       State(R.DRAGGED_ID, "data"), running=[(Output("busy-layout", "hidden"), False, True)],
+       prevent_initial_call=True)(do_tidy)
     cb(Output("selection", "data"), Output("floating-open", "data", allow_duplicate=True),
        Input(R.EVENT_ID, "data"),
        Input({"type": "legend", "cluster": ALL}, "n_clicks"), Input("clusters-grid", "selectedRows"),

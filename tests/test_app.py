@@ -882,3 +882,37 @@ def test_the_help_modal_keeps_back_and_close_outside_the_scrolling_content(build
     triggered('{"panel":"controls","type":"help"}.n_clicks')
     style, *_ = CB.show_help([1], None, None, None, [])
     assert style["display"] == "flex"
+
+
+def test_the_graph_says_what_it_is_computing_while_a_setting_takes_effect(build_folder):
+    """A clustering change recomputes the Network State, then lays it out; a layout switch (Global or
+    Cluster-separated), Tidy or a canvas resize only lays out. While each runs, its status chip over the graph is
+    shown (Dash's `running`), and hidden again when it ends, whatever the outcome."""
+    from steamstudy.app.server import create_app
+
+    deps = create_app(build_folder).server.test_client().get("/_dash-dependencies").get_json()  # what the browser reads
+    clustering = next(d for d in deps if "state-meta.data" in d["output"])
+    laying_out = next(d for d in deps if d["output"] == "graph-data.data"
+                      and "elements-base" in [i["id"] for i in d["inputs"]])
+    assert clustering["running"] == {"running": {"busy-clustering.hidden": False},
+                                     "runningOff": {"busy-clustering.hidden": True}}
+    tidying = next(d for d in deps if "relayout.data" in d["output"]
+                   and "relayout-btn" in [i["id"] for i in d["inputs"]])
+    for spec in (laying_out, tidying):
+        assert spec["running"] == {"running": {"busy-layout.hidden": False}, "runningOff": {"busy-layout.hidden": True}}
+
+
+def test_the_busy_chips_sit_over_the_graph_without_changing_its_canvas(build_folder):
+    """They are announced to screen readers (a status role is a polite live region), hidden at first, and never a
+    graph overlay (graph.js would shrink the canvas the layout is made for, and so lay it out again)."""
+    from steamstudy.app.layout import build_layout
+
+    page = list(_walk(build_layout(load_build(build_folder))))
+    stage = next(c for c in page if getattr(c, "className", None) == "graph-stage")
+    busy = next(c for c in _walk(stage) if getattr(c, "className", None) == "graph-busy")
+    props = busy.to_plotly_json()["props"]
+    assert props.get("role") == "status"
+    assert "data-graph-overlay" not in props
+    chips = {c.id: c for c in busy.children}
+    assert set(chips) == {"busy-clustering", "busy-layout"}
+    assert all(c.hidden is True for c in chips.values())

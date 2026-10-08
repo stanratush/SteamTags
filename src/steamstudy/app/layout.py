@@ -181,6 +181,11 @@ def build_layout(ctx: BuildContext) -> html.Div:
                      className="ov ov-tr", **_data(graph_overlay="top")),
             html.Div(html.Div(id="legend", className="legend"), className="ov ov-bl",
                      **_data(graph_overlay="bottom")),
+            # Shown while a callback runs (callbacks.py: `running`); never a graph overlay, so it never resizes the
+            # canvas the layout is made for. role="status" is a polite live region: screen readers announce the label.
+            html.Div([html.Span("Clustering…", id="busy-clustering", hidden=True),
+                      html.Span("Laying out…", id="busy-layout", hidden=True)],
+                     className="graph-busy", role="status"),
         ], className="graph-stage"),
     ], id="blk-graph", className="panel graph-block")
 
