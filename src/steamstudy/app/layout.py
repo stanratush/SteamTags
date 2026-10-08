@@ -185,7 +185,7 @@ def build_layout(ctx: BuildContext) -> html.Div:
             # canvas the layout is made for. role="status" is a polite live region: screen readers announce the label.
             html.Div([html.Span("Clustering…", id="busy-clustering", hidden=True),
                       html.Span("Laying out…", id="busy-layout", hidden=True)],
-                     className="graph-busy", role="status"),
+                     className="busy graph-busy", role="status"),
         ], className="graph-stage"),
     ], id="blk-graph", className="panel graph-block")
 
@@ -242,6 +242,11 @@ def build_layout(ctx: BuildContext) -> html.Div:
 
     inspector = html.Div([
         html.Div([html.B("Inspector"), _help("inspector"),
+                  # Shown while a selection, then the Inspector's content for it, is on its way (callbacks.py:
+                  # `running`).
+                  html.Div([html.Span("Selecting…", id="busy-selecting", hidden=True),
+                            html.Span("Loading…", id="busy-inspector", hidden=True)], className="busy insp-busy",
+                           role="status"),
                   html.Button("×", id="inspector-close", className="x", title="Close")], className="insp-title"),
         html.Div(id="inspector-body"),
         html.Div([html.Button("Remove this tag", id="remove-btn", className="btn", style={"display": "none"}),

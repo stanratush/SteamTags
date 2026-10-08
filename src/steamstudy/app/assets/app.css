@@ -110,20 +110,22 @@ input[type=text],input:not([type]),.dash-input-element{border-radius:6px}
 .lchip:hover{border-color:#a9b1bf}
 .lchip.static{cursor:help}
 .lkey{font-size:11.5px;color:var(--mute);margin:0 4px 0 2px}
-/* busy: one chip naming the running computation (callbacks.py `running`). It waits .25s before showing, so quick
-   changes never flash, and .3s before hiding, so the hand-off from Clustering to Laying out (the browser applies the
-   new tables in between) never blinks. The labels share one cell; Laying out (later in the page) covers Clustering still fading. */
-.graph-busy{position:absolute;left:10px;top:10px;z-index:6;display:grid;grid-template-columns:auto auto;gap:6px;
- align-items:center;padding:3px 10px 3px 8px;border:1px solid var(--line);border-radius:12px;background:#fff;
- font-size:12px;color:var(--ink2);box-shadow:0 1px 3px #0000001a;pointer-events:none;
- opacity:0;visibility:hidden;transition:opacity .15s ease .3s,visibility 0s linear .45s}
-.graph-busy::before{content:"";width:10px;height:10px;border:2px solid var(--line);border-top-color:var(--acc);
+/* busy: a chip naming what is running (callbacks.py `running`). It waits --busy-show before showing, so quick
+   answers never flash, and --busy-hide before hiding, so a hand-off between two steps never blinks. Its labels share
+   one cell; a later one in the page covers an earlier one still fading. */
+.busy{--busy-show:.25s;--busy-hide:.3s;--busy-fade:.15s;display:grid;grid-template-columns:auto auto;gap:6px;align-items:center;
+ padding:3px 10px 3px 8px;border:1px solid var(--line);border-radius:12px;background:#fff;font-size:12px;
+ color:var(--ink2);box-shadow:0 1px 3px #0000001a;pointer-events:none;opacity:0;visibility:hidden;
+ transition:opacity var(--busy-fade) ease var(--busy-hide),visibility 0s linear calc(var(--busy-hide) + var(--busy-fade))}
+.busy::before{content:"";width:10px;height:10px;border:2px solid var(--line);border-top-color:var(--acc);
  border-radius:50%;animation:busy-spin .8s linear infinite}
-.graph-busy>span{grid-area:1/2;background:#fff;transition:visibility 0s linear .45s}
-.graph-busy>span[hidden]{display:block;visibility:hidden}
-.graph-busy>span:not([hidden]){transition:none}
-.graph-stage:has(.graph-busy>:not([hidden])) .graph-busy{opacity:1;visibility:visible;
- transition:opacity .15s ease .25s,visibility 0s linear .25s}
+.busy>span{grid-area:1/2;background:#fff;transition:visibility 0s linear calc(var(--busy-hide) + var(--busy-fade))}
+.busy>span[hidden]{display:block;visibility:hidden}
+.busy>span:not([hidden]){transition:none}
+.busy:has(>:not([hidden])){opacity:1;visibility:visible;
+ transition:opacity var(--busy-fade) ease var(--busy-show),visibility 0s linear var(--busy-show)}
+/* over the graph: Clustering, then Laying out (the browser applies the new tables in between) */
+.graph-busy{position:absolute;left:10px;top:10px;z-index:6}
 .graph-canvas{transition:opacity .15s ease .3s}
 .graph-stage:has(.graph-busy>:not([hidden])) .graph-canvas{opacity:.5;transition-delay:.25s}
 @keyframes busy-spin{to{transform:rotate(360deg)}}
@@ -189,12 +191,17 @@ body[data-form=narrow] #root.workbench .inspector[data-pending]{display:block;po
 .sel-ring{position:absolute;z-index:4;pointer-events:none;border:2px solid #2457d6;border-radius:50%;
  animation:sel-ring 320ms cubic-bezier(.2,.7,.3,1) forwards;will-change:transform,opacity}
 @keyframes sel-ring{from{transform:scale(1);opacity:.75}to{transform:scale(1.9);opacity:0}}
-.inspector[data-pending] #inspector-body{opacity:.45;transition:opacity 80ms ease 60ms}
+/* The Inspector's chip names a wait that lasts: Selecting (the server answering a pick in the legend, a table or
+   the search) or Loading (its new content). Only Loading fades the content, as a tap does: a selection round
+   trip is often a no-op (the legend re-drawn after a recompute). */
+.inspector[data-pending] #inspector-body,
+.inspector:has(#busy-inspector:not([hidden])) #inspector-body{opacity:.45;transition:opacity 80ms ease 60ms}
+.insp-busy{--busy-show:.15s;--busy-hide:.1s;margin-left:8px;padding:1px 8px 1px 6px;font-size:11.5px;box-shadow:none}
 #root.workbench .inspector:not(.docked).has-sel .x,
 body[data-form=medium] #root.workbench .inspector.has-sel .x,
 body[data-form=narrow] #root.workbench .inspector.has-sel .x{display:inline-block}
-body[data-form=medium] #root.workbench .inspector:not(.has-sel),
-body[data-form=narrow] #root.workbench .inspector:not(.has-sel){display:none}
+body[data-form=medium] #root.workbench .inspector:not(.has-sel):not([data-pending]),
+body[data-form=narrow] #root.workbench .inspector:not(.has-sel):not([data-pending]){display:none}
 
 /* AG Grid themed to the tokens: compact rows, muted headers (column names kept), right-aligned numbers */
 .grid [class*="ag-theme-params"]{--ag-font-family:var(--sans);--ag-font-size:12.5px;--ag-foreground-color:var(--ink);
@@ -270,8 +277,8 @@ body[data-form=narrow][data-sheet=open] #root.workbench .inspector.has-sel{botto
 body[data-form=narrow] #root.workbench .grip{display:inline-block}
 body[data-form=narrow] #root.workbench #blk-tabs{min-height:44px}
 body[data-form=narrow] #root.workbench .ov-bl{bottom:54px}
-@media (prefers-reduced-motion:reduce){.tables-area,#inspector-body{transition:none!important}.sel-ring{display:none}
- .graph-busy::before{animation:none}.graph-busy,.graph-canvas{transition-duration:0s!important}}
+@media (prefers-reduced-motion:reduce){.tables-area{transition:none!important}#inspector-body{transition-duration:0s!important}.sel-ring{display:none}
+ .busy::before{animation:none}.busy,.busy>span,.graph-canvas{transition-duration:0s!important}}
 
 /* ------------------------------------------------------------------ Analysis Report mode: one scrolling page */
 #root.report .app-body{align-items:start}

@@ -909,10 +909,33 @@ def test_the_busy_chips_sit_over_the_graph_without_changing_its_canvas(build_fol
 
     page = list(_walk(build_layout(load_build(build_folder))))
     stage = next(c for c in page if getattr(c, "className", None) == "graph-stage")
-    busy = next(c for c in _walk(stage) if getattr(c, "className", None) == "graph-busy")
+    busy = next(c for c in _walk(stage) if "graph-busy" in str(getattr(c, "className", "")).split())
     props = busy.to_plotly_json()["props"]
     assert props.get("role") == "status"
     assert "data-graph-overlay" not in props
     chips = {c.id: c for c in busy.children}
     assert set(chips) == {"busy-clustering", "busy-layout"}
     assert all(c.hidden is True for c in chips.values())
+
+
+def test_the_inspector_says_it_is_loading_while_a_selection_or_its_content_is_on_its_way(build_folder):
+    """Switching cluster (legend, Clusters table, a region title) asks the server for the selection, then for the
+    Inspector's content; while each runs, its label in the Inspector's status chip is shown (app.css fades the old
+    content only while the content is on its way)."""
+    from steamstudy.app.server import create_app
+
+    deps = create_app(build_folder).server.test_client().get("/_dash-dependencies").get_json()
+    selecting = next(d for d in deps if "selection.data" in d["output"] and "floating-open.data" in d["output"])
+    inspecting = next(d for d in deps if "inspector-body.children" in d["output"])
+    for spec, chip in ((selecting, "busy-selecting"), (inspecting, "busy-inspector")):
+        assert spec["running"] == {"running": {f"{chip}.hidden": False}, "runningOff": {f"{chip}.hidden": True}}
+
+
+def test_the_inspector_busy_chip_sits_in_its_title_bar(build_folder):
+    from steamstudy.app.layout import build_layout
+
+    page = list(_walk(build_layout(load_build(build_folder))))
+    title = next(c for c in page if getattr(c, "className", None) == "insp-title")
+    busy = next(c for c in _walk(title) if "busy" in str(getattr(c, "className", "")).split())
+    assert busy.to_plotly_json()["props"].get("role") == "status"
+    assert [(c.id, c.hidden) for c in busy.children] == [("busy-selecting", True), ("busy-inspector", True)]

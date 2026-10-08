@@ -706,7 +706,8 @@ def register(app: dash.Dash) -> None:
        Input(R.EVENT_ID, "data"),
        Input({"type": "legend", "cluster": ALL}, "n_clicks"), Input("clusters-grid", "selectedRows"),
        Input("rs-grid", "selectedRows"), Input("nodes-grid", "selectedRows"),
-       State("panels", "value"), Input("tag-search", "value"), prevent_initial_call=True)(select)
+       State("panels", "value"), Input("tag-search", "value"),
+       running=[(Output("busy-selecting", "hidden"), False, True)], prevent_initial_call=True)(select)
     cb(Output("tag-search", "value", allow_duplicate=True), Input("tag-search", "value"),
        prevent_initial_call=True)(lambda v: None if v else no_update)  # ready for the next pick
     cb(Output("removed", "data", allow_duplicate=True), Output("genre-hidden", "value", allow_duplicate=True),
@@ -716,7 +717,8 @@ def register(app: dash.Dash) -> None:
        State("build-path", "data"), State("dataset", "value"), prevent_initial_call=True)(on_nin_action)
     cb(Output("inspector-body", "children"), Output("remove-btn", "style"), Output("rs-run-tag", "style"),
        Input("selection", "data"), Input("state-meta", "data"), Input("rs-view", "data"),
-       State("build-path", "data"), State("dataset", "value"), State("min-months", "value"))(inspect)
+       State("build-path", "data"), State("dataset", "value"), State("min-months", "value"),
+       running=[(Output("busy-inspector", "hidden"), False, True)])(inspect)
     cb(Output("removed", "data", allow_duplicate=True), Input("remove-btn", "n_clicks"),
        Input("restore-btn", "n_clicks"), Input("reset-btn", "n_clicks"), State("selection", "data"),
        State("restore-pick", "value"), State("removed", "data"), prevent_initial_call=True)(edit_removed)
