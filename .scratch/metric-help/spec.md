@@ -63,6 +63,8 @@ No metric, column, export or `schema_version` changes.
 - Native `title` stays only on UI-only buttons (⤢ Fit, ×, Restore, Reset all, Clear app cache, the grip and handle) and on identifier columns, unchanged.
 - The old tooltip texts (`SILHOUETTE_TIP`, `ari_tip`, `label_tip`, the literal strings in `summary_row`, `quality_boxes` and the controls) are replaced by the guide text.
 
+- **Revised 2026-10-08 (wording review, issue 07):** self-explanatory controls carry no help of their own: the minimum games per tag, the minimum shared games, Hidden Genre Tags, Hide defining tag, Remove / Restore, Global / Cluster-separated and Tidy (Tidy keeps a native `title`, as a UI-only button). Their guide entries stay and are linked from the Control reference. Help stays on every metric and on the controls whose effect needs interpretation: Minimum Months Filter, Clustering weight, Clustering algorithm, Resolution γ and Seed. The ⓘ is used only in grid headers.
+
 ### Layer 2: click to open the entry
 - Metric labels and control labels (Inspector `dt`s, summary-row and quality-box labels, control labels and pills, legend key) get a dotted underline and `cursor: help`. A click, or Enter on focus, opens the `data-help` entry in `help-modal`.
 - Grid headers get a small ⓘ in the header that opens the entry. Clicking the header itself still sorts.

@@ -199,7 +199,7 @@ body[data-form=narrow] #root.workbench .inspector:not(.has-sel){display:none}
 /* metric help: a dotted term opens its guide entry; the tooltip shows its In short lines (workbench.js) */
 .term{text-decoration:underline dotted var(--faint);text-underline-offset:3px}
 [data-help]{cursor:help}
-/* an ⓘ (grid header, overlay or control without a label) opens its guide entry */
+/* a grid header's ⓘ opens its guide entry */
 .hinfo{flex:none;margin:0 3px;color:var(--faint);font-family:var(--sans);font-size:12px;cursor:help}
 .hinfo:hover,.hinfo:focus-visible{color:var(--acc)}
 [data-help]:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:4px}

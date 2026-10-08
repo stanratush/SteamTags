@@ -13,7 +13,7 @@ Each control below either sets a field of the Network State key (and so changes 
 | [Hidden Genre Tags](#hidden-genre-tags) | Hides each ticked Genre Tag (the 11 Top-Level Genres) from the network, never from the dataset | 11 toggles; all hidden | `hidden_tag_ids` | Node set; not N, not any remaining edge's `lift` |
 | [Hide defining tag](#hide-defining-tag) | Hides the dataset's defining tag (Puzzle, RPG, Strategy or Simulation) | toggle; hidden | `hidden_tag_ids` | As above |
 | [Clustering weight](#clustering-weight) | What community detection runs on: shared games or lift. Edge thickness and thresholds always use shared games | Shared games, Lift; Shared games | `clustering_weight` | Partition, every weighted metric, null model, Seed-Noise Floor, Global layout |
-| [Clustering algorithm](#clustering-algorithm) | Louvain or Leiden (both maximise modularity) | Louvain, Leiden; Louvain | `algorithm` | Partition and everything computed from it |
+| [Clustering algorithm](#clustering-algorithm) | Louvain or Leiden (both seek high modularity) | Louvain, Leiden; Louvain | `algorithm` | Partition and everything computed from it |
 | [Resolution γ](#resolution-γ) | Higher γ gives more, smaller clusters. Sends on Enter or when the box loses focus | 0.1–3.0, step 0.05; 1.00 | `resolution` | Partition, the value of Q |
 | [Seed](#seed) | Seeds the clustering; the null-model and noise seeds derive from it. Sends on Enter or when the box loses focus | integer ≥ 0; config value | `seed` | Partition, null model, Seed-Noise Floor, Global layout |
 | [Remove (node inspector), Restore, Reset all](#remove--restore) | Removes a tag from the network as a what-if, or brings it back | any node; none removed | `removed_tag_ids` | Node set; not N or any `lift` |
@@ -35,7 +35,7 @@ The Controls panel is split into four sections: **Data** (dataset, Minimum Month
 
 ## Analytical controls explained
 
-Each control below changes the Network State, and so the `state_id` and the numbers, except Global / Cluster-separated and Tidy, which move nodes only. Hover over a control's label or its ⓘ, or reach it with Tab, for its short explanation; click it for the entry below.
+Each control below changes the Network State, and so the `state_id` and the numbers, except Global / Cluster-separated and Tidy, which move nodes only. In the app, the controls whose effect needs interpretation (Minimum Months Filter, Clustering weight, Clustering algorithm, Resolution γ and Seed) have a dotted label: hover over it or reach it with Tab for its short explanation, and click it for the entry below. The other controls are self-explanatory there and carry no tooltip; their entries are here for reference.
 
 ### Minimum Months Filter
 
@@ -45,13 +45,13 @@ Each control below changes the Network State, and so the `state_id` and the numb
 >
 > **Here:** checks whether the clusters hold among the games tracked longest, not only among recent releases.
 >
-> **Caution:** it never re-ranks or adds games, so N shrinks and every count and lift changes.
+> **Caution:** it never re-ranks or adds games: N shrinks, so lift and some counts change.
 
 Range 0–60 months; default 0 (off). Network State field: `min_months`.
 
 Games are ranked by Mean Monthly Players over the months they were observed, so a game released shortly before the Snapshot is ranked on its launch months, when player counts are usually highest. Raising the filter drops such games from the loaded Top-100 Dataset before anything is counted: N falls, every tag's game count and every lift is recounted over the remaining games, and the Global layout is redone. Lowering it back to 0 uses every game of the dataset. The Games number in the summary row shows how many games pass ("91 of 100").
 
-*Why it matters here.* The study asks which characteristics recur among the most-played commercial games. A cluster that appears only while recent releases are included may reflect a few new games rather than a lasting combination; one that stays when the filter is raised rests on games with a long player record.
+*Why it matters here.* The study asks which characteristics recur among the most-played commercial games. A cluster that appears only while recent releases are included may reflect a few new games rather than a combination that holds over a longer player record; one that stays when the filter is raised rests on games with a long player record.
 
 *Caution.* The filter never fills the gap with the next-ranked games, so a raised filter means a smaller network, not a different Top 100. With fewer games, fewer tags reach the minimum games per tag and fewer pairs reach the minimum shared games, so compare Network States at the same thresholds and expect the numbers to shift with N alone. The feature analysis ignores the filter.
 
@@ -81,7 +81,7 @@ Every tag of the dataset with at least this many of the N games becomes a node; 
 
 > **In short.** Two tags are linked only if at least this many of the network's games carry both.
 >
-> **Raising it →** fewer links, more isolated tags (One-Tag Clusters), and clusters that break apart.
+> **Raising it →** fewer links, more isolated tags (One-Tag Clusters); clusters may split or reorganise.
 >
 > **Here:** sets how often two characteristics must occur together among the most-played games to count as linked.
 >
@@ -153,7 +153,7 @@ With shared games, a link counts the games that carry both tags, so common tags 
 
 ### Clustering algorithm
 
-> **In short.** The method that searches for the clusters: Louvain or Leiden, both maximising modularity.
+> **In short.** The method that searches for the clusters: Louvain or Leiden, both seeking high modularity (neither guarantees the best).
 >
 > **Here:** running the second method on the same network shows whether the clusters depend on the method.
 >
@@ -163,7 +163,7 @@ Louvain or Leiden; default Louvain. Network State field: `algorithm`.
 
 Both algorithms search for the split with the highest modularity Q at the chosen γ, and both are randomised, so the seed matters for either. Leiden refines the clusters it finds and guarantees that each one is connected; Louvain is the default here.
 
-*Why it matters here.* A group of characteristics that both methods find is less likely to be an artefact of one search procedure. Since both maximise the same Q, the two can be compared directly at the same γ and Clustering Weight.
+*Why it matters here.* A group of characteristics that both methods find is less likely to be an artefact of one search procedure. Since both seek high values of the same Q, their Q can be compared directly at the same γ and Clustering Weight.
 
 *Caution.* The two can give different splits with similar Q; that is a property of modularity, not a fault of either. Under Louvain, check the number of disconnected clusters in Cluster quality.
 
@@ -171,9 +171,9 @@ Both algorithms search for the split with the highest modularity Q at the chosen
 
 ### Resolution γ
 
-> **In short.** Sets the scale of the clusters: the resolution in the modularity that the clustering maximises.
+> **In short.** Sets the scale of the clusters: the resolution in the modularity that the clustering seeks to maximise.
 >
-> **Raising it →** more, smaller clusters; lowering it, fewer and larger ones.
+> **Raising it →** tends to give more, smaller clusters; lowering it, fewer and larger ones.
 >
 > **Here:** shows whether the groups of characteristics hold at a finer or a coarser scale.
 >
@@ -356,12 +356,12 @@ The Workbench rearranges itself as the window narrows. Nothing is lost in a narr
 
 1. Click the cluster's legend button. The inspector shows its members, its Cluster Center (◆) and the `top_strength_tag`.
 2. Click the center node and press **Run for this tag**. When it finishes, read `rc_ari` and `rc_centers_lost` in the node inspector or the Removal sensitivity tab.
-3. Compare `rc_ari` with the Seed-Noise Floor's `seed_ari_min`. Above it, the partition changed no more than another seed would change it. Below it, the row carries the screening flag. To see the new partition itself, press **Remove** instead and look at the clusters; **Restore** brings the tag back.
+3. Compare `rc_ari` with the Seed-Noise Floor's `seed_ari_min`. Above it, the partition changed no more than the most different of the K seeds did. Below it, the row carries the screening flag. To see the new partition itself, press **Remove** instead and look at the clusters; **Restore** brings the tag back.
 
 ### Compare Louvain and Leiden
 
 1. Note the Cluster-quality row and the Seed-Noise Floor under Louvain.
-2. Switch **Clustering algorithm** to Leiden. Compare the multi-tag cluster count, Q (both maximise modularity, so Q is comparable at the same γ and weight) and `n_disconnected_clusters` (always 0 under Leiden).
+2. Switch **Clustering algorithm** to Leiden. Compare the multi-tag cluster count, Q (both seek high modularity, so Q is comparable at the same γ and weight) and `n_disconnected_clusters` (always 0 under Leiden).
 3. Quote both `state_id`s if you report the comparison.
 
 ### Check how much the clusters depend on γ

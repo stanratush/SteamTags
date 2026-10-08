@@ -59,7 +59,7 @@ SENTENCES: dict[str, str] = {
     "ds_sweep": "Between γ = {g_min} and {g_max} the number of multi-tag clusters ranged from {k_min} to {k_max}; "
                 "agreement with the γ = {gamma} partition ranged from {ari_min} to {ari_max} (ARI).",
     "ds_removal": "Removal Sensitivity flags {flagged} of {tested} tags ({names}); if removals acted only like "
-                  "another seed, at most about {expected} would be flagged (n / (K + 1)); the flag is a screening "
+                  "another seed, about {expected} would be flagged on average (n / (K + 1)); the flag is a screening "
                   "aid.",
     "ds_no_network": "The network at the report's settings has no edges, so no clusters are reported.",
     "ds_state": "Network State {state_id} (quote it with every network number).",

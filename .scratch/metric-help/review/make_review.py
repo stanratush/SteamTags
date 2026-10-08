@@ -186,11 +186,14 @@ def page(build_path: Path) -> str:
         "- Write a correction as a comment under issue 07, or edit the guide entry directly. Tick a surface when its "
         "wording is approved.",
         "",
-        "## Open decisions",
+        "## Decisions",
         "",
-        "- [ ] **\"successful games\" or \"the most-played games\"?** The glossary avoids \"success\" unqualified; the "
-        "later entries say \"the most-played games\". These entries still use \"success…\" in their In short or Why "
-        "it matters: " + (", ".join(link(e) for e in successful) or "none") + ".",
+        "- [x] **\"the most-played games\"**, not \"successful games\" (decided 2026-10-08). Entries the app links to "
+        "that still say \"success…\" in their In short or Why it matters: "
+        + (", ".join(link(e) for e in successful) or "none") + ".",
+        "- [x] **Self-explanatory controls carry no help** (decided 2026-10-08): the minimum games per tag, the minimum "
+        "shared games, Hidden Genre Tags, Hide defining tag, Remove / Restore, Global / Cluster-separated and Tidy. "
+        "Their entries stay in the guide, linked from the Control reference; Tidy keeps a native title.",
         "- [ ] **A pill's click** (pill bar, medium and narrow forms) opens its popover, whose dotted label then opens "
         "the entry; hover and Tab show the In short. The spec asked for the click to open the entry (issue 05).",
         "",

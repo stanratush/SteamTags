@@ -25,7 +25,7 @@ The **Cluster quality** tab shows five boxes (Q, Null-model excess, Coverage, Si
 
 > Seed-noise floor (K = 10): ARI vs. main min 0.84, mean 0.93 · multi-tag clusters 5–7 · SD Q 0.004 · SD silhouette 0.01
 
-Each number is explained in the [metric reference](03-metric-reference.md), and the app shows that help in two layers. Hover over a dotted label, a metric column header or an ⓘ, or reach it with Tab, for a short explanation: what the value is, which direction is which, why it matters in this study and the main caution. Click the dotted label or the ⓘ, or press Enter, to open its full guide entry inside the app; links inside the help open their entries there too, and **← Back** returns to the previous one. Clicking a column header's name still sorts the table. The `?` button on each panel opens the matching guide section.
+Each number is explained in the [metric reference](03-metric-reference.md), and the app shows that help in two layers. Hover over a dotted label or a metric column header, or reach it with Tab, for a short explanation: what the value is, which direction is which, why it matters in this study and the main caution. Click the dotted label or the header's ⓘ, or press Enter, to open its full guide entry inside the app; links inside the help open their entries there too, and **← Back** returns to the previous one. Clicking a column header's name still sorts the table. The `?` button on each panel opens the matching guide section.
 
 ## The two modes
 

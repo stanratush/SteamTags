@@ -17,7 +17,8 @@ METRIC_REFERENCE = "03-metric-reference.md"
 APP_CONTROLS = "02-app-controls.md"
 CITING = "05-citing-and-reproducing.md"
 
-# help key -> (guide file, heading anchor)
+# help key -> (guide file, heading anchor). Controls whose effect is self-explanatory (the two thresholds, hiding and
+# removing tags, the layout switch and Tidy) have no help of their own; their entries stay in the guide.
 HELP: dict[str, tuple[str, str]] = {
     "summary.games": (METRIC_REFERENCE, "network-size"),
     "summary.tags": (METRIC_REFERENCE, "network-size"),
@@ -33,17 +34,10 @@ HELP: dict[str, tuple[str, str]] = {
     "quality.sentence": (METRIC_REFERENCE, "clusters-and-partition-quality"),
     "quality.noise_sentence": (METRIC_REFERENCE, "stability"),
     "control.min-months": (APP_CONTROLS, "minimum-months-filter"),
-    "control.min-games": (APP_CONTROLS, "minimum-games-per-tag"),
-    "control.min-shared": (APP_CONTROLS, "minimum-shared-games"),
-    "control.hidden": (APP_CONTROLS, "hidden-genre-tags"),
-    "control.defining": (APP_CONTROLS, "hide-defining-tag"),
     "control.weight": (APP_CONTROLS, "clustering-weight"),
     "control.algorithm": (APP_CONTROLS, "clustering-algorithm"),
     "control.gamma": (APP_CONTROLS, "resolution-γ"),
     "control.seed": (APP_CONTROLS, "seed"),
-    "control.removed": (APP_CONTROLS, "remove--restore"),
-    "control.layout-mode": (APP_CONTROLS, "global--cluster-separated"),
-    "control.tidy": (APP_CONTROLS, "tidy"),
     "legend.key": (APP_CONTROLS, "reading-the-graph"),
     "legend.one_tag": (APP_CONTROLS, "grey-one-tag-clusters"),
     "state.n_games": (METRIC_REFERENCE, "network-size"),

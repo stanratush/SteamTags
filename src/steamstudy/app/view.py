@@ -59,8 +59,8 @@ def noise_line(q: dict[str, Any], k: int) -> str:
 
 
 def chance_footer(flagged: int, n: int, k: int) -> str:
-    return (f"{flagged} of {n} tags flagged; if removals acted only like another seed, at most about "
-            f"{n / (k + 1):.0f} would be (n / (K + 1)). {SCREENING.capitalize()}.")
+    return (f"{flagged} of {n} tags flagged; if removals acted only like another seed, about "
+            f"{n / (k + 1):.0f} would be flagged on average (n / (K + 1)). {SCREENING.capitalize()}.")
 
 
 # ----------------------------------------------------------------------------- grids
@@ -445,6 +445,7 @@ def summary_row(q: dict[str, Any], n_rows: int, gamma: str, r: int) -> list[Any]
          None if q["null_n_edges_mean"] is None else f"shuffled networks average {q['null_n_edges_mean']:.0f} links."),
         ("Clusters", f"{q['n_multi_tag_clusters']} + {q['n_one_tag_clusters']}", "multi-tag + one-tag",
          "summary.clusters", None if q["seed_k_min"] is None else
+         f"all other seeds give {q['seed_k_min']} multi-tag clusters." if q["seed_k_min"] == q["seed_k_max"] else
          f"other seeds give {q['seed_k_min']}–{q['seed_k_max']} multi-tag clusters."),
         ("Q", q_value, "", "summary.q", q_now),
         ("Silhouette", f"{sil} · descriptive", "", "summary.silhouette",
@@ -514,17 +515,15 @@ def key_json(key: dict[str, Any]) -> str:
     return "{\n" + ",\n".join(f"  {json.dumps(k)}: {json.dumps(v, ensure_ascii=False)}" for k, v in key.items()) + "\n}"
 
 
-# The Network State fields that show a metric or an analytical choice -> their help key.
-STATE_HELP = {"n_games": "state.n_games", "min_months": "control.min-months", "min_games_per_tag": "control.min-games",
-              "min_shared_games": "control.min-shared", "hidden_tag_ids": "control.hidden",
-              "removed_tag_ids": "control.removed", "clustering_weight": "control.weight",
+# The Network State fields that show a metric or a choice whose effect needs interpretation -> their help key.
+STATE_HELP = {"n_games": "state.n_games", "min_months": "control.min-months", "clustering_weight": "control.weight",
               "algorithm": "control.algorithm", "resolution": "control.gamma", "seed": "control.seed",
               "null_replicates": "state.null_replicates", "noise_seeds": "state.noise_seeds"}
 
 
 def _state_th(field: str, label: str, key_field: str) -> html.Th:
-    """A Network State row's name: with both help layers when it shows a metric or an analytical choice, the key
-    field as the tooltip's last line (workbench.js styles "Field:" like "Column:")."""
+    """A Network State row's name: with both help layers when it shows a metric or a choice that needs interpretation,
+    the key field as the tooltip's last line (workbench.js styles "Field:" like "Column:")."""
     if field not in STATE_HELP:
         return html.Th(label, title=f"State key field: {key_field}")
     last = f"Field: {field}" if field == key_field else None  # n_games is derived, not a key field

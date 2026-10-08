@@ -504,13 +504,13 @@ How many games have both tags: the network's basic fact. An edge exists only if 
 
 ### Edge lift
 
-> **In short.** How many times more often two tags share games than if they were independent.
+> **In short.** Shared games divided by the number expected if the two tags were independent.
 >
 > **Higher →** above 1: together more often than chance; 1: as chance predicts; below 1: less often.
 >
-> **Here:** shows pairings typical of the most-played games beyond what each tag's frequency explains.
+> **Here:** shows pairings these games carry more often than the two tags' frequencies predict.
 >
-> **Caution:** pairs of rare tags reach high values from a few games.
+> **Caution:** pairs of rare tags reach high values from a few games; association within these games, not a test.
 
 Column: `lift` in `edges.csv` (the Clustering Weight in lift mode).
 
@@ -594,7 +594,7 @@ Columns: `strength_shared`, `strength_lift`, `strength_shared_intra`, `strength_
 
 Shown in the app as “Total shared games”, “Total lift”, “Shared games in own cluster”, “Lift in own cluster” (Inspector; tables and exports keep the column names).
 
-The sum of a tag's edge values, on shared games and on lift, over all its edges and over the edges inside its cluster (Newman 2004, §II.A, eq. 5). Both versions are always exported, whatever the Clustering Weight; the app shows the active one first. `strength_shared` largely restates how common a tag is, and `strength_lift` is inflated by rare tags. Neither is an importance score; both are kept visible to show how frequency shapes the results.
+The sum of a tag's edge values, on shared games and on lift, over all its edges and over the edges inside its cluster (Newman 2004, §II.A, eq. 5). A game is counted once for every link it supports, so the total is not a number of games. Both versions are always exported, whatever the Clustering Weight; the app shows the active one first. `strength_shared` largely restates how common a tag is, and `strength_lift` is inflated by rare tags. Neither is an importance score; both are kept visible to show how frequency shapes the results.
 
 *Why it matters here.* The clustering works on these weights, so strength shows how much a tag pulls on the clusters; the Inspector marks the version used for clustering. A tag with a high total but a low own-cluster strength is linked mainly to other clusters (compare Spread across clusters). Neither total says that a characteristic matters more for how many people play a game: it describes the network of tags, not the games' player numbers.
 
@@ -620,7 +620,7 @@ Columns: `silhouette`, `silhouette_status` in `nodes.csv`.
 
 Shown in the app as “Fit to own cluster (silhouette)” (Inspector; tables and exports keep the column names).
 
-Whether a tag's game set is closer to the game sets of its own cluster than to those of the nearest other cluster. Near 1 means clearly closer to its own cluster, near 0 between two clusters, negative closer to another cluster on game overlap (Struyf, Hubert & Rousseeuw 1997, pp. 9–10). The clusters maximise modularity on graph weights, not silhouette, so low or negative values are expected and do not prove a cluster wrong. Jaccard distance favours tags of similar frequency: a rare tag can never be close to a very common one. One-Tag Clusters count as "other clusters" when finding the nearest cluster.
+Whether a tag's game set is closer to the game sets of its own cluster than to those of the nearest other cluster. Near 1 means clearly closer to its own cluster, near 0 between two clusters, negative closer to another cluster on game overlap (Struyf, Hubert & Rousseeuw 1997, pp. 9–10). Most tag pairs are far apart, which pulls silhouettes toward 0; low or negative values do not prove a cluster wrong. Jaccard distance favours tags of similar frequency: a rare tag can never be close to a very common one. Jaccard similarity is at most n_small / n_large, so a tag on 5 games is at least 0.92 from one on 60. One-Tag Clusters count as "other clusters" when finding the nearest cluster.
 
 *Why it matters here.* A member with a negative value shares more games with another cluster's tags than with its own: its links placed it, but its games point elsewhere. Such tags are where a cluster's boundary is least clear, and they are the first to check before describing a cluster as a recurring combination of characteristics. Compare the members of one cluster with each other rather than across clusters.
 
@@ -660,7 +660,7 @@ How typical a tag's game set is of its cluster: its mean Jaccard distance to the
 
 ### Cluster Center
 
-> **In short.** The most typical tag of a Multi-Tag Cluster of three or more tags: the member whose games overlap most with the other members' games.
+> **In short.** The most typical tag of a Multi-Tag Cluster of three or more tags: the member with the lowest mean game-set distance to the other members (the medoid).
 >
 > **Here:** gives one tag to orient by when reading a cluster of the most-played games.
 >
@@ -670,7 +670,7 @@ Columns: `is_center` (nodes); `center_tag_id`, `center`, `center_medoid_score`, 
 
 Shown in the app as “Cluster Center”, “Center's game-set distance” (Inspector; tables and exports keep the column names).
 
-The most typical tag of a Multi-Tag Cluster of three or more tags: the member whose games overlap most with the other members' games, which is the medoid (Struyf, Hubert & Rousseeuw 1997, §2.1, eq. 2.1). It is drawn as ◆ with a heavier outline. It gives one tag to orient by inside a cluster; it is not the most frequent, important or central tag in any other sense, and it is not a cluster name. With near-equal scores, a tiny data change can swap the center.
+The most typical tag of a Multi-Tag Cluster of three or more tags: the member with the lowest mean game-set distance to the other members, which is the medoid (Struyf, Hubert & Rousseeuw 1997, §2.1, eq. 2.1). It is drawn as ◆ with a heavier outline. It gives one tag to orient by inside a cluster; it is not the most frequent, important or central tag in any other sense, and it is not a cluster name. With near-equal scores, a tiny data change can swap the center.
 
 *Why it matters here.* A cluster of twelve tags is hard to hold in mind; the Cluster Center, drawn as ◆, gives a concrete starting point. It is chosen by game overlap rather than by links, so it tends to be a characteristic typical of the cluster's games rather than a generic tag linked to everything; the most-linked member shows that alternative. Write "the cluster around X" at most, never use the center as the cluster's name, and check its Membership Stability before building on it.
 
@@ -696,7 +696,7 @@ Shown in the app as “Most-linked member”, “Center is the most-linked membe
 
 The member with the highest intra-cluster strength on the active Clustering Weight: the frequency-driven alternative to the center, shown beside it. `center_is_top_strength` false means the most typical tag and the most strongly linked tag differ; usually the top-strength tag is then a common, generic tag. On shared games it mostly reflects frequency.
 
-*Why it matters here.* When the Cluster Center and the most-linked member are the same tag, the cluster has one reference point. When they differ, the most-linked member is often a tag that is common across the most-played games, and so linked to everything, while the center is more specific to the cluster's games. Showing both keeps a frequent tag from being mistaken for the characteristic that sets a group apart.
+*Why it matters here.* When the Cluster Center and the most-linked member are the same tag, the cluster has one reference point. When they differ, the most-linked member is often a tag that is common across the most-played games, and so linked to everything, while the center is the member whose games are closest to the other members'. Showing both keeps a frequent tag from being mistaken for the characteristic that sets a group apart.
 
 *Example.* All members have intra-cluster strength 6, but one tag is on more games: it is the top-strength tag.
 
@@ -714,7 +714,7 @@ The member with the highest intra-cluster strength on the active Clustering Weig
 >
 > **Here:** shows which members carry most of a cluster's links.
 >
-> **Caution:** capped at √(n − 1) in a cluster of n tags; not comparable across cluster sizes.
+> **Caution:** cannot exceed √(n − 1) in a cluster of n tags; not comparable across cluster sizes.
 
 Column: `within_z` in `nodes.csv`.
 
@@ -736,7 +736,7 @@ How much more (or less) strongly a tag is tied to its own cluster than its fello
 
 > **In short.** How evenly a tag's links are spread over the clusters.
 >
-> **Higher →** links spread over several clusters; 0 = all its links inside its own cluster.
+> **Higher →** links spread over several clusters; 0 = all its links in a single cluster, normally its own.
 >
 > **Here:** finds characteristics that the most-played games combine with several different groups of tags.
 >
@@ -816,21 +816,21 @@ Every tag on at least one game of the loaded dataset that is not a node, with ev
 
 > **In short.** How the tags split into clusters and how clearly: Q with its excess over the null model, coverage, the cluster counts and the silhouette.
 >
-> **Here:** together they show whether the most-played games' tags fall into groups beyond what tag popularity explains.
+> **Here:** together they show whether the most-played games' tags fall into groups beyond the shuffled baseline.
 >
 > **Caution:** each number answers a different question; read them together, never one alone.
 
 The clustering (community detection in the methods literature) splits the tags into groups that are more tightly linked inside than between. Louvain (Blondel et al. 2008) and Leiden (Traag, Waltman & van Eck 2019) both search for the split with the highest **modularity**. They are randomised searches: different seeds can give different, nearly equally good splits (Good, de Montjoye & Clauset 2010). The **partition** is the full list of which tag is in which cluster.
 
-*Why it matters here.* These numbers describe the clustering as a whole, before any single cluster is read. Q says how separated the clusters are, the null-model excess how much of that goes beyond tag popularity, coverage how much link weight the clusters hold, and the silhouette whether the games themselves agree. If the excess is near 0, the clusters say more about which tags are common among the most-played games than about how those games combine characteristics.
+*Why it matters here.* These numbers describe the clustering as a whole, before any single cluster is read. Q says how separated the clusters are, the null-model excess how far it exceeds the shuffled baseline, coverage how much link weight the clusters hold, and the silhouette whether the games themselves agree. If the excess is near 0, the clusters say more about which tags are common among the most-played games than about how those games combine characteristics.
 
 ### Cluster labels and counts
 
-> **In short.** Groups of tags more linked to each other than to the rest; C1 is the largest.
+> **In short.** Groups of tags linked more among themselves than chance predicts; C1 is the largest.
 >
 > **Higher →** more multi-tag clusters: the tags split into more, smaller groups.
 >
-> **Here:** each cluster is a candidate bundle of features that recurs among the most-played games.
+> **Here:** each cluster is a candidate group of characteristics that co-occur in pairs among the most-played games.
 >
 > **Caution:** the count depends on γ, the thresholds and the seed; one-tag clusters are usually isolated tags, not findings.
 
@@ -840,7 +840,7 @@ Shown in the app as “Cluster” (Inspector; tables and exports keep the column
 
 Clusters are labelled `C1`, `C2`, … by size, largest first, never named. `kind` is `multi_tag` (two or more tags) or `one_tag`. Counts are always reported as "k multi-tag + s one-tag", never as one total; One-Tag Clusters are usually isolated tags, not a finding. Members are listed by medoid score. k depends heavily on γ, the thresholds and the seed. Modularity cannot reliably separate groups smaller than a scale set by the network's total weight (the resolution limit; Fortunato & Barthélemy 2007, abstract and §IV), so small groups can be merged into bigger clusters.
 
-*Why it matters here.* A Multi-Tag Cluster is the study's unit of "a recurring combination of characteristics": tags that the most-played games of the dataset tend to carry together. Read a cluster through its members and its Cluster Center, not through its label: `C1` only means "largest in this Network State", and the same group of tags can be `C2` after a small change. Before treating a cluster as a finding, check that it survives other seeds (Membership Stability, the Seed-Noise Floor) and other γ values (the Resolution Sweep).
+*Why it matters here.* A Multi-Tag Cluster is the study's unit of "a recurring combination of characteristics": tags that the most-played games of the dataset tend to carry together in pairs: A, B and C can form a cluster even if no game carries all three. Read a cluster through its members and its Cluster Center, not through its label: `C1` only means "largest in this Network State", and the same group of tags can be `C2` after a small change. Before treating a cluster as a finding, check that it survives other seeds (Membership Stability, the Seed-Noise Floor) and other γ values (the Resolution Sweep).
 
 *Example.* "5 multi-tag + 3 one-tag": five clusters of two or more tags and three single tags.
 
@@ -854,7 +854,7 @@ Clusters are labelled `C1`, `C2`, … by size, largest first, never named. `kind
 
 > **In short.** How big the network is: the games it is built from, the tags shown as nodes, and the links between tags that share enough games.
 >
-> **Higher →** more tags and links: a denser network, usually from looser thresholds.
+> **Higher →** more tags and links: a larger network, usually from looser thresholds.
 >
 > **Here:** shows how much of the dataset and its tags the clusters describe.
 >
@@ -866,7 +866,7 @@ Shown in the app as “Games”, “Tags”, “Links” (summary row above the 
 
 Context for every other number: N (games after the Minimum Months Filter), the number of tags and edges, and the sum of the active Clustering Weight over all edges. Denser networks behave differently (see the null model). `total_weight` is in shared games or in summed lift, depending on the Clustering Weight, and the two are not comparable.
 
-*Why it matters here.* Every pattern the network shows is a pattern among these N games and these tags only. "100 of 100" games means the whole Top-100 Dataset is in the network; a lower N (from the Minimum Months Filter) means the clusters describe only the games tracked long enough. Tags below the minimum games per tag are left out entirely, so a characteristic shared by only a handful of successful games cannot appear in any cluster; the Not in network table lists them.
+*Why it matters here.* Every pattern the network shows is a pattern among these N games and these tags only. "100 of 100" games means the whole Top-100 Dataset is in the network; a lower N (from the Minimum Months Filter) means the clusters describe only the games tracked long enough. Tags below the minimum games per tag are left out entirely, so a characteristic shared by only a handful of the most-played games cannot appear in any cluster; the Not in network table lists them.
 
 *Example.* 100 games, 54 tags, 312 edges, total weight 4,120 shared games.
 
@@ -878,11 +878,11 @@ Context for every other number: N (games after the Minimum Months Filter), the n
 
 ### Modularity Q
 
-> **In short.** How much more of the link weight falls inside clusters than a random split would put there.
+> **In short.** How much more link weight falls inside clusters than if links were placed at random, keeping each tag's total weight.
 >
-> **Higher →** clusters more separated from each other; 0 = no better than random.
+> **Higher →** more weight inside clusters than that expectation; 0 = no more than expected.
 >
-> **Here:** the clustering's own score; read it through its excess over the null model.
+> **Here:** the clustering's target score; read it through its excess over the null model.
 >
 > **Caution:** random networks also reach high Q; not comparable across γ, weights, thresholds or datasets.
 
@@ -892,23 +892,23 @@ Shown in the app as “Q” (summary row and Cluster quality).
 
 How much more of the network's weight falls inside clusters than would be expected if links were spread at random while keeping each tag's total strength (Newman & Girvan 2004; weighted form, Newman 2004, §II.C). It is the objective the clustering maximises, reported at the γ that was optimised ("Q (γ = 1.00)"). Random networks with no real groups also reach high Q (Guimerà, Sales-Pardo & Amaral 2004), which is why the null model exists; many different partitions reach almost the same Q; and Q is not comparable across γ, Clustering Weights, thresholds or datasets. The only published Steam tag network found reports Q = 0.414 after pruning the five most common tags and 0.150 with them kept (Li & Zhang 2020, §5.2): context for how much near-universal tags lower Q, not a benchmark, since its network was built differently.
 
-*Why it matters here.* Q says how clearly the tags of these successful games fall into separate groups, but on its own it cannot tell real feature bundles from the groups that tag popularity alone would produce. That is why the app always shows it with its excess over the null model: "Q 0.42 · excess +0.11" means the null model already reaches about 0.31, and only the remaining 0.11 is structure that tag frequencies do not explain. Use Q to compare states that differ only in the seed or the algorithm, never across datasets.
+*Why it matters here.* Q says how clearly the tags of the most-played games fall into separate groups, but on its own it cannot tell combinations of characteristics from the grouping that tag popularity alone would produce. That is why the app always shows it with its excess over the null model: "Q 0.42 · excess +0.11" means the shuffled networks reach about 0.31 on average and the observed network 0.11 more. Use Q to compare Network States that differ only in the seed or the algorithm, never across datasets.
 
 *Example.* Total weight 100, two clusters each with 40 inside and 20 between them: each cluster's summed strength is 2 × 40 + 20 = 100, so Q = 2 × (40 / 100 − (100 / 200)²) = 0.30.
 
 *Bounds.* At γ = 1 on an unweighted network, −½ to 1 (Brandes et al. 2008, Lemma 3.1); the reachable maximum is below 1 and depends on the network (Fortunato & Barthélemy 2007, §III). Isolated tags add nothing. Empty when the network has no edges (`modularity_status` `no_edges`).
 
-*Compare with.* 0 = no better than random (Newman & Girvan 2004, §IV); the [null model](#null-model-baseline) (`q_null_mean`); the Seed-Noise Floor ([`seed_modularity_sd`](#seed-spread-of-modularity-and-silhouette)).
+*Compare with.* 0 = no more weight inside clusters than expected at random (Newman & Girvan 2004, §IV); the [null model](#null-model-baseline) (`q_null_mean`); the Seed-Noise Floor ([`seed_modularity_sd`](#seed-spread-of-modularity-and-silhouette)).
 
 **Exact definition:** Q = Σ_c [ L_c / m − γ (d_c / 2m)² ], with L_c the active weight inside cluster c, d_c the summed strength of its members and m the total weight (NetworkX `modularity`).
 
 ### Null-model baseline
 
-> **In short.** The Q the same procedure reaches when each game's tags are shuffled, keeping how common every tag is.
+> **In short.** The Q the same procedure reaches after shuffling which games carry which tags, keeping every tag's game count and every game's tag count.
 >
-> **Higher →** tag popularity alone already produces much of the clustering.
+> **Higher →** the shuffled data already produce much of the clustering.
 >
-> **Here:** separates how features combine in successful games from the fact that some tags are everywhere.
+> **Here:** separates how characteristics combine among the most-played games from some tags being everywhere.
 >
 > **Caution:** the SD from 20 shuffles is rough; shuffled networks differ in link count.
 
@@ -916,7 +916,7 @@ Columns: `q_null_mean`, `q_null_sd`, `null_n_edges_mean` (cluster quality); `rep
 
 The Q this pipeline produces when the link between games and tags is scrambled, keeping how many tags each game has and how many games each tag has. It answers "how much Q would tag frequencies alone produce?". This matters most with the default shared-games weight, where frequency alone creates structure. The shuffled networks are rebuilt with the same thresholds, so they usually have a different number of edges from the real one, and Q depends on density (Guimerà, Sales-Pardo & Amaral 2004): compare `null_n_edges_mean` with `n_edges`. Twenty replicates give only a rough SD.
 
-*Why it matters here.* Tags such as Singleplayer or Indie appear on a large share of the games, so they share many games with almost every other tag, and that alone creates groups. The null model keeps every tag exactly as common as it is and every game with as many tags as it has, but pairs them at random. Whatever Q the shuffled networks still reach is what popularity explains; only Q above it says something about which features successful games combine.
+*Why it matters here.* Tags such as Singleplayer or Indie appear on a large share of the games, so they share many games with almost every other tag, and that alone creates groups. The null model keeps every tag exactly as common as it is and every game with as many tags as it has, but pairs them at random. The Q the shuffled networks reach is what those counts alone can produce; only Q clearly above it suggests the most-played games combine characteristics in ways the counts do not.
 
 *Example.* "null 0.31 ± 0.01 … null networks average 640 edges vs 702": the scrambled networks reach Q 0.31 on average, with a sample SD of 0.01, and have fewer edges than the real one.
 
@@ -928,21 +928,21 @@ The Q this pipeline produces when the link between games and tags is scrambled, 
 
 ### Excess modularity and z-score
 
-> **In short.** Q minus the null-model mean: the part of the clustering not explained by how common tags are.
+> **In short.** Q minus the shuffled networks' mean Q: how far Q exceeds what the preserved tag and game counts give.
 >
-> **Higher →** more structure than tag frequencies alone produce; 0 = none beyond them.
+> **Higher →** more modularity than the shuffled data; 0 = no more.
 >
-> **Here:** the main check that clusters reflect how features combine, not just popularity.
+> **Here:** the main check that clusters reflect how characteristics combine, not just popularity.
 >
-> **Caution:** the z-score can be large for a modest excess; never read it alone.
+> **Caution:** not a share of causes; z is not a p value and can be large for a modest excess.
 
 Columns: `q_excess`, `modularity_z` in `cluster_quality.csv`.
 
 Shown in the app as “excess” (summary row) and “Null-model excess” (Cluster quality).
 
-`q_excess` is the part of Q not explained by tag frequencies: Q minus the null-model mean. `modularity_z` expresses the same gap in null-model SDs. The z-score is never shown alone: with a small null SD, z can be very large even when the excess is modest, it is not a p value, and z-scores of modularity against random graphs have "a number of problems" (Karrer, Levina & Newman 2008, §I). The app and the report always show it inside the full line "Q … vs null … ± … (excess …, z …; null networks average … edges vs …)".
+`q_excess` is Q minus the null-model mean. `modularity_z` expresses the same gap in null-model SDs. The z-score is never shown alone: with a small null SD, z can be very large even when the excess is modest, it is not a p value, and z-scores of modularity against random graphs have "a number of problems" (Karrer, Levina & Newman 2008, §I). With R = 20 shuffles a permutation test could not give p below 1/21 ≈ 0.048 (Phipson & Smyth 2010). The shuffled networks are rebuilt with the same thresholds and usually have a different number of links (shown in the line); Q of random networks depends on density (Guimerà, Sales-Pardo & Amaral 2004), so part of the excess can reflect that difference. The app and the report always show it inside the full line "Q … vs null … ± … (excess …, z …; null networks average … edges vs …)".
 
-*Why it matters here.* The excess is the most direct answer to "do these successful games combine features in recognisable groups, beyond popular tags being everywhere?". An excess near 0 means the clusters could be an artefact of tag popularity; a clearly positive excess means the grouping carries information about how the games combine features. It still says nothing about which cluster is meaningful: for that, read the clusters themselves and their stability.
+*Why it matters here.* The excess is the most direct answer to "do the most-played games combine characteristics in recognisable groups, beyond popular tags being everywhere?". An excess near 0 means shuffled data with the same tag and game counts give as much modularity, so the clusters could come from those counts alone; a clearly positive excess means the grouping goes beyond them. It still says nothing about which cluster is meaningful: for that, read the clusters themselves and their stability.
 
 *Example.* Q 0.32, null 0.20 ± 0.01: excess 0.12, z = 0.12 / 0.01 = 12.
 
@@ -1002,21 +1002,21 @@ Whether a cluster's tags can all reach each other through edges inside the clust
 
 ### Mean silhouette
 
-> **In short.** Whether each tag's games overlap more with its own cluster than with the nearest other; descriptive diagnostic, not a selection criterion.
+> **In short.** On average, whether tags' games overlap more with their own cluster than with the nearest other; descriptive diagnostic, not a selection criterion.
 >
-> **Higher →** clearer separation on game overlap; 0 = between clusters; below 0 = closer to another.
+> **Higher →** clearer separation; 0 = between clusters; below 0 = closer to another.
 >
-> **Here:** an independent check using the games themselves, not link weights.
+> **Here:** a second view, from game overlap; the links come from the same games.
 >
-> **Caution:** the clustering does not optimise it, so low values are expected.
+> **Caution:** tag distances are mostly near 1, so values near 0 are common.
 
 Columns: `mean_silhouette`, `silhouette_status` in `cluster_quality.csv` (over every Multi-Tag Cluster member) and `clusters.csv` (over one cluster's members).
 
 Shown in the app as “Silhouette” (summary row and Cluster quality).
 
-The average of the per-tag silhouettes: an independent check on the clustering that uses game overlap instead of graph weights. It is labelled "silhouette (Jaccard game-set distance), descriptive diagnostic, not a selection criterion". One-Tag Cluster members are left out of every mean, and the overall value averages tags, not clusters, so big clusters weigh more. Comparing values across Network States is only indicative.
+The average of the per-tag silhouettes: a check on the clustering from game overlap rather than link weights, not independent of them, since both come from the same game sets. It is labelled "silhouette (Jaccard game-set distance), descriptive diagnostic, not a selection criterion". One-Tag Cluster members are left out of every mean, and the overall value averages tags, not clusters, so big clusters weigh more. Comparing values across Network States is only indicative.
 
-*Why it matters here.* Clusters are found from link weights; the silhouette asks a different question of the same result: do the games that carry a cluster's tags really overlap more with each other than with the games of the next cluster? A value near 0 is common here, because many successful games carry tags from several clusters at once (an open-world RPG with crafting and survival tags, for example). Use it to compare clusters with each other or one state with a close variant, not as a pass mark.
+*Why it matters here.* Clusters are found from link weights; the silhouette asks a different question of the same result: do the games that carry a cluster's tags really overlap more with each other than with the games of the next cluster? A value near 0 is common here, because Jaccard distances between tags are mostly near 1 and many of the most-played games carry tags from several clusters at once (an open-world RPG with crafting and survival tags, for example). Use it to compare clusters with each other or one Network State with a close variant, not as a pass mark.
 
 *Example.* Three members with silhouettes 0.6875, 0.875 and 0.875 have a mean of 0.8125.
 
@@ -1052,7 +1052,7 @@ How tightly linked a cluster is inside. For a cluster of n tags there are n(n �
 
 ### Cut weight and conductance
 
-> **In short.** How much of a cluster's link weight crosses to tags outside it, as a share of the cluster's total (or of the rest's, if smaller).
+> **In short.** How much of a cluster's link weight crosses to tags outside it, as a share of its members' total strength (or the rest's, if smaller).
 >
 > **Higher →** more of its weight crosses to other clusters; 0 = none.
 >
@@ -1110,7 +1110,7 @@ How many edges and how much weight join each pair of Multi-Tag Clusters, zero pa
 
 Every number here is shown as a plain number, with no "stable / unstable" label, colour or threshold.
 
-*Why it matters here.* The clustering is a randomised search, and other seeds can give different splits with nearly the same Q. Every number in this section compares the shown clusters with K extra runs on the unchanged network. Read other differences, between settings or after removing a tag, against this floor: a difference smaller than the seeds' own spread is not a finding.
+*Why it matters here.* The clustering is a randomised search, and other seeds can give different splits with nearly the same Q. Every number in this section compares the shown clusters with K extra runs on the unchanged network. Read other differences, between settings or after removing a tag, against this floor: a difference of similar size to the seeds' own spread is what another run of the clustering can give.
 
 ### Adjusted Rand index
 
@@ -1128,7 +1128,7 @@ Shown in the app as “Seed noise” (Cluster quality).
 
 How similar two partitions of the same tags are, corrected for the agreement expected by chance (Meilă 2007, §2.1, eq. 6). Here each of K = 10 extra seeds' partitions is compared with the shown (main-seed) partition: this is the **Seed-Noise Floor**. If another seed gives clearly different clusters, single-cluster findings should be held loosely. ARI drops faster in small networks, and it does not say which tags moved (see [Membership Stability](#membership-stability)). K = 10 is a sample of seeds, not all of them.
 
-*Why it matters here.* Before a cluster is described as a recurring combination of characteristics, it should be clear that it is not an accident of the random seed. If the lowest ARI is close to 1, every seed finds nearly the same clusters; if it is much lower, some clusters depend on the seed, and Membership Stability shows which tags move. The minimum is also the yardstick for Removal Sensitivity: a removal is flagged as beyond seed noise only when its ARI falls below it.
+*Why it matters here.* Before a cluster is described as a recurring combination of characteristics, it should be clear that it is not an accident of the random seed. If the lowest ARI is close to 1, every tested seed finds nearly the same clusters; if it is much lower, some clusters depend on the seed, and Membership Stability shows which tags move. The minimum is also the yardstick for Removal Sensitivity: a removal is flagged as beyond seed noise only when its ARI falls below it.
 
 *Example.* 50 tags in 5 clusters of 10. Moving 1 tag to another cluster: ARI 0.95; moving 2: 0.90; moving 4 into the same other cluster: 0.83; merging two clusters: 0.77. With only 12 tags in 2 clusters, moving 1 tag gives 0.66.
 
@@ -1188,7 +1188,7 @@ The lowest and highest number of Multi-Tag Clusters across the K extra seeds: th
 
 ### Membership Stability
 
-> **In short.** How often the tag lands with the same other tags when the clustering is repeated with other seeds.
+> **In short.** How much of the tag's cluster, on average, stays the same when the clustering is repeated with other seeds.
 >
 > **Higher →** 1: always with the same tags; lower: its companions change between seeds.
 >
@@ -1202,7 +1202,7 @@ Shown in the app as “Membership Stability”, “Mean Membership Stability” 
 
 How consistently a tag lands with the same other tags across the K extra seeds: 1 means its cluster never changed. A cluster's value is the mean over its members. It explains a low seed ARI by showing which tags move. Cluster size matters: losing one companion costs a member of a two-tag cluster 0.5 but a member of a twenty-tag cluster only 0.05. It is descriptive only: it does not say whether a tag or cluster is real or important. A related published measure, Hennig's cluster-wise Jaccard stability, comes from a different procedure (see Appendix A).
 
-*Why it matters here.* The clustering is a randomised search, so another seed can place some tags differently. A tag near 1 sits with the same companions whatever the seed, and a cluster's mean shows how much of the whole group holds together. Tags with low values are the ones to leave out, or mention with care, when describing a cluster in a write-up. The Seed-Noise Floor gives the same picture for the whole partition at once.
+*Why it matters here.* The clustering is a randomised search, so another seed can place some tags differently. A tag near 1 sits with the same companions across the tested seeds, and a cluster's mean shows how much of the whole group holds together. Tags with low values are the ones to leave out, or mention with care, when describing a cluster in a write-up. The Seed-Noise Floor gives the same picture for the whole partition at once.
 
 *Example.* Main cluster {T, a, b, c}. In 8 seeds T's cluster is the same (1.0); in 2 seeds it is {T, a, b} (3/4 = 0.75). Membership Stability = (8 × 1.0 + 2 × 0.75) / 10 = 0.95.
 
@@ -1241,11 +1241,11 @@ Comparisons use all tags except the removed one. Every Δ is after removal − b
 >
 > **Here:** a partial run has covered the most linked of the most-played games' tags.
 >
-> **Caution:** not a ranking of anything.
+> **Caution:** an order for running the tests, not a ranking of importance.
 
 Columns: `run_order`, `active_strength` (with `tag_id`, `tag`, `cluster`, `is_center`) in `removal_sensitivity.csv`.
 
-Which tag the row is about, and its strength on the active Clustering Weight. Tags are processed by active strength, highest first, then by tag id, so a cancelled or partial run has covered the most strongly linked tags and is a prefix of the full run. The run order is not a ranking of anything.
+Which tag the row is about, and its strength on the active Clustering Weight. Tags are processed by active strength, highest first, then by tag id, so a cancelled or partial run has covered the most strongly linked tags and is a prefix of the full run. The run order is an order for running the tests, not a ranking of importance.
 
 *Why it matters here.* Testing every tag takes time, so the run starts with the tags that carry the most link weight. If you stop early, the rows you have are for those tags; the others are untested, not unaffected.
 
@@ -1299,7 +1299,7 @@ Shown in the app as “Silhouette after removal (reclustered)” (Inspector; tab
 
 The mean silhouette after reclustering, and its change. Removing a tag also removes its own silhouette from the mean and changes its neighbours' distances to clusters, so some change happens even if no tag moves. If the silhouette moves between a value and n/a, the Δ is empty and the app shows, for example, "0.21 → n/a" with the reason.
 
-*Why it matters here.* A positive change means the remaining tags, reclustered, separate more clearly on the games they share; a negative change, less clearly. Part of any change comes from the removed tag's own silhouette leaving the mean, even if no other tag moves. Read it against `seed_silhouette_sd`: small changes are within what another seed gives.
+*Why it matters here.* A positive change means the remaining tags, reclustered, separate more clearly on the games they share; a negative change, less clearly. Part of any change comes from the removed tag leaving: its own value leaves the mean and the other tags' distances to its cluster change, even if no tag moves. Read it against `seed_silhouette_sd`: small changes are within what another seed gives.
 
 *Example.* 0.21 before, 0.24 after: Δ = +0.03.
 
@@ -1325,7 +1325,7 @@ Shown in the app as “Change in multi-tag · one-tag clusters” (Inspector; ta
 
 How many clusters appear or disappear after reclustering. Δk = −1 with Δs = +1 can simply mean the tag was one of a two-tag cluster, leaving its partner alone: a mechanical change, not reorganisation. Removing an isolated tag gives Δs = −1. No noise flag; check `seed_k_min`–`seed_k_max`.
 
-*Why it matters here.* A tag whose removal splits a cluster (+1 multi-tag) acts as a bridge: without it, the characteristics of the most-played games fall into two separate groups. A tag whose removal merges clusters was keeping them apart. Compare with the seed range of cluster counts, because other seeds alone can change the count.
+*Why it matters here.* A tag whose removal adds a Multi-Tag Cluster may have been linking two groups, and one whose removal removes one may have been separating them. The change can also come from the whole network shifting, because removing a tag changes every expected weight; look at the new clusters (Remove) before describing it. Compare with the seed range of cluster counts, because other seeds alone can change the count.
 
 *Example.* A bridge tag whose removal splits its cluster in two: Δk = +1.
 
@@ -1351,7 +1351,7 @@ Shown in the app as “Agreement after removal (ARI, reclustered)” (Inspector;
 
 How similar the reclustered partition is to the current one, over the remaining tags: 1 means nobody moved, lower means the partition reorganised without this tag. The Removal sensitivity table's default sort puts the lowest first. Removing a tag also changes the order in which the algorithm visits tags, so part of a low ARI can be seed-like noise; read it against `seed_ari_min`.
 
-*Why it matters here.* If removing a single tag reorganises the clusters, a description of those clusters rests on that one characteristic, and should say so. The Removal sensitivity table sorts by this value, lowest first, and the Beyond seed noise flag marks values below the Seed-Noise Floor. Values above the floor are no more than another seed would give.
+*Why it matters here.* If removing a single tag reorganises the clusters, a description of those clusters rests on that one characteristic, and should say so. The Removal sensitivity table sorts by this value, lowest first, and the Beyond seed noise flag marks values below the Seed-Noise Floor. A value above the floor is within the range the K seeds gave; that does not show the removal had no effect.
 
 *Example.* A bridge tag tying two groups into one cluster: without it the cluster splits and `rc_ari` = 0.
 
@@ -1399,9 +1399,9 @@ Column: `fp_delta_modularity`.
 
 Shown in the app as “Change in Q (clusters kept)” (Inspector; tables and exports keep the column names).
 
-Q without the tag, everyone else kept in their cluster, minus the current Q. Negative means the tag added to the partition's quality; positive means Q is higher without it (the tag fitted its cluster poorly). It is deterministic, but it includes the same weight-loss effect as the reclustered reading. No flag.
+Q without the tag, everyone else kept in their cluster, minus the current Q. Negative means the tag added to the partition's quality; positive means Q is higher without it (the tag fitted its cluster poorly). It is deterministic, but it includes the same weight-loss effect as the reclustered reading. Removing a tag also lowers the total weight and every cluster's strength, so Q moves even for clusters it was not in. No flag.
 
-*Why it matters here.* This reading keeps the clusters exactly as shown, so it has no reclustering noise; it still includes the loss of the tag's links. A clearly negative value marks a tag whose links hold its cluster together; a positive value, a tag that sits loosely in its cluster. Compare with the reclustered change to see whether the clustering would also reorganise.
+*Why it matters here.* This reading keeps the clusters exactly as shown, so it has no reclustering noise; it still includes the loss of the tag's links. A clearly negative value suggests a tag whose links hold its cluster together; a positive value, one that sits loosely in its cluster. Compare with the reclustered change to see whether the clustering would also reorganise.
 
 *Example.* Q 0.42 before, 0.43 with the tag dropped and the partition fixed: Δ = +0.01.
 
@@ -1415,19 +1415,19 @@ Q without the tag, everyone else kept in their cluster, minus the current Q. Neg
 
 > **In short.** The mean silhouette when the tag is dropped but every other tag stays in its cluster, and its change.
 >
-> **Higher →** a change above 0: the tag's own silhouette was below the others' mean.
+> **Higher →** a change above 0: the remaining tags fit their unchanged clusters better on average.
 >
 > **Here:** finds members whose games point away from their cluster.
 >
-> **Caution:** n/a when fewer than two multi-tag clusters remain.
+> **Caution:** includes changes to the other tags' distances; n/a when fewer than two multi-tag clusters remain.
 
 Columns: `fp_silhouette_after`, `fp_silhouette_after_status`, `fp_delta_silhouette`.
 
 Shown in the app as “Silhouette after removal (clusters kept)” (Inspector; tables and exports keep the column names).
 
-The mean silhouette without the tag, partition fixed, and its change. A positive Δ means the tag was pulling the mean down: it fitted its cluster poorly on game overlap. Removing a member of a two-tag cluster can leave fewer than two Multi-Tag Clusters, and then the silhouette after is n/a and the Δ empty.
+The mean silhouette without the tag, partition fixed, and its change. A positive Δ means the remaining tags' mean rose. Two effects mix: the tag's own value leaves the mean, and the other tags' distances change without its games. A two-tag cluster's partner becomes a One-Tag Cluster and leaves the mean. Removing a member of a two-tag cluster can leave fewer than two Multi-Tag Clusters, and then the silhouette after is n/a and the Δ empty.
 
-*Why it matters here.* A positive change means the tag's own silhouette was below the mean of the other members: its games overlap less closely with its cluster than most members' do. Its per-tag silhouette shows by how much; a negative one means its games overlap more with another cluster.
+*Why it matters here.* A clearly positive change suggests the tag fitted its cluster poorly on game overlap, but the change also includes the other tags' distances shifting without its games. Its per-tag silhouette shows its own fit directly; a negative one means its games overlap more with another cluster.
 
 *Example.* 0.21 before, 0.19 after: Δ = −0.02.
 
@@ -1443,17 +1443,17 @@ The mean silhouette without the tag, partition fixed, and its change. A positive
 >
 > **Here:** narrows the Removal Sensitivity table to the tags to look at first.
 >
-> **Caution:** a screening flag, not a test; if removals acted only like another seed, at most about n / (K + 1) would be flagged.
+> **Caution:** a screening flag, not a test; if removals acted only like another seed, about n / (K + 1) would be flagged on average, and the actual count varies widely.
 
 Column: `rc_ari_beyond_noise`.
 
 Shown in the app as “Beyond seed noise” (Inspector; tables and exports keep the column names).
 
-A screening flag, not a significance test: true when the reclustered ARI is below the lowest ARI among the K seeds of the Seed-Noise Floor, meaning that removing the tag changed the partition more than any of the extra seeds did. It narrows a long table to the tags to look at first. Only ARI is flagged: ΔQ and Δsilhouette always contain the mechanical effect of losing the tag's edges, so they stay plain numbers beside `seed_modularity_sd` and `seed_silhouette_sd`. When every seed agrees (`seed_ari_min` = 1), any removal that moves a tag is flagged, which is correct, because seed noise is then zero. Some flags are expected by chance: if a removal acted only like one more random seed, its ARI would fall below the lowest of K seed ARIs about 1 time in K + 1, so the app and the report state "if removals acted only like another seed, at most about n / (K + 1) would be".
+A screening flag, not a significance test: true when the reclustered ARI is below the lowest ARI among the K seeds of the Seed-Noise Floor, meaning that removing the tag changed the partition more than any of the extra seeds did. It narrows a long table to the tags to look at first. Only ARI is flagged: ΔQ and Δsilhouette always contain the mechanical effect of losing the tag's edges, so they stay plain numbers beside `seed_modularity_sd` and `seed_silhouette_sd`. When every seed agrees (`seed_ari_min` = 1), any removal that moves a tag is flagged, which is correct, because seed noise is then zero. Some flags are expected by chance: if a removal acted only like one more random seed, its ARI would fall below the lowest of K seed ARIs about 1 time in K + 1, so the app and the report state "if removals acted only like another seed, about n / (K + 1) would be flagged on average". All removals are compared with the same seed minimum, so flags rise and fall together; and a removal changes the network, so it need not behave like a seed.
 
-*Why it matters here.* With dozens of tags tested, some flags are expected by chance, and the footer under the table gives that expected count. A flagged tag is one whose absence reorganises the clusters beyond what another seed would, so descriptions of its clusters should be checked without it. Unflagged tags can still change Q or the silhouette, which carry no flag.
+*Why it matters here.* With dozens of tags tested, some flags are expected by chance, and the footer under the table gives that expected count. A flagged tag is one whose absence reorganises the clusters more than any of the K seeds did, so descriptions of its clusters should be checked without it. Unflagged tags can still change Q or the silhouette, which carry no flag.
 
-*Example.* 50 tags tested with K = 10: "7 of 50 tags flagged; if removals acted only like another seed, at most about 5 would be".
+*Example.* 50 tags tested with K = 10: "7 of 50 tags flagged; if removals acted only like another seed, about 5 would be flagged on average".
 
 *Bounds.* true / false.
 

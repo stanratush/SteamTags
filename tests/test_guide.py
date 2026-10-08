@@ -280,3 +280,11 @@ def test_reading_the_graph_explains_each_part_of_the_drawing():
     for name in GRAPH_ENTRIES:
         entry = section(reading, slug(name))
         assert in_short(entry) and "*Why it matters here.*" in entry, name
+
+
+def test_plain_keeps_identifiers_whole():
+    from steamstudy.app.guide import plain
+
+    assert plain("records it in `layout_source`") == "records it in layout_source"
+    assert plain("**bold**, *italic*, _also_ and a [link](#x)") == "bold, italic, also and a link"
+    assert plain("n_small / n_large") == "n_small / n_large"

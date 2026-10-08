@@ -39,7 +39,7 @@ def _term(text: str, key: str) -> tuple[list[Any], dict[str, Any]]:
 
 
 def _control_key(control: str) -> str | None:
-    """A control's help key (`steamstudy.app.help`), if it is an analytical control."""
+    """A control's help key (`steamstudy.app.help`), if its effect needs interpretation."""
     return f"control.{control}" if f"control.{control}" in H.HELP else None
 
 
@@ -49,16 +49,10 @@ def _label(text: str, key: str, *extra: Any, **kw: Any) -> html.Label:
     return html.Label([*children, *extra], className="l", **help_, **kw)
 
 
-def _info(key: str, name: str) -> html.Span:
-    """An ⓘ for a control without a label of its own: hover or focus shows its In short, a click opens its entry."""
-    attrs: dict[str, Any] = {"role": "button", "tabIndex": "0", "aria-label": f"User Guide entry: {name}",
-                             **H.attrs(key)}
-    return html.Span("ⓘ", className="hinfo", **attrs)
-
-
 def _slider(id_: str, label: str, lo: int, hi: int, value: int) -> list[Any]:
     """A slider whose label shows its value while dragging; the value itself is sent on release."""
-    children, help_ = _term(label, f"control.{id_}")
+    key = _control_key(id_)
+    children, help_ = _term(label, key) if key else ([label], {})
     return [html.Label([*children, html.B(str(value), id=f"{id_}-value", className="num")], htmlFor=id_,
                        className="sl-label", **help_),
             dcc.Slider(id=id_, min=lo, max=hi, step=1, value=value, updatemode="mouseup", allow_direct_input=False,
@@ -66,8 +60,8 @@ def _slider(id_: str, label: str, lo: int, hi: int, value: int) -> list[Any]:
 
 
 def _item(pill: str, pill_label: str, value: str, children: list[Any]) -> html.Div:
-    """One control: shown inline in the Controls panel, or as a pill with a popover in the pill bar. An analytical
-    control's pill shows its In short on hover or focus; its click opens the popover, whose label opens the entry."""
+    """One control: shown inline in the Controls panel, or as a pill with a popover in the pill bar. The pill of a
+    control with help shows its In short on hover or focus; its click opens the popover, whose label opens the entry."""
     key = _control_key(pill)
     tip = _data(tip=H.tip(key)) if key else {}
     return html.Div([
@@ -127,16 +121,14 @@ def _controls(ctx: BuildContext) -> html.Div:
               _slider("min-shared", "Minimum shared games", 1, 30, s.min_shared_games)),
         _item("hidden", "Hidden", f"{len(hidden)} Genre Tag{'' if len(hidden) == 1 else 's'}"
               + (" + defining" if defining and defining.id in s.hidden_tag_ids else ""), [
-            _label("Hidden Genre Tags", "control.hidden", " ",
-                   html.Span(f"{len(hidden)} of {len(genre_ids)}", id="genre-count", className="mute num")),
+            html.Label(["Hidden Genre Tags ", html.Span(f"{len(hidden)} of {len(genre_ids)}", id="genre-count",
+                                                          className="mute num")], className="l"),
             dcc.Checklist(id="genre-hidden", options=[{"label": t.name, "value": t.id} for t in ctx.genre_tags],
                           value=hidden, inline=True, className="chips"),
-            html.Div([dcc.Checklist(id="defining-hidden",
-                                    options=[{"label": f"hide defining tag ({defining.name})" if defining
-                                              else "no defining tag", "value": 1, "disabled": defining is None}],
-                                    value=[1] if defining and defining.id in s.hidden_tag_ids else [],
-                                    className="check"),
-                      _info("control.defining", "Hide defining tag")], className="row-inline"),
+            dcc.Checklist(id="defining-hidden",
+                          options=[{"label": f"hide defining tag ({defining.name})" if defining else "no defining tag",
+                                    "value": 1, "disabled": defining is None}],
+                          value=[1] if defining and defining.id in s.hidden_tag_ids else [], className="check"),
         ]),
     ])
     clustering = _section("Clustering", [
@@ -157,7 +149,7 @@ def _controls(ctx: BuildContext) -> html.Div:
     ])
     state = _section("State", [
         _item("state", "State", "…", [
-            _label("Removed tags", "control.removed"),
+            html.Label("Removed tags", className="l"),
             html.Div([dcc.Dropdown(id="restore-pick", options=[], placeholder="pick a removed tag"),
                       html.Button("Restore", id="restore-btn", className="btn")], className="row-inline"),
             html.Div([html.Button("Reset all", id="reset-btn", className="btn"),
@@ -183,9 +175,8 @@ def build_layout(ctx: BuildContext) -> html.Div:
         html.Div([
             *graph_component(),
             html.Div([_seg("layout-mode", [("global", "Global"), ("separated", "Cluster-separated")], "global"),
-                      _info("control.layout-mode", "Global / Cluster-separated"),
-                      html.Button("Tidy", id="relayout-btn", className="btn", **_data(tip=H.tip("control.tidy"))),
-                      _info("control.tidy", "Tidy"),
+                      html.Button("Tidy", id="relayout-btn", className="btn",
+                                  title="Settle the graph around the nodes you dragged; positions only"),
                       html.Button("⤢", id="fit-btn", className="btn", title="Fit the graph to the view")],
                      className="ov ov-tr", **_data(graph_overlay="top")),
             html.Div(html.Div(id="legend", className="legend"), className="ov ov-bl",

@@ -112,5 +112,5 @@ def removal_sensitivity(
 
 
 def expected_chance_flags(n_tags: int, k: int) -> float:
-    """If removals acted only like another seed, at most about n / (K + 1) tags would be flagged."""
+    """If removals acted only like another seed, about n / (K + 1) tags would be flagged on average."""
     return n_tags / (k + 1)

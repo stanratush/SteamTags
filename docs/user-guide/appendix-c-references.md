@@ -25,6 +25,7 @@ Only sources whose cited passage was verified at page, section or equation level
 - Meilă, M. (2007). Comparing clusterings: an information based distance. *J. Multivariate Anal.* 98(5), 873–895. doi:10.1016/j.jmva.2006.11.013 (§2.1, eq. 6)
 - Newman, M. E. J. (2004). Analysis of weighted networks. *Phys. Rev. E* 70, 056131. doi:10.1103/PhysRevE.70.056131 (§II.A eq. 5, §II.C)
 - Newman, M. E. J., Girvan, M. (2004). Finding and evaluating community structure in networks. *Phys. Rev. E* 69, 026113. doi:10.1103/PhysRevE.69.026113 (§IV)
+- Phipson, B., Smyth, G. K. (2010). Permutation P-values should never be zero: calculating exact P-values when permutations are randomly drawn. *Stat. Appl. Genet. Mol. Biol.* 9(1), Article 39. doi:10.2202/1544-6115.1585 (abstract)
 - Strona, G., Nappo, D., Boccacci, F., Fattorini, S., San-Miguel-Ayanz, J. (2014). A fast and unbiased procedure to randomize ecological binary matrices with fixed row and column totals. *Nat. Commun.* 5, 4114. doi:10.1038/ncomms5114 (description of the algorithm, Fig. 1)
 - Struyf, A., Hubert, M., Rousseeuw, P. J. (1997). Clustering in an object-oriented environment. *J. Stat. Softw.* 1(4), 1–30. doi:10.18637/jss.v001.i04 (§2.1 eq. 2.1; pp. 9–10; Table 2, p. 10)
 - Traag, V. A., Waltman, L., van Eck, N. J. (2019). From Louvain to Leiden: guaranteeing well-connected communities. *Sci. Rep.* 9, 5233. doi:10.1038/s41598-019-41695-z (abstract, §II A)

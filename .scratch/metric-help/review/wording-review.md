@@ -2,8 +2,6 @@
 
 Generated on 2026-10-08 from Build `20261006T062622Z-7a23ae9f` (first dataset, default settings) by `make_review.py`, from the app's own components and the User Guide. **Do not edit this page**: correct the guide entry it links to, then run the script again.
 
-> **Hand-edited on 2026-10-08 with proposed corrections from the issue-07 wording review.** The tooltips and *Why it matters here.* paragraphs below show the proposed wording, which is not yet in the guide or the app; running `make_review.py` again overwrites this page. Words are recounted for every edited In short block. Proposed changes that this page does not show (entry bodies, app and report strings) are listed in the last section.
-
 How to review (spec: *Review*; issue 07):
 
 - Each surface lists every element of the app that has help: its tooltip (layer 1) and the guide entry a click opens (layer 2). Labels are bold; a line the app adds below the guide text (a **Now:** line of live values, the column or Network State field) is in italics.
@@ -12,9 +10,10 @@ How to review (spec: *Review*; issue 07):
 - The appendix gives every linked entry's *Why it matters here.* paragraph once.
 - Write a correction as a comment under issue 07, or edit the guide entry directly. Tick a surface when its wording is approved.
 
-## Open decisions
+## Decisions
 
-- [ ] **"successful games" or "the most-played games"?** The glossary avoids "success" unqualified; the later entries say "the most-played games". These entries still use "success…" in their In short or Why it matters: [Excess modularity and z-score](../../../docs/user-guide/03-metric-reference.md#excess-modularity-and-z-score), [Mean silhouette](../../../docs/user-guide/03-metric-reference.md#mean-silhouette), [Modularity Q](../../../docs/user-guide/03-metric-reference.md#modularity-q), [Network size](../../../docs/user-guide/03-metric-reference.md#network-size), [Null-model baseline](../../../docs/user-guide/03-metric-reference.md#null-model-baseline). *Proposed: "the most-played games"; the wording below uses it in all five entries.*
+- [x] **"the most-played games"**, not "successful games" (decided 2026-10-08). Entries the app links to that still say "success…" in their In short or Why it matters: none.
+- [x] **Self-explanatory controls carry no help** (decided 2026-10-08): the minimum games per tag, the minimum shared games, Hidden Genre Tags, Hide defining tag, Remove / Restore, Global / Cluster-separated and Tidy. Their entries stay in the guide, linked from the Control reference; Tidy keeps a native title.
 - [ ] **A pill's click** (pill bar, medium and narrow forms) opens its popover, whose dotted label then opens the entry; hover and Tab show the In short. The spec asked for the click to open the entry (issue 05).
 
 ## 1 Summary row (above the graph)
@@ -26,7 +25,7 @@ How to review (spec: *Review*; issue 07):
 | Games | **In short.** How big the network is: the games it is built from, the tags shown as nodes, and the links between tags that share enough games.<br>**Higher →** more tags and links: a larger network, usually from looser thresholds.<br>**Here:** shows how much of the dataset and its tags the clusters describe.<br>**Caution:** most other numbers shift with size; compare Network States of similar size.<br>*Now: 100 of the dataset's 100 games pass the Minimum Months Filter.* | [Network size](../../../docs/user-guide/03-metric-reference.md#network-size) | 60 |
 | Tags | *Same In short as Games (Summary row).* | [Network size](../../../docs/user-guide/03-metric-reference.md#network-size) | 60 |
 | Links | *Same In short as Games (Summary row).*<br>*Now: shuffled networks average 290 links.* | [Network size](../../../docs/user-guide/03-metric-reference.md#network-size) | 60 |
-| Clusters | **In short.** Groups of tags linked more among themselves than chance predicts; C1 is the largest.<br>**Higher →** more multi-tag clusters: the tags split into more, smaller groups.<br>**Here:** each cluster is a candidate group of characteristics that co-occur in pairs among the most-played games.<br>**Caution:** the count depends on γ, the thresholds and the seed; one-tag clusters are usually isolated tags, not findings.<br>*Now: other seeds give 3–3 multi-tag clusters.* | [Cluster labels and counts](../../../docs/user-guide/03-metric-reference.md#cluster-labels-and-counts) | 58 |
+| Clusters | **In short.** Groups of tags linked more among themselves than chance predicts; C1 is the largest.<br>**Higher →** more multi-tag clusters: the tags split into more, smaller groups.<br>**Here:** each cluster is a candidate group of characteristics that co-occur in pairs among the most-played games.<br>**Caution:** the count depends on γ, the thresholds and the seed; one-tag clusters are usually isolated tags, not findings.<br>*Now: all other seeds give 3 multi-tag clusters.* | [Cluster labels and counts](../../../docs/user-guide/03-metric-reference.md#cluster-labels-and-counts) | 58 |
 | Q | **In short.** How much more link weight falls inside clusters than if links were placed at random, keeping each tag's total weight.<br>**Higher →** more weight inside clusters than that expectation; 0 = no more than expected.<br>**Here:** the clustering's target score; read it through its excess over the null model.<br>**Caution:** random networks also reach high Q; not comparable across γ, weights, thresholds or datasets.<br>*Now: γ = 1.00; null mean 0.07 ± 0.01 from R = 20 shuffled networks; excess = Q − null mean.* | [Modularity Q](../../../docs/user-guide/03-metric-reference.md#modularity-q) | 60 |
 | Silhouette | **In short.** On average, whether tags' games overlap more with their own cluster than with the nearest other; descriptive diagnostic, not a selection criterion.<br>**Higher →** clearer separation; 0 = between clusters; below 0 = closer to another.<br>**Here:** a second view, from game overlap; the links come from the same games.<br>**Caution:** tag distances are mostly near 1, so values near 0 are common.<br>*Now: SD across seeds 0.00.* | [Mean silhouette](../../../docs/user-guide/03-metric-reference.md#mean-silhouette) | 59 |
 
@@ -133,26 +132,15 @@ How to review (spec: *Review*; issue 07):
 | Element | Tooltip (layer 1) | Entry (layer 2) | Words |
 |---|---|---|---|
 | Minimum Months Filter | **In short.** Leaves out games with fewer Months Observed than this before the network is built.<br>**Raising it →** fewer games (a smaller N), each with a longer player record; 0 = every game.<br>**Here:** checks whether the clusters hold among the games tracked longest, not only among recent releases.<br>**Caution:** it never re-ranks or adds games: N shrinks, so lift and some counts change. | [Minimum Months Filter](../../../docs/user-guide/02-app-controls.md#minimum-months-filter) | 58 |
-| Minimum games per tag | **In short.** A tag becomes a node only if at least this many of the network's games carry it.<br>**Raising it →** fewer, more common tags; rarer characteristics leave the network.<br>**Here:** decides which characteristics are frequent enough among the most-played games to be clustered at all.<br>**Caution:** low values admit tags whose links rest on very few games. | [Minimum games per tag](../../../docs/user-guide/02-app-controls.md#minimum-games-per-tag) | 52 |
-| Minimum shared games | **In short.** Two tags are linked only if at least this many of the network's games carry both.<br>**Raising it →** fewer links, more isolated tags (One-Tag Clusters); clusters may split or reorganise.<br>**Here:** sets how often two characteristics must occur together among the most-played games to count as linked.<br>**Caution:** a missing link does not mean two tags never occur together. | [Minimum shared games](../../../docs/user-guide/02-app-controls.md#minimum-shared-games) | 55 |
-| Hidden Genre Tags | **In short.** Hides the chosen Genre Tags, broad tags such as Action or RPG, from the network; their games stay.<br>**Here:** keeps broad genre labels, which many of the most-played games carry, from swamping the clusters.<br>**Caution:** it changes the Network State and the clusters, but not N or any remaining lift. | [Hidden Genre Tags](../../../docs/user-guide/02-app-controls.md#hidden-genre-tags) | 48 |
-| Hide defining tag (ⓘ) | **In short.** Hides the tag that defines a Tag-Specific Dataset (Puzzle, RPG, Strategy or Simulation), which every game of that dataset carries.<br>**Here:** keeps a tag that all of a dataset's most-played games carry from linking to every other tag.<br>**Caution:** it is also a Genre Tag, so it shows only when its Genre Tag chip is shown too. | [Hide defining tag](../../../docs/user-guide/02-app-controls.md#hide-defining-tag) | 55 |
 | Clustering weight | **In short.** What the clustering runs on: each link's shared-games count, or its lift.<br>**Here:** shared games groups what the most-played games most often carry together; lift, what they combine more often than tag frequencies predict.<br>**Caution:** the two answer different questions; Q and every weighted number differ between them. | [Clustering weight](../../../docs/user-guide/02-app-controls.md#clustering-weight) | 46 |
 | Clustering algorithm | **In short.** The method that searches for the clusters: Louvain or Leiden, both seeking high modularity (neither guarantees the best).<br>**Here:** running the second method on the same network shows whether the clusters depend on the method.<br>**Caution:** Louvain can return a cluster in disconnected pieces; Leiden never does. | [Clustering algorithm](../../../docs/user-guide/02-app-controls.md#clustering-algorithm) | 45 |
 | Resolution γ | **In short.** Sets the scale of the clusters: the resolution in the modularity that the clustering seeks to maximise.<br>**Raising it →** tends to give more, smaller clusters; lowering it, fewer and larger ones.<br>**Here:** shows whether the groups of characteristics hold at a finer or a coarser scale.<br>**Caution:** Q at different γ is not comparable; compare the clusters instead. | [Resolution γ](../../../docs/user-guide/02-app-controls.md#resolution-γ) | 54 |
 | Seed | **In short.** The random seed of the clustering; the null-model and noise seeds are derived from it.<br>**Here:** lets a reported cluster of the most-played games' tags be reproduced exactly.<br>**Caution:** never choose a seed for the clusters it gives; the Seed-Noise Floor already compares other seeds. | [Seed](../../../docs/user-guide/02-app-controls.md#seed) | 43 |
-| Removed tags | **In short.** Remove takes one tag out of the network as a what-if and recomputes everything; Restore brings it back.<br>**Here:** shows the clusters of the most-played games without one characteristic, such as a generic tag linked to everything.<br>**Caution:** it changes the Network State; Removal Sensitivity answers the same question without changing it. | [Remove / Restore](../../../docs/user-guide/02-app-controls.md#remove--restore) | 50 |
-| Global / Cluster-separated (ⓘ) | **In short.** How the graph is drawn: one layout for the whole network, or one region per Multi-Tag Cluster.<br>**Here:** Global shows how the clusters of the most-played games' tags touch; Cluster-separated makes each cluster's members easy to read.<br>**Caution:** moves nodes only; no number changes, and distance on screen is not a metric. | [Global / Cluster-separated](../../../docs/user-guide/02-app-controls.md#global--cluster-separated) | 50 |
-| Tidy (ⓘ) | **In short.** Settles the Global layout from where the nodes are now, keeping the nodes you dragged where you dropped them.<br>**Here:** untangles a crowded part of the graph for reading or for a figure.<br>**Caution:** moves nodes only; an export after Tidy records it in layoutsource. | [Tidy](../../../docs/user-guide/02-app-controls.md#tidy) | 43 |
 | Months ≥ 0 (pill) | *Same In short as Minimum Months Filter (Analytical controls).* | [Minimum Months Filter](../../../docs/user-guide/02-app-controls.md#minimum-months-filter); a click opens the pill's popover | 58 |
-| Min games 8 (pill) | *Same In short as Minimum games per tag (Analytical controls).* | [Minimum games per tag](../../../docs/user-guide/02-app-controls.md#minimum-games-per-tag); a click opens the pill's popover | 52 |
-| Min shared 8 (pill) | *Same In short as Minimum shared games (Analytical controls).* | [Minimum shared games](../../../docs/user-guide/02-app-controls.md#minimum-shared-games); a click opens the pill's popover | 55 |
-| Hidden 11 Genre Tags (pill) | *Same In short as Hidden Genre Tags (Analytical controls).* | [Hidden Genre Tags](../../../docs/user-guide/02-app-controls.md#hidden-genre-tags); a click opens the pill's popover | 48 |
 | Weight Shared games (pill) | *Same In short as Clustering weight (Analytical controls).* | [Clustering weight](../../../docs/user-guide/02-app-controls.md#clustering-weight); a click opens the pill's popover | 46 |
 | Louvain (pill) | *Same In short as Clustering algorithm (Analytical controls).* | [Clustering algorithm](../../../docs/user-guide/02-app-controls.md#clustering-algorithm); a click opens the pill's popover | 45 |
 | γ 1.00 (pill) | *Same In short as Resolution γ (Analytical controls).* | [Resolution γ](../../../docs/user-guide/02-app-controls.md#resolution-γ); a click opens the pill's popover | 54 |
 | Seed 20261003 (pill) | *Same In short as Seed (Analytical controls).* | [Seed](../../../docs/user-guide/02-app-controls.md#seed); a click opens the pill's popover | 43 |
-| Tidy (button) | *Same In short as Tidy (ⓘ) (Analytical controls).* | [Tidy](../../../docs/user-guide/02-app-controls.md#tidy); a click tidies the layout | 43 |
 
 ## 6 Legend
 
@@ -171,10 +159,6 @@ How to review (spec: *Review*; issue 07):
 |---|---|---|---|
 | Games after the Minimum Months Filter | *Same In short as Games (Summary row).* | [Network size](../../../docs/user-guide/03-metric-reference.md#network-size) | 60 |
 | Minimum Months Filter | *Same In short as Minimum Months Filter (Analytical controls).*<br>*Field: min_months* | [Minimum Months Filter](../../../docs/user-guide/02-app-controls.md#minimum-months-filter) | 58 |
-| Minimum games per tag | *Same In short as Minimum games per tag (Analytical controls).*<br>*Field: min_games_per_tag* | [Minimum games per tag](../../../docs/user-guide/02-app-controls.md#minimum-games-per-tag) | 52 |
-| Minimum shared games | *Same In short as Minimum shared games (Analytical controls).*<br>*Field: min_shared_games* | [Minimum shared games](../../../docs/user-guide/02-app-controls.md#minimum-shared-games) | 55 |
-| Hidden tags | *Same In short as Hidden Genre Tags (Analytical controls).*<br>*Field: hidden_tag_ids* | [Hidden Genre Tags](../../../docs/user-guide/02-app-controls.md#hidden-genre-tags) | 48 |
-| Removed tags | *Same In short as Removed tags (Analytical controls).*<br>*Field: removed_tag_ids* | [Remove / Restore](../../../docs/user-guide/02-app-controls.md#remove--restore) | 50 |
 | Clustering Weight | *Same In short as Clustering weight (Analytical controls).*<br>*Field: clustering_weight* | [Clustering weight](../../../docs/user-guide/02-app-controls.md#clustering-weight) | 46 |
 | Algorithm | *Same In short as Clustering algorithm (Analytical controls).*<br>*Field: algorithm* | [Clustering algorithm](../../../docs/user-guide/02-app-controls.md#clustering-algorithm) | 45 |
 | Resolution γ | *Same In short as Resolution γ (Analytical controls).*<br>*Field: resolution* | [Resolution γ](../../../docs/user-guide/02-app-controls.md#resolution-γ) | 54 |
@@ -197,35 +181,11 @@ A group of characteristics that both methods find is less likely to be an artefa
 
 Shared games describes the most-played games as they are: which characteristics they carry together most often. Lift asks what they combine beyond popularity. Comparing the two weights shows which clusters reflect frequent tags and which reflect characteristics that go together.
 
-### Global / Cluster-separated
-
-[Global / Cluster-separated](../../../docs/user-guide/02-app-controls.md#global--cluster-separated) · In short 50 words
-
-Global is the view to see how groups of characteristics connect; Cluster-separated is the view to read and screenshot one cluster's members.
-
 ### Grey One-Tag Clusters
 
 [Grey One-Tag Clusters](../../../docs/user-guide/02-app-controls.md#grey-one-tag-clusters) · In short 44 words
 
 A grey tag is in the network but in no group. Lowering the minimum shared games often lets it join a cluster, which shows which group of characteristics it is closest to.
-
-### Hidden Genre Tags
-
-[Hidden Genre Tags](../../../docs/user-guide/02-app-controls.md#hidden-genre-tags) · In short 48 words
-
-Genre Tags name broad categories that sit on a large share of the games and so link to almost every other tag. Left in, they pull the clusters around themselves; hidden, the clusters show the finer characteristics (mechanics, settings, styles) that the most-played games combine. Showing one Genre Tag at a time shows which cluster it belongs with.
-
-### Hide defining tag
-
-[Hide defining tag](../../../docs/user-guide/02-app-controls.md#hide-defining-tag) · In short 55 words
-
-In a Tag-Specific Dataset the question is which characteristics the most-played games of that kind combine; the defining tag is the same on all of them and carries no information about that.
-
-### Minimum games per tag
-
-[Minimum games per tag](../../../docs/user-guide/02-app-controls.md#minimum-games-per-tag) · In short 52 words
-
-A characteristic shared by only two or three of the most-played games says little about what the most-played games have in common, and its links and lifts rest on those few games. The threshold keeps the clusters about characteristics that recur. Moving it shows which clusters depend on the rarer tags.
 
 ### Minimum Months Filter
 
@@ -233,23 +193,11 @@ A characteristic shared by only two or three of the most-played games says littl
 
 The study asks which characteristics recur among the most-played commercial games. A cluster that appears only while recent releases are included may reflect a few new games rather than a combination that holds over a longer player record; one that stays when the filter is raised rests on games with a long player record.
 
-### Minimum shared games
-
-[Minimum shared games](../../../docs/user-guide/02-app-controls.md#minimum-shared-games) · In short 55 words
-
-The clusters are built from these links, so the threshold decides which co-occurrences count as a pattern among the most-played games. A pairing seen in only a few games is left out at the default, which keeps chance pairings from shaping the clusters.
-
 ### Reading the graph
 
 [Reading the graph](../../../docs/user-guide/02-app-controls.md#reading-the-graph) · In short 45 words
 
 The drawing is the quickest way to see which characteristics the most-played games carry together and how the clusters touch. Knowing what each visual property encodes keeps it from being read as more than it is: a big node is a common tag, not a central one, and two tags drawn side by side may share few games.
-
-### Remove / Restore
-
-[Remove / Restore](../../../docs/user-guide/02-app-controls.md#remove--restore) · In short 50 words
-
-Some tags, such as Singleplayer, sit on so many of the most-played games that they link to almost every other tag. Removing one shows how the remaining characteristics group without it, as a new Network State that can be exported and cited.
 
 ### Resolution γ
 
@@ -262,12 +210,6 @@ There is no single right size for a group of characteristics. A cluster that sta
 [Seed](../../../docs/user-guide/02-app-controls.md#seed) · In short 43 words
 
 Results are only citable if they can be reproduced, and the seed is part of the `state_id`. Trying another seed is also the most direct way to see how much a cluster depends on chance, which the Seed-Noise Floor measures for K seeds at once.
-
-### Tidy
-
-[Tidy](../../../docs/user-guide/02-app-controls.md#tidy) · In short 43 words
-
-A figure of the most-played games' tag network is easier to read when crowded labels are pulled apart by hand; Tidy lets the rest of the graph settle around those choices.
 
 ### Adjusted Rand index
 
@@ -508,20 +450,3 @@ Inside a cluster, a few members usually hold most of the link weight. A high val
 [Deposit the export zip](../../../docs/user-guide/05-citing-and-reproducing.md#deposit-the-export-zip) · In short 49 words
 
 Clusters and their numbers belong to one Network State, so the figures and tables of a paper should travel with the Network State that produced them. The zip opens in the app on another computer that has the same Build, and the recomputed `state_id` confirms that the numbers are the same.
-
-## Proposed changes this page does not show
-
-Entry bodies (the guide text between the tooltip and *Why it matters here.*), and strings outside the guide:
-
-- [Modularity Q](../../../docs/user-guide/03-metric-reference.md#modularity-q), *Compare with*: "0 = no more weight inside clusters than expected at random (Newman & Girvan 2004, §IV)".
-- [Excess modularity and z-score](../../../docs/user-guide/03-metric-reference.md#excess-modularity-and-z-score): replace "the part of Q not explained by tag frequencies" with "Q minus the null-model mean". Add: "With R = 20 shuffles a permutation test could not give p below 1/21 ≈ 0.048 (Phipson & Smyth 2010)." Add: "The shuffled networks are rebuilt with the same thresholds and usually have a different number of links (shown in the line); Q of random networks depends on density (Guimerà et al. 2004), so part of the excess can reflect that difference."
-- [Mean silhouette](../../../docs/user-guide/03-metric-reference.md#mean-silhouette): "an independent check on the clustering that uses game overlap instead of graph weights" → "a check on the clustering from game overlap rather than link weights, not independent of them, since both come from the same game sets".
-- [Per-tag silhouette](../../../docs/user-guide/03-metric-reference.md#per-tag-silhouette): keep "a rare tag can never be close to a very common one" and state the limit: "Jaccard similarity is at most n_small / n_large, so a tag on 5 games is at least 0.92 from one on 60." Replace the reason for low values ("The clusters maximise modularity on graph weights, not silhouette, so low or negative values are expected") with: "Most tag pairs are far apart, which pulls silhouettes toward 0; low or negative values do not prove a cluster wrong."
-- [Fixed-partition silhouette](../../../docs/user-guide/03-metric-reference.md#fixed-partition-silhouette): "A positive Δ means the tag was pulling the mean down: it fitted its cluster poorly on game overlap." → "A positive Δ means the remaining tags' mean rose. Two effects mix: the tag's own value leaves the mean, and the other tags' distances change without its games. A two-tag cluster's partner becomes a One-Tag Cluster and leaves the mean."
-- [Fixed-partition change in modularity](../../../docs/user-guide/03-metric-reference.md#fixed-partition-change-in-modularity): add "Removing a tag also lowers the total weight and every cluster's strength, so Q moves even for clusters it was not in."
-- [Strength (weighted degree)](../../../docs/user-guide/03-metric-reference.md#strength-weighted-degree), opening paragraph (the tooltip is at the cap): add "A game is counted once for every link it supports, so the total is not a number of games."
-- [Cluster Center](../../../docs/user-guide/03-metric-reference.md#cluster-center), body: "the member whose games overlap most with the other members' games" → "the member with the lowest mean game-set distance to the other members".
-- [Run order and identity](../../../docs/user-guide/03-metric-reference.md#run-order-and-identity), body: "The run order is not a ranking of anything." → "The run order is an order for running the tests, not a ranking of importance."
-- [Beyond-noise flag](../../../docs/user-guide/03-metric-reference.md#beyond-noise-flag), body and example: "at most about" → "about … on average". Add: "All removals are compared with the same seed minimum, so flags rise and fall together; and a removal changes the network, so it need not behave like a seed." Keep the string "n / (K + 1)": `tests/test_guide.py` requires it.
-- The same footer wording in `src/steamstudy/app/view.py:62`, `src/steamstudy/analysis/templates.py:62` and the `expected_chance_flags` docstring in `src/steamstudy/network/sensitivity.py`: "about {expected} would be flagged on average (n / (K + 1))".
-- [App controls](../../../docs/user-guide/02-app-controls.md): the controls table "(both maximise modularity)" and the recipe "both maximise modularity, so Q is comparable" → "both seek high modularity"; the Removal Sensitivity recipe "Above it, the partition changed no more than another seed would change it." → "Above it, the partition changed no more than the most different of the K seeds did."

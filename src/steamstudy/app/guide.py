@@ -134,7 +134,9 @@ IN_SHORT_MAX_WORDS = 60
 def plain(markdown: str) -> str:
     """Inline Markdown as plain text: links keep their text; emphasis and code marks go."""
     text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", markdown)
-    return re.sub(r"[`*_]", "", text).strip()
+    # code spans keep their underscores (`layout_source`); elsewhere only emphasis marks go, not snake_case
+    parts = re.split(r"(`[^`]*`)", text)
+    return "".join(p[1:-1] if p.startswith("`") else re.sub(r"\*|(?<!\w)_|_(?!\w)", "", p) for p in parts).strip()
 
 
 def in_short(entry: str) -> list[tuple[str, str]]:

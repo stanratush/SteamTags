@@ -780,18 +780,29 @@ def test_the_joined_membership_stability_column_has_the_same_help(build_folder):
     assert joined["headerTooltip"].startswith("In short. ")
 
 
-def test_controls_and_their_pills_carry_the_help_of_their_guide_entry(build_folder):
+def test_only_controls_that_need_interpretation_carry_help(build_folder):
+    """Controls whose effect needs interpretation carry both help layers on their label and pill; self-explanatory
+    ones (the two thresholds, hiding and removing tags, the layout switch, Tidy) carry none."""
     from steamstudy.app.help import HELP
     from steamstudy.app.layout import build_layout
 
     components = list(_walk(build_layout(load_build(build_folder))))
     helps = {getattr(c, "data-help", None) for c in components}
     controls = {f"{file}#{anchor}" for key, (file, anchor) in HELP.items() if key.startswith("control.")}
-    assert len(controls) == 12 and controls <= helps
+    assert controls <= helps and {anchor.split("#")[1] for anchor in controls} == {
+        "minimum-months-filter", "clustering-weight", "clustering-algorithm", "resolution-γ", "seed"}
     pills = {getattr(c, "data-pill"): getattr(c, "data-tip", None) for c in components
              if getattr(c, "className", None) == "pill-btn"}
-    for pill in ("min-months", "min-games", "min-shared", "hidden", "weight", "algorithm", "gamma", "seed"):
+    for pill in ("min-months", "weight", "algorithm", "gamma", "seed"):
         assert (pills[pill] or "").startswith("In short. "), pill
+    for pill in ("min-games", "min-shared", "hidden", "dataset", "state"):
+        assert pills[pill] is None, pill
+    for anchor in ("minimum-games-per-tag", "minimum-shared-games", "hidden-genre-tags", "hide-defining-tag",
+                   "remove--restore", "global--cluster-separated", "tidy"):
+        assert f"02-app-controls.md#{anchor}" not in helps, anchor
+    assert not any("hinfo" in str(getattr(c, "className", "")) for c in components)  # ⓘ only in grid headers
+    tidy = next(c for c in components if getattr(c, "id", None) == "relayout-btn")
+    assert tidy.title and not getattr(tidy, "data-tip", None)
     assert not any(getattr(c, "title", None) == "0.1–3.0" for c in components)  # the range is in the entry now
 
 
@@ -837,6 +848,8 @@ def test_the_dataset_summary_explains_each_analytical_field(build_folder):
     assert getattr(th["min_months"], "data-tip").split("\n")[-1] == "Field: min_months"
     assert not getattr(th["n_games"], "data-tip").split("\n")[-1].startswith("Field:")  # derived, not a key field
     assert not getattr(th["dataset"], "data-help", None) and not getattr(th["key_version"], "data-help", None)
+    for field in ("min_games_per_tag", "min_shared_games", "hidden_tag_ids", "removed_tag_ids"):
+        assert not getattr(th[field], "data-help", None) and th[field].title, field
 
 
 def test_every_help_target_in_the_app_opens_an_entry_with_in_short_and_why_it_matters(build_folder):
