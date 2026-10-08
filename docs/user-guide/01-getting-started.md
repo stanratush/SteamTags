@@ -17,7 +17,7 @@ A yellow banner at the top warns when the Build comes from a test Snapshot (`mod
 
 Pick one of the five Top-100 Datasets in the **Dataset** selector: Overall, Puzzle, RPG, Strategy or Simulation. The app builds the Tag Network of that dataset at the shared defaults (the same settings the feature-analysis report uses) and clusters it. Every control change recomputes the whole Network State: network, clusters, null model, Seed-Noise Floor and all metrics. At loose thresholds a change can take several seconds.
 
-Above the graph, the summary row shows the key numbers large: the games left after the Minimum Months Filter ("100 of 100"), tags, links, clusters ("3 + 4" multi-tag + one-tag), Q with its excess over the null model ("0.17 · excess +0.11") and the mean silhouette ("0.04 · descriptive"). Hover over any of them for what it means. Under it, one line states the Network State as a sentence that ends with its `state_id`; click the id to copy it.
+Above the graph, the summary row shows the key numbers large: the games left after the Minimum Months Filter ("100 of 100"), tags, links, clusters ("3 + 4" multi-tag + one-tag), Q with its excess over the null model ("0.17 · excess +0.11") and the mean silhouette ("0.04 · descriptive"). Hover over any of them, or reach it with Tab, for a short explanation; click its dotted label for the full guide entry. Under it, one line states the Network State as a sentence that ends with its `state_id`; click the id to copy it.
 
 The **Cluster quality** tab shows five boxes (Q, Null-model excess, Coverage, Silhouette, Seed noise), then the two full sentences, for example
 
@@ -25,7 +25,7 @@ The **Cluster quality** tab shows five boxes (Q, Null-model excess, Coverage, Si
 
 > Seed-noise floor (K = 10): ARI vs. main min 0.84, mean 0.93 · multi-tag clusters 5–7 · SD Q 0.004 · SD silhouette 0.01
 
-Each number is explained in the [metric reference](03-metric-reference.md). The `?` button on each panel opens the matching guide section inside the app, and hovering over a column header shows its one-line description.
+Each number is explained in the [metric reference](03-metric-reference.md), and the app shows that help in two layers. Hover over a dotted label, a metric column header or an ⓘ, or reach it with Tab, for a short explanation: what the value is, which direction is which, why it matters in this study and the main caution. Click the dotted label or the ⓘ, or press Enter, to open its full guide entry inside the app; links inside the help open their entries there too, and **← Back** returns to the previous one. Clicking a column header's name still sorts the table. The `?` button on each panel opens the matching guide section.
 
 ## The two modes
 

@@ -111,7 +111,7 @@ A struck-through chip is hidden. Showing a Genre Tag adds it as a node, with lin
 
 *Why it matters here.* Genre Tags name broad categories that sit on a large share of the games and so link to almost every other tag. Left in, they pull the clusters around themselves; hidden, the clusters show the finer characteristics (mechanics, settings, styles) that the most-played games combine. Showing one Genre Tag at a time shows which cluster it belongs with.
 
-*Caution.* Hidden tags are listed in the Not in network table with the reason `genre_tag_hidden`. The list of Genre Tags is set in the Build's config.
+*Caution.* Hidden tags are listed in the Not in network table with the reason `genre_tag_hidden`. The list of Genre Tags is set in the Build's config. The dataset's defining tag has its own toggle: see [Hide defining tag](#hide-defining-tag).
 
 *Example.* Clicking the RPG chip in the Overall dataset adds the RPG tag as a node, linked to the tags it shares at least the minimum shared games with.
 
@@ -260,6 +260,78 @@ Tidy re-runs the Global layout from the current positions, then the clamp and th
 *Caution.* The tidied positions depend on what you dragged, so they are not reproducible from the `state_id` alone; an export made after Tidy records `layout_source` = `relayout` and keeps the positions.
 
 *Example.* Drag two overlapping tags apart and press Tidy: their neighbours move to make room, and the two stay where you put them.
+
+## Reading the graph
+
+> **In short.** What the drawing shows: node size = games, link thickness = shared games, colour = Multi-Tag Cluster, grey = One-Tag Cluster.
+>
+> **Here:** lets the tag network of the most-played games be read at a glance, before the numbers.
+>
+> **Caution:** positions and distances on screen are not metrics.
+
+The legend at the bottom left of the graph lists the Multi-Tag Clusters by colour, label and size ("C1 · 26"), then the number of One-Tag Clusters. Click a cluster's chip to select the cluster; click **Key** for this section. ◆ marks a Cluster Center. Everything below describes the drawing only; every number it shows is in the Inspector and the tables.
+
+*Why it matters here.* The drawing is the quickest way to see which characteristics the most-played games carry together and how the clusters touch. Knowing what each visual property encodes keeps it from being read as more than it is: a big node is a common tag, not a central one, and two tags drawn side by side may share few games.
+
+### Node size
+
+> **In short.** A node's size shows how many of the network's games carry the tag.
+>
+> **Higher →** bigger node: more games, relative to the dataset's most frequent tag.
+>
+> **Here:** shows at a glance which characteristics most of the most-played games carry.
+>
+> **Caution:** size reflects only the game count, never links, clusters or any other metric.
+
+The diameter is 18 pixels plus up to 30 more, growing with the square root of the tag's game count relative to the most frequent tag of the dataset after the Minimum Months Filter, hidden tags included. Bigger nodes have more games, but the size is not proportional to them. The thresholds and hiding or removing tags never change it; the Minimum Months Filter does. In a Tag-Specific Dataset the most frequent tag is usually the hidden defining tag, so no visible node reaches the largest size.
+
+*Why it matters here.* Common tags shape the whole network, so it helps to see them. A large node at the middle of a cluster is a frequent characteristic of the most-played games, and the cluster may gather around it partly for that reason; compare its Cluster Center and its game count in the Inspector.
+
+*Example.* With the dataset's most frequent tag on 80 games, a tag on 20 games is drawn 18 + 30 × √(20 / 80) = 33 pixels across at 100 % zoom, and the most frequent tag 48 pixels.
+
+### Edge thickness
+
+> **In short.** A link's thickness shows how many games carry both tags.
+>
+> **Higher →** thicker link: more shared games, relative to the network's most shared pair.
+>
+> **Here:** shows which pairs of characteristics the most-played games carry together most often.
+>
+> **Caution:** thickness is always shared games, even when the clustering runs on lift.
+
+Every link is drawn thin and faint, from 0.4 pixels up to 3 pixels at 100 % zoom for the pair with the most shared games in the network, so that the dense network stays readable; the first fit is never above 100 %, so links usually look thinner. Selecting a tag darkens its links. A link exists only when the pair reaches the minimum shared games.
+
+*Why it matters here.* The thickest links are the pairings that recur most among the most-played games, and they mostly join common tags. Under the Lift Clustering Weight, the clustering weighs pairs by lift instead, so a thin link can matter more to the clusters than a thick one; read the link's lift in the Inspector.
+
+*Example.* If the most shared pair in the network shares 60 games, a link of 30 shared games is drawn 0.4 + 2.6 × 30 / 60 = 1.7 pixels wide at 100 % zoom.
+
+### Cluster colour
+
+> **In short.** Each Multi-Tag Cluster gets a colour by its label, C1 (the largest) first; the 16 colours repeat from C17.
+>
+> **Here:** shows which characteristics the clustering grouped together.
+>
+> **Caution:** labels and colours follow cluster size, so the same cluster can get another colour after a small change.
+
+Colours come from a fixed palette of 16 in label order: C1 has the first colour, C2 the second, and so on; from C17 the colours repeat, so C17 has C1's colour. In the Cluster-separated layout each Multi-Tag Cluster also gets its own tinted region.
+
+*Why it matters here.* A colour is the quickest way to see a candidate combination of characteristics among the most-played games. It says nothing about what the cluster means: read its members, its Cluster Center and its Membership Stability.
+
+*Example.* After raising the minimum shared games, the second-largest cluster can become the largest: it is then labelled C1 and takes C1's colour.
+
+### Grey One-Tag Clusters
+
+> **In short.** Grey nodes are One-Tag Clusters: tags left on their own, usually because no link reaches them.
+>
+> **Here:** shows characteristics that recur among the most-played games without sharing enough games to join a Multi-Tag Cluster.
+>
+> **Caution:** a One-Tag Cluster is usually an isolated tag, not a finding.
+
+The legend's last chip gives their number ("4 one-tag"); click it for this entry. Most are isolated tags: they reach the minimum games per tag, but no pair with them reaches the minimum shared games. Occasionally the algorithm leaves a linked tag alone. In the Cluster-separated layout they share one grid region.
+
+*Why it matters here.* A grey tag is in the network but in no group. Lowering the minimum shared games often lets it join a cluster, which shows which group of characteristics it is closest to.
+
+*Example.* A tag on 9 games that shares at most 6 games with any other tag has no link at a minimum of 8 shared games, and is drawn grey.
 
 ## Find a tag
 

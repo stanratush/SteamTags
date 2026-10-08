@@ -266,3 +266,17 @@ def test_the_control_reference_links_each_analytical_row_to_its_entry():
     table = section(_text("02-app-controls.md"), "control-reference")
     for name in CONTROL_ENTRIES:
         assert f"](#{slug(name)})" in table, name
+
+
+GRAPH_ENTRIES = ("Node size", "Edge thickness", "Cluster colour", "Grey One-Tag Clusters")
+
+
+def test_reading_the_graph_explains_each_part_of_the_drawing():
+    from steamstudy.app.guide import in_short, section
+
+    reading = section(_text("02-app-controls.md"), "reading-the-graph")
+    assert in_short(reading) and "*Why it matters here.*" in reading
+    assert [heading for level, heading, _ in headings(reading) if level == 3] == list(GRAPH_ENTRIES)
+    for name in GRAPH_ENTRIES:
+        entry = section(reading, slug(name))
+        assert in_short(entry) and "*Why it matters here.*" in entry, name

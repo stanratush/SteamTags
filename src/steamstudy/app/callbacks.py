@@ -20,6 +20,7 @@ import networkx as nx
 from dash import ALL, ClientsideFunction, Input, Output, Patch, State, ctx, html, no_update
 from dash.exceptions import PreventUpdate
 
+from steamstudy.app import help as H
 from steamstudy.app import rs_cache
 from steamstudy.app import view as V
 from steamstudy.app.export import BuildNotFound, OpenRefused, export_zip, open_export
@@ -163,7 +164,7 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
         "weight": settings.clustering_weight, "seed": settings.seed, "dataset": dataset,
         "max_shared": max([e.shared for e in state.network.edges] + [1]),
     }
-    legend: list[Any] = [
+    legend: list[Any] = [html.Span("Key", className="lkey term", tabIndex="0", **H.attrs("legend.key"))] + [
         html.Button([html.Span(className="sw", style={"background": cluster_color(r["cluster"], r["kind"])}),
                      f"{r['cluster']} · {r['size']}"], id={"type": "legend", "cluster": r["cluster"]}, className="lchip",
                     title="Select this cluster")
@@ -171,7 +172,7 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
     n_one = sum(r["kind"] == "one_tag" for r in tables["clusters.csv"])
     if n_one:
         legend.append(html.Span([html.Span(className="sw", style={"background": R.ONE_TAG_COLOR}), f"{n_one} one-tag"],
-                                className="lchip static"))
+                                className="lchip static term", tabIndex="0", **H.attrs("legend.one_tag")))
     banners = []
     if c.mode == "test":
         banners.append(html.Div("mode: test — this Build comes from a test Snapshot; never publish it.", className="banner"))
@@ -202,9 +203,10 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
                      f"listed below with all its reasons.")
     estimate = (f"Estimate: {len(state.nodes)} tags × {state.clustering_seconds * 1000:.0f} ms (one clustering) "
                 f"≈ {len(state.nodes) * state.clustering_seconds:.1f} s, plus about 4 s job start-up")
-    export_summary = (f"Exports steamstudy_{dataset}_{state.state_id}_<UTC timestamp>.zip: every table above, "
-                      f"export.json with the full state key and provenance, and Removal Sensitivity results for "
-                      f"this exact state if any.")
+    export_summary = html.P([html.Span("Export", className="term", tabIndex="0", **H.attrs("export.zip")),
+                             f": steamstudy_{dataset}_{state.state_id}_<UTC timestamp>.zip, with every table above, "
+                             f"export.json with the full state key and provenance, and Removal Sensitivity results "
+                             f"for this exact state if any."])
     defining = c.dataset(dataset).defining_tag
     sentence = V.state_sentence(c.dataset(dataset).label, rows_total, settings,
                                 [str(names.get(t, t)) for t in settings.hidden_tag_ids],

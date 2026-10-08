@@ -108,7 +108,8 @@ input[type=text],input:not([type]),.dash-input-element{border-radius:6px}
 .lchip{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:12px;padding:1px 8px 1px 6px;
  font-size:12px;background:#fff;cursor:pointer;color:var(--ink)}
 .lchip:hover{border-color:#a9b1bf}
-.lchip.static{cursor:default}
+.lchip.static{cursor:help}
+.lkey{font-size:11.5px;color:var(--mute);margin:0 4px 0 2px}
 
 /* tables pane (Workbench): resizable with the handle above it */
 /* the graph block has order 1 (block_styles); the pane follows it */

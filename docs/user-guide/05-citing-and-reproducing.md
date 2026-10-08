@@ -8,7 +8,15 @@ Give the 12-character `state_id` next to every network number, figure or table y
 
 ## Deposit the export zip
 
+> **In short.** Export this state downloads one zip with every table, the full Network State key and its provenance.
+>
+> **Here:** lets readers of a study of the most-played games reopen and check the exact clusters it reports.
+>
+> **Caution:** Removal Sensitivity results are included only if they were computed for exactly this Network State.
+
 Press **Export this state** and deposit the zip with the paper or its supplementary material. It is self-contained: every table, the full state key, file hashes, the method constants and a copy of the Build's provenance (`build.json`, including the config and its changelog). Removal Sensitivity results are included only if they were computed for exactly this state.
+
+*Why it matters here.* Clusters and their numbers belong to one Network State, so the figures and tables of a paper should travel with the state that produced them. The zip opens in the app on another computer that has the same Build, and the recomputed `state_id` confirms that the numbers are the same.
 
 Do not deposit raw Snapshot files: raw responses and the full Candidate Pool are never published, and `monthly_players.csv` waits for the Steam Charts operator's agreement.
 

@@ -793,3 +793,65 @@ def test_controls_and_their_pills_carry_the_help_of_their_guide_entry(build_fold
     for pill in ("min-months", "min-games", "min-shared", "hidden", "weight", "algorithm", "gamma", "seed"):
         assert (pills[pill] or "").startswith("In short. "), pill
     assert not any(getattr(c, "title", None) == "0.1–3.0" for c in components)  # the range is in the entry now
+
+
+def _help_targets(tree) -> list[str]:
+    """Every guide entry a component tree opens: data-help attributes, escaped-HTML blocks and grid headers."""
+    import html as markup
+
+    out = []
+    for c in _walk(tree):
+        if getattr(c, "data-help", None):
+            out.append(getattr(c, "data-help"))
+        out += [markup.unescape(t) for t in re.findall(r'data-help="([^"]+)"', getattr(c, "data-html", None) or "")]
+        for d in getattr(c, "columnDefs", None) or []:
+            params = d.get("headerComponentParams", {}).get("innerHeaderComponentParams", {})
+            if params.get("help"):
+                out.append(params["help"])
+    return out
+
+
+def test_the_legend_has_a_key_and_the_one_tag_chip_explains_itself(build_folder):
+    out = _recompute(build_folder, **{"min-shared": 20})
+    legend = out[3]
+    key, *chips = legend
+    assert getattr(key, "data-help") == "02-app-controls.md#reading-the-graph"
+    assert getattr(key, "data-tip").startswith("In short. ")
+    clusters = [c for c in chips if isinstance(getattr(c, "id", None), dict)]
+    assert clusters and all(c.title == "Select this cluster" and not getattr(c, "data-help", None) for c in clusters)
+    one_tag = next(c for c in chips if "one-tag" in " ".join(_texts(c)))
+    assert getattr(one_tag, "data-help") == "02-app-controls.md#grey-one-tag-clusters"
+
+
+def test_the_dataset_summary_explains_each_analytical_field(build_folder):
+    from steamstudy.app import view as V
+
+    ctx = load_build(build_folder)
+    s = ctx.default_settings("overall")
+    rows = {tr.id: tr for tr in _walk(V.state_table(s.key(), "abc", "Overall", 100, 100, {}))
+            if str(getattr(tr, "id", "")).startswith("state-row-")}
+    th = {field[len("state-row-"):]: tr.children[0] for field, tr in rows.items()}
+    assert getattr(th["min_months"], "data-help") == "02-app-controls.md#minimum-months-filter"
+    assert getattr(th["resolution"], "data-help") == "02-app-controls.md#resolution-γ"
+    assert getattr(th["null_replicates"], "data-help") == "03-metric-reference.md#null-model-baseline"
+    assert getattr(th["min_months"], "data-tip").split("\n")[-1] == "Field: min_months"
+    assert not getattr(th["n_games"], "data-tip").split("\n")[-1].startswith("Field:")  # derived, not a key field
+    assert not getattr(th["dataset"], "data-help", None) and not getattr(th["key_version"], "data-help", None)
+
+
+def test_every_help_target_in_the_app_opens_an_entry_with_in_short_and_why_it_matters(build_folder):
+    """The coverage test: every element of the app that has help, on every surface, and every help key."""
+    from steamstudy.app import help as H
+    from steamstudy.app import view as V
+    from steamstudy.app.guide import chapter, in_short_at, section
+    from steamstudy.app.layout import build_layout
+
+    out = _recompute(build_folder, **{"min-shared": 20})
+    targets = _help_targets([build_layout(load_build(build_folder)), list(out),
+                             V._kv([(label, "x") for label in V.INSPECTOR_LABELS])])
+    assert {H.target(key) for key in H.HELP} <= set(targets)  # every help key is on a surface of the app
+    assert {H.column_help(columns)[1] for columns in V.INSPECTOR_LABELS.values()} <= set(targets)
+    for target in set(targets):
+        file, anchor = target.split("#")
+        assert in_short_at(file, anchor), target
+        assert "*Why it matters here.*" in section(chapter(file), anchor), target

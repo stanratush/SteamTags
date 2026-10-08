@@ -4,6 +4,8 @@ This guide is for researchers who read and use the study's results: the Top-100 
 
 Domain terms (Tag, Cluster, Network State, …) are used as defined in the project glossary, [CONTEXT.md](../../CONTEXT.md).
 
+In the Tag Network app, every metric and analytical control shows a short explanation on hover and opens its entry in this guide on click. Each entry the app opens begins with an **In short** block (what it is, which direction is which, why it matters here, the main caution) and has a *Why it matters here.* paragraph on its use in this study.
+
 ## Contents
 
 0. [Three rules](00-three-rules.md)

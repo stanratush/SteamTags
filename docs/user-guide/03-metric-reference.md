@@ -4,7 +4,7 @@
 
 Every number the software computes, displays or exports is explained here, in concept order: ranking and data, then the feature analysis, then the Tag Network, its clusters and their quality, their stability, and Removal Sensitivity. The [column index](appendix-b-column-index.md) lists every column name alphabetically with a link to its entry.
 
-Each entry opens with what the number measures and how to read it, followed by a worked example with made-up numbers. Then come the theoretical **bounds**, the **reference points and comparisons** to read it against, and one marked **Exact definition** line.
+Entries that the app links to open with an **In short** block, which the app shows as the tooltip: what the number is, which direction is which (**Higher →** or **Lower →**), why it is useful in this study (**Here:**) and the main **Caution:**. Each entry then says what the number measures and how to read it; entries the app links to add a *Why it matters here.* paragraph on its use in this study of the most-played games. A worked example with made-up numbers follows. Then come the theoretical **bounds**, the **reference points and comparisons** to read it against, and one marked **Exact definition** line.
 
 The guide never says that a value is "good", "strong" or "stable". Published rules of thumb such as "Q above 0.3" were made for other kinds of data and other procedures; [Appendix A](appendix-a-rules-of-thumb.md) lists them and explains why they do not transfer. Read every value against:
 
@@ -858,7 +858,7 @@ Clusters are labelled `C1`, `C2`, … by size, largest first, never named. `kind
 >
 > **Here:** shows how much of the dataset and its tags the clusters describe.
 >
-> **Caution:** most other numbers shift with size; compare states of similar size.
+> **Caution:** most other numbers shift with size; compare Network States of similar size.
 
 Columns: `n_dataset_games`, `n_nodes`, `n_edges`, `total_weight` in `cluster_quality.csv`.
 

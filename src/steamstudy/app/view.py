@@ -514,6 +514,23 @@ def key_json(key: dict[str, Any]) -> str:
     return "{\n" + ",\n".join(f"  {json.dumps(k)}: {json.dumps(v, ensure_ascii=False)}" for k, v in key.items()) + "\n}"
 
 
+# The Network State fields that show a metric or an analytical choice -> their help key.
+STATE_HELP = {"n_games": "state.n_games", "min_months": "control.min-months", "min_games_per_tag": "control.min-games",
+              "min_shared_games": "control.min-shared", "hidden_tag_ids": "control.hidden",
+              "removed_tag_ids": "control.removed", "clustering_weight": "control.weight",
+              "algorithm": "control.algorithm", "resolution": "control.gamma", "seed": "control.seed",
+              "null_replicates": "state.null_replicates", "noise_seeds": "state.noise_seeds"}
+
+
+def _state_th(field: str, label: str, key_field: str) -> html.Th:
+    """A Network State row's name: with both help layers when it shows a metric or an analytical choice, the key
+    field as the tooltip's last line (workbench.js styles "Field:" like "Column:")."""
+    if field not in STATE_HELP:
+        return html.Th(label, title=f"State key field: {key_field}")
+    last = f"Field: {field}" if field == key_field else None  # n_games is derived, not a key field
+    return html.Th(html.Span(label, className="term"), tabIndex="0", **H.attrs(STATE_HELP[field], last=last))
+
+
 def state_table(key: dict[str, Any], state_id: str, dataset_label: str, n_games: int, n_rows: int,
                 names: dict[int, str]) -> list[Any]:
     """Analysis Report §1: the state_id (click to copy), then the Network State as a short table a reader can
@@ -543,8 +560,8 @@ def state_table(key: dict[str, Any], state_id: str, dataset_label: str, n_games:
         html.Div([html.Span("Network State ", className="mute"),
                   html.Span(state_id, className="mono copy-id state-id", title="Click to copy"),
                   html.Span(" — quote it with every network number.", className="mute small")], className="state-head"),
-        html.Table(html.Tbody([html.Tr([html.Th(label, title=f"State key field: {fields.get(field, field)}"),
-                                        html.Td(value)], id=f"state-row-{field}") for field, label, value in rows]),
+        html.Table(html.Tbody([html.Tr([_state_th(field, label, fields.get(field, field)), html.Td(value)],
+                                       id=f"state-row-{field}") for field, label, value in rows]),
                    className="tl state-table"),
         html.Details([html.Summary("Show JSON", className="more"), html.Pre(key_json(key), className="key-json")]),
     ]

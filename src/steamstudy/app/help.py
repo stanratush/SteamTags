@@ -15,6 +15,7 @@ from steamstudy.export import schema as S
 
 METRIC_REFERENCE = "03-metric-reference.md"
 APP_CONTROLS = "02-app-controls.md"
+CITING = "05-citing-and-reproducing.md"
 
 # help key -> (guide file, heading anchor)
 HELP: dict[str, tuple[str, str]] = {
@@ -43,6 +44,12 @@ HELP: dict[str, tuple[str, str]] = {
     "control.removed": (APP_CONTROLS, "remove--restore"),
     "control.layout-mode": (APP_CONTROLS, "global--cluster-separated"),
     "control.tidy": (APP_CONTROLS, "tidy"),
+    "legend.key": (APP_CONTROLS, "reading-the-graph"),
+    "legend.one_tag": (APP_CONTROLS, "grey-one-tag-clusters"),
+    "state.n_games": (METRIC_REFERENCE, "network-size"),
+    "state.null_replicates": (METRIC_REFERENCE, "null-model-baseline"),
+    "state.noise_seeds": (METRIC_REFERENCE, "stability"),
+    "export.zip": (CITING, "deposit-the-export-zip"),
 }
 
 # (declared file, column name), as in `view.INSPECTOR_LABELS`
@@ -63,9 +70,9 @@ def _target(entry: tuple[str, str]) -> str:
     return f"{file}#{anchor}"
 
 
-def tip(key: str, now: str | None = None) -> str:
-    """The tooltip text: one labelled line per In short line, then the optional Now line."""
-    return _tip(HELP[key], now)
+def tip(key: str, now: str | None = None, last: str | None = None) -> str:
+    """The tooltip text: one labelled line per In short line, then the optional Now line and last line."""
+    return _tip(HELP[key], now, last)
 
 
 def target(key: str) -> str:
@@ -73,9 +80,9 @@ def target(key: str) -> str:
     return _target(HELP[key])
 
 
-def attrs(key: str, now: str | None = None) -> dict[str, Any]:
+def attrs(key: str, now: str | None = None, last: str | None = None) -> dict[str, Any]:
     """The data attributes that give a Dash component both help layers (workbench.js reads them)."""
-    return {"data-tip": tip(key, now), "data-help": target(key)}
+    return {"data-tip": tip(key, now, last), "data-help": target(key)}
 
 
 # Columns that identify or label a row have no help of their own (spec: identifier columns are out of scope): those
