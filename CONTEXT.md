@@ -75,6 +75,46 @@ _Avoid_: confidence, certainty, robustness, core-ness
 The feature-analysis report's clustering repeated at a fixed set of resolution values, everything else unchanged, and compared with the reported **Clusters**. Shows how much the result depends on the chosen resolution. Part of the **Build** only, not of the app.
 _Avoid_: γ stability test, robustness check
 
+**Threshold Pair**:
+One combination of minimum games per tag (g) and minimum shared games (s), with every other **Network State** setting held fixed. Edges are kept by count alone (shared games ≥ s), so a Threshold Pair's edges carry no claim of statistical significance.
+_Avoid_: configuration, cell (except when talking about the heatmap), parameter set
+
+**Parameter Grid**:
+Every **Threshold Pair** searched for one **Top-100 Dataset**: g from 3 to 20 and s from 2 to 12, with s ≤ g.
+_Avoid_: multiverse (except when citing Steegen et al.), search space
+
+**Automatic Parameter Selection**:
+The procedure that picks one **Threshold Pair** and a resolution for a **Top-100 Dataset**: for every pair in the **Parameter Grid** it chooses a **Selected Partition**, and then it picks among the pairs by **Neighbour Agreement** under **Information Retention** and **Fragmentation** constraints. A choice of settings to look at, never a claim that the resulting **Clusters** are real.
+_Avoid_: optimisation, optimal parameters, auto-tuning
+
+**Admissible Partition**:
+A partition, found at some resolution in a **Threshold Pair**'s scan, that gives the highest modularity over some interval of resolutions among all partitions found there (CHAMP, Weir et al. 2017). That interval is its **Optimality Domain**.
+_Avoid_: candidate partition, optimal partition (unqualified)
+
+**Stable Partition**:
+An **Admissible Partition** whose self-consistent resolution estimate (Newman 2016; Gibson & Mucha 2022) lies inside its own **Optimality Domain**. Gibson & Mucha's term: stable means self-consistent under that estimate, not reproducible across seeds or data.
+_Avoid_: robust partition, consensus partition
+
+**Selected Partition**:
+The **Stable Partition** that **Automatic Parameter Selection** keeps for a **Threshold Pair**: the one with the widest **Optimality Domain** among those with at least three **Multi-Tag Clusters**. Its **Selected Resolution** is the midpoint of that domain.
+_Avoid_: best partition, final clustering
+
+**Neighbour Agreement**:
+How similar a **Threshold Pair**'s **Selected Partition** is to those of its adjacent pairs in the **Parameter Grid** (g ± 1, s ± 1), compared on the **Tags** they share. Measures parameter stability: dependence on the thresholds, not on the seed or the games.
+_Avoid_: grid stability, robustness, smoothness
+
+**Subsample Stability**:
+How well a **Selected Partition** is recovered when the network is rebuilt and reclustered from random 80% subsets of the games, with the thresholds scaled to match. Measures data stability: dependence on which games are in the dataset, not on the seed or the thresholds.
+_Avoid_: bootstrap confidence, robustness (unqualified)
+
+**Information Retention**:
+The share of the dataset's game–tag assignments that belong to **Tags** with at least one edge in the **Tag Network** of a **Threshold Pair**. Describes how much of the data the network still represents.
+_Avoid_: coverage (that is the partition metric), data loss
+
+**Fragmentation**:
+How broken up a **Threshold Pair**'s **Tag Network** is: the number and share of isolated **Tags**, the size of the largest connected component, and the number of **Clusters**.
+_Avoid_: sparsity, connectivity (unqualified)
+
 **Lift**:
 For two tags: how often they share games, divided by how often they would if tags were assigned independently (observed ÷ expected co-occurrence), counted over the games the network is built from (the loaded **Top-100 Dataset** after the **Minimum Months Filter**). Above 1 = they occur together more than chance would predict. A frequency-corrected measure of association, not a cause.
 _Avoid_: association strength (use only when citing van Eck & Waltman), affinity
