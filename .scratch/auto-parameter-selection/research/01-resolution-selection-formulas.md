@@ -7,7 +7,7 @@ Labels: **Established** = stated in the cited source (paraphrased, with locator)
 ## Summary
 
 - **One pair of numbers per partition is enough.** For a weighted undirected graph with weights `w ≥ 0`, each partition σ has
-  Â_σ = Σ_ij A_ij δ = 2·(internal weight) and P̂_σ = Σ_ij k_i k_j/(2m) δ = Σ_c κ_c²/(2m), with Q_σ(γ) = Â_σ − γ P̂_σ [W17 eq. (2); GM22 SI §C.2]. There is no 1/(2m) factor (it is dropped "by convention" and does not move the envelope). `leidenalg`'s `RBConfigurationVertexPartition.quality(γ)` equals Â − γP̂, and `networkx` modularity equals (Â − γP̂)/(2m) (Measured, to 1e-10 and 1e-15).
+  Â_σ = Σ_ij A_ij δ = 2·(internal weight) and P̂_σ = Σ_ij k_i k_j/(2m) δ = Σ_c κ_c²/(2m), with Q_σ(γ) = Â_σ − γ P̂_σ [W17 eq. (2); GM22 SI §C.2]. There is no 1/(2m) factor (W17 §2 ignores the constant prefactor; Newman calls the normalisation "by convention only" [N16 eq. (1)]; it does not move the envelope). `leidenalg`'s `RBConfigurationVertexPartition.quality(γ)` equals Â − γP̂, and `networkx` modularity equals (Â − γP̂)/(2m) (Measured, to 1e-10 and 1e-15).
 - **Newman's estimate uses the same two numbers.** ω_in = Â/P̂ and ω_out = (2m − Â)/(2m − P̂). These are [N16] eqs. (17)–(18) with 2m_in = Â (Inference, an identity). Then γ̂ = (ω_in − ω_out)/(ln ω_in − ln ω_out) [N16 eq. (15)].
 - **CHAMP** is the upper envelope of these lines on a bounded γ range. Each partition on the envelope gets a contiguous domain. Partitions that are never on top, or on top at only one point, are dropped [W17 §2; `CHAMP_2D`].
 - **Stable partition** [GM22 Fig. 1(d), SI §C.3]: the map γ̂ is applied **once** per Admissible Partition. A partition is stable when its own γ̂ lies inside its own Optimality Domain (a fixed point of the map). Stability is conditional on the input set of partitions.
@@ -44,7 +44,7 @@ kappa  = np.bincount(memb, k)                         # κ_c = Σ_{i∈c} k_i
 p_hat  = (kappa ** 2).sum() / two_m                   # P̂ = Σ_c κ_c² / 2m
 ```
 
-For a batch of partitions (rows of an int matrix `M`): `same = M[:, u] == M[:, v]`, `A = 2*(same*w).sum(1)`, and κ by `np.add.at` on `(row, M)`. Each partition is O(E + n), negligible next to Leiden [W17 §2.1 last paragraph; GM22 SI §K.1].
+For a batch of partitions (rows of an int matrix `M`): `same = M[:, u] == M[:, v]`, `A = 2*(same*w).sum(1)`, and κ by `np.add.at` on `(row, M)`. Each partition is O(E + n), negligible next to Leiden [W17 §2.1, paragraph "We note that in practice…" (O(M) per partition); GM22 SI §K.1].
 
 **Inference.**
 - Isolated tags have k_i = 0 and no edges, so they add nothing to Â or κ_c. Two partitions that differ only in where isolated tags sit have identical (Â, P̂), which gives the exact ties of §2.3.
@@ -55,7 +55,7 @@ For a batch of partitions (rows of an int matrix `M`): `same = M[:, u] == M[:, v
 ### 2.1 Algorithm
 
 **Established** [W17 §2, eqs. (3)–(4)]
-1. Start at γ_0. The partition with the largest Q there is optimal (at γ_0 = 0, the one with maximum Â).
+1. Start at γ_0. The partition with the largest Q there is optimal (at γ_0 = 0, the one with maximum Â; for a disconnected graph W17 picks, among the tied unions of components, the one with each component its own community, which is the smallest-P̂ one (Inference)).
 2. From the current optimal partition σ*_p, compute the crossing point with every other line, γ = (Â_{σ*p} − Â_σ)/(P̂_{σ*p} − P̂_σ). Take the smallest crossing above γ_p as γ_{p+1}.
 3. If several partitions cross at γ_{p+1}, the one with the **smallest P̂** wins.
 4. Repeat until no crossing remains. σ*_p is optimal on [γ_p, γ_{p+1}), and the envelope is the piecewise-linear Q̃(γ).
@@ -106,7 +106,7 @@ This is O(N·H) for N partitions and H admissible ones, which is milliseconds fo
 
 **Established**
 - [W17 §2] works on γ ≥ 0 from γ_0 = 0. Examples scan Louvain on [0, 6] or [0, 4] and run CHAMP over "the original parameter search space".
-- [GM22] scans start at 0 in every example: karate [0, 2], hierarchical SBM [0, 2.5], SNAP [0, 10].
+- [GM22] main-text scans all start at 0: karate [0, 2], hierarchical SBM [0, 2.5], SNAP [0, 10]. The SI's LFR runs use [0.5, 2.0] and count only stable partitions inside that range [GM22 SI §I.2].
 - `prune_to_stable_partitions(G, parts, gamma_start, gamma_end)` clips domains to the given range. Stability is then tested against the clipped domain [MP-SRC].
 
 **Inference**
@@ -135,7 +135,7 @@ This is O(N·H) for N partitions and H admissible ones, which is milliseconds fo
 - Degree-corrected planted partition: ω_rs = ω_in if r = s, else ω_out (eq. (11)), written as eqs. (12)–(13).
 - The log-likelihood is B·Q(γ) + C (eq. (14)), with **γ = (ω_in − ω_out)/(ln ω_in − ln ω_out)** (eq. (15)).
 - §III.A: m_in = (ω_in/4m) Σ_r κ_r² (eq. (16)), so **ω_in = 2m_in / (Σ_r κ_r²/2m)** (eq. (17)) and **ω_out = (2m − 2m_in)/(2m − Σ_r κ_r²/2m)** (eq. (18)).
-- [GM22 Methods eqs. (3)–(5)] and [GM22 SI eq. (S4)] repeat these as θ_in and θ_out.
+- [GM22 Methods eqs. (3)–(5)] repeat these as θ_in and θ_out; [GM22 SI eqs. (S3)–(S4)] keep ω_in and ω_out.
 
 **Inference.**
 - Σ_r κ_r²/2m = P̂ and 2m_in = Â, so ω_in = Â/P̂ and ω_out = (2m − Â)/(2m − P̂).
@@ -162,13 +162,13 @@ This is O(N·H) for N partitions and H admissible ones, which is milliseconds fo
 | Fewer than two groups with κ_c > 0 (e.g. one Cluster plus isolated One-Tag Clusters) | `np.count_nonzero(kappa) < 2` | P̂ = Â = 2m, so ω_in = 1 and ω_out = 0/0 | undefined |
 | No cross-group weight (Clusters are unions of connected components) | `not (~same).any()` | ω_out = 0 | ln 0; the limit as ω_out → 0⁺ is 0 |
 | ω_in = ω_out | Â = P̂ | γ̂ = 0/0 | the limit is ω_in (γ̂ is the logarithmic mean of ω_in and ω_out) |
-| ω_in < ω_out (disassortative) | Â < P̂ | | finite, positive, but the equivalence is to **minimising** Q |
+| ω_in < ω_out (disassortative) | Â < P̂ | | finite, positive if Â > 0, but the equivalence is to **minimising** Q; Â = 0 gives ω_in = 0 (ln 0, limit 0) |
 
 Proof of the last two rows: ω_in > ω_out ⇔ Â(2m − P̂) > P̂(2m − Â) ⇔ Â > P̂ ⇔ Q_σ(1) > 0.
 
 Further consequences (Inference):
 - Any partition that strictly beats the one-Cluster partition at some γ < 1 has Â − P̂ > (1 − γ)(2m − P̂) ≥ 0, so it is assortative.
-- A non-assortative Admissible Partition can therefore only occur on a stretch of the envelope above γ = 1 where Q̃ < 0.
+- A non-assortative Admissible Partition can therefore only occur on a stretch of the envelope above γ = 1 where Q̃ < 0, provided the one-Cluster partition is in the input set (it was on all six graphs, found at γ = 0.25).
 
 Floating point: a one-group partition computed in floats gave 2m − P̂ ≈ 1e-13 instead of 0, and ω_out came out as −0.25 (Measured). The guards must use the counts above, not float comparisons.
 
@@ -177,7 +177,7 @@ Floating point: a one-group partition computed in floats gave 2m − P̂ ≈ 1e-
 - [GM22 SI §A.4]: the equivalence to modularity *maximisation* holds only when ω_in > ω_out.
 - [GM22 SI §A.6]: γ̂ is undefined at ω_in = ω_out.
 - [GM22 Fig. 2 and Fig. 4 captions]: the one-community partition has no estimate.
-- [GM22 SI §K.3]: the only parameter-estimation loops the authors found involved a partition with ω_in < ω_out. They attribute these to a breakdown of the equivalence.
+- [GM22 SI §K.3]: the only parameter-estimation loops the authors found involved a partition with ω_in < ω_out. They suggest these "might be attributed" to a breakdown of the equivalence.
 - `gamma_estimate_from_parameters` [MP-SRC]:
   - returns `None` if ω_in == 0 or ω_out == 0 (comment: "this could reasonably be taken to be 0");
   - returns `nan` for ω_in == ω_out, with a RuntimeWarning;
@@ -192,7 +192,7 @@ Floating point: a one-group partition computed in floats gave 2m − P̂ ≈ 1e-
 
 **Established**
 - [N16 §III.A]: start from a guess (γ = 1 "usually works fine"), maximise Q(γ), re-estimate ω_in and ω_out, recompute γ, and repeat until it converges.
-- No guarantee for real networks; usually within a few percent after one iteration, never more than ten. Table I uses the "generally accepted" number of groups q for each network.
+- No guarantee for real networks; usually within a few percent after one iteration, never more than ten. Table I uses the "generally accepted" number of groups q for each network except the last two (jazz, email), where q comes from an inference method.
 - [GM22 SI §A.3]: the full equivalence holds only with K fixed during the maximisation.
 - `iterative_monolayer_resolution_parameter_estimation(G, gamma=1.0, tol=1e-2, max_iter=25)` [MP-SRC `parameter_estimation.py`] calls an unseeded `leidenalg.find_partition`. It raises `ValueError` when a step yields a degenerate partition.
 
@@ -204,7 +204,7 @@ Floating point: a one-group partition computed in floats gave 2m − P̂ ≈ 1e-
 ## 4. Gibson & Mucha (2022): Stable Partitions
 
 **Established**
-- **Definition.** Run CHAMP on the input set, compute each admissible partition's estimate, and map the partition to the partition whose domain contains that estimate. This is a deterministic finite-state map on the admissible set, conditional on the input partitions. Stable partitions are its fixed points: estimate inside the partition's own domain [GM22 Results ¶ before Fig. 1; Fig. 1 caption (d)].
+- **Definition.** Run CHAMP on the input set, compute each admissible partition's estimate, and map the partition to the partition whose domain contains that estimate. This is a deterministic finite-state map on the admissible set, conditional on the input partitions. Stable partitions are its fixed points: estimate inside the partition's own domain [GM22 Introduction, last paragraph; Fig. 1 caption (d)].
 - [GM22 SI §C.3] calls such a partition "stable under the resolution parameter estimation map" with respect to the pruned subset. Testing stability is "as easy as finding self loops in a graph" (§C.3.1).
 - **Once or iterated.** The map is evaluated **once per admissible partition**. Stability is a fixed-point test, not an iteration run to convergence.
   - Iterating the map only traces orbits; e.g. in Fig. 4 the iterations "converge to other stable partitions".
@@ -296,7 +296,7 @@ Floating point: a one-group partition computed in floats gave 2m − P̂ ≈ 1e-
 - For exact optima of a linear Q = Â − γP̂: if σ₁ is optimal at γ₁ < γ₂ and σ₂ at γ₂, adding the two optimality inequalities gives (γ₂ − γ₁)(P̂₁ − P̂₂) ≥ 0, and then Â₁ − Â₂ ≥ γ₁(P̂₁ − P̂₂) ≥ 0.
 - So the internal weight is non-increasing in γ along the true envelope, and bisection on it is valid for exact optimisation (cf. [TKV13] Thm 2 for CPM).
 - Heuristic optima break this, which is why the code patches monotonicity.
-- The number of Clusters is *not* guaranteed monotone for the configuration null model [W17 §3.2]. The measured envelopes confirm it:
+- The number of Clusters is not known to be monotone for the configuration null model: W17 §3.2 cite a proof only for a constant null model, know no such condition for Newman–Girvan, and observe decreases. The measured envelopes show it is not monotone here:
   - puzzle 6/4: K = 6 on [0.788, 0.800], then K = 5 on [0.800, 0.876];
   - rpg 10/6: Multi-Tag Clusters 9 on [1.424, 1.488], then 8 on [1.488, 1.865].
 
@@ -337,11 +337,11 @@ def gamma_hat(a_hat, p_hat, two_m, n_groups_with_strength, has_cross_edge):
 
 ## 8. Open choices left by the sources (for ticket 03)
 
-1. **CHAMP range**: the scan range [0.25, 3.0] or [0, 3.0]. The sources scan from 0 and run CHAMP over the scanned range (§2.2). Starting at 0 extrapolates below the lowest scanned γ.
+1. **CHAMP range**: the scan range [0.25, 3.0] or [0, 3.0]. The sources run CHAMP over the scanned range, which starts at 0 in every main-text example (GM22's SI LFR runs use [0.5, 2.0]) (§2.2). Starting at 0 extrapolates below the lowest scanned γ.
 2. **End-truncated domains**: whether a domain cut by a range end counts at its clipped width and midpoint, is flagged, or is ineligible. `modularitypruning` silently clips (§2.2).
 3. **Interval closure**: closed [a, b] (`modularitypruning`) or half-open [γ_p, γ_{p+1}) (W17). This matters only for estimates that land exactly on a breakpoint.
 4. **Exact ties between distinct partitions with identical (Â, P̂)**: W17 ignores the case and Qhull keeps an arbitrary one (§2.3). A deterministic rule is needed, e.g. canonical-membership order. With full-set-partition deduplication this occurs only when isolated tags are placed differently, which Leiden does not do.
-5. **Ties at a breakpoint and zero-width domains**: W17 picks the smallest P̂. Both implementations drop single-point domains. The float tolerance needs fixing.
+5. **Ties at a breakpoint and zero-width domains**: the rule itself is given (W17 picks the smallest P̂; both implementations drop single-point domains). What is open is the float tolerance and its units (the §2.1 sketch uses one Q-scaled `tol` for Q, P̂ and γ comparisons).
 6. **ω_in ≤ ω_out (Â ≤ P̂)**: `modularitypruning` computes a positive γ̂ and may call the partition stable. [N16 §III] and [GM22 SI §A.4] say the equivalence is then to minimisation. Choose between "no estimate" and following the library.
 7. **ω_out = 0 and one-effective-group partitions**: "no estimate" (`None`) or γ̂ = 0 (the limit, as the library's own comment suggests). The verdict is the same unless a domain starts at 0.
 8. **Once or iterated**: GM22 evaluates the map once per admissible partition (fixed-point test). Whether to also record each partition's map target or orbit (e.g. for the CHAMP plot) is a presentation choice. Newman's own iteration (§3.4) is a different procedure and should not be mixed in.
@@ -349,7 +349,7 @@ def gamma_hat(a_hat, p_hat, two_m, n_groups_with_strength, has_cross_edge):
    - `restrict_num_communities` counts One-Tag Clusters, isolated tags included.
    - γ_max(K) assumes κ > 0 for every group.
    - Restricting the input set changes domains and so stability [GM22 SI §C.3.4]. Applying "≥ 3 Multi-Tag Clusters" **before** CHAMP is therefore a different procedure from applying it **after** stability. The sources describe only pre-CHAMP restriction, by exact K.
-10. **Several Stable Partitions**: the sources report all and give no selection rule. "Widest Optimality Domain" is our rule, supported only by W17's remark on domain size. GM22 SI §A.7's γ-scaling of domain area is a possible alternative.
+10. **Several Stable Partitions**: the sources report all and give no selection rule. "Widest Optimality Domain" is our rule, supported only by W17's remark on domain size. GM22 SI §A.7's γ-scaling of domain area is a possible alternative. Likewise the Selected Resolution as the domain midpoint (CONTEXT.md) is ours: the sources give no rule, and their own candidate point would be γ̂, which for a Stable Partition lies in the same domain.
 11. **No Stable Partition**: the sources are silent beyond "add more runs near the region". Decide whether the Threshold Pair becomes ineligible, and with what recorded reason.
 12. **Input set**: stability depends on the partitions supplied (§6).
     - Decide the seed count and grid spacing (linear vs log, which the sources do not specify; GM22 and W17 use uniform grids).
@@ -363,7 +363,7 @@ def gamma_hat(a_hat, p_hat, two_m, n_groups_with_strength, has_cross_edge):
 ## Sources
 
 **Read in full text for this note**
-- [N16] Newman, M. E. J. (2016). Equivalence between modularity optimization and maximum likelihood methods for community detection. *Phys. Rev. E* 94, 052315. doi:10.1103/PhysRevE.94.052315. arXiv:1606.02319v1 (§II.A eqs. (1)–(6); §II.B eq. (7) self-edge convention; §III eqs. (11)–(15) and the ω_out > ω_in paragraph; §III.A eqs. (16)–(18), Fig. 1, Table I).
+- [N16] Newman, M. E. J. (2016). Equivalence between modularity optimization and maximum likelihood methods for community detection. *Phys. Rev. E* 94, 052315. doi:10.1103/PhysRevE.94.052315. arXiv:1606.02319v1, whose title differs ("Community detection in networks: Modularity optimization and maximum likelihood are equivalent"); locators are from the arXiv text (§II.A eqs. (1)–(6); §II.B eq. (7) self-edge convention; §III eqs. (11)–(15) and the ω_out > ω_in paragraph; §III.A eqs. (16)–(18), Fig. 1, Table I).
 - [W17] Weir, W. H., Emmons, S., Gibson, R., Taylor, D., Mucha, P. J. (2017). Post-processing partitions to identify domains of modularity optimization. *Algorithms* 10(3), 93. doi:10.3390/a10030093. arXiv:1706.03675v4 (abstract; §1 eq. (1); §2 eqs. (2)–(4) and tie remarks; §2.1 eqs. (5)–(7), Qhull; §3 intro; §3.1; §3.2 on non-monotone community counts).
 - [GM22] Gibson, R. A., Mucha, P. J. (2022). Finite-state parameter space maps for pruning partitions in modularity-based community detection. *Sci. Rep.* 12, 15928. doi:10.1038/s41598-022-20142-6 (Introduction; Results: karate, hierarchical SBM, temporal, Lazega, "Bounds on γ estimates"; Figs. 1, 3–6 captions; Discussion; Methods eqs. (1)–(6)). Volume and article number from the article PDF header (this corrects Research 31's "not verified").
 - [GM22-SI] Supplementary Information to [GM22], `41598_2022_20142_MOESM1_ESM.pdf` (§A.3 eq. (S4); §A.4; §A.6; §A.7 eq. (S8); §A.8; §B.5; §C.1–C.3.4; §I.2 Fig. S27; §J.1–J.3; §K.1–K.4).
@@ -378,3 +378,42 @@ def gamma_hat(a_hat, p_hat, two_m, n_groups_with_strength, has_cross_edge):
 
 **Project code read**
 - `src/steamstudy/network/cluster.py` (`detect`: Leiden RBConfiguration on `w`, `n_iterations=-1`), `graph.py` (`shared_edges`, `to_graph`: `w` = Lift, u < v, no self-loops), `metrics.py` (`modularity` via networkx).
+
+## Verification (2026-10-26)
+
+Independent check of this note. Sources re-read: N16 (arXiv v1 full text), W17 (Algorithms PDF / arXiv v4), GM22 article and SI PDFs, modularitypruning 2.0.1 installed source and METADATA, leidenalg 0.12.0 `Optimiser.py` / `VertexPartition.py` in `.venv`, and the project files named above. The empirical part was reproduced with a new script (session scratchpad `verify01.py`, not committed). It uses a different CHAMP algorithm: each line's closed domain comes from brute-force pairwise bounds, not a sweep.
+
+**Confirmed**
+- Bibliographic details: *Algorithms* 10(3), 93, doi 10.3390/a10030093; *Phys. Rev. E* 94, 052315; *Sci. Rep.* 12, 15928, doi 10.1038/s41598-022-20142-6.
+- N16 eqs. (6), (7) (A_ii = 2), (11)–(18) and the ω_out > ω_in paragraph (B = m log(ω_in/ω_out)).
+- W17 eqs. (1)–(4): the tie rule (smallest P̂), the half-open domains, the equal-coefficients remark, "any selected γ", and the example ranges [0, 6] / [0, 4].
+- GM22: Fig. 1(d), 2(d) and 4 captions; karate K ∈ {2, …, 8}; hierarchical SBM 3/6/9; Lazega with three stable partitions; γ_max(2) = 1 and γ_max(3) ≈ 1.0926; Discussion on weights and orbits; Methods eqs. (3)–(5).
+- GM22 SI §§A.3, A.4, A.6, A.7 (S8), C.2 (O(n log n)), C.3, C.3.1, C.3.4 (subsets only widen domains), I.2, J.2 (κ_r > 0), K.1, K.3 and K.4 (> 10⁶ trials).
+- Every modularitypruning and leidenalg statement in §§1, 3.3, 5 and 6, including the no-op second loop of `ensure_monotonicity`, the `None`/`nan` handling and the closed-interval stability test.
+- Re-derived: (a) 2m_in = Â and Σκ²/2m = P̂, so ω_in = Â/P̂ and ω_out = (2m − Â)/(2m − P̂). (b) Given m > 0 and at least two groups with κ > 0 (so 0 < P̂ < 2m), Â(2m − P̂) − P̂(2m − Â) = 2m(Â − P̂), hence Â ≤ P̂ ⇔ ω_in ≤ ω_out ⇔ Q(1) ≤ 0. Also Â = P̂ gives ω_in = ω_out = 1. (c) A tag with k = 0 adds nothing to Â, κ_c or 2m, so Â, P̂, ω_in, ω_out and γ̂ are all unchanged. (d) Removing partitions removes constraints from {γ : Q_σ(γ) ≥ Q_σ′(γ) ∀σ′}, so domains can only grow, and γ̂ does not depend on the set. A filter-then-CHAMP stable set therefore contains the CHAMP-then-filter one. (e) At a common crossing the line with the smallest P̂ is highest just above it, which is the W17 rule; at lo the §2.1 sketch's argmin P̂ among the maxima is the same rule. (f) The bound Â − P̂ > (1 − γ)(2m − P̂) for beating the one-Cluster partition at γ < 1.
+- Reproduced exactly on all six graphs (Leiden 80 γ × 10 seeds), the same as the §4 table: unique 520/27/391/118/56/80; admissible 28/14/31/23/16/21 (14–31), identical to `CHAMP_2D`; stable sets identical to `prune_to_stable_partitions`, with the same γ̂ and Multi-Tag Cluster counts (1–3 per pair).
+  - Domain endpoints agree with `CHAMP_2D` to ≤ 1.7e-13, γ̂ to ≤ 6.1e-14, and `quality` to ≤ 1.3e-10.
+  - The lowest admissible partition was always the one-connected-Cluster partition, and it was the only one with Â ≤ P̂. In floats, Â − P̂ came out as large as 1.5e-11 instead of 0, which supports using count-based guards.
+- `resolution_profile` on overall 3/2, (0.25, 3), seed 0: 21 / 13 / 18 partitions, of which 9 / 7 / 8 are among the grid's 28 admissible ones, with 5 / 3 / 4 stable, never equal to the grid's set. Pooled with the grid, the stable set matched the grid's. The run took 1.1–2.0 s, against 0.9–1.7 s reported, which is machine noise.
+- §8: none of the 14 choices is settled by a source except the parts noted below. The list is complete for this ticket's scope, apart from the Selected Resolution point added under item 10.
+
+**Corrected** (old → new)
+- Summary: "dropped 'by convention'" (an unattributed quote) → attributed to N16 eq. (1); W17 §2 just ignores the prefactor.
+- §1: "[W17 §2.1 last paragraph]" → the paragraph "We note that in practice…" (it is not the last one).
+- §2.1 step 1: added W17's explicit rule for disconnected graphs at γ_0 = 0 (each component its own community, which is the smallest-P̂ choice).
+- §2.2: "[GM22] scans start at 0 in every example" → main-text examples only. The SI's LFR runs use [0.5, 2.0] (§I.2). §8 item 1 was adjusted to match.
+- §3.1: "[GM22 SI eq. (S4)] repeat these as θ_in, θ_out" → the SI uses ω (eqs. S3–S4); only the Methods section uses θ.
+- §3.3 table: "finite, positive" for Â < P̂ → adds that Â = 0 gives ω_in = 0 (ln 0; modularitypruning returns `None`).
+- §3.3: the non-assortative-only-above-γ = 1 inference now states its premise, that the one-Cluster partition is in the input set.
+- §3.3: GM22 SI §K.3 "attribute these to" → "suggest these 'might be attributed' to".
+- §3.4: Table I "generally accepted q for each network" → except jazz and email, whose q comes from an inference method.
+- §4: definition locator "Results ¶ before Fig. 1" → "Introduction, last paragraph".
+- §6: "*not* guaranteed monotone [W17 §3.2]" → W17 know of no monotonicity result for this null model and observe decreases.
+- §8 item 5: the tie rule is given by W17; only the tolerance is open. The §2.1 sketch's single `tol` is in Q units but is also applied to P̂ differences and γ crossings. That is harmless at these scales (about 1e-8) but needs fixing.
+- §8 item 10: added that the Selected Resolution as the domain midpoint (CONTEXT.md) has no source; γ̂ would be the sources' own candidate.
+- Sources: noted that N16's arXiv v1 has a different title and that its locators come from the arXiv text.
+
+**Not verified**
+- N16 against the published PRE version: only arXiv v1 was read, and section/equation numbering could differ.
+- The §3.4 iteration runs (`check_iter.py`) and the §2.3 twin/three-line tests were not re-run. The source code they rely on was read.
+- The §5 install and timing details (27 packages; 7.6 s on the multiprocess path) were not re-measured. The install itself and Python 3.14.8 were confirmed.
