@@ -12,3 +12,4 @@ What are the module boundaries and interfaces, how is work cached and shared, an
 - The cache: key = Build, dataset, fixed settings, grid, seeds, constraint settings and method version; incremental per-pair results so a job can resume; how it sits beside `rs_cache.py` in `app_cache/`.
 - Background job: the `multiprocess` pool, progress reporting (per dataset, per pair, per validation replicate), cancellation, and running all five datasets vs one.
 - Determinism: the same settings always give the same results, whatever the process count or order.
+- The scan seed stream: [Exploratory grid run on the current Build](05-exploratory-grid-run.md) assumed `derive_seeds` stream 3 (after NULL_STREAM 1 and NOISE_STREAM 2); fix the number. That run's timings, graph sharing (66 of 765 scans saved) and serial/parallel determinism are in its [results](../prototypes/05-grid-run/results.md) §4–5.
