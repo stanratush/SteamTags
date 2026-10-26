@@ -12,7 +12,7 @@ Date: 2026-10-25
 ## Summary
 
 1. **10 trades per game is enough, and the rule is citable, though only empirically.** No source gives a mixing-time bound for curveball that can be used in practice. Carstens 2015 proves that the chain converges to the uniform distribution, not how fast [C15 abstract]. Carstens & Kleer prove that it mixes rapidly whenever the switch chain does, a polynomial bound with no usable constant [CK18 Thm 1, §1.1]. The citable practice is Strona et al.'s plateau criterion. A 100 × 100 matrix stopped changing after fewer than 200 trades, that is 2 per row [STR14 Fig. 3b]. Across 295 real matrices, the number of trades needed to stabilise the mean checkerboard count was 3–366, "with an average of 1.2 times the largest matrix dimension". The authors call 1,000 trades "rather conservative" [STR14 Supplementary Note 2]. The app's 10 trades per game is 1,000 trades for 100 games, which is ≥ 1,000 and about 6 times 1.2 × the largest dimension (≤ 139 visible tags). **On this Build** (Section A.4: 5 dataset–pair cases, 100 chains each, against a 200-trades-per-game reference), every statistic I tracked was within about 0.8 SD of its long-run level by 5 trades per game, and within Monte Carlo noise at 10. The pair-level memory of the observed table falls by about e per trade per game. **Recommendation:** keep `TRADES_PER_GAME = 10`. Cite [STR14 Suppl. Note 2] plus this check. Never claim a proven mixing time.
-2. **The sampler meets the one condition Carstens 2015 attaches to uniformity.** "Certain failed trades" must be counted as steps [C15 abstract]. Strona's transition probabilities likewise "refer to any attempted pair extraction" [STR14 Results, "Uniform distribution of null matrices"]. `curveball()` spends a trade on every pair it draws, including pairs with nothing to exchange, and its shuffle can return the unchanged split. **Inference:** it is the chain Carstens analysed. I read only the abstract of [C15], so the precise list of required failed trades is not checked.
+2. **The sampler meets the one condition Carstens 2015 attaches to uniformity.** "Certain failed trades" must be counted as steps [C15 abstract]. Strona's transition probabilities likewise "refer to any attempted pair extraction" [STR14 Results, "Uniform distribution of null matrices"]. `curveball()` spends a trade on every pair it draws, including pairs with nothing to exchange, and its shuffle can return the unchanged split. **Inference:** it is the chain Carstens analysed. I read only the abstract of [C15], so the precise list of required failed trades is not checked. [CBS16] §2 defines the chain exactly this way (trades "can be of size zero"), and §4.1 reports that [C15] also proved the variant without the identity split uniform. So the failed trades that must be counted are evidently the draws of pairs with nothing to exchange, which `curveball()` counts (inference).
 3. **Hennig (2007): the per-cluster mean of the best-match Jaccard, computed only on points present in both data sets.**
    - The scheme: for each resample, restrict the original cluster and the new clustering to the points in both, take the maximum Jaccard over new clusters, and average over resamples [H07 §2, steps (1)–(4)].
    - Resampling schemes: bootstrap, subsetting (m = [n/2], §3.1), replacement by noise (§3.2), jittering and bootstrap/jittering (§3.3). "Jittering alone" is not recommended. The suggested strategy is bootstrap, bootstrap/jittering or subsetting, together with a noise scheme (§6).
@@ -31,7 +31,7 @@ Date: 2026-10-25
    - Number of groups: under modularity maximisation it is strongly correlated between real networks and their degree-preserving randomisations [P23 §III, Fig. 8]. So it is a weak statistic for telling the observed network from its null.
    - **Inference:** Automatic Parameter Selection includes a selection step (γ scan, CHAMP, Stable Partition rule). Applying the full procedure to each null replicate is the analogue of "optimise on the null". Clustering the null at the observed Selected Resolution leaves the γ choice out.
    - **Open for 07:** full procedure, fixed γ, or both. Recommended statistics: whether a qualifying Stable Partition exists, the width of its Optimality Domain, and the number of Multi-Tag Clusters. Add Q only at a common γ.
-7. **Scaling thresholds under subsampling: one precedent, from frequent-itemset mining.** Toivonen (1996) defines the frequency threshold as a *fraction* of rows, so it carries over to a sample proportionally [T96 §2]. He *lowers* it in the sample so that frequent sets are "very unlikely" to be missed (§4, Theorem 3). I found no network or co-occurrence paper that scales absolute count thresholds under subsampling (limited search).
+7. **Scaling thresholds under subsampling: one precedent, from frequent-itemset mining.** Toivonen (1996) defines the frequency threshold as a *fraction* of rows, so it carries over to a sample proportionally [T96 §2]. He *lowers* it in the sample so that frequent sets are "very unlikely" to be missed (§4; Theorem 3, §5.1). I found no network or co-occurrence paper that scales absolute count thresholds under subsampling (limited search).
    - **Inference:** with 80 of 100 games, floor(0.8·g) keeps more borderline tags than round or ceil. Every rule's keep-probability for a tag exactly at g oscillates with g mod 5, from 0.40 to 0.96 (Section E.2).
    - **Recommendation:** use integer arithmetic: floor = (4g)//5, round = (4g+2)//5, ceil = −(−4g//5). Set a minimum of s′ ≥ 2, since s′ = 1 makes every co-occurrence an edge. Report a subsample in which the procedure finds no qualifying Stable Partition as a failure, never drop it.
 
@@ -42,7 +42,7 @@ Date: 2026-10-25
 ### A.1 Strona et al. (2014)
 
 **Established** [STR14]
-- **Algorithm** (Results, Fig. 1). A matrix is a set of row lists. Each step draws two rows. The elements present in only one of them are pooled, then randomly redistributed, keeping each row's count of such elements. Strona calls one step a "pair extraction". No element is created or destroyed, so row and column totals are fixed.
+- **Algorithm** (Results, Fig. 1). A matrix is a set of lists, one per row or one per column, whichever there are fewer of ("Description of the algorithm"). Each step draws two lists. The elements present in only one of them are pooled, then randomly redistributed, keeping each row's count of such elements. Strona calls one step a "pair extraction". No element is created or destroyed, so row and column totals are fixed.
 - **Uniformity, numerically** (Results, "Uniform distribution of null matrices"; Tables 1–3; Fig. 2).
   - For all five 3 × 3 matrices with margins [1-2-1], the transition matrix of one step has the uniform distribution as its eigenvector solution. "As few as five pair extractions are sufficient" (Table 3, the 5th power).
   - The transition probabilities "refer to any attempted pair extraction, and not only to those leading to some trade of elements". Convergence holds in both cases (Supplementary Tables 1–2).
@@ -70,7 +70,7 @@ Date: 2026-10-25
   - The mixing time is "the number N of reiteration steps".
   - The authors "use the point where this perturbation score stabilizes as an estimate for the mixing time" (§4.1, Figs. 5–6).
   - "There is experimental evidence that the mixing time of the Curveball algorithms is much faster than that of switching models, there is currently no theoretical proof" (§4.2). Multi-commodity-flow proofs break down because curveball transition probabilities "can be exponentially small".
-- [CK18] Theorem 1 bounds the Curveball relaxation time by the switch chain's, up to a polynomial factor in the number of rows and the maximum row sum. Hence curveball "is also rapidly mixing for (almost) half-regular marginals" (§1.1), i.e. when all row sums (or all column sums) are equal or nearly so. Published at APPROX/RANDOM 2018 under the title "Speeding up switch Markov chains for sampling bipartite graphs with given degree sequence" (LIPIcs 116, 36). I read arXiv v3, whose title differs.
+- [CK18] Theorem 1 bounds the Curveball relaxation time by the (KTV) switch chain's, up to a polynomial factor in the number of columns n and the maximum row sum r_max: between 2/(n(n−1)) and min{1, (2r_max + 1)²/(2n(n−1))} times it. Hence curveball "is also rapidly mixing for (almost) half-regular marginals" (§1.1), i.e. when all row sums (or all column sums) are equal or nearly so. Published at APPROX/RANDOM 2018 under the title "Speeding up switch Markov chains for sampling bipartite graphs with given degree sequence" (LIPIcs 116, 36). I read arXiv v3, whose title differs. The LIPIcs version states the same bound as its Theorem 3, with the same §1.1.
 - [CHMPTW18] §5.1 measures mixing by edge-wise autocorrelation and thinning, for **undirected simple graphs** with global trades. "20 global trades consistently give at least the quality of 10m edge switches". The authors are "not aware of any practical theoretical bounds on the mixing time".
 
 **Inference.**
@@ -86,6 +86,7 @@ Date: 2026-10-25
 - `TRADES_PER_GAME * len(rows)` trades, i.e. 1,000 for 100 games.
 
 **Inference.** This is the standard ("binomial trade") curveball chain [CK18 §1], not the "Good-Shuffle" variant that forces a non-zero trade [CBS16 §4.1]. Both converge to the uniform distribution [CBS16 §4.1, citing C15]. Counting the no-op draws as trades matches [STR14]'s convention and the failed-trade condition of [C15].
+- Strona's Table 1 is reproduced exactly by the Good-Shuffle chain (every pair draw counted, identity split excluded when a trade is possible). With the identity split allowed, as here, one step from configuration A stays put with probability 5/9, not 1/3, and "five pair extractions" leave A at 0.214 instead of 0.200 (my exact computation, `strona_table1.py`). So the app's trade is the binomial trade of [CBS16 §2] and [CK18 §1], not the exact chain behind Strona's Table 1. Both are uniform. The app also always trades game rows, whereas Strona's rule would trade tag lists when there are fewer visible tags than games. That does not affect uniformity.
 
 ### A.4 Empirical check on this Build
 
@@ -125,12 +126,12 @@ Date: 2026-10-25
 | | Q | 1.43 | 0.10 | 0.03 | −0.01 | **0.13** | −0.04 | −0.06 |
 | | memory slope | 0.372 | 0.139 | 0.053 | 0.010 | **0.002** | 0.002 | 0.004 |
 
-- The C-score mean and the number of Multi-Tag Clusters were within ±0.3 SD from T = 2 in every case, with one exception: Multi-Tag Clusters at T = 50 in overall g=20 s=12 were 0.52 SD above the reference, with no trend over T. The edge count was within ±0.3 SD from T = 3.
+- The number of Multi-Tag Clusters was within ±0.3 SD from T = 2 in every case, with one exception: at T = 50 in overall g=20 s=12 it was 0.52 SD above the reference, with no trend over T. The C-score mean was within ±0.3 SD from T = 3 (at T = 2 up to 0.48 SD, rpg g=8 s=5). The edge count was within ±0.3 SD from T = 5 (at T = 3 up to 0.40 SD, rpg g=3 s=2).
 - **Reference values against the observed table:**
 
   | Case | Edges, null (mean ± SD) | Edges, observed | Q at γ = 1, null | Q at γ = 1, observed |
   |---|---|---|---|---|
-  | overall g=3 s=2 | 2,275 ± 21 | 2,185 | 0.191 ± 0.008 | 0.346 |
+  | overall g=3 s=2 | 2,275 ± 21 | 2,185 | 0.191 ± 0.008 | 0.345 |
   | rpg g=3 s=2 | 2,318 ± 18 | 2,195 | 0.190 | 0.366 |
   | overall g=20 s=12 | 119 ± 4 | 126 | 0.116 | 0.235 |
   | rpg g=8 s=5 | 615 ± 10 | 639 | 0.142 | 0.253 |
@@ -147,7 +148,7 @@ Date: 2026-10-25
 - Caveats:
   - These are first- and pair-moment diagnostics, as in [STR14] and [CBS16]. They cannot prove mixing in total variation, and no source can at present (A.2).
   - The visible row sums vary (2–19), so the half-regular case of [CK18] does not apply.
-  - Raising the trades is cheap in a fixed-γ replicate, where the shuffle already dominates (prototype 23 README, "at 8/8 the shuffle dominates"). It is negligible next to the 0.2–4.3 s of a full-procedure replicate (map.md).
+  - Raising the trades costs about 10–17 ms per 1,000 trades. In a fixed-γ replicate at high thresholds that is most of the cost, since the shuffle already dominates there (prototype 23 README, "At 8/8 the shuffle dominates"); at low thresholds clustering dominates. It is negligible next to the 0.2–4.3 s of a full-procedure replicate (map.md).
 
 ---
 
@@ -165,7 +166,7 @@ Date: 2026-10-25
   The stability is γ̄_C = (1/B*) Σᵢ γ_{C,i}, "B* being the number of bootstrap replications for which C*ᵢ ≠ ∅". **My reading:** the preprint's PDF loses the ≠ glyph, so "C*ᵢ = ∅" there must be read as ≠ for the sentence to make sense. That gives a mean over the resamples in which the cluster is present.
 - **Why compare on x̃ᵢ** (§2). Each original point counts once. The alternative, comparing on the bootstrap sample with repeated points, "would have the disadvantage that clusters dominated by multiple points would be upweighted".
 - **Summaries** (§2). The mean, or "the number of dissolutions (γ_{C,i} ≤ 0.5) or good recoveries (γ_{C,i} > 0.75, say)". "Experience suggests that the mean is a good choice."
-- **Why 0.5** (§2). It is "the smallest value so that every cluster in a partition consisting of more than one cluster can be dissolved by a new partition". Whenever a new clustering has r < s clusters, "at least s − r clusters of the original clustering are dissolved" (citing Hennig 2004c).
+- **Why 0.5** (§2). It is "the smallest value so that every cluster in a partition consisting of more than one cluster can be dissolved by a new partition". Whenever a new clustering has r < s clusters, "at least s − r clusters of the original clustering are dissolved". The 0.5 critical value comes from Hennig (2004c); equivalent results are cited to Hennig (2004a).
 - **Singletons** (§2). Under a full hierarchy "every subset containing only one point is always a cluster and these clusters will be perfectly stable, though totally meaningless".
 - **Schemes** (§3).
   - **Subsetting** (§3.1): draw m < n points without replacement. "If m is too large, subsetting will not generate enough variation to be informative. If m is too small, the clustering results can be expected to be much worse." "I always worked with m = [n/2]." Subsetting "is as general as bootstrapping": it works on dissimilarity data too.
@@ -340,13 +341,13 @@ The same table applies to s for a tag pair's shared-game count.
 
 ## F. Open choices for ticket 07 (collected)
 
-1. **Curveball trades:** keep `TRADES_PER_GAME = 10` (recommended) or raise it (e.g. to 20 for a wider margin). The cost is linear: about 10–17 ms per 1,000 trades. That dominates a fixed-γ replicate but is negligible against a full-procedure replicate.
+1. **Curveball trades:** keep `TRADES_PER_GAME = 10` (recommended) or raise it (e.g. to 20 for a wider margin). The cost is linear: about 10–17 ms per 1,000 trades. That dominates a fixed-γ replicate at high thresholds (8/8), not at low ones, and is negligible against a full-procedure replicate.
 2. **Null procedure:** full Automatic Parameter Selection per null replicate, fixed γ, or both (recommended: both). The full-procedure statistics are existence of a qualifying Stable Partition, Optimality Domain width, Selected Resolution and number of Multi-Tag Clusters. Fixed γ adds Q at the observed Selected Resolution. Edge-count ratio as a diagnostic.
 3. **Missing tags in Subsample Stability:** Hennig's present-in-both rule plus a per-cluster retention share (recommended), or penalising absence.
 4. **Entirely absent clusters:** fpc's all-B mean (absent = 0) or the preprint's B* mean, with the absent count reported.
 5. **Bands:** only ≤ 0.5 = dissolved as principled. 0.6 / 0.75 / 0.85 quoted as fpc's bootstrap guidance, or not at all.
 6. **Threshold scaling:** floor (recommended), round or ceil, in integer arithmetic. s′ ≥ 2 clamp. γ re-selected per subsample or held.
-7. **KLN-style extensions (optional):** a short curve of subsample fractions instead of a single 80%; Subsample Stability on a few null replicates; VI next to ARI.
+7. **Optional extensions (KLN and Hennig):** a short curve of subsample fractions instead of a single 80%; Subsample Stability on a few null replicates; VI next to ARI; a noise-type scheme next to subsampling, as Hennig recommends (§6; the bipartite version would be my construction, B.2).
 8. **Degenerate subsamples:** counted and reported as "k of S"; their handling in the summaries (missing, not dropped).
 
 ---
@@ -357,9 +358,9 @@ Locators are section, equation, figure, table or theorem numbers in the version 
 
 **Curveball**
 - [STR14] Strona, G., Nappo, D., Boccacci, F., Fattorini, S., San-Miguel-Ayanz, J. (2014). A fast and unbiased procedure to randomize ecological binary matrices with fixed row and column totals. *Nat. Commun.* 5, 4114. doi:10.1038/ncomms5114. Publisher PDF (Results, "Uniform distribution of null matrices", "Computational demand"; Figs. 1–4; Tables 1–3; Discussion) and Supplementary Information PDF (Supplementary Note 2, Supplementary Fig. 1).
-- [C15] Carstens, C. J. (2015). Proof of uniform sampling of binary matrices with fixed row sums and column sums for the fast Curveball algorithm. *Phys. Rev. E* 91, 042812. doi:10.1103/PhysRevE.91.042812. **Abstract only** (APS page); the full text is paywalled.
+- [C15] Carstens, C. J. (2015). Proof of uniform sampling of binary matrices with fixed row sums and column sums for the fast Curveball algorithm. *Phys. Rev. E* 91, 042812. doi:10.1103/PhysRevE.91.042812. **Abstract only** (APS page); the full text is paywalled. Erratum: *Phys. Rev. E* 94, 039902 (2016), doi:10.1103/PhysRevE.94.039902 (not read; its abstract page gives no content).
 - [CBS16] Carstens, C. J., Berger, A., Strona, G. (2016–2018). A unifying framework for fast randomization of ecological networks with fixed (node) degrees. arXiv:1609.05137v3 (§4.1–4.2, Figs. 5–6, §5). Journal publication not verified.
-- [CK18] Carstens, C. J., Kleer, P. (2017). Comparing the switch and Curveball Markov chains for sampling binary matrices with fixed marginals. arXiv:1709.07290v3 (abstract; §1 Theorem 1; §1.1). Published as "Speeding up switch Markov chains for sampling bipartite graphs with given degree sequence", APPROX/RANDOM 2018, LIPIcs 116, 36:1–36:18, doi:10.4230/LIPIcs.APPROX-RANDOM.2018.36 (title and venue from the Dagstuhl page; content not compared).
+- [CK18] Carstens, C. J., Kleer, P. (2017). Comparing the switch and Curveball Markov chains for sampling binary matrices with fixed marginals. arXiv:1709.07290v3 (abstract; §1 Theorem 1; §1.1). Published as "Speeding up switch Markov chains for sampling bipartite graphs with given degree sequence", APPROX/RANDOM 2018, LIPIcs 116, 36:1–36:18, doi:10.4230/LIPIcs.APPROX-RANDOM.2018.36 (compared in the 2026-10-26 verification: the main result is Theorem 3 there, §1.1 unchanged).
 - [CHMPTW18] Carstens, C. J., Hamann, M., Meyer, U., Penschuck, M., Tran, H., Wagner, D. (2018). Parallel and I/O-efficient randomisation of massive networks using global Curveball trades. arXiv:1804.08487v2 (§3.3, §5.1, Fig. 5). Journal or proceedings not verified.
 
 **Cluster stability**
@@ -369,11 +370,46 @@ Locators are section, equation, figure, table or theorem numbers in the version 
 
 **Robustness and null comparison**
 - [KLN08] Karrer, B., Levina, E., Newman, M. E. J. (2008). Robustness of community structure in networks. *Phys. Rev. E* 77, 046119. doi:10.1103/PhysRevE.77.046119. arXiv:0709.2108v1 (§I eq. (1); §II; §III.A eqs. (2)–(5) and ref. 44; §III.B eq. (7); §III.C eq. (12); §IV; §V Fig. 1, Table I; §VI).
-- [P23] Peixoto, T. P. (2023). Descriptive vs. inferential community detection in networks: pitfalls, myths and half-truths. Cambridge Elements. doi:10.1017/9781009118897. arXiv:2112.00183v7 (§III, Figs. 6 and 8; §IV.C, Fig. 12; §IV.E).
+- [P23] Peixoto, T. P. (2023). Descriptive vs. inferential community detection in networks: pitfalls, myths and half-truths. Cambridge Elements. doi:10.1017/9781009118897. arXiv:2112.00183v7 (§III, Figs. 6 and 8; §IV.C, Fig. 12; §IV.E). In the open-access Cambridge edition these are Section 3, §4.3 and §4.5; Figs. 8 and 12 keep their numbers.
 
 **Thresholds under sampling**
 - [T96] Toivonen, H. (1996). Sampling large databases for association rules. *Proc. 22nd VLDB*, Mumbai, 134–145. https://www.vldb.org/conf/1996/P134.PDF (§2 frequency as a fraction; §4 lowered threshold and example; §5.1 Theorems 1 and 3; §6).
 
 **Code**
 - `src/steamstudy/network/stability.py` (`curveball`, `null_model`, `TRADES_PER_GAME`), `src/steamstudy/network/graph.py` (`build_network`, `shared_edges`), on branch `auto-parameter-selection` at 0752168.
-- Scratch scripts (not in the repo): `mixing_check.py` in the session scratchpad.
+- Scratch scripts (not in the repo): `mixing_check.py` in the session scratchpad; for the verification, `verify02.py` and `strona_table1.py` in the same scratchpad.
+
+---
+
+## Verification (2026-10-26)
+
+An independent check of this note against its sources, the code and the Build. It changes no recommendation.
+
+**Checked and confirmed**
+- [STR14], publisher PDF and Supplementary Information: Fig. 3b ("after less than 200 iterations"), Fig. 4b, Tables 1 and 3, "refer to any attempted pair extraction", χ² P ≈ 0.73, and Supplementary Note 2. That covers the 1% / 100-sets stopping rule, "3 to 366 (mean: 24.34", "an average of 1.2 times the largest matrix dimension" and "rather conservative". Bibliographic details match.
+- [C15]: the abstract wording matches the APS page. The full text was again not reachable.
+- [CK18]: arXiv v3 Theorem 1 and §1.1 ("(almost) half-regular"). The LIPIcs version has the same bound as Theorem 3. Its title, volume and pages match.
+- [H07] preprint: §2 steps (1)–(4), B* (the ≠ reading holds: B* is used "because in all other cases γ_C,i = 0"), the 0.5 basis, "perfectly stable, though totally meaningless", §3.1 m = [n/2], and the §4.1, §4.3 and §6 quotes. The journal citation (CSDA 52(1), 258–271, September 2007) was confirmed on RePEc. The journal text is paywalled, so it was not compared.
+- [FPC] Details: the 0.6 / 0.75 / 0.85 bands, "All of this refers to bootstrap", and B = 100. Source: in the `subset` branch, a wholly absent cluster scores 0 (`zerobyzero=0`) and the mean is taken over all B.
+- [KLN08]: §I eq. (1) and the z-score critique, §III.A eqs. (2)–(5), ref. 44, the non-locality remark in §III.B, VI and log n in §III.C, the 40 α values and the identical null analysis in §IV, Table I (karate 1.77, power grid 100.8, "unreliable") and §VI. arXiv has only v1, whose journal reference is PRE 77, 046119. The journal PDF was not compared.
+- [P23]: every quote and figure. The Cambridge edition changes only the section labels (Sources).
+- [T96]: §2, the §4 example (2% → 1.5%, 20,000 rows), Theorem 3 and "not trivial" (§6.3).
+- Code: `curveball()` spends a trade on every draw, including pairs with nothing to exchange. `rng.shuffle` followed by a split by the original counts is a uniform choice of the |a_only|-subset, identity included. That is the binomial trade of [CBS16 §2] and [CK18 §1]. On Strona's five 3 × 3 matrices, 50,000 runs of the project's `curveball()` per setting gave 0.195–0.212 per configuration after 5 trades and 0.198–0.202 after 25.
+- Mixing, re-run independently (`verify02.py`). Three cases (overall g=3 s=2, rpg g=8 s=5, puzzle g=12 s=8), 50 chains each, new seeds (`random.Random(50000 + r)`), against a 200-trades-per-game reference. Largest |z| at T = 5: 0.61. At T = 10: 0.30 (noise ≈ 0.2 at 50 chains). The memory slope was 0.37 → 0.14 → 0.055 at T = 1, 2, 3. This confirms "within about 0.8 SD by 5, within noise at 10".
+- E.2: every entry of the table was recomputed exactly (hypergeometric), and so were the claims about g mod 5, floor, ceil and "3 g values in 5".
+- Section F: no open choice is settled by a source.
+
+**Corrected (old → new)**
+- A.2: [CK18]'s polynomial factor is "in the number of rows and the maximum row sum" → "in the number of columns n and the maximum row sum r_max", with the bound written out.
+- A.3: added that Strona's Table 1 is exactly the Good-Shuffle chain. The app's trade (identity split allowed) is the binomial trade, not that exact chain. Both are uniform. A.1: lists are taken along the dimension with fewer entries.
+- Summary 2: added the [CBS16 §2, §4.1] evidence on which failed trades must be counted.
+- A.4: "C-score … within ±0.3 SD from T = 2" → "from T = 3 (0.48 SD at T = 2)"; "edge count within ±0.3 SD from T = 3" → "from T = 5 (0.40 SD at T = 3)"; observed Q for overall g=3 s=2 "0.346" → "0.345" (0.3455).
+- A.4 caveat and F1: "raising the trades is cheap in a fixed-γ replicate" and "dominates a fixed-γ replicate" → "dominates a fixed-γ replicate at high thresholds (8/8), not at low ones".
+- B.1: "(citing Hennig 2004c)" on the s − r result → the 0.5 value is from Hennig 2004c, and equivalent results are cited to Hennig 2004a.
+- Summary 7: "(§4, Theorem 3)" → "(§4; Theorem 3, §5.1)".
+- F7: added Hennig's noise-type scheme, which B.2 lists as open but F had left out. There are still 8 items.
+- Sources: [C15] erratum (PRE 94, 039902, 2016) added. The [CK18] LIPIcs version is now marked as compared. The [P23] Cambridge section labels were added.
+
+**Not verified**
+- [C15]'s full text and its 2016 erratum: both paywalled. The failed-trade reading rests on [CBS16]'s account of them.
+- The journal versions of [H07] and [KLN08]: paywalled. [STR14]'s Supplementary Software was not read.
