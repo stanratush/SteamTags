@@ -28,6 +28,8 @@ An **implementation-ready spec** (`.scratch/auto-parameter-selection/spec.md`) p
 ## Decisions so far
 
 <!-- one line per resolved ticket -->
+- [Resolution-selection formulas (CHAMP, Newman, Gibson & Mucha)](issues/01-resolution-selection-formulas.md): every partition reduces to (Â, P̂) = (2·internal Lift, Σκ²/2m). CHAMP is the range-clipped upper envelope of Â − γP̂, and γ̂ = Newman eq. 15 with ω_in = Â/P̂ and ω_out = (2m − Â)/(2m − P̂), evaluated once per Admissible Partition. Isolated tags affect only K counts. modularitypruning 2.0.1 matches to ≤ 1e-12 and runs on Python 3.14 / Windows as a dev oracle (`single_threaded=True`). Bisection only supplements the grid. 14 open choices go to ticket 03.
+- [Validation methods (curveball, Hennig, Karrer)](issues/02-validation-methods.md): `TRADES_PER_GAME = 10` stays. It meets Strona's empirical rule, no proven mixing bound exists, and on this Build every statistic is within noise by 10 trades per game. Hennig's Jaccard is computed on tags present in both networks, with a retention share; One-Tag Clusters are excluded; only ≤ 0.5 = dissolved is principled. KLN support the principle (a null analysed identically), not the 80%/ARI mechanics. A consistent null re-runs the full procedure (plus a fixed-γ Q arm). Thresholds are scaled with floor in integer arithmetic, s′ ≥ 2, failures reported as k of S. 8 open choices go to ticket 07.
 
 ## Not yet specified
 
