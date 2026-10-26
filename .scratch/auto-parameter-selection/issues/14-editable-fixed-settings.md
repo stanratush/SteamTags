@@ -25,3 +25,4 @@ Which fixed settings can the user change in the Parameter Selection mode, and ho
   - whether Apply to Workbench carries non-default hidden tags and Minimum Months. It replaces every setting ([Apply-to-Workbench semantics](09-apply-to-workbench.md)), so presumably yes;
   - whether non-default settings change what validation runs automatically.
 - From [Shipping Parameter Selection results in an App Bundle](13-shipping-results-in-an-app-bundle.md): bundles ship only default-settings results, so a non-default fixed setting always computes locally, and the loading panel gives "Custom settings" as its reason.
+- From [Exports and documentation](11-exports-and-documentation.md): `parameter_selection.json` records every fixed setting, and `selection.csv` and `selection_report.md` carry the constraints label. Whatever label this ticket picks for non-default fixed settings goes in those same three places.
