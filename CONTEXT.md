@@ -100,7 +100,7 @@ The **Stable Partition** that **Automatic Parameter Selection** keeps for a **Th
 _Avoid_: best partition, final clustering
 
 **Neighbour Agreement**:
-How similar a **Threshold Pair**'s **Selected Partition** is to those of its adjacent pairs in the **Parameter Grid** (g ± 1, s ± 1), compared on the **Tags** they share. Measures parameter stability: dependence on the thresholds, not on the seed or the games.
+How similar a **Threshold Pair**'s **Selected Partition** is to those of its adjacent pairs in the **Parameter Grid** (g ± 1, s ± 1), compared on the **Tags** they share that have an edge in at least one of the two networks (a tag isolated in both agrees trivially and is left out). Adjacent pairs without a **Selected Partition** are missing, never counted as disagreement. Measures parameter stability: dependence on the thresholds, not on the seed or the games.
 _Avoid_: grid stability, robustness, smoothness
 
 **Subsample Stability**:
@@ -108,11 +108,11 @@ How well a **Selected Partition** is recovered when the network is rebuilt and r
 _Avoid_: bootstrap confidence, robustness (unqualified)
 
 **Information Retention**:
-The share of the dataset's game–tag assignments that belong to **Tags** with at least one edge in the **Tag Network** of a **Threshold Pair**. Describes how much of the data the network still represents.
+The share of the visible **Tags**' game–tag assignments (hidden and removed tags never count) that belong to **Tags** with at least one edge in the **Tag Network** of a **Threshold Pair**, counted over the games left after the **Minimum Months Filter**. Describes how much of the data the network still represents.
 _Avoid_: coverage (that is the partition metric), data loss
 
 **Fragmentation**:
-How broken up a **Threshold Pair**'s **Tag Network** is: the number and share of isolated **Tags**, the size of the largest connected component, and the number of **Clusters**.
+How broken up a **Threshold Pair**'s **Tag Network** is: the number and share of isolated **Tags**, the size of the largest connected component (as a share of the **Tags** that have an edge, so it never double-counts isolation), and the number of **Clusters**.
 _Avoid_: sparsity, connectivity (unqualified)
 
 **Lift**:
