@@ -92,3 +92,4 @@ Decided by the researcher, 2026-10-26, from three variants of [the prototype](..
 
 - 2026-10-26: Prototype built for review: [prototypes/10-parameter-selection-mode/](../prototypes/10-parameter-selection-mode/README.md). It has three layouts (A: three panes, B: report page, C: five side by side) over the real grid and selection, with live CHAMP plots and Clusters. Waiting on the researcher's reaction before resolving.
 - 2026-10-26: The researcher chose variant A, "Three panes", as it stands.
+- 2026-10-26: [Does Neighbour Agreement favour high g?](12-neighbour-agreement-high-g-bias.md) adds a Pair Inspector table: one row per neighbour link with direction, status, ARI, tag overlap, Edge Overlap and an "identical graph" marker. The "Why this pair" text gains the sentences that ticket lists.

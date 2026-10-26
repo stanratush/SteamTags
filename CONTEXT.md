@@ -100,8 +100,12 @@ The **Stable Partition** that **Automatic Parameter Selection** keeps for a **Th
 _Avoid_: best partition, final clustering
 
 **Neighbour Agreement**:
-How similar a **Threshold Pair**'s **Selected Partition** is to those of its adjacent pairs in the **Parameter Grid** (g ± 1, s ± 1), compared on the **Tags** they share that have an edge in at least one of the two networks (a tag isolated in both agrees trivially and is left out). Adjacent pairs without a **Selected Partition** are missing, never counted as disagreement. Measures parameter stability: dependence on the thresholds, not on the seed or the games.
+How similar a **Threshold Pair**'s **Selected Partition** is to those of its adjacent pairs in the **Parameter Grid** (g ± 1, s ± 1), compared on the **Tags** they share that have an edge in at least one of the two networks (a tag isolated in both agrees trivially and is left out). Adjacent pairs without a **Selected Partition** are missing, never counted as disagreement, and adjacent pairs with an identical network are left out, since a step that changes nothing tests nothing. Measures parameter stability: dependence on the thresholds, not on the seed or the games. Tends to be higher at large g, where one step changes the network less (see **Edge Overlap**).
 _Avoid_: grid stability, robustness, smoothness
+
+**Edge Overlap**:
+How much of the network two adjacent **Threshold Pairs** share: the Jaccard overlap of their edge sets, each tag pair counted once and weights ignored. Describes how large a step in the **Parameter Grid** is; reported next to **Neighbour Agreement**, never used to pick a pair.
+_Avoid_: edge stability, graph similarity
 
 **Subsample Stability**:
 How well a **Selected Partition** is recovered when the network is rebuilt and reclustered from random 80% subsets of the games, with the thresholds scaled to match: re-selected by the same procedure, and also read at the original **Selected Resolution**. Measures data stability: dependence on which games are in the dataset, not on the seed or the thresholds.

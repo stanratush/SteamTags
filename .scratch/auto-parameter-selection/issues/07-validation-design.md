@@ -89,3 +89,7 @@ The block says so when it shows a pair other than the one currently chosen ("Not
 - To [Modules, caching and parallelism](08-modules-caching-parallelism.md): validation as a second job phase with per-replicate progress; a per-(dataset, pair) validation cache keyed by fixed settings, R, S, trades, seed and method version, outside the Pair Constraints; the "Validate this pair" job; seed streams 3 / 4 / 5; the fixed-γ arms read from each replicate's envelope (the scan must keep every Admissible Partition's Â, P̂ and membership); cancelling the validation phase.
 - To [Parameter Selection mode prototype](10-parameter-selection-mode-prototype.md): the validation block and its two arms, the per-Cluster table with "Dissolved", "Not validated" and the "Validate this pair" button.
 - To [Exports and documentation](11-exports-and-documentation.md): per-replicate and per-subsample tables for both arms, per-Cluster Jaccard rows, and R, S, m, g′, s′ and the seed streams in the settings JSON; methods text on the B* rule, floor scaling and why fpc's bands aren't applied; the two caveats.
+
+## Comments
+
+- 2026-10-26: The pilot's rpg pair (14·12) was chosen under the old Neighbour Agreement rule. Since [Does Neighbour Agreement favour high g?](12-neighbour-agreement-high-g-bias.md), rpg chooses 7·5. The pilot is not re-run; it tested feasibility only.

@@ -11,4 +11,5 @@ What does Automatic Parameter Selection export and document, so that results are
 - User Guide pages: what each metric means and doesn't mean; the three kinds of stability; why count-only edges carry no significance; why Q, Coverage and Silhouette are descriptive.
 - Methods text with citations (Weir et al. 2017; Newman 2016; Gibson & Mucha 2022; Hennig 2007; Karrer et al. 2008), checked against the sources as in Research 30.
 - How the in-app `?` help (`app/help.py`) covers the new mode.
+- From [Does Neighbour Agreement favour high g?](12-neighbour-agreement-high-g-bias.md): Edge Overlap as a column of the per-direction Neighbour Agreement table. The User Guide carries the high-g caveat, why identical-graph links are left out of Neighbour Agreement, and what Edge Overlap does and doesn't show.
 - From [Apply-to-Workbench semantics](09-apply-to-workbench.md): whether a Workbench export made after Apply records its provenance (pair, reproduced or ARI). How the User Guide explains why an applied Workbench's Seed-Noise Floor can differ from the one Parameter Selection reports.

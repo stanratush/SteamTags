@@ -74,3 +74,7 @@ Decided by grilling with the researcher, 2026-10-26. Every metric below is per *
 **Handed on**
 - To [Eligibility constraints and selection defaults](06-eligibility-and-selection-defaults.md): whether a pair needs a minimum number of comparable neighbours (without one, a single lucky neighbour scores 1.0), and whether the identical-graph count affects eligibility.
 - To [Exploratory grid run on the current Build](05-exploratory-grid-run.md): record those counts per pair.
+
+## Comments
+
+- 2026-10-26: Superseded in part by [Does Neighbour Agreement favour high g?](12-neighbour-agreement-high-g-bias.md): identical-graph links now leave the Neighbour Agreement mean (still flagged and counted). Links also gain an Edge Overlap.

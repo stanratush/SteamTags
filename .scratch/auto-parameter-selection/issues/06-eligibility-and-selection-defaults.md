@@ -96,3 +96,7 @@ Decided by grilling with the researcher, 2026-10-26. Evidence: [Exploratory grid
 - To [Modules, caching and parallelism](08-modules-caching-parallelism.md): Pair Constraints and the tolerance are outside the cache key, and the selection is a post-step over cached per-pair results. The defaults live in `[parameter_selection]` in `config/network.toml`.
 - To [Parameter Selection mode prototype](10-parameter-selection-mode-prototype.md): the Pair Constraints panel with a confirm button and Reset to defaults; the per-dataset override; non-qualifying pairs marked with their reason codes; the near-best set highlighted; the explanation template and the no-qualifying message.
 - To [Exports and documentation](11-exports-and-documentation.md): the "Custom constraints" / "Default constraints" label, the constraint values and tolerance in the settings JSON, and the per-pair reason codes in the grid table.
+
+## Comments
+
+- 2026-10-26: [Does Neighbour Agreement favour high g?](12-neighbour-agreement-high-g-bias.md) changed the objective: identical-graph links leave the NA mean. The "After unblinding" table above is the old rule's. Under the new rule rpg chooses g=7, s=5 (NA 0.774); every other dataset keeps its pair. The explanation template gains a neighbour-count wording, a minimum-Clusters sentence and a second caveat paragraph (see that ticket).
