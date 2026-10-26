@@ -66,6 +66,7 @@ Decided by grilling with the researcher, 2026-10-26. Formulas and section number
 **Rounding**
 - The **Selected Resolution** is the exact midpoint of the domain, stored unrounded.
 - A separate **Workbench resolution** is stored: the two-decimal value closest to the midpoint that lies inside the domain.
+  - *Amended by [Apply-to-Workbench semantics](09-apply-to-workbench.md):* the Workbench resolution is the first two-decimal γ in the domain, nearest the midpoint first, at which the main seed or a scan seed reproduces the Selected Partition. That seed is stored as the **Workbench seed**. A representable pair where nothing reproduces is flagged `not_reproduced`.
 - If no two-decimal value lies inside the domain, the Selected Partition stands but is flagged `not_representable`.
 - There is no minimum domain width.
 - Facts for [Apply-to-Workbench semantics](09-apply-to-workbench.md):

@@ -19,4 +19,4 @@ How should the Parameter Selection mode look and behave? Build a rough, clickabl
 - Inspecting any pair: its metrics, its Clusters, and a CHAMP plot (each Admissible Partition's Q(γ) line, the envelope, the domains, the γ estimates, the Selected Resolution).
 - The selection explained in plain language (the template in ticket 06, including the no-qualifying-pair message), and the validation results with any reported failures.
 - Cross-dataset comparison: the five datasets side by side.
-- "Apply to Workbench" and "Export tables".
+- "Apply to Workbench" and "Export tables". Apply's behaviour is fixed by [Apply-to-Workbench semantics](09-apply-to-workbench.md): available on any pair with a Selected Partition, disabled with the reason code otherwise. The Workbench shows a provenance line after Apply. Still open here: where the button sits, and how the pair panel shows the Workbench γ and seed or the `not_reproduced` flag.

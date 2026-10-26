@@ -82,6 +82,7 @@ validation/<validation_key_hash>.json   one per (dataset, pair), written only wh
   - every Admissible Partition: Â, P̂, domain, clipped flags, γ̂ and reason, Multi-Tag and One-Tag counts, membership, first (γ, seed) and hits;
   - the scan's unique-partition count;
   - the Selected Partition's index, or its reason code;
+  - the Workbench resolution and Workbench seed, with the `not_representable` and `not_reproduced` flags (added by [Apply-to-Workbench semantics](09-apply-to-workbench.md); the reproduction search runs in the grid task);
   - the Seed-Noise Floor, Retention, Fragmentation and descriptive metrics.
 
   Non-admissible partitions are not kept.
