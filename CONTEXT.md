@@ -88,7 +88,7 @@ The procedure that picks one **Threshold Pair** and a resolution for a **Top-100
 _Avoid_: optimisation, optimal parameters, auto-tuning
 
 **Admissible Partition**:
-A partition, found at some resolution in a **Threshold Pair**'s scan, that gives the highest modularity over some interval of resolutions among all partitions found there (CHAMP, Weir et al. 2017). That interval is its **Optimality Domain**.
+A partition, found at some resolution in a **Threshold Pair**'s scan, that gives the highest modularity over some interval of resolutions among all partitions found there (CHAMP, Weir et al. 2017). That interval, never extended beyond the scanned resolutions, is its **Optimality Domain**.
 _Avoid_: candidate partition, optimal partition (unqualified)
 
 **Stable Partition**:
@@ -96,7 +96,7 @@ An **Admissible Partition** whose self-consistent resolution estimate (Newman 20
 _Avoid_: robust partition, consensus partition
 
 **Selected Partition**:
-The **Stable Partition** that **Automatic Parameter Selection** keeps for a **Threshold Pair**: the one with the widest **Optimality Domain** among those with at least three **Multi-Tag Clusters**. Its **Selected Resolution** is the midpoint of that domain.
+The **Stable Partition** that **Automatic Parameter Selection** keeps for a **Threshold Pair**: the one with the widest **Optimality Domain** among those with at least the minimum number of **Multi-Tag Clusters** (three by default; **One-Tag Clusters** never count). A **Threshold Pair** may have none. Its **Selected Resolution** is the midpoint of that domain.
 _Avoid_: best partition, final clustering
 
 **Neighbour Agreement**:
