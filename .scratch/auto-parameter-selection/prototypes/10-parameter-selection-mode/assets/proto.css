@@ -1,0 +1,103 @@
+/* PROTOTYPE (throwaway): Parameter Selection mode. The real app's app.css is inlined first (app.py). */
+#root.ps-root{min-height:100vh;display:flex;flex-direction:column}
+.ps-modes{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:#fff}
+.ps-mode{padding:4px 10px;color:var(--ink2);white-space:nowrap}
+.ps-mode+.ps-mode{border-left:1px solid var(--line)}
+.ps-mode.on{background:var(--ink);color:#fff}
+.ps-proto{font-size:11px;font-weight:700;letter-spacing:.08em;color:#c92a2a;border:1px solid #ffc9c9;border-radius:4px;padding:1px 6px}
+.ps-proto-note{font-size:11px;color:#c92a2a;margin-top:6px}
+#page{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+
+/* shared pieces */
+.ps-h{font-size:14px;margin:0 0 8px}
+.ps-tag{display:inline-block;font-size:11.5px;border:1px solid var(--line);border-radius:10px;padding:0 8px;background:#fff;color:var(--ink2)}
+.ps-tag.custom{background:var(--warn-bg);border-color:#f0d7a6;color:var(--warn)}
+.ps-tag.bad{background:#fff0f0;border-color:#ffc9c9;color:#c92a2a}
+.ps-tag.chosen{background:#fff4e6;border-color:#ffd8a8;color:#d9480f;font-weight:600}
+.ps-tag.near{border-color:#ffd8a8;color:#d9480f}
+.ps-prog{width:100%;height:8px}
+.ps-prog.mini{width:80px}
+.ps-run-row{display:grid;grid-template-columns:90px 1fr;gap:2px 8px;align-items:center;margin:4px 0}
+.ps-run-row .small{grid-column:2}
+.ps-run-ds{font-size:12px;color:var(--ink2)}
+.ps-fields .ps-field{margin-bottom:8px}
+.ps-fields-inline{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 18px}
+.ps-field label.l{display:block;font-size:12px;font-weight:500;margin-bottom:2px}
+.ps-field.changed label.l::after{content:" • changed";color:var(--warn);font-weight:400}
+.ps-in{width:78px}
+.ps-cons{font-size:12.5px}
+.ps-fixed{font-size:12px}
+.ps-key{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11.5px;color:var(--ink2);margin:4px 0 10px}
+.ps-metric-row{justify-content:space-between}
+.ps-metric-dd{width:240px}
+.ps-expl p{margin:0 0 6px;line-height:1.5}
+.ps-expl.none{border-left:3px solid var(--warn);padding-left:10px}
+.ps-caveat{color:var(--mute);font-size:12px}
+.ps-val p{margin:0 0 6px;line-height:1.5}
+.ps-val .tl{margin:6px 0}
+.ps-cluster{padding:5px 0;border-bottom:1px solid var(--line2)}
+.ps-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:10px 0}
+.ps-ds{display:flex;flex-direction:column;align-items:flex-start;gap:1px;border:1px solid var(--line);background:#fff;
+ border-radius:8px;padding:5px 10px;cursor:pointer;min-width:120px;position:relative}
+.ps-ds.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset;background:var(--acc-bg)}
+.ps-ds .ps-dot{position:absolute;right:6px;top:4px;font-size:10px;color:var(--warn)}
+.ps-strip{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+
+/* A: three panes */
+.ps-body-a{flex:1 1 auto;min-height:0;height:calc(100vh - 47px)}
+.ps-ctl{padding-bottom:80px}
+.ps-main-a{grid-area:main;overflow:auto;padding:12px 18px 80px;min-width:0}
+.ps-insp{width:380px;padding-bottom:80px}
+
+/* B: report page */
+.ps-body-b{display:grid;grid-template-columns:160px minmax(0,1fr);gap:0 24px;padding:16px 24px 90px}
+.ps-toc{position:sticky;top:12px;align-self:start;display:flex;flex-direction:column;gap:6px;font-size:12.5px}
+.ps-toc a{color:var(--ink2);text-decoration:none}
+.ps-toc a:hover{color:var(--acc)}
+.ps-page{max-width:1240px}
+.ps-sec{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 18px;margin-bottom:14px}
+.ps-sec-h{font-size:15px;margin:0 0 10px}
+.ps-cross{font-size:12.5px}
+.ps-cross tr.ps-row-on td{background:var(--acc-bg)}
+.ps-multiples{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 10px}
+.ps-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:20px;margin-top:8px}
+.ps-apply-end{margin-top:14px;padding-top:10px;border-top:1px solid var(--line2)}
+.btn.ps-big{padding:7px 16px;font-size:14px}
+.ps-strip.slim .ps-ds{min-width:0}
+
+/* C: five side by side */
+.ps-body-c{padding:10px 14px 90px;position:relative}
+.ps-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:0 0 8px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.ps-toolbar .ps-run{display:flex;gap:10px;align-items:center}
+.ps-toolbar .ps-key{margin:0}
+.ps-pop{position:absolute;top:56px;left:290px;z-index:40;width:340px;background:#fff;border:1px solid var(--line);
+ border-radius:10px;box-shadow:0 12px 32px #0002;padding:12px}
+.ps-pop .row-inline:first-child{justify-content:space-between}
+.ps-cols{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.ps-col{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 6px}
+.ps-col.on{border-color:var(--acc)}
+.ps-col-h{display:flex;justify-content:space-between;align-items:center;padding:0 4px}
+.ps-link{border:0;background:none;cursor:pointer;font-size:14px;padding:0}
+.ps-hm-empty{height:400px;display:flex;align-items:center;justify-content:center;color:var(--faint)}
+.ps-card-s{padding:4px 6px;display:flex;flex-direction:column;gap:3px;font-size:12.5px}
+.ps-card-s .btn{align-self:flex-start;margin-top:4px}
+.ps-across{display:grid;grid-template-columns:150px repeat(5,minmax(0,1fr));gap:8px;margin-bottom:8px;
+ background:#f3f0ff;border:1px dashed #b197fc;border-radius:8px;padding:6px 10px;font-size:12px}
+.ps-across-h{font-weight:600;color:#5f3dc4;align-self:center}
+.ps-sheet{position:fixed;left:14px;right:14px;bottom:58px;height:46vh;z-index:50;background:#fff;border:1px solid var(--line);
+ border-radius:12px;box-shadow:0 -10px 34px #0000002a;display:flex;flex-direction:column}
+.ps-sheet-h{display:flex;align-items:center;gap:10px;padding:8px 14px 0;flex-wrap:wrap}
+.ps-sheet-apply{margin-left:auto}
+.ps-sheet .tabs-nav{padding:0 10px;border-bottom:1px solid var(--line)}
+.ps-sheet-b{flex:1 1 auto;overflow:auto;padding:10px 16px}
+
+.ps-empty{max-width:520px;margin:60px auto;text-align:center}
+
+/* the floating variant switcher: deliberately not part of the design */
+.ps-bar{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:2000;display:flex;align-items:center;gap:8px;
+ background:#111;color:#fff;border-radius:999px;padding:5px 8px 5px 8px;box-shadow:0 6px 24px #0006;font-size:13px}
+.ps-bar-btn{background:#333;color:#fff;border:0;border-radius:50%;width:28px;height:28px;cursor:pointer}
+.ps-bar-btn:hover{background:#555}
+.ps-bar-label{min-width:170px;text-align:center;font-weight:600}
+.ps-bar-sep{color:#666}
+.ps-bar-dd{width:190px;color:var(--ink)}
