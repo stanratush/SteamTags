@@ -84,7 +84,7 @@ Every **Threshold Pair** searched for one **Top-100 Dataset**: g from 3 to 20 an
 _Avoid_: multiverse (except when citing Steegen et al.), search space
 
 **Automatic Parameter Selection**:
-The procedure that picks one **Threshold Pair** and a resolution for a **Top-100 Dataset**: for every pair in the **Parameter Grid** it chooses a **Selected Partition**, and then it picks among the pairs by **Neighbour Agreement** under **Information Retention** and **Fragmentation** constraints. A choice of settings to look at, never a claim that the resulting **Clusters** are real.
+The procedure that picks one **Threshold Pair** and a resolution for a **Top-100 Dataset**: for every pair in the **Parameter Grid** it chooses a **Selected Partition**, and then it picks among the **Qualifying Pairs** by **Neighbour Agreement**. A choice of settings to look at, never a claim that the resulting **Clusters** are real.
 _Avoid_: optimisation, optimal parameters, auto-tuning
 
 **Admissible Partition**:
@@ -114,6 +114,14 @@ _Avoid_: coverage (that is the partition metric), data loss
 **Fragmentation**:
 How broken up a **Threshold Pair**'s **Tag Network** is: the number and share of isolated **Tags**, the size of the largest connected component (as a share of the **Tags** that have an edge, so it never double-counts isolation), and the number of **Clusters**.
 _Avoid_: sparsity, connectivity (unqualified)
+
+**Pair Constraint**:
+A rule a **Threshold Pair** must meet before **Automatic Parameter Selection** may pick it: a minimum **Information Retention**, a maximum share of isolated **Tags**, a minimum largest-connected-component share, a minimum number of adjacent pairs it is compared with, or a maximum number of **Multi-Tag Clusters**. Each has a documented default the user can change. A guard against unusable networks, not an objective.
+_Avoid_: eligibility criterion, filter (unqualified)
+
+**Qualifying Pair**:
+A **Threshold Pair** that has a **Selected Partition** and a **Neighbour Agreement** and meets every **Pair Constraint**. **Automatic Parameter Selection** picks only among Qualifying Pairs.
+_Avoid_: eligible pair (that word belongs to the **Eligible Pool**), valid pair, admissible pair
 
 **Lift**:
 For two tags: how often they share games, divided by how often they would if tags were assigned independently (observed ÷ expected co-occurrence), counted over the games the network is built from (the loaded **Top-100 Dataset** after the **Minimum Months Filter**). Above 1 = they occur together more than chance would predict. A frequency-corrected measure of association, not a cause.

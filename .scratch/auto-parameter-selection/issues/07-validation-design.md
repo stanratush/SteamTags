@@ -12,3 +12,4 @@ For each dataset's selected Threshold Pair, exactly how are the null-model compa
 - Reported: ARI against the Selected Partition on shared tags, Hennig cluster-wise Jaccard per Multi-Tag Cluster, retained-tag coverage.
 - What counts as a "failure" that is reported transparently (thresholds or wording), without ever changing the selected parameters.
 - Seeds for replicates and subsamples (new seed streams), and the run cost.
+- From [Eligibility constraints and selection defaults](06-eligibility-and-selection-defaults.md): users can change the Pair Constraints, which can change the chosen pair. Does validation run for the pair chosen under the default constraints, or for the currently chosen pair with a "re-run validation" action? There is no validation when the status is `no_qualifying_pair`.
