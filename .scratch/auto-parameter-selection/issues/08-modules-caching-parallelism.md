@@ -1,7 +1,7 @@
 # Modules, caching and parallelism
 Type: grilling
 Status: open
-Blocked by: 03
+Blocked by: 03, 07
 
 ## Question
 
@@ -12,4 +12,4 @@ What are the module boundaries and interfaces, how is work cached and shared, an
 - The cache: key = Build, dataset, fixed settings (including the minimum Multi-Tag Clusters), grid, seeds and method version. Pair Constraints and the tolerance are **not** in the key: the selection is a cheap post-step over the cached per-pair results ([Eligibility constraints and selection defaults](06-eligibility-and-selection-defaults.md)), and their defaults live in `[parameter_selection]` in `config/network.toml`; incremental per-pair results so a job can resume; how it sits beside `rs_cache.py` in `app_cache/`.
 - Background job: the `multiprocess` pool, progress reporting (per dataset, per pair, per validation replicate), cancellation, and running all five datasets vs one.
 - Determinism: the same settings always give the same results, whatever the process count or order.
-- The scan seed stream: [Exploratory grid run on the current Build](05-exploratory-grid-run.md) assumed `derive_seeds` stream 3 (after NULL_STREAM 1 and NOISE_STREAM 2); fix the number. That run's timings, graph sharing (66 of 765 scans saved) and serial/parallel determinism are in its [results](../prototypes/05-grid-run/results.md) §4–5.
+- The scan seed stream: [Exploratory grid run on the current Build](05-exploratory-grid-run.md) assumed `derive_seeds` stream 3; [Validation design](07-validation-design.md) fixed it at 3, with 4 for null shuffles and 5 for subsample draws. That run's timings, graph sharing (66 of 765 scans saved) and serial/parallel determinism are in its [results](../prototypes/05-grid-run/results.md) §4–5.

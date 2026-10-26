@@ -104,8 +104,12 @@ How similar a **Threshold Pair**'s **Selected Partition** is to those of its adj
 _Avoid_: grid stability, robustness, smoothness
 
 **Subsample Stability**:
-How well a **Selected Partition** is recovered when the network is rebuilt and reclustered from random 80% subsets of the games, with the thresholds scaled to match. Measures data stability: dependence on which games are in the dataset, not on the seed or the thresholds.
+How well a **Selected Partition** is recovered when the network is rebuilt and reclustered from random 80% subsets of the games, with the thresholds scaled to match: re-selected by the same procedure, and also read at the original **Selected Resolution**. Measures data stability: dependence on which games are in the dataset, not on the seed or the thresholds.
 _Avoid_: bootstrap confidence, robustness (unqualified)
+
+**Null Comparison**:
+The **Selected Partition**'s structure compared with networks rebuilt, at the same **Threshold Pair**, from game–tag tables shuffled so that every game keeps its tag count and every **Tag** its game count, each put through the same procedure. Shows only that the network is not random, never that its **Clusters** are real.
+_Avoid_: significance test, p-value, validation (unqualified)
 
 **Information Retention**:
 The share of the visible **Tags**' game–tag assignments (hidden and removed tags never count) that belong to **Tags** with at least one edge in the **Tag Network** of a **Threshold Pair**, counted over the games left after the **Minimum Months Filter**. Describes how much of the data the network still represents.

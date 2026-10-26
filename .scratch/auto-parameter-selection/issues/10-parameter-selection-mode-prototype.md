@@ -1,7 +1,7 @@
 # Parameter Selection mode prototype
 Type: prototype
 Status: open
-Blocked by: 04
+Blocked by: 04, 07
 
 ## Question
 

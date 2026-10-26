@@ -1,0 +1,65 @@
+
+== overall g=17 s=2: tags 29 edges 384 multi 4 width 0.158 mid 1.151 scan 0.39s
+  null Q@obs-gamma -0.015 |  null 0: edges 400 uniq 68 adm 27 stable 2 reason None multi 3 width 0.020 mid 1.014 Qsel 0.017  obsQ 0.067  0.45s
+  null Q@obs-gamma -0.012 |  null 1: edges 403 uniq 28 adm 20 stable 1 reason None multi 4 width 0.028 mid 1.019 Qsel 0.018  obsQ 0.067  0.62s
+  null Q@obs-gamma -0.017 |  null 2: edges 405 uniq 60 adm 24 stable 1 reason too_few_multi_tag_clusters   obsQ 0.067  0.50s
+  null Q@obs-gamma -0.018 |  null 3: edges 403 uniq 66 adm 20 stable 2 reason None multi 3 width 0.021 mid 1.015 Qsel 0.011  obsQ 0.067  0.47s
+  null Q@obs-gamma -0.021 |  null 4: edges 404 uniq 58 adm 26 stable 1 reason too_few_multi_tag_clusters   obsQ 0.067  0.41s
+  fixed-gamma ARI 0.859 |  sub 0 (g'=13, s'=2): tags 32 shared 27/29 multi 3 mid 1.004 ARI 0.692  0.63s
+  fixed-gamma ARI 0.567 |  sub 1 (g'=13, s'=2): tags 34 shared 28/29 multi 4 mid 1.165 ARI 0.567  0.73s
+  fixed-gamma ARI 0.812 |  sub 2 (g'=13, s'=2): tags 33 shared 28/29 multi 3 mid 1.027 ARI 0.646  0.66s
+  fixed-gamma ARI 0.902 |  sub 3 (g'=13, s'=2): tags 31 shared 29/29 multi 4 mid 1.124 ARI 0.716  0.67s
+  fixed-gamma ARI 0.859 |  sub 4 (g'=13, s'=2): tags 32 shared 29/29 multi 3 mid 1.099 ARI 0.725  0.69s
+  time: 5 nulls 2.5s, 5 subsamples 3.4s
+
+== puzzle g=14 s=2: tags 31 edges 404 multi 4 width 0.092 mid 1.092 scan 0.58s
+  null Q@obs-gamma 0.013 |  null 0: edges 448 uniq 82 adm 22 stable 2 reason None multi 3 width 0.045 mid 1.046 Qsel 0.025  obsQ 0.091  0.58s
+  null Q@obs-gamma 0.009 |  null 1: edges 451 uniq 50 adm 23 stable 2 reason None multi 4 width 0.065 mid 1.053 Qsel 0.019  obsQ 0.091  0.53s
+  null Q@obs-gamma 0.010 |  null 2: edges 450 uniq 72 adm 23 stable 1 reason None multi 3 width 0.087 mid 1.020 Qsel 0.032  obsQ 0.091  0.44s
+  null Q@obs-gamma 0.007 |  null 3: edges 453 uniq 68 adm 27 stable 2 reason None multi 4 width 0.069 mid 1.056 Qsel 0.017  obsQ 0.091  0.53s
+  null Q@obs-gamma 0.012 |  null 4: edges 452 uniq 75 adm 28 stable 1 reason None multi 3 width 0.084 mid 1.007 Qsel 0.038  obsQ 0.091  0.45s
+  fixed-gamma ARI 0.444 |  sub 0 (g'=11, s'=2): tags 34 shared 30/31 multi 6 mid 1.251 ARI 0.511  0.70s
+  fixed-gamma ARI 0.894 |  sub 1 (g'=11, s'=2): tags 33 shared 30/31 multi 4 mid 1.082 ARI 0.894  0.67s
+  fixed-gamma ARI 0.618 |  sub 2 (g'=11, s'=2): tags 31 shared 29/31 multi 3 mid 1.016 ARI 0.618  0.60s
+  fixed-gamma ARI 0.381 |  sub 3 (g'=11, s'=2): tags 37 shared 30/31 multi 3 mid 1.050 ARI 0.381  0.79s
+  fixed-gamma ARI 0.500 |  sub 4 (g'=11, s'=2): tags 34 shared 31/31 multi 5 mid 1.224 ARI 0.410  0.61s
+  time: 5 nulls 2.6s, 5 subsamples 3.4s
+
+== rpg g=14 s=12: tags 33 edges 144 multi 8 width 0.666 mid 1.753 scan 0.41s
+  null Q@obs-gamma 0.017 |  null 0: edges 141 uniq 79 adm 15 stable 1 reason None multi 7 width 0.301 mid 1.377 Qsel 0.068  obsQ 0.131  0.46s
+  null Q@obs-gamma 0.008 |  null 1: edges 129 uniq 72 adm 19 stable 1 reason None multi 6 width 0.281 mid 1.322 Qsel 0.067  obsQ 0.131  0.46s
+  null Q@obs-gamma 0.019 |  null 2: edges 132 uniq 70 adm 13 stable 1 reason None multi 6 width 0.181 mid 1.269 Qsel 0.087  obsQ 0.131  0.55s
+  null Q@obs-gamma 0.031 |  null 3: edges 138 uniq 78 adm 21 stable 2 reason None multi 5 width 0.257 mid 1.104 Qsel 0.129  obsQ 0.131  0.57s
+  null Q@obs-gamma 0.025 |  null 4: edges 129 uniq 54 adm 17 stable 2 reason None multi 4 width 0.184 mid 1.102 Qsel 0.123  obsQ 0.131  0.48s
+  fixed-gamma ARI 0.608 |  sub 0 (g'=11, s'=9): tags 35 shared 33/33 multi 5 mid 1.240 ARI 0.424  0.59s
+  fixed-gamma ARI 0.644 |  sub 1 (g'=11, s'=9): tags 37 shared 33/33 multi 7 mid 1.436 ARI 0.643  0.62s
+  fixed-gamma ARI 0.588 |  sub 2 (g'=11, s'=9): tags 35 shared 33/33 multi 5 mid 1.293 ARI 0.607  0.53s
+  fixed-gamma ARI 0.764 |  sub 3 (g'=11, s'=9): tags 39 shared 32/33 multi 8 mid 1.593 ARI 0.714  0.59s
+  fixed-gamma ARI 0.626 |  sub 4 (g'=11, s'=9): tags 36 shared 32/33 multi 7 mid 1.434 ARI 0.583  0.58s
+  time: 5 nulls 2.6s, 5 subsamples 2.9s
+
+== simulation g=14 s=5: tags 38 edges 384 multi 3 width 0.469 mid 0.865 scan 0.69s
+  null Q@obs-gamma 0.145 |  null 0: edges 423 uniq 251 adm 24 stable 2 reason None multi 5 width 0.046 mid 1.101 Qsel 0.059  obsQ 0.303  0.71s
+  null Q@obs-gamma 0.153 |  null 1: edges 420 uniq 179 adm 23 stable 2 reason None multi 5 width 0.122 mid 1.209 Qsel 0.054  obsQ 0.303  0.74s
+  null Q@obs-gamma 0.159 |  null 2: edges 423 uniq 178 adm 23 stable 1 reason None multi 5 width 0.059 mid 1.200 Qsel 0.064  obsQ 0.303  0.69s
+  null Q@obs-gamma 0.144 |  null 3: edges 414 uniq 243 adm 23 stable 2 reason None multi 5 width 0.119 mid 1.115 Qsel 0.066  obsQ 0.303  0.73s
+  null Q@obs-gamma 0.152 |  null 4: edges 411 uniq 171 adm 24 stable 3 reason None multi 5 width 0.059 mid 1.157 Qsel 0.062  obsQ 0.303  0.80s
+  fixed-gamma ARI 1.000 |  sub 0 (g'=11, s'=4): tags 40 shared 37/38 multi 3 mid 0.909 ARI 1.000  0.79s
+  fixed-gamma ARI 1.000 |  sub 1 (g'=11, s'=4): tags 38 shared 37/38 multi 3 mid 0.874 ARI 1.000  0.77s
+  fixed-gamma ARI 0.908 |  sub 2 (g'=11, s'=4): tags 38 shared 38/38 multi 3 mid 0.880 ARI 0.908  0.68s
+  fixed-gamma ARI 0.845 |  sub 3 (g'=11, s'=4): tags 38 shared 36/38 multi 5 mid 1.308 ARI 0.573  0.74s
+  fixed-gamma ARI 0.915 |  sub 4 (g'=11, s'=4): tags 36 shared 35/38 multi 5 mid 1.325 ARI 0.504  0.61s
+  time: 5 nulls 3.7s, 5 subsamples 3.6s
+
+== strategy g=14 s=2: tags 39 edges 620 multi 3 width 0.260 mid 1.009 scan 0.79s
+  null Q@obs-gamma 0.036 |  null 0: edges 702 uniq 133 adm 27 stable 1 reason None multi 4 width 0.037 mid 1.038 Qsel 0.027  obsQ 0.158  0.65s
+  null Q@obs-gamma 0.040 |  null 1: edges 701 uniq 121 adm 30 stable 1 reason None multi 4 width 0.058 mid 1.045 Qsel 0.030  obsQ 0.158  0.64s
+  null Q@obs-gamma 0.042 |  null 2: edges 701 uniq 104 adm 31 stable 2 reason None multi 4 width 0.054 mid 1.066 Qsel 0.024  obsQ 0.158  0.73s
+  null Q@obs-gamma 0.038 |  null 3: edges 699 uniq 109 adm 29 stable 2 reason None multi 5 width 0.063 mid 1.075 Qsel 0.019  obsQ 0.158  0.71s
+  null Q@obs-gamma 0.042 |  null 4: edges 698 uniq 132 adm 31 stable 1 reason None multi 3 width 0.067 mid 1.007 Qsel 0.042  obsQ 0.158  0.67s
+  fixed-gamma ARI 0.932 |  sub 0 (g'=11, s'=2): tags 42 shared 39/39 multi 3 mid 1.089 ARI 0.884  0.75s
+  fixed-gamma ARI 0.329 |  sub 1 (g'=11, s'=2): tags 37 shared 34/39 multi 5 mid 1.168 ARI 0.515  0.67s
+  fixed-gamma ARI 0.679 |  sub 2 (g'=11, s'=2): tags 40 shared 37/39 multi 3 mid 0.991 ARI 0.679  0.77s
+  fixed-gamma ARI 0.558 |  sub 3 (g'=11, s'=2): reason too_few_multi_tag_clusters  0.74s
+  fixed-gamma ARI 0.668 |  sub 4 (g'=11, s'=2): tags 41 shared 38/39 multi 3 mid 1.038 ARI 0.668  0.72s
+  time: 5 nulls 3.5s, 5 subsamples 3.7s
