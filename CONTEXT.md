@@ -127,6 +127,10 @@ _Avoid_: sparsity, connectivity (unqualified)
 A rule a **Threshold Pair** must meet before **Automatic Parameter Selection** may pick it: a minimum **Information Retention**, a maximum share of isolated **Tags**, a minimum largest-connected-component share, a minimum number of adjacent pairs it is compared with, or a maximum number of **Multi-Tag Clusters**. Each has a documented default the user can change. A guard against unusable networks, not an objective.
 _Avoid_: eligibility criterion, filter (unqualified)
 
+**Selection Settings**:
+The choices that fix every **Threshold Pair**'s **Selected Partition** before any pair is picked: the hidden and removed **Tags**, the **Minimum Months Filter**, the Clustering Weight, the algorithm and the minimum number of **Multi-Tag Clusters**. Changing one needs a new run; changing a **Pair Constraint** does not.
+_Avoid_: fixed settings, configuration, parameters (unqualified)
+
 **Qualifying Pair**:
 A **Threshold Pair** that has a **Selected Partition** and a **Neighbour Agreement** and meets every **Pair Constraint**. **Automatic Parameter Selection** picks only among Qualifying Pairs.
 _Avoid_: eligible pair (that word belongs to the **Eligible Pool**), valid pair, admissible pair
