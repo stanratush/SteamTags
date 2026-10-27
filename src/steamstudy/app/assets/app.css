@@ -366,16 +366,20 @@ body[data-form=narrow] #root.workbench .ov-bl{bottom:54px}
 .ps-member{display:inline-flex;align-items:center;gap:2px;margin:0 6px 2px 0}
 .ps-q{margin-left:4px;font-size:11px;color:var(--mute);cursor:help}
 .ps-readonly{margin:8px 0}
-/* medium and narrow: one column; the Controls fold into a strip above, the Inspector follows the heatmap */
-body[data-form=medium] #root.selection #ps-body,body[data-form=narrow] #root.selection #ps-body{
- grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto;grid-template-areas:"ctl" "main" "insp";
- overflow:auto}
-body[data-form=medium] #root.selection .ps-controls,body[data-form=narrow] #root.selection .ps-controls{
- display:grid!important;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 16px;width:auto;
- max-height:45vh;border-right:0;border-bottom:1px solid var(--line)}
-body[data-form=medium] #root.selection .ps-controls .ctl-title,body[data-form=narrow] #root.selection .ps-controls .ctl-title,
-body[data-form=medium] #root.selection .ps-controls .ctl-h,body[data-form=narrow] #root.selection .ps-controls .ctl-h{
- display:block}
-body[data-form=medium] #root.selection .ps-inspector,body[data-form=narrow] #root.selection .ps-inspector{
- display:block!important;position:static;width:auto;border-left:0;border-top:1px solid var(--line)}
-body[data-form=medium] #root.selection .ps-main,body[data-form=narrow] #root.selection .ps-main{overflow:visible}
+/* The Workbench's panel toggles are hidden in this mode, so they never hide its Controls. */
+#root.selection:not(.controls-on) .ps-controls{display:block}
+/* medium and narrow: the Workbench's forms (its rules apply, as the root keeps the workbench class). The Controls
+   become the pill bar, one pill per section; the Pair Inspector floats over the right of the main column until ×. */
+body[data-form=medium] #root.selection:not(.controls-on) .ps-controls,
+body[data-form=narrow] #root.selection:not(.controls-on) .ps-controls{display:flex}
+body[data-form=medium] #root.selection .ps-controls .pill-pop,
+body[data-form=narrow] #root.selection .ps-controls .pill-pop{width:360px;max-width:calc(100vw - 28px);
+ max-height:calc(100vh - 140px);overflow:auto}
+/* each popover keeps its section heading: it carries the section's ? */
+body[data-form=medium] #root.selection .ps-controls .pill-pop .ctl-h,
+body[data-form=narrow] #root.selection .ps-controls .pill-pop .ctl-h{display:block;margin-top:0}
+/* the mode has no bottom sheet: a Workbench sheet left open never shortens the card */
+body[data-form=medium] #root.selection .ps-inspector.has-sel,
+body[data-form=narrow] #root.selection .ps-inspector.has-sel,
+body[data-form=narrow][data-sheet=open] #root.selection .ps-inspector.has-sel{grid-area:main;top:12px;bottom:12px;
+ width:380px}

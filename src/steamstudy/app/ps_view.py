@@ -1,8 +1,9 @@
 """The Parameter Selection mode's components: layout variant A, "Three panes", shaped like the Workbench.
 
 Left, the Controls column (Run, Pair Constraints, Selection settings); in the middle the dataset strip, the metric
-picker, the g × s heatmap, "Why this pair" and the validation card; on the right the Pair Inspector. Everything here
-is a pure function of the Build, the cache and the mode's stores; `callbacks.py` wires it.
+picker, the g × s heatmap, "Why this pair" and the validation card; on the right the Pair Inspector. At medium and
+narrow widths the Workbench's forms apply: the Controls become a pill bar and the Pair Inspector floats until its ×.
+Everything here is a pure function of the Build, the cache and the mode's stores; `callbacks.py` wires it.
 """
 
 from __future__ import annotations
@@ -242,6 +243,29 @@ def _constraint_inputs(defaults: SEL.Constraints) -> list[Any]:
     return rows
 
 
+def _pill(pill: str, label: str, key: str, section: html.Div) -> html.Div:
+    """One Controls section: inline in the column, or a pill with a popover in the pill bar (medium and narrow, as
+    in the Workbench). The pill's value is filled by `ps_render`."""
+    attrs: dict[str, Any] = {"data-pill": pill, "data-tip": H.tip(key)}
+    return html.Div([
+        html.Button([f"{label} ", html.B("", id=f"ps-pill-{pill}", className="num")], className="pill-btn", **attrs),
+        html.Div(section, className="pill-pop"),
+    ], className="ctl-item")
+
+
+def pill_values(views: list[DatasetView], running: bool, constraints_custom: bool,
+                settings_custom: bool) -> tuple[str, str, str]:
+    """The pills' values: Run's state over the datasets, then default or custom for the other two."""
+    done = sum(v.status == "complete" for v in views)
+    run = "running" if running else f"{done} of {len(views)} done" if done else "not run"
+    return run, "custom" if constraints_custom else "default", "custom" if settings_custom else "default"
+
+
+def inspector_form(open_: bool) -> str:
+    """The Pair Inspector's classes: docked at wide; at medium and narrow a floating card while open."""
+    return "inspector docked ps-inspector" + (" has-sel" if open_ else "")
+
+
 def controls(ctx: BuildContext, defaults: SEL.SelectionSettings, constraints: SEL.Constraints) -> html.Div:
     first = ctx.datasets[0].key
     defining = [d.defining_tag.name for d in ctx.datasets if d.defining_tag]
@@ -299,7 +323,10 @@ def controls(ctx: BuildContext, defaults: SEL.SelectionSettings, constraints: SE
         html.Div(read_only(defaults), className="mute small ps-readonly"),
         html.Div(id="ps-s-label", className="mute small"),
     ], className="ctl-section")
-    return html.Div([html.Div([html.B("Parameter Selection")], className="ctl-title"), run, pc, settings],
+    return html.Div([html.Div([html.B("Parameter Selection")], className="ctl-title"),
+                     _pill("run", "Run", "selection.run", run),
+                     _pill("constraints", "Pair Constraints", "selection.constraints", pc),
+                     _pill("settings", "Selection settings", "selection.settings", settings)],
                     id="ps-controls", className="controls ps-controls")
 
 
@@ -697,14 +724,15 @@ def mode_layout(ctx: BuildContext) -> html.Div:
         html.Div(id="ps-validation", className="panel ps-validation"),
     ], id="ps-main", className="main ps-main")
     inspector_panel = html.Div([
-        html.Div([html.B("Pair Inspector")], className="insp-title"),
+        html.Div([html.B("Pair Inspector"), html.Button("×", id="ps-inspector-close", className="x", title="Close")],
+                 className="insp-title"),
         html.Div([html.Button("Apply to Workbench", id="ps-apply", className="btn primary"),
                   _help("selection.apply")], className="row-inline"),
         html.Div(id="ps-apply-line", className="small"),
         html.Div([html.Button("Validate this pair", id="ps-validate", className="btn", style={"display": "none"}),
                   _help("selection.validate")], className="row-inline"),
         html.Div(id="ps-inspector-body"),
-    ], id="ps-inspector", className="inspector docked ps-inspector")
+    ], id="ps-inspector", className=inspector_form(True))
     stores = [dcc.Store(id="ps-active", data=settings_data(defaults)),
               dcc.Store(id="ps-constraints", data={"shared": constraints_data(constraints), "datasets": {}}),
               dcc.Store(id="ps-dataset", data=first), dcc.Store(id="ps-pair"),

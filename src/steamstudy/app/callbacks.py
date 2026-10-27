@@ -774,7 +774,13 @@ def ps_render(mode, active, cstore, dataset, metric, pair, running, progress, bu
         result is None or result.selected is None, apply_text, apply_class,
         {"display": "inline-block"} if can_validate and inspected_validation is None else {"display": "none"},
         labels[dataset].text, settings_label.text, f"Run {c.dataset(dataset).label}",
+        *PV.pill_values(views, running, labels[dataset].custom, settings_label.custom),
     )
+
+
+def ps_inspector_form(_pair, _close):
+    """The floating Pair Inspector (medium and narrow) opens on every pick of a pair and closes with its ×."""
+    return PV.inspector_form(ctx.triggered_id != "ps-inspector-close")
 
 
 def ps_run_request(_all, _one, _continue, active, dataset, build_path):
@@ -1107,7 +1113,8 @@ def register(app: dash.Dash) -> None:
                   Output("ps-inspector-body", "children"), Output("ps-apply", "disabled"),
                   Output("ps-apply-line", "children"), Output("ps-apply-line", "className"),
                   Output("ps-validate", "style"), Output("ps-c-label", "children"), Output("ps-s-label", "children"),
-                  Output("ps-run-one", "children")]
+                  Output("ps-run-one", "children"), Output("ps-pill-run", "children"),
+                  Output("ps-pill-constraints", "children"), Output("ps-pill-settings", "children")]
     cb(*ps_outputs, Input("mode", "value"), Input("ps-active", "data"), Input("ps-constraints", "data"),
        Input("ps-dataset", "data"), Input("ps-metric", "value"), Input("ps-pair", "data"),
        Input("ps-running", "data"), Input("ps-progress", "data"), State("build-path", "data"))(ps_render)
@@ -1130,6 +1137,8 @@ def register(app: dash.Dash) -> None:
        Input({"type": "ps-strip", "dataset": ALL}, "n_clicks"), prevent_initial_call=True)(ps_pick_dataset)
     cb(Output("ps-pair", "data", allow_duplicate=True), Input("ps-heatmap", "clickData"),
        prevent_initial_call=True)(ps_pick_cell)
+    cb(Output("ps-inspector", "className"), Input("ps-pair", "data"), Input("ps-inspector-close", "n_clicks"),
+       prevent_initial_call=True)(ps_inspector_form)
     c_inputs = [Input(f"ps-c-{n}", "value") for n in CONSTRAINT_NAMES]
     cb(*[Output(f"ps-c-{n}-changed", "children") for n in CONSTRAINT_NAMES], Output("ps-c-confirm", "disabled"),
        Output("ps-c-unconfirmed", "children"), *c_inputs, Input("ps-constraints", "data"),

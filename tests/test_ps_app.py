@@ -24,7 +24,8 @@ from test_app import _help_targets, _walk, triggered
 SMALL = {"g_range": [15, 17], "s_range": [2, 4], "null_replicates": 2, "subsamples": 2}
 OUTPUTS = ["rows", "cache_line", "provenance", "banner", "banner_style", "continue_style", "continue_text",
            "export_disabled", "strip", "loading", "heatmap", "why", "validation", "inspector", "apply_disabled",
-           "apply_line", "apply_class", "validate_style", "c_label", "s_label", "run_one"]
+           "apply_line", "apply_class", "validate_style", "c_label", "s_label", "run_one", "pill_run",
+           "pill_constraints", "pill_settings"]
 
 
 def _text(component) -> str:
@@ -165,6 +166,34 @@ def test_cancel_then_continue(empty_build):
 def test_a_strip_click_switches_the_dataset_and_resets_the_pair():
     triggered('{"dataset":"puzzle","type":"ps-strip"}.n_clicks')
     assert CB.ps_pick_dataset([None, 1]) == ("puzzle", None)
+
+
+def test_each_controls_section_is_a_pill_with_its_section_in_the_popover(ps_build):
+    ctx = load_build(ps_build)
+    items = [c for c in _walk(PV.controls(ctx, *PV.defaults_of(ctx))) if getattr(c, "className", None) == "ctl-item"]
+    assert [i.children[0].children[0] for i in items] == ["Run ", "Pair Constraints ", "Selection settings "]
+    pops = [i.children[1] for i in items]
+    assert all(p.className == "pill-pop" and p.children.className == "ctl-section" for p in pops)
+    assert "ps-run-all" in {getattr(c, "id", None) for c in _walk(pops[0])}
+    out = render(ps_build)
+    assert (out["pill_run"], out["pill_constraints"], out["pill_settings"]) == ("5 of 5 done", "default", "default")
+    progress = {"dataset": "overall", "dataset_index": 1, "n_datasets": 5, "phase": "grid", "done": 1, "total": 9,
+                "weight_done": 1.0, "weight_total": 45.0, "elapsed": 2.0}
+    assert render(ps_build, progress=progress)["pill_run"] == "running"
+    _, cstore = _store(ctx)
+    cstore["shared"]["min_retention"] = 0.9
+    assert render(ps_build, cstore=cstore)["pill_constraints"] == "custom"
+
+
+def test_the_run_pill_says_not_run_on_an_empty_cache(empty_build):
+    assert render(empty_build)["pill_run"] == "not run"
+
+
+def test_the_floating_inspector_opens_on_every_pick_and_closes_with_its_x():
+    triggered("ps-pair.data")
+    assert CB.ps_inspector_form([16, 3], None).split() == ["inspector", "docked", "ps-inspector", "has-sel"]
+    triggered("ps-inspector-close.n_clicks")
+    assert "has-sel" not in CB.ps_inspector_form([16, 3], 1).split()
 
 
 def test_the_provenance_line_and_the_library_banner(ps_build):
