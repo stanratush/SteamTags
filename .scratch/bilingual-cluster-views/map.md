@@ -25,6 +25,7 @@ An **implementation-ready spec** (`.scratch/bilingual-cluster-views/spec.md`) pl
 ## Decisions so far
 
 <!-- one line per resolved ticket -->
+- [Normalised inter-cluster strength in the literature](issues/05-normalised-inter-cluster-strength.md): the configuration-model ratio w_ab/(k_a k_b/2m) is the degree-corrected SBM affinity and the modularity merge test, so it is at most γ for every pair shown. Density is inflated for two-tag Clusters, game-set Jaccard or Lift is saturated, and PAGA does not fit. The recommendation (ratio as the headline, plus shares of cut) is non-binding; [research](research/05-normalised-inter-cluster-strength.md).
 
 ## Not yet specified
 
