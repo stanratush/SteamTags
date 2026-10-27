@@ -150,6 +150,10 @@ _Avoid_: view, session, configuration, state (unqualified)
 The language (English or Bulgarian) in which the **Tag Network** app's text and the User Guide are shown. A view choice: never part of a **Network State**, an export or any number. The Bulgarian form of every term here is in [docs/i18n/bg-terms.md](docs/i18n/bg-terms.md).
 _Avoid_: locale, translation mode
 
+**Edge Appearance**:
+How the **Tag Network** app draws its links: their thickness range and scaling, colour, strength, and which weak links are hidden from the drawing. A view choice: never part of a **Network State**, an export or any number. Hiding a link only stops drawing it; which links exist is decided by the minimum shared games.
+_Avoid_: edge style, edge filter
+
 **Analysis Report mode**:
 The **Tag Network** app's second mode: one scrolling page of numbered sections over the same state as the graph workbench. Distinct from the generated feature-analysis report.
 _Avoid_: report (unqualified)

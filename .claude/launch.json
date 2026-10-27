@@ -74,6 +74,19 @@
       ],
       "port": 8054,
       "url": "http://127.0.0.1:8054"
+    },
+    {
+      "name": "proto04-edge-appearance",
+      "runtimeExecutable": "C:/Users/Lenovo/Desktop/Claude/SteamTags/.venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8064",
+        "--bind",
+        "127.0.0.1"
+      ],
+      "port": 8064,
+      "url": "http://127.0.0.1:8064"
     }
   ]
 }

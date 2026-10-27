@@ -1,0 +1,516 @@
+<!doctype html>
+<!--
+  PROTOTYPE, throwaway (2026-10-27). Map: .scratch/bilingual-cluster-views. Ticket: 04 Edge appearance controls.
+  Question: "What edge appearance controls does the Workbench offer, and how do they look and behave?"
+  Three structurally different answers over the SAME real graph payloads (default Overall and Puzzle Network States
+  and Overall under lift, both layouts, dumped by dump_state.py into data.js via callbacks.render_graph), switchable
+  with ?variant=A|B|C and the bar at the bottom (or the <- -> keys).
+    A  Looks in the legend   - a few named looks in a popover beside the thickness key, plus two fine-tune sliders.
+    B  Controls section      - an "Edge appearance" section in the Controls panel with every knob, explicit and numeric.
+    C  Live scale card       - the legend's thickness key becomes a histogram of edge values with the drawn width ramp;
+                               drag on it to hide weak links, click curves to rescale, swatches to recolour.
+  Shared by all three: the defaults draw exactly today's edges (graph.js style, width 0.4 + 2.6 x value / largest);
+  every change restyles the edges already on the canvas: no payload, no layout (the state box shows the timing).
+  Prototype shortcuts: plain fit (no overlay-aware fit or label culling), tap a tag to see the neighbourhood highlight,
+  no Inspector, no persistence (behaviour questions are for the grilling that follows).
+  Run: double-click. Uses the app's vendored Cytoscape.js (src/steamstudy/app/assets/cytoscape.min.js), no CDN.
+  Regenerate data: .venv/Scripts/python .scratch/bilingual-cluster-views/prototypes/04-edge-appearance/dump_state.py
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Edge appearance prototype</title>
+<script src="../../../../src/steamstudy/app/assets/cytoscape.min.js"></script>
+<!--DATA--><script src="data.js"></script><!--/DATA-->
+<style>
+:root{--bg:#f5f6f8;--panel:#fff;--line:#e3e6eb;--line2:#eef0f3;--ink:#1b2130;--ink2:#3d4555;--mute:#6b7280;--faint:#9aa1ad;
+ --acc:#2457d6;--acc-bg:#eef3ff;--warn:#9a5b00;--warn-bg:#fff6e5;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:13px/1.4 var(--sans)}
+#top{height:40px;display:flex;align-items:center;gap:12px;padding:0 12px;background:var(--panel);border-bottom:1px solid var(--line)}
+#top b{font-size:14px}#top .tag{background:#fde68a;color:#713f12;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700}
+#wrap{position:absolute;top:40px;left:0;right:0;bottom:0;display:flex}
+#side{width:290px;flex:none;background:var(--panel);border-right:1px solid var(--line);overflow:auto;display:none}
+.vB #side{display:block}
+#stage{position:relative;flex:1;min-width:0}
+#cy{position:absolute;inset:0}
+.ov{position:absolute;z-index:5}
+.ov-tr{top:10px;right:10px;display:flex;gap:6px;align-items:center}
+.ov-bl{left:10px;bottom:10px;display:flex;flex-direction:column;align-items:flex-start;gap:6px;max-width:calc(100% - 20px)}
+.legend{display:inline-flex;flex-wrap:wrap;gap:4px;align-items:center;background:#ffffffe6;padding:4px;border-radius:8px;
+ box-shadow:0 1px 3px #0000001a}
+.lchip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:12px;padding:1px 8px 1px 6px;
+ background:#fff;font:inherit;font-size:12px;color:var(--ink2)}
+.sw{width:10px;height:10px;border-radius:50%;display:inline-block}
+.lkey{font-size:12px;color:var(--ink2);padding:0 4px}
+.btn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:3px 9px;font:inherit;cursor:pointer;color:var(--ink)}
+.btn:hover{border-color:#a9b1bf}.btn.on{background:var(--acc-bg);border-color:var(--acc);color:var(--acc)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#fff}
+.seg button{border:0;background:none;padding:3px 10px;font:inherit;cursor:pointer;color:var(--ink2)}
+.seg button.on{background:var(--acc);color:#fff}
+select{font:inherit;padding:2px 4px;border:1px solid var(--line);border-radius:6px;background:#fff}
+.mute{color:var(--mute)}.small{font-size:11.5px}
+.check{display:inline-flex;gap:4px;align-items:center;font-size:12px;color:var(--ink2)}
+/* state box */
+#state{position:absolute;top:10px;left:10px;z-index:6;background:#111827e8;color:#e5e7eb;font:11px/1.35 ui-monospace,Consolas,monospace;
+ border-radius:8px;padding:6px 8px;max-width:330px;white-space:pre-wrap}
+#state summary{cursor:pointer;color:#fde68a}
+/* switcher */
+#switcher{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:6px;
+ background:#111827;color:#fff;border-radius:999px;padding:5px 8px;box-shadow:0 6px 20px #0005;font-weight:600}
+#switcher button{background:#374151;color:#fff;border:0;border-radius:999px;width:28px;height:28px;cursor:pointer;font-size:14px}
+#switcher span{min-width:210px;text-align:center}
+/* variant A */
+.popA{background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px #0002;padding:10px 12px;width:330px}
+.popA h4{margin:0 0 6px;font-size:12px;color:var(--mute);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.looks{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.look{border:1px solid var(--line);border-radius:8px;background:#fff;padding:6px 8px;text-align:left;cursor:pointer;font:inherit}
+.look b{display:block;font-size:12.5px}.look span{font-size:11px;color:var(--mute)}
+.look.on{border-color:var(--acc);background:var(--acc-bg)}
+.look svg{display:block;margin-top:4px}
+.row{display:flex;align-items:center;gap:8px;margin:5px 0}.row label{width:96px;color:var(--ink2);font-size:12px}
+.row input[type=range]{flex:1}
+.link{background:none;border:0;color:var(--acc);cursor:pointer;font:inherit;padding:0}
+/* variant B */
+.sec{border-bottom:1px solid var(--line2);padding:10px 12px}
+.sec h3{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--mute)}
+.sec.view{background:#fbfaf6}
+.badge{display:inline-block;font-size:10.5px;background:#eef0f3;color:var(--ink2);border-radius:4px;padding:1px 5px;margin-left:4px;
+ text-transform:none;letter-spacing:0;font-weight:500}
+.ghost{opacity:.45;pointer-events:none}
+.field{margin:9px 0}.field>.l{display:flex;justify-content:space-between;font-size:12px;color:var(--ink2);margin-bottom:3px}
+.field .v{font-variant-numeric:tabular-nums;color:var(--ink)}
+.radios{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.radios button{display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:6px;padding:3px 6px;
+ cursor:pointer;font:inherit;font-size:12px}
+.radios button.on{border-color:var(--acc);background:var(--acc-bg);color:var(--acc)}
+.note{font-size:11.5px;color:var(--mute);margin-top:3px}
+.range2{display:flex;gap:6px;align-items:center}.range2 input{width:100%}
+/* variant C */
+.cardC{background:#fffffff2;border:1px solid var(--line);border-radius:10px;box-shadow:0 2px 10px #0002;padding:8px 10px;width:360px}
+.cardC .hd{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--ink2)}
+.cardC svg{display:block;user-select:none}
+.curves{display:flex;gap:4px}.curves button{border:1px solid var(--line);background:#fff;border-radius:5px;padding:1px;cursor:pointer;line-height:0}
+.curves button.on{border-color:var(--acc);background:var(--acc-bg)}
+.swatches{display:flex;gap:4px}.swatches button{border:1px solid var(--line);background:#fff;border-radius:5px;padding:2px 5px;cursor:pointer;
+ font:inherit;font-size:11px;display:inline-flex;gap:3px;align-items:center}
+.swatches button.on{border-color:var(--acc);background:var(--acc-bg);color:var(--acc)}
+.ctrls{display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:6px;flex-wrap:wrap}
+.stepper{display:inline-flex;align-items:center;gap:2px;font-size:11.5px;color:var(--ink2)}
+.stepper button{width:20px;height:20px;border:1px solid var(--line);background:#fff;border-radius:4px;cursor:pointer;padding:0;line-height:1}
+</style>
+</head>
+<body>
+<div id="top"><b>Tag Network</b><span class="tag">PROTOTYPE</span><span class="mute">Edge appearance controls (ticket 04) · Workbench graph, real Build data</span></div>
+<div id="wrap">
+  <div id="side"></div>
+  <div id="stage">
+    <div id="cy"></div>
+    <details id="state"><summary>state</summary><div id="state-body"></div></details>
+    <div class="ov ov-tr">
+      <select id="ds"></select>
+      <div class="seg" id="lay"><button data-v="global" class="on">Global</button><button data-v="separated">Cluster-separated</button></div>
+    </div>
+    <div class="ov ov-bl" id="bl"></div>
+  </div>
+</div>
+<div id="switcher"><button id="prev" title="previous variant (←)">←</button><span id="vlabel"></span><button id="next" title="next variant (→)">→</button></div>
+<script>
+"use strict";
+const D = window.DATA;
+const VARIANTS = {A: "Looks in the legend", B: "Controls section", C: "Live scale card"};
+const KEYS = Object.keys(VARIANTS);
+const LABEL_PX = 11.5, HALO = 2;
+const NEUTRAL = "#8d95a3", INTRA2 = "#5b6474", INTER2 = "#d0603a", GRAD = ["#c9ced8", "#1f3f8f"];
+// Today's look. Every variant starts here and "Reset" comes back here.
+const DEFAULT = {minW: 0.4, maxW: 3, scale: "linear", color: "neutral", opacity: 0.18, interSep: 0.06, hideBelow: null, look: "faint"};
+const S = Object.assign({}, DEFAULT);
+const V = {variant: new URLSearchParams(location.search).get("variant") || "A", ds: "overall", layout: "global",
+           showShared: false, sel: null, popOpen: true, lastMs: null, restyles: 0, payloadsSent: 1, layoutsRun: 0};
+if (!VARIANTS[V.variant]) V.variant = "A";
+
+// ------------------------------------------------------------------ data helpers
+const st = () => D.states[V.ds];
+const measure = () => (st().weight === "lift" && !V.showShared) ? "lift" : "shared";
+const measureName = () => measure() === "lift" ? "lift" : "shared games";
+function values() { return st().edges.map((e) => e[measure()]); }
+function rawById() { const m = {}; for (const e of st().edges) m[e.source + "-" + e.target] = e; return m; }
+const fmt = (v) => measure() === "lift" ? v.toFixed(2) : String(Math.round(v));
+
+// f(v) in [0, 1]: how far along the width range a value is drawn. Linear is today's v / largest.
+function scaler(vals) {
+  const top = Math.max(...vals) || 1, lo = Math.min(...vals);
+  const sorted = [...vals].sort((a, b) => a - b);
+  if (S.scale === "sqrt") return (v) => Math.sqrt(v / top);
+  if (S.scale === "log") return (v) => top > lo ? Math.log(v / lo) / Math.log(top / lo) : 1;
+  if (S.scale === "rank") return (v) => {  // mid-rank of ties
+    let a = 0, b = sorted.length - 1;
+    const first = sorted.indexOf(v), last = sorted.lastIndexOf(v);
+    return sorted.length > 1 ? ((first + last) / 2) / (sorted.length - 1) : 1;
+  };
+  return (v) => v / top;
+}
+const widthOf = (f) => S.minW + (S.maxW - S.minW) * f;
+function mix(a, b, t) {
+  const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const x = p(a), y = p(b);
+  return "#" + x.map((c, i) => Math.round(c + (y[i] - c) * t).toString(16).padStart(2, "0")).join("");
+}
+
+// ------------------------------------------------------------------ canvas
+let cy = null;
+function style() {
+  const tinted = S.color !== "neutral";
+  return [
+    {selector: "node", style: {
+      "background-color": "data(color)", "label": "data(label)", "font-size": LABEL_PX, "min-zoomed-font-size": 0,
+      "font-family": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", "color": "#1b2130",
+      "text-valign": "bottom", "text-margin-y": 2, "text-outline-color": "#fff", "text-outline-width": HALO,
+      "text-outline-opacity": 0.95, "width": "data(size)", "height": "data(size)", "border-width": 1.2,
+      "border-color": "#00000040", "z-index-compare": "manual", "z-index": 10}},
+    {selector: "node.hot", style: {"font-weight": 700, "text-outline-width": 0, "text-background-color": "#fff", "z-index": 15,
+      "text-background-opacity": 1, "text-background-padding": 2, "text-background-shape": "round-rectangle"}},
+    {selector: "node.one_tag", style: {"opacity": 0.8}},
+    {selector: "node.center", style: {"shape": "diamond", "border-width": 2, "border-color": "#1b2130", "font-weight": 650, "z-index": 20}},
+    {selector: "node.region", style: {
+      "shape": "round-rectangle", "width": "data(w)", "height": "data(h)", "background-color": "data(color)",
+      "background-opacity": 0.07, "border-width": 1, "border-color": "data(color)", "border-opacity": 0.35,
+      "label": "data(label)", "text-valign": "top", "text-halign": "center", "font-size": 12.5,
+      "min-zoomed-font-size": 0, "font-weight": 600, "color": "#3d4555", "text-outline-width": 0, "z-index": 0}},
+    {selector: "edge", style: {"curve-style": "haystack", "haystack-radius": 0, "line-color": "data(color)",
+      "opacity": S.opacity, "width": "data(width)", "z-index-compare": "manual", "z-index": 5}},
+    {selector: "edge.inter.separated", style: {"opacity": S.interSep}},
+    {selector: "edge.cut", style: {"display": "none"}},
+    {selector: "node.dim", style: {"opacity": 0.12}},
+    {selector: "edge.dim", style: {"opacity": 0.04}},
+    {selector: "edge.nb", style: Object.assign({"opacity": 0.9}, tinted ? {} : {"line-color": "#4a5262"})},
+    {selector: "node.sel", style: {"border-width": 3, "border-color": "#2457d6", "z-index": 30}},
+  ];
+}
+
+function mount() {
+  cy = cytoscape({container: document.getElementById("cy"), style: style(), elements: [], minZoom: 0.05, maxZoom: 5,
+                  boxSelectionEnabled: false, autounselectify: true});
+  cy.on("tap", "node", (ev) => { if (!ev.target.hasClass("region")) { V.sel = ev.target.id(); select(); } });
+  cy.on("tap", (ev) => { if (ev.target === cy) { V.sel = null; select(); } });
+  let t = null;
+  cy.on("zoom", () => { clearTimeout(t); t = setTimeout(sizeLabels, 120); });
+  new ResizeObserver(() => { cy.resize(); fit(); }).observe(document.getElementById("stage"));
+}
+function sizeLabels() {
+  const z = cy.zoom();
+  cy.batch(() => {
+    cy.nodes().not(".region").style({"font-size": LABEL_PX / z, "text-margin-y": 2 / z, "text-outline-width": HALO / z,
+                                     "text-background-padding": 2 / z});
+    cy.nodes(".region").style({"font-size": 12.5 / z, "text-margin-y": -4 / z});
+  });
+}
+function fit() {
+  if (!cy || !cy.elements().length) return;
+  cy.fit(cy.elements(), 40);
+  if (cy.zoom() > 1) { cy.zoom(1); cy.center(); }
+  sizeLabels();
+}
+
+// A new state or layout: what the server's graph-data payload does today (the only time elements are sent).
+function load() {
+  const p = st()[V.layout];
+  cy.batch(() => {
+    cy.elements().remove();
+    for (const r of p.regions) cy.add({group: "nodes", data: {id: r.id, label: r.label, cluster: r.cluster, color: r.color, w: r.w, h: r.h},
+                                        position: {x: r.x, y: r.y}, classes: "region", locked: true, grabbable: false});
+    for (const n of p.nodes) cy.add({group: "nodes", data: {id: n.id, label: n.label, cluster: n.cluster, color: n.color, size: n.size},
+                                      classes: n.classes, position: {x: p.positions[n.id][0], y: p.positions[n.id][1]}});
+    for (const e of p.edges) cy.add({group: "edges", data: {id: e.id, source: e.source, target: e.target, width: e.width, color: NEUTRAL,
+                                      payloadWidth: e.width}, classes: e.classes});
+  });
+  V.payloadsSent++; V.layoutsRun++;
+  fit();
+  restyle(true);
+  select();
+}
+
+// Every appearance change: restyle the edges already on the canvas. Nothing is sent, nothing is laid out.
+function restyle(silent) {
+  const t0 = performance.now();
+  const raw = rawById(), vals = values(), f = scaler(vals), m = measure();
+  const colorOf = {};
+  cy.nodes().not(".region").forEach((n) => { colorOf[n.id()] = n.data("color"); });
+  cy.batch(() => {
+    cy.style(style());
+    cy.edges().forEach((e) => {
+      const r = raw[e.id()], v = r[m], t = f(v);
+      let c = NEUTRAL;
+      if (S.color === "cluster") c = r.intra ? colorOf[r.source] : NEUTRAL;
+      else if (S.color === "intra") c = r.intra ? INTRA2 : INTER2;
+      else if (S.color === "value") c = mix(GRAD[0], GRAD[1], t);
+      e.data({width: widthOf(t), color: c});
+      if (S.hideBelow != null && v < S.hideBelow) e.addClass("cut"); else e.removeClass("cut");
+    });
+  });
+  V.lastMs = performance.now() - t0;
+  if (!silent) V.restyles++;
+  renderUI();
+}
+
+function select() {
+  cy.batch(() => {
+    cy.elements().removeClass("sel hot dim nb");
+    if (!V.sel) return;
+    const n = cy.getElementById(V.sel);
+    if (n.empty()) return;
+    n.addClass("sel");
+    const keep = n.closedNeighborhood().filter((x) => !x.hasClass("cut"));
+    n.connectedEdges().not(".cut").addClass("nb");
+    keep.nodes().addClass("hot");
+    cy.elements().not(keep).not(".region").addClass("dim");
+  });
+  renderState();
+}
+
+// ------------------------------------------------------------------ shared legend pieces
+function legendText() {
+  const sc = {linear: "linear", sqrt: "square root", log: "log", rank: "rank"}[S.scale];
+  const top = Math.max(...values());
+  const parts = [`${S.minW.toFixed(1)}–${S.maxW.toFixed(1)} px`, sc, `largest ${fmt(top)}`];
+  return `Edge thickness: ${measureName()}` + (isDefault() ? "" : ` (${parts.join(", ")})`);
+}
+function isDefault() { return ["minW", "maxW", "scale", "color", "opacity", "interSep", "hideBelow"].every((k) => S[k] === DEFAULT[k]); }
+function clusterChips() {
+  const cs = st().clusters, multi = cs.filter((c) => c.kind === "multi_tag"), one = cs.filter((c) => c.kind === "one_tag").length;
+  const pal = ["#5b7fb0", "#d08a4e", "#6a9c64", "#c0646a", "#6ea8a5", "#c9ad4f", "#9a7fa8", "#d79aa4", "#8f7766"];
+  return `<span class="lkey">Key</span>` + multi.map((c) => `<span class="lchip"><span class="sw" style="background:${pal[(+c.cluster.slice(1) - 1) % pal.length]}"></span>${c.cluster} · ${c.size}</span>`).join("")
+    + (one ? `<span class="lchip"><span class="sw" style="background:#b8b8b8"></span>${one} one-tag</span>` : "");
+}
+function sharedSwitch() {
+  if (st().weight !== "lift") return "";
+  return `<label class="check"><input type="checkbox" id="shared-sw" ${V.showShared ? "checked" : ""}> show shared games</label>`;
+}
+function hiddenCount() { return S.hideBelow == null ? 0 : values().filter((v) => v < S.hideBelow).length; }
+function minShared() { return Math.min(...st().edges.map((e) => e.shared)); }
+function curveIcon(kind, on) {
+  const pts = []; for (let i = 0; i <= 10; i++) { const x = i / 10;
+    const y = kind === "linear" ? x : kind === "sqrt" ? Math.sqrt(x) : kind === "log" ? Math.log(1 + 9 * x) / Math.log(10) : (Math.round(x * 4) / 4);
+    pts.push(`${2 + x * 20},${20 - y * 16}`); }
+  return `<svg width="24" height="22"><polyline points="${pts.join(" ")}" fill="none" stroke="${on ? "#2457d6" : "#6b7280"}" stroke-width="1.6"/></svg>`;
+}
+// Sample strokes as drawn: a little picture of five values at the current width, colour and opacity.
+function sampleSvg(w, h) {
+  const vals = values(), f = scaler(vals), sorted = [...vals].sort((a, b) => a - b);
+  const qs = [0, 0.25, 0.5, 0.75, 1].map((q) => sorted[Math.round(q * (sorted.length - 1))]);
+  return `<svg width="${w}" height="${h}">` + qs.map((v, i) => {
+    const t = f(v), x = 8 + i * (w - 16) / 4, c = S.color === "value" ? mix(GRAD[0], GRAD[1], t) : S.color === "intra" ? INTRA2 : NEUTRAL;
+    const op = Math.min(1, S.opacity * 2.2), cut = S.hideBelow != null && v < S.hideBelow;
+    return `<line x1="${x - 14}" y1="${h - 18}" x2="${x + 14}" y2="6" stroke="${c}" stroke-width="${widthOf(t) * 1.6}" opacity="${cut ? 0.12 : op}" stroke-dasharray="${cut ? "2 2" : ""}"/>`
+      + `<text x="${x}" y="${h - 3}" font-size="10" text-anchor="middle" fill="#6b7280">${fmt(v)}</text>`;
+  }).join("") + `</svg>`;
+}
+
+// ------------------------------------------------------------------ variant A: looks in the legend
+const LOOKS = {
+  faint:   {name: "Faint", note: "today: thin, light", set: {minW: 0.4, maxW: 3, scale: "linear", color: "neutral", opacity: 0.18, interSep: 0.06, hideBelow: null}},
+  clear:   {name: "Clear", note: "thicker, darker, √ scale", set: {minW: 0.6, maxW: 4.5, scale: "sqrt", color: "neutral", opacity: 0.32, interSep: 0.1, hideBelow: null}},
+  strong:  {name: "Strong ties", note: "weak links fade, strong stand out", set: {minW: 0.2, maxW: 6, scale: "linear", color: "value", opacity: 0.45, interSep: 0.15, hideBelow: null}},
+  cluster: {name: "By Cluster", note: "within-Cluster links in its colour", set: {minW: 0.5, maxW: 3.5, scale: "sqrt", color: "cluster", opacity: 0.4, interSep: 0.08, hideBelow: null}},
+  bridges: {name: "Bridges", note: "between-Cluster links in orange", set: {minW: 0.5, maxW: 4, scale: "sqrt", color: "intra", opacity: 0.3, interSep: 0.3, hideBelow: null}},
+};
+function viewA() {
+  const looks = Object.entries(LOOKS).map(([k, l]) => {
+    const s = l.set;
+    const svg = `<svg width="130" height="10">${[0, 0.5, 1].map((t, i) => `<line x1="${4 + i * 44}" y1="5" x2="${40 + i * 44}" y2="5" stroke="${s.color === "value" ? mix(GRAD[0], GRAD[1], t) : s.color === "intra" ? (i === 2 ? INTER2 : INTRA2) : s.color === "cluster" ? ["#5b7fb0", "#d08a4e", NEUTRAL][i] : NEUTRAL}" stroke-width="${(s.minW + (s.maxW - s.minW) * t) * 1.4}" opacity="${Math.min(1, s.opacity * 2.2)}"/>`).join("")}</svg>`;
+    return `<button class="look ${S.look === k ? "on" : ""}" data-look="${k}"><b>${l.name}</b><span>${l.note}</span>${svg}</button>`;
+  }).join("");
+  const scaleOf = S.maxW / LOOKS[S.look in LOOKS ? S.look : "faint"].set.maxW;
+  const pop = !V.popOpen ? "" : `<div class="popA">
+    <h4>Edge look <span class="badge">view only</span></h4>
+    <div class="looks">${looks}</div>
+    <h4>Fine-tune</h4>
+    <div class="row"><label>Thickness</label><input type="range" id="a-thick" min="0.5" max="2.5" step="0.05" value="${scaleOf.toFixed(2)}"><span class="small mute">×${scaleOf.toFixed(2)}</span></div>
+    <div class="row"><label>Strength</label><input type="range" id="a-op" min="0.05" max="0.8" step="0.01" value="${S.opacity}"><span class="small mute">${Math.round(S.opacity * 100)}%</span></div>
+    <div class="row" style="justify-content:space-between"><button class="link" id="a-reset">Back to the default look</button>
+      <span class="small mute">${S.look === "custom" ? "custom" : LOOKS[S.look].name}</span></div>
+  </div>`;
+  document.getElementById("bl").innerHTML = pop +
+    `<div class="legend">${clusterChips()}</div>
+     <div class="legend"><span class="lkey">${legendText()}</span>${sharedSwitch()}
+       <button class="btn ${V.popOpen ? "on" : ""}" id="a-toggle">Edges ▾</button></div>`;
+  document.querySelectorAll("[data-look]").forEach((b) => b.onclick = () => { Object.assign(S, LOOKS[b.dataset.look].set, {look: b.dataset.look}); restyle(); });
+  const th = document.getElementById("a-thick");
+  if (th) th.oninput = () => { const base = LOOKS[S.look in LOOKS ? S.look : "faint"].set; const k = +th.value;
+    S.minW = +(base.minW * k).toFixed(2); S.maxW = +(base.maxW * k).toFixed(2); restyle(); };
+  const op = document.getElementById("a-op");
+  if (op) op.oninput = () => { S.opacity = +op.value; restyle(); };
+  const rs = document.getElementById("a-reset");
+  if (rs) rs.onclick = () => { Object.assign(S, DEFAULT); restyle(); };
+  document.getElementById("a-toggle").onclick = () => { V.popOpen = !V.popOpen; renderUI(); };
+}
+
+// ------------------------------------------------------------------ variant B: a Controls section
+function viewB() {
+  const vals = values(), lo = Math.min(...vals), hi = Math.max(...vals), step = measure() === "lift" ? 0.05 : 1;
+  const sep = V.layout === "separated";
+  const side = `
+    <div class="sec ghost"><h3>Data</h3><div class="small mute">Dataset · Minimum Months Filter</div></div>
+    <div class="sec ghost"><h3>Filters</h3><div class="small mute">Minimum games per tag · <b>Minimum shared games ${minShared()}</b> · Hidden Genre Tags</div></div>
+    <div class="sec ghost"><h3>Clustering</h3><div class="small mute">Weight ${st().weight === "lift" ? "Lift" : "Shared games"} · Louvain · γ · seed</div></div>
+    <div class="sec view">
+      <h3>Edge appearance <span class="badge">view only · not in the Network State</span></h3>
+      <div class="field"><div class="l"><span>Thickness shows</span><span class="v">${measureName()}</span></div>${st().weight === "lift" ? sharedSwitch() : `<div class="note">The Clustering Weight. Under Lift you can switch to shared games.</div>`}</div>
+      <div class="field"><div class="l"><span>Width range</span><span class="v">${S.minW.toFixed(1)} – ${S.maxW.toFixed(1)} px</span></div>
+        <div class="range2"><input type="range" id="b-min" min="0.1" max="3" step="0.1" value="${S.minW}"><input type="range" id="b-max" min="1" max="10" step="0.1" value="${S.maxW}"></div>
+        <div class="note">At 100 % zoom: the weakest link drawn at least the minimum, the largest value at the maximum.</div></div>
+      <div class="field"><div class="l"><span>Scaling</span></div><div class="radios">
+        ${[["linear", "Linear"], ["sqrt", "Square root"], ["log", "Log"], ["rank", "Rank"]].map(([k, n]) => `<button data-scale="${k}" class="${S.scale === k ? "on" : ""}">${curveIcon(k, S.scale === k)}${n}</button>`).join("")}</div></div>
+      <div class="field"><div class="l"><span>Colour</span></div>
+        <select id="b-color" style="width:100%">
+          ${[["neutral", "One colour"], ["cluster", "By Cluster (links within a Cluster)"], ["intra", "Within vs between Clusters"], ["value", "By value (light → dark)"]].map(([k, n]) => `<option value="${k}" ${S.color === k ? "selected" : ""}>${n}</option>`).join("")}
+        </select></div>
+      <div class="field"><div class="l"><span>Opacity, all links</span><span class="v">${Math.round(S.opacity * 100)} %</span></div>
+        <input type="range" id="b-op" min="0.02" max="1" step="0.01" value="${S.opacity}" style="width:100%"></div>
+      <div class="field ${sep ? "" : "ghost"}"><div class="l"><span>Opacity, links between Clusters</span><span class="v">${Math.round(S.interSep * 100)} %</span></div>
+        <input type="range" id="b-inter" min="0" max="1" step="0.01" value="${S.interSep}" style="width:100%">
+        <div class="note">${sep ? "Cluster-separated layout only." : "Applies in the Cluster-separated layout."}</div></div>
+      <div class="field"><div class="l"><span>Hide links below</span><span class="v">${S.hideBelow == null ? "off" : fmt(S.hideBelow) + " " + measureName()}</span></div>
+        <input type="range" id="b-hide" min="${lo}" max="${hi}" step="${step}" value="${S.hideBelow == null ? lo : S.hideBelow}" style="width:100%">
+        <div class="note">${hiddenCount()} of ${vals.length} links hidden from the drawing. Not <b>Minimum shared games</b> (${minShared()}), which decides which links exist and is part of the Network State: hidden links still count in every number.</div></div>
+      <button class="btn" id="b-reset" ${isDefault() ? "disabled" : ""}>Reset edge appearance</button>
+    </div>
+    <div class="sec ghost"><h3>State</h3><div class="small mute">Removed tags · Reset all · Export this state</div></div>`;
+  document.getElementById("side").innerHTML = side;
+  document.getElementById("bl").innerHTML = `<div class="legend">${clusterChips()}</div><div class="legend"><span class="lkey">${legendText()}</span></div>`;
+  const on = (id, fn) => { const el = document.getElementById(id); if (el) el.oninput = () => fn(el); };
+  on("b-min", (el) => { S.minW = Math.min(+el.value, S.maxW); restyle(); });
+  on("b-max", (el) => { S.maxW = Math.max(+el.value, S.minW); restyle(); });
+  on("b-op", (el) => { S.opacity = +el.value; restyle(); });
+  on("b-inter", (el) => { S.interSep = +el.value; restyle(); });
+  on("b-hide", (el) => { S.hideBelow = +el.value <= lo ? null : +el.value; restyle(); });
+  document.getElementById("b-color").onchange = (ev) => { S.color = ev.target.value; restyle(); };
+  document.querySelectorAll("[data-scale]").forEach((b) => b.onclick = () => { S.scale = b.dataset.scale; restyle(); });
+  document.getElementById("b-reset").onclick = () => { Object.assign(S, DEFAULT); restyle(); };
+}
+
+// ------------------------------------------------------------------ variant C: the live scale card
+function viewC() {
+  const vals = values(), lo = Math.min(...vals), hi = Math.max(...vals), f = scaler(vals);
+  const W = 340, H = 96, PADL = 8, PADR = 8, base = 70, bins = 24;
+  const xOf = (v) => PADL + (hi > lo ? (v - lo) / (hi - lo) : 0) * (W - PADL - PADR);
+  const counts = new Array(bins).fill(0);
+  for (const v of vals) counts[Math.min(bins - 1, Math.floor((v - lo) / ((hi - lo) || 1) * bins))]++;
+  const cmax = Math.max(...counts), bw = (W - PADL - PADR) / bins;
+  const cut = S.hideBelow == null ? lo : S.hideBelow;
+  const bars = counts.map((c, i) => {
+    const v0 = lo + (i / bins) * (hi - lo), off = S.hideBelow != null && v0 + (hi - lo) / bins <= S.hideBelow;
+    return `<rect x="${PADL + i * bw + 0.5}" y="${base - (c / cmax) * 30}" width="${bw - 1}" height="${(c / cmax) * 30}" fill="${off ? "#e5e7eb" : "#cbd5e1"}"/>`;
+  }).join("");
+  // The drawn width along the value axis: a band whose thickness is the stroke width (×3 for legibility).
+  const pts = []; for (let i = 0; i <= 40; i++) { const v = lo + (i / 40) * (hi - lo); pts.push([xOf(v), widthOf(f(v))]); }
+  const band = pts.map(([x, w]) => `${x},${16 - w * 1.5}`).join(" ") + " " + [...pts].reverse().map(([x, w]) => `${x},${16 + w * 1.5}`).join(" ");
+  const bandFill = S.color === "value" ? "url(#gradC)" : S.color === "intra" ? INTRA2 : NEUTRAL;
+  const svg = `<svg id="c-svg" width="${W}" height="${H}" style="cursor:ew-resize">
+    <defs><linearGradient id="gradC"><stop offset="0" stop-color="${GRAD[0]}"/><stop offset="1" stop-color="${GRAD[1]}"/></linearGradient></defs>
+    <polygon points="${band}" fill="${bandFill}" opacity="${Math.min(1, S.opacity * 2.6)}"/>
+    <text x="${PADL}" y="34" font-size="10" fill="#6b7280">${S.minW.toFixed(1)} px</text>
+    <text x="${W - PADR}" y="34" font-size="10" fill="#6b7280" text-anchor="end">${S.maxW.toFixed(1)} px</text>
+    ${bars}
+    <line x1="${PADL}" y1="${base}" x2="${W - PADR}" y2="${base}" stroke="#9aa1ad"/>
+    ${S.hideBelow != null ? `<rect x="${PADL}" y="10" width="${xOf(cut) - PADL}" height="${base - 10}" fill="#ffffff" opacity="0.55"/>` : ""}
+    <line x1="${xOf(cut)}" y1="8" x2="${xOf(cut)}" y2="${base + 4}" stroke="${S.hideBelow == null ? "#c0c6d0" : "#2457d6"}" stroke-width="2"/>
+    <rect x="${xOf(cut) - 5}" y="${base - 2}" width="10" height="12" rx="2" fill="${S.hideBelow == null ? "#fff" : "#2457d6"}" stroke="#2457d6"/>
+    <text x="${PADL}" y="${H - 6}" font-size="10" fill="#6b7280">${fmt(lo)}</text>
+    <text x="${(PADL + W - PADR) / 2}" y="${H - 6}" font-size="10" fill="#6b7280" text-anchor="middle">${measureName()} per link · ${vals.length} links</text>
+    <text x="${W - PADR}" y="${H - 6}" font-size="10" fill="#6b7280" text-anchor="end">${fmt(hi)}</text>
+  </svg>`;
+  const curves = ["linear", "sqrt", "log", "rank"].map((k) => `<button data-scale="${k}" class="${S.scale === k ? "on" : ""}" title="${k}">${curveIcon(k, S.scale === k)}</button>`).join("");
+  const sw = [["neutral", "one", NEUTRAL], ["cluster", "Cluster", "#d08a4e"], ["intra", "within/between", INTER2], ["value", "value", GRAD[1]]]
+    .map(([k, n, c]) => `<button data-color="${k}" class="${S.color === k ? "on" : ""}"><span class="sw" style="background:${c}"></span>${n}</button>`).join("");
+  const sep = V.layout === "separated";
+  document.getElementById("bl").innerHTML = `<div class="legend">${clusterChips()}</div>
+    <div class="cardC">
+      <div class="hd"><span><b>Edge thickness: ${measureName()}</b> ${sharedSwitch()}</span>
+        <button class="link" id="c-reset" ${isDefault() ? "style='visibility:hidden'" : ""}>reset</button></div>
+      ${svg}
+      <div class="small mute" style="margin-top:-2px">${S.hideBelow == null ? "Drag the handle to hide weak links from the drawing (view only)." : `${hiddenCount()} links below ${fmt(S.hideBelow)} hidden from the drawing; every number still counts them. Minimum shared games (${minShared()}) is unchanged.`}</div>
+      <div class="ctrls"><div class="curves">${curves}</div>
+        <span class="stepper">width <button id="c-thin">−</button><button id="c-thick">+</button></span>
+        <span class="stepper">strength <button id="c-fade">−</button><button id="c-bold">+</button></span></div>
+      <div class="ctrls"><div class="swatches">${sw}</div></div>
+      ${sep ? `<div class="ctrls"><span class="stepper">links between Clusters ${Math.round(S.interSep * 100)} % <button id="c-ifade">−</button><button id="c-ibold">+</button></span></div>` : ""}
+    </div>`;
+  const svgEl = document.getElementById("c-svg");
+  const drag = (ev) => {
+    const r = svgEl.getBoundingClientRect(), x = Math.max(PADL, Math.min(W - PADR, ev.clientX - r.left));
+    let v = lo + (x - PADL) / (W - PADL - PADR) * (hi - lo);
+    v = measure() === "lift" ? Math.round(v * 20) / 20 : Math.round(v);
+    S.hideBelow = v <= lo ? null : v;
+    restyle();
+  };
+  svgEl.onpointerdown = (ev) => {
+    drag(ev);
+    const mv = (e) => drag(e), up = () => { window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); };
+    window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up);
+  };
+  document.querySelectorAll("[data-scale]").forEach((b) => b.onclick = () => { S.scale = b.dataset.scale; restyle(); });
+  document.querySelectorAll("[data-color]").forEach((b) => b.onclick = () => { S.color = b.dataset.color; restyle(); });
+  const click = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = () => { fn(); restyle(); }; };
+  click("c-thin", () => { S.maxW = Math.max(1, +(S.maxW / 1.25).toFixed(2)); S.minW = Math.max(0.1, +(S.minW / 1.25).toFixed(2)); });
+  click("c-thick", () => { S.maxW = Math.min(12, +(S.maxW * 1.25).toFixed(2)); S.minW = Math.min(3, +(S.minW * 1.25).toFixed(2)); });
+  click("c-fade", () => { S.opacity = Math.max(0.03, +(S.opacity / 1.35).toFixed(3)); });
+  click("c-bold", () => { S.opacity = Math.min(1, +(S.opacity * 1.35).toFixed(3)); });
+  click("c-ifade", () => { S.interSep = Math.max(0, +(S.interSep / 1.5).toFixed(3)); });
+  click("c-ibold", () => { S.interSep = Math.min(1, +Math.max(0.02, S.interSep * 1.5).toFixed(3)); });
+  click("c-reset", () => Object.assign(S, DEFAULT));
+}
+
+// ------------------------------------------------------------------ chrome
+function renderState() {
+  const shown = cy ? cy.edges().not(".cut").length : 0;
+  document.getElementById("state-body").textContent =
+`variant   ${V.variant} (${VARIANTS[V.variant]})
+state     ${V.ds} · ${st().state_id} · weight ${st().weight}
+layout    ${V.layout}   selection ${V.sel || "none"}
+width     ${measureName()} · ${S.minW}–${S.maxW} px · ${S.scale}
+colour    ${S.color}   opacity ${S.opacity} · between-Cluster (separated) ${S.interSep}
+hide <    ${S.hideBelow == null ? "off" : S.hideBelow} → ${shown} of ${cy ? cy.edges().length : 0} links drawn
+default   ${isDefault() ? "yes (today's look)" : "no"}
+last change  ${V.lastMs == null ? "–" : V.lastMs.toFixed(1) + " ms"} restyle · ${V.restyles} restyles
+payloads sent ${V.payloadsSent} · layouts ${V.layoutsRun} (only dataset/layout changes)`;
+}
+function renderUI() {
+  document.body.className = "v" + V.variant;
+  document.getElementById("vlabel").textContent = `${V.variant} (${VARIANTS[V.variant]})`;
+  if (V.variant !== "A" && S.look !== "faint" && !(S.look in LOOKS)) S.look = "custom";
+  if (V.variant === "A") viewA(); else if (V.variant === "B") viewB(); else viewC();
+  const ss = document.getElementById("shared-sw");
+  if (ss) ss.onchange = () => { V.showShared = ss.checked; if (S.hideBelow != null) S.hideBelow = null; restyle(); };
+  renderState();
+}
+function setVariant(v) {
+  V.variant = v;
+  const u = new URL(location.href); u.searchParams.set("variant", v); history.replaceState(null, "", u);
+  renderUI();
+  cy.resize(); fit();
+}
+document.getElementById("prev").onclick = () => setVariant(KEYS[(KEYS.indexOf(V.variant) + KEYS.length - 1) % KEYS.length]);
+document.getElementById("next").onclick = () => setVariant(KEYS[(KEYS.indexOf(V.variant) + 1) % KEYS.length]);
+window.addEventListener("keydown", (ev) => {
+  if (ev.target.closest && ev.target.closest("input,textarea,select,[contenteditable]")) return;
+  if (ev.key === "ArrowLeft") document.getElementById("prev").click();
+  if (ev.key === "ArrowRight") document.getElementById("next").click();
+});
+const ds = document.getElementById("ds");
+ds.innerHTML = Object.entries(D.states).map(([k, s]) => `<option value="${k}">${s.label}${s.weight === "lift" ? " · Lift weight" : ""}</option>`).join("");
+ds.onchange = () => { V.ds = ds.value; V.sel = null; V.showShared = false; S.hideBelow = null; load(); };
+document.querySelectorAll("#lay button").forEach((b) => b.onclick = () => {
+  document.querySelectorAll("#lay button").forEach((x) => x.classList.toggle("on", x === b));
+  V.layout = b.dataset.v; load();
+});
+mount();
+renderUI();
+load();
+V.payloadsSent = 1; V.layoutsRun = 1; renderState();
+// Check that the default reproduces today's widths exactly (payload width from renderer.payload vs ours).
+window.__check = () => cy.edges().map((e) => Math.abs(e.data("width") - e.data("payloadWidth"))).reduce((a, b) => Math.max(a, b), 0);
+</script>
+</body>
+</html>
