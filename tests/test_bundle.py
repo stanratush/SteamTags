@@ -257,3 +257,18 @@ def test_an_extracted_bundle_opens_the_mode_on_shipped_results_with_the_provenan
     assert provenance.startswith("Computed when this bundle was made: Python") and "Darwin arm64, 2026-10-26" in (
         provenance)
     assert "★" in str(out[8])
+
+
+def test_a_partial_grid_in_the_maker_cache_is_not_called_stale(tmp_path):
+    import json
+
+    from steamstudy.bundle.make import stale_files
+
+    fresh, maker = tmp_path / "fresh" / "grids" / "k", tmp_path / "maker" / "grids" / "k"
+    for folder, complete in ((fresh, True), (maker, False)):
+        (folder / "graphs").mkdir(parents=True)
+        (folder / "manifest.json").write_text(json.dumps({"complete": complete, "links": [] if complete else None}))
+        (folder / "graphs" / "h.json").write_text(json.dumps({"n_tags": 3, "seconds": 1.0 if complete else 2.0}))
+    assert stale_files(tmp_path / "fresh", tmp_path / "maker") == []
+    (maker / "graphs" / "h.json").write_text(json.dumps({"n_tags": 4}))
+    assert stale_files(tmp_path / "fresh", tmp_path / "maker") == ["grids/k/graphs/h.json"]

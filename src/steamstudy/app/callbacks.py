@@ -817,12 +817,18 @@ def _starting(dataset, n_datasets, phase, total):
             "total": total, "weight_done": 0.0, "weight_total": 1.0, "elapsed": 0.0}
 
 
-def ps_validate_request(_n, active, dataset, pair, build_path):
+def _shown_view(c, settings, cstore, dataset, default_constraints):
+    """The dataset as the mode shows it: chosen under its active constraints (the Inspector's ★ pair)."""
+    return PV.dataset_view(c, settings, dataset, PV.active_constraints(cstore, dataset, default_constraints),
+                           default_constraints)
+
+
+def ps_validate_request(_n, active, dataset, pair, build_path, cstore=None):
     if not _n:
         raise PreventUpdate
     c, settings, _, default_constraints = _ps_context(build_path, active)
     if not pair:
-        view = PV.dataset_view(c, settings, dataset, default_constraints, default_constraints)
+        view = _shown_view(c, settings, cstore, dataset, default_constraints)
         if view.star is None:
             raise PreventUpdate
         pair = list(view.star)
@@ -950,13 +956,13 @@ def ps_stage_settings(_reset, _copy, _remove, removed, wb_genre, wb_defining, wb
     raise PreventUpdate
 
 
-def ps_apply(_n, dataset, pair, active, build_path):
+def ps_apply(_n, dataset, pair, active, build_path, cstore=None):
     """Apply to Workbench: replace every Workbench setting with the pair's, as Open Network State does, then switch.
     The provenance line is checked on the first recompute through the `verify` store."""
     if not _n:
         raise PreventUpdate
     c, settings, defaults, default_constraints = _ps_context(build_path, active)
-    view = PV.dataset_view(c, settings, dataset, default_constraints, default_constraints)
+    view = _shown_view(c, settings, cstore, dataset, default_constraints)
     target = tuple(pair) if pair else view.star
     result = view.result(target) if target else None
     if result is None or result.selected is None:
@@ -1116,7 +1122,7 @@ def register(app: dash.Dash) -> None:
        prevent_initial_call=True)(ps_job)
     cb(Output("ps-validate-request", "data"), Input("ps-validate", "n_clicks"), State("ps-active", "data"),
        State("ps-dataset", "data"), State("ps-pair", "data"), State("build-path", "data"),
-       prevent_initial_call=True)(ps_validate_request)
+       State("ps-constraints", "data"), prevent_initial_call=True)(ps_validate_request)
     cb(Output("ps-validate-done", "data"), Input("ps-validate-request", "data"), State("build-path", "data"),
        background=True, running=jobs_running, cancel=[Input("ps-cancel", "n_clicks")],
        progress=[Output("ps-progress", "data", allow_duplicate=True)], prevent_initial_call=True)(ps_validate_job)
@@ -1151,6 +1157,6 @@ def register(app: dash.Dash) -> None:
        Output("rs-view", "data", allow_duplicate=True), Output("pending-open", "data", allow_duplicate=True),
        Output("verify", "data", allow_duplicate=True), Output("mode", "value"), Input("ps-apply", "n_clicks"),
        State("ps-dataset", "data"), State("ps-pair", "data"), State("ps-active", "data"),
-       State("build-path", "data"), prevent_initial_call=True)(ps_apply)
+       State("build-path", "data"), State("ps-constraints", "data"), prevent_initial_call=True)(ps_apply)
     cb(Output("ps-download", "data"), Input("ps-export", "n_clicks"), State("ps-active", "data"),
        State("ps-constraints", "data"), State("build-path", "data"), prevent_initial_call=True)(ps_export)

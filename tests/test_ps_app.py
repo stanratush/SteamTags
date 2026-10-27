@@ -529,3 +529,32 @@ def test_two_exports_are_byte_identical_and_constraints_change_only_the_selectio
     meta_a, meta_b = json.loads(first["parameter_selection.json"]), json.loads(changed["parameter_selection.json"])
     assert meta_a["settings_key_hash"] == meta_b["settings_key_hash"]
     assert meta_a["datasets"]["overall"]["grid_key_hash"] == meta_b["datasets"]["overall"]["grid_key_hash"]
+
+
+# ----------------------------------------------------------------------------- review fixes
+
+
+def test_apply_and_validate_follow_the_pair_the_inspector_shows_under_custom_constraints(ps_build):
+    ctx = load_build(ps_build)
+    active, cstore = _store(ctx)
+    custom = {"shared": {**cstore["shared"], "min_comparable_neighbours": 1}, "datasets": {}}
+    assert _views(ps_build, custom)["overall"].star == (15, 2)
+    out = CB.ps_apply(1, "overall", None, active, str(ps_build), custom)
+    values = dict(zip([*CB.CONTROL_IDS, "removed"], out))
+    assert (values["min-games"], values["min-shared"]) == (15, 2)
+    request = CB.ps_validate_request(1, active, "overall", None, str(ps_build), custom)
+    assert request["pair"] == [15, 2]
+
+
+def test_a_pair_validated_by_hand_is_exported(ps_build):
+    ctx = load_build(ps_build)
+    active, _ = _store(ctx)
+    view = _views(ps_build)["overall"]
+    other = next(p for p in view.pairs if p != view.star and view.result(p).selected is not None)
+    request = CB.ps_validate_request(1, active, "overall", list(other), str(ps_build))
+    CB.ps_validate_job(lambda _: None, request, str(ps_build), map_fn=map)
+    _, files = _export(ps_build)
+    exported = {(r["g"], r["s"]) for r in _rows(files, "validation_replicates.csv") if r["dataset"] == "overall"}
+    assert (str(other[0]), str(other[1])) in exported
+    meta = json.loads(files["parameter_selection.json"])
+    assert meta["datasets"]["overall"]["validation"][f"{other[0]},{other[1]}"]["status"] == "complete"

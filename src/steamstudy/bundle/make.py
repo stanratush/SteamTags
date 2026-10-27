@@ -61,6 +61,9 @@ def stale_files(fresh: Path, maker: Path) -> list[str]:
     out = []
     for path in sorted(fresh.rglob("*.json")):
         relative = path.relative_to(fresh)
+        if path.name == "manifest.json" and not json.loads((maker / relative).read_text(encoding="utf-8")
+                                                            if (maker / relative).is_file() else "{}").get("complete"):
+            continue  # a cancelled or partial grid in the maker's cache: only its graph files compare
         mine = _comparable(maker / relative)
         if mine is not None and mine != _comparable(path):
             out.append(relative.as_posix())

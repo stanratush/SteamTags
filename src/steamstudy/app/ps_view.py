@@ -19,6 +19,7 @@ from dash import dcc, html
 
 from steamstudy.app import help as H
 from steamstudy.app import ps_cache, ps_run
+from steamstudy.app.ps_export import constraints_for, tag_names
 from steamstudy.app.loader import BuildContext
 from steamstudy.network import selection as SEL
 from steamstudy.network import selection_text as T
@@ -67,11 +68,7 @@ def constraints_of(data: Mapping[str, Any]) -> SEL.Constraints:
     return SEL.Constraints(**{f.name: data[f.name] for f in dataclasses.fields(SEL.Constraints)})
 
 
-def active_constraints(store: Mapping[str, Any] | None, dataset: str, defaults: SEL.Constraints) -> SEL.Constraints:
-    """The dataset's override, else the shared set, else the defaults."""
-    store = store or {}
-    data = (store.get("datasets") or {}).get(dataset) or store.get("shared")
-    return constraints_of(data) if data else defaults
+active_constraints = constraints_for
 
 
 def json_ready(value: Any) -> Any:
@@ -85,15 +82,6 @@ def json_ready(value: Any) -> Any:
 def defaults_of(ctx: BuildContext) -> tuple[SEL.SelectionSettings, SEL.Constraints]:
     return (SEL.load_selection_settings(ctx.network, (t.id for t in ctx.genre_tags), ctx.build_id),
             SEL.default_constraints(ctx.network))
-
-
-def tag_names(ctx: BuildContext) -> dict[int, str]:
-    names: dict[int, str] = {}
-    for d in ctx.datasets:
-        for g in ctx.games(d.key):
-            for t, n in zip(g.tag_ids, g.tags):
-                names.setdefault(t, n)
-    return names
 
 
 # ----------------------------------------------------------------------------- what the cache holds

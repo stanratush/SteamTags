@@ -182,7 +182,7 @@ def test_workbench_flags(ctx, small):
     nodes = len(network.nodes)
     narrow = SEL.workbench_setting(graph, [0] * nodes, 1.231, 1.239, 1.235, small.seed, [1, 2])
     assert (narrow.flag, narrow.gamma, narrow.seed, narrow.seed_kind) == ("not_representable", 1.24, small.seed, "main")
-    never = list(range(nodes))  # all singletons: Leiden never returns it at γ ≤ 0.5 here
+    never = list(range(nodes))  # every tag its own One-Tag Cluster: Leiden never returns it at γ ≤ 0.5 here
     missed = SEL.workbench_setting(graph, never, 0.2, 0.5, 0.35, small.seed, [1, 2])
     assert (missed.flag, missed.gamma) == ("not_reproduced", 0.35) and missed.ari < 1
     assert SEL.workbench_candidates(0.0, 0.031, 0.0155) == [0.02, 0.01, 0.03]

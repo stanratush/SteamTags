@@ -22,16 +22,16 @@ def _runs(memberships: list[list[int]], gammas: list[float] | None = None) -> li
 # Two triangles 0-1-2 and 3-4-5 joined by the bridge 2-3, and the isolated tag 6; every weight 1, 2m = 14.
 #   components   {0..5}{6}          Â 14, P̂ 14
 #   triangles    {0,1,2}{3,4,5}{6}  Â 12, P̂ (7² + 7²)/14 = 7
-#   singletons                       Â 0,  P̂ (4·2² + 2·3²)/14 = 34/14
-# Crossings: components/triangles at 2/7; triangles/singletons at 12/(7 − 34/14) = 2.625.
+#   one tag each                       Â 0,  P̂ (4·2² + 2·3²)/14 = 34/14
+# Crossings: components/triangles at 2/7; triangles/one tag each at 12/(7 − 34/14) = 2.625.
 BRIDGE = C.edge_arrays(7, [(0, 1, 1.0), (0, 2, 1.0), (1, 2, 1.0), (3, 4, 1.0), (3, 5, 1.0), (4, 5, 1.0), (2, 3, 1.0)])
 COMPONENTS = [0, 0, 0, 0, 0, 0, 1]
 TRIANGLES = [0, 0, 0, 1, 1, 1, 2]
-SINGLETONS = [0, 1, 2, 3, 4, 5, 6]
+ONE_TAG_EACH = [0, 1, 2, 3, 4, 5, 6]
 
 
 def _bridge(min_multi: int = 2, gamma_end: float = 3.0, extra: list[list[int]] = ()) -> C.ChampResult:
-    scan = C.dedup(_runs([COMPONENTS, TRIANGLES, SINGLETONS, *extra]))
+    scan = C.dedup(_runs([COMPONENTS, TRIANGLES, ONE_TAG_EACH, *extra]))
     return C.champ(scan, BRIDGE, gamma_end, min_multi)
 
 
@@ -65,14 +65,14 @@ def test_dedup_keeps_the_first_gamma_and_seed_and_counts_hits():
 
 
 def test_coefficients_of_the_bridge_graph():
-    a, p = C.partition_coefficients([np.array(m) for m in (COMPONENTS, TRIANGLES, SINGLETONS)], BRIDGE)
+    a, p = C.partition_coefficients([np.array(m) for m in (COMPONENTS, TRIANGLES, ONE_TAG_EACH)], BRIDGE)
     assert a.tolist() == [14.0, 12.0, 0.0]
     assert p.tolist() == pytest.approx([14.0, 7.0, 34 / 14])
 
 
 def test_domains_estimates_and_map_targets_of_the_bridge_graph():
     result = _bridge()
-    assert [p.membership for p in result.admissible] == [tuple(COMPONENTS), tuple(TRIANGLES), tuple(SINGLETONS)]
+    assert [p.membership for p in result.admissible] == [tuple(COMPONENTS), tuple(TRIANGLES), tuple(ONE_TAG_EACH)]
     assert [(p.a, p.b) for p in result.admissible] == pytest.approx([(0, 2 / 7), (2 / 7, 2.625), (2.625, 3.0)])
     assert [p.clipped_high for p in result.admissible] == [False, False, True]
     assert [p.reason for p in result.admissible] == ["one_group", None, "not_assortative"]
@@ -120,7 +120,7 @@ def test_the_minimum_multi_tag_clusters_applies_after_stability():
 
 
 def test_no_stable_partition():
-    result = C.champ(C.dedup(_runs([COMPONENTS, SINGLETONS])), BRIDGE, 3.0, 1)
+    result = C.champ(C.dedup(_runs([COMPONENTS, ONE_TAG_EACH])), BRIDGE, 3.0, 1)
     assert result.selected is None and result.reason == "no_stable_partition"
 
 

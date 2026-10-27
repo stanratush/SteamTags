@@ -700,7 +700,7 @@ def pair_reasons(result: GraphResult, na: NeighbourAgreement, c: Constraints) ->
 
 
 @dataclass(frozen=True)
-class Exclusion:
+class ConstraintCount:
     constraint: str
     alone: int
     cumulative: int
@@ -715,7 +715,7 @@ class Choice:
     near_best: list[tuple[int, int]]
     qualifying: list[tuple[int, int]]
     reasons: dict[tuple[int, int], list[str]]
-    exclusion: list[Exclusion]  # pairs with a Selected Partition and NA, excluded by each constraint
+    exclusion: list[ConstraintCount]  # pairs with a Selected Partition and NA, excluded by each constraint
     constraints: Constraints
     n_pairs: int
     n_selected: int  # pairs with a Selected Partition
@@ -730,14 +730,14 @@ def choose(grid: Grid, na: Mapping[tuple[int, int], NeighbourAgreement], constra
     """The Qualifying Pairs, the near-best set (NA ≥ max − tolerance) and the pick: smallest g, then smallest s."""
     reasons = {p: pair_reasons(grid.at(*p), na[p], constraints) for p in grid.pairs}
     qualifying = [p for p in grid.pairs if not reasons[p]]
-    candidates = [p for p in grid.pairs if grid.at(*p).selected is not None and na[p].value is not None]
+    measurable = [p for p in grid.pairs if grid.at(*p).selected is not None and na[p].value is not None]
     exclusion, gone = [], set()
     for name, code in CONSTRAINT_ORDER:
         if name == "max_multi_tag_clusters" and constraints.max_multi_tag_clusters is None:
             continue
-        alone = {p for p in candidates if code in reasons[p]}
+        alone = {p for p in measurable if code in reasons[p]}
         gone |= alone
-        exclusion.append(Exclusion(name, len(alone), len(gone)))
+        exclusion.append(ConstraintCount(name, len(alone), len(gone)))
     choice = Choice(status="no_qualifying_pair", chosen=None, max_na=None, best=None, near_best=[],
                     qualifying=qualifying, reasons=reasons, exclusion=exclusion, constraints=constraints,
                     n_pairs=len(grid.pairs), n_selected=sum(grid.at(*p).selected is not None for p in grid.pairs))

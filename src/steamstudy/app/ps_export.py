@@ -35,12 +35,13 @@ def zip_name(settings: SEL.SelectionSettings, now: dt.datetime) -> str:
 
 
 def constraints_for(store: Mapping[str, Any] | None, dataset: str, defaults: SEL.Constraints) -> SEL.Constraints:
+    """The mode's constraints store: the dataset's override, else the shared set, else the defaults."""
     store = store or {}
     data = (store.get("datasets") or {}).get(dataset) or store.get("shared")
     return SEL.Constraints(**{k: data[k] for k in asdict(defaults)}) if data else defaults
 
 
-def _names(ctx: BuildContext) -> dict[int, str]:
+def tag_names(ctx: BuildContext) -> dict[int, str]:
     names: dict[int, str] = {}
     for d in ctx.datasets:
         for g in ctx.games(d.key):
@@ -186,7 +187,7 @@ def export_tables(ctx: BuildContext, settings: SEL.SelectionSettings, constraint
     cache_root = Path(cache_root or ctx.app_cache)
     defaults_settings = SEL.load_selection_settings(ctx.network, (t.id for t in ctx.genre_tags), ctx.build_id)
     default_constraints = SEL.default_constraints(ctx.network)
-    names = _names(ctx)
+    names = tag_names(ctx)
     settings_label = SEL.settings_label(settings, defaults_settings, names)
     tables: dict[str, list[dict[str, Any]]] = {s.name: [] for s in S.PS_TABLES}
     datasets: dict[str, Any] = {}
@@ -220,13 +221,14 @@ def export_tables(ctx: BuildContext, settings: SEL.SelectionSettings, constraint
             report.append(T.to_markdown(T.explanation(choice, grid.at(*choice.chosen), na[choice.chosen],
                                                       settings_label.text, label.text,
                                                       settings.min_multi_tag_clusters)))
-        validated = sorted({p for p in (choice.chosen, default_choice.chosen) if p is not None})
-        for pair in validated:
+        shown = {p for p in (choice.chosen, default_choice.chosen) if p is not None}
+        for pair in grid.pairs:  # the chosen pairs, and every pair validated by hand
             vkey = settings.validation_key(d.key, ctx.context(d.key), *pair)
             validation = ps_cache.read_validation(cache_root, vkey)
             entry = f"{pair[0]},{pair[1]}"
             if validation is None:
-                info["validation"][entry] = {"status": "not_run"}
+                if pair in shown:
+                    info["validation"][entry] = {"status": "not_run"}
                 continue
             reps, clusters = _validation_rows(d.key, pair, validation)
             tables["validation_replicates.csv"] += reps
@@ -236,11 +238,13 @@ def export_tables(ctx: BuildContext, settings: SEL.SelectionSettings, constraint
                                          "validation_key_hash": SEL.key_hash(vkey),
                                          "g_prime": summary["subsample"]["g"], "s_prime": summary["subsample"]["s"],
                                          "m": summary["subsample"]["m"], "computed_with": validation["computed_with"]}
-            report.append(T.to_markdown(T.validation_block(summary, pair, choice.chosen, pair == choice.chosen or
-                                                           label.text == "Default constraints", names)))
+            if pair in shown:
+                report.append(T.to_markdown(T.validation_block(summary, pair, choice.chosen, pair == choice.chosen
+                                                               or label.text == "Default constraints", names)))
         datasets[d.key] = info
     files = {schema.name: csv_bytes(schema, tables[schema.name]) for schema in S.PS_TABLES}
-    report.append("## Methods\n\n" + T.methods_paragraph(T.methods_values(settings, default_constraints)))
+    shared = constraints_for(constraints_store, "", default_constraints)
+    report.append("## Methods\n\n" + T.methods_paragraph(T.methods_values(settings, shared)))
     report_bytes = ("\n\n".join(report) + "\n").encode("utf-8")
     meta = {
         "schema_version": S.SCHEMA_VERSION, "settings_key": settings.settings_key(),
