@@ -39,7 +39,8 @@ def _bridge(min_multi: int = 2, gamma_end: float = 3.0, extra: list[list[int]] =
 
 
 def test_gamma_max_matches_gibson_and_mucha_table_s5_and_rises_with_k():
-    for k, expected in ((2, 1.0000), (3, 1.0926), (5, 1.4027), (10, 2.1931)):
+    table_s5 = (1.0000, 1.0926, 1.2427, 1.4027, 1.5640, 1.7241, 1.8824, 2.0388, 2.1931)  # GM22 SI p. 38, K = 2…10
+    for k, expected in zip(range(2, 11), table_s5):
         assert C.gamma_max_K(k) == pytest.approx(expected, abs=5e-5)
     values = [C.gamma_max_K(k) for k in range(2, 11)]
     assert values == sorted(values) and len(set(values)) == len(values)
