@@ -3,8 +3,12 @@
 The zip holds the launcher and its double-click wrappers, `READ ME FIRST.txt`, the User Guide, the app-only
 `steamstudy` wheel, every dependency wheel each target needs for Python 3.12-3.14 (pinned to `uv.lock`,
 hash-checked, pure-Python wheels stored once), per-target requirement files with hashes, the chosen Build
-folders (without `app_cache/`) with `latest` pointers, and `bundle.json`. Making a bundle needs internet (to
-fetch wheels); using one never does. On any failure nothing is written.
+folders (without the maker's `app_cache/`) with `latest` pointers, and `bundle.json`. Making a bundle needs internet
+(to fetch wheels); using one never does. On any failure nothing is written.
+
+Every carried Build ships its Parameter Selection results under the shipped code's default Selection Settings (each
+dataset's grid and the default-constraint pair's validation), always recomputed into the staging Build; the maker's
+own cache is only compared with them, never shipped or modified.
 """
 
 from __future__ import annotations
@@ -12,14 +16,16 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+import logging
 import platform
 import shutil
 import subprocess
 import tempfile
 import urllib.request
 import zipfile
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
+from typing import Any
 
 from steamstudy import __version__
 from steamstudy.builds import resolve_build
@@ -33,8 +39,65 @@ EXECUTABLE = 0o100755 << 16
 REGULAR = 0o100644 << 16
 
 
+log = logging.getLogger("steamstudy.bundle")
+
+
 class BundleError(Exception):
     pass
+
+
+def _comparable(path: Path) -> str | None:
+    """A cache file's content without timings and `computed_with`."""
+    if not path.is_file():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    for key in ("seconds", "computed_with"):
+        data.pop(key, None)
+    return json.dumps(data, sort_keys=True)
+
+
+def stale_files(fresh: Path, maker: Path) -> list[str]:
+    """Cache files the maker's cache holds under the same keys whose content differs from the fresh result."""
+    out = []
+    for path in sorted(fresh.rglob("*.json")):
+        relative = path.relative_to(fresh)
+        mine = _comparable(maker / relative)
+        if mine is not None and mine != _comparable(path):
+            out.append(relative.as_posix())
+    return out
+
+
+def ship_parameter_selection(source: Path, staged: Path, map_fn: Callable[..., Iterable[Any]]) -> dict[str, Any]:
+    """Run Parameter Selection for the staged Build under the default Selection Settings into its app cache, compare
+    with the maker's cache and return what shipped (grid and validation key hashes)."""
+    from steamstudy.app import ps_cache, ps_run
+    from steamstudy.app.loader import load_build
+    from steamstudy.network import selection as SEL
+
+    ctx = load_build(staged)
+    settings = SEL.load_selection_settings(ctx.network, (t.id for t in ctx.genre_tags), ctx.build_id)
+    reported: set[tuple[str, str]] = set()
+
+    def progress(record: dict[str, Any]) -> None:
+        key = (record["dataset"], record["phase"])
+        if record["done"] >= record["total"] and key not in reported:
+            reported.add(key)
+            unit = "pairs" if record["phase"] == "grid" else "replicates"
+            log.info("Build %s, %s: %s %d of %d %s, %s", staged.name, record["dataset"], record["phase"],
+                     record["done"], record["total"], unit, ps_run.eta_text(record))
+
+    datasets = [d.key for d in ctx.datasets]
+    outcomes = ps_run.run(ctx, settings, datasets, map_fn=map_fn, on_progress=progress,
+                          cache_root=staged / "app_cache")
+    stale = stale_files(ps_cache.root(staged / "app_cache"), ps_cache.root(source / "app_cache"))
+    if stale:
+        log.warning("Build %s: the maker's Parameter Selection cache differs from the fresh result in %d file(s) "
+                    "(%s): it is stale, and a method version probably needed a bump. The fresh result ships.",
+                    staged.name, len(stale), ", ".join(stale[:3]) + (", …" if len(stale) > 3 else ""))
+    grids = [SEL.key_hash(settings.grid_key(d, ctx.context(d))) for d in datasets]
+    validations = [SEL.key_hash(settings.validation_key(o.dataset, ctx.context(o.dataset), *o.chosen))
+                   for o in outcomes if o.chosen is not None]
+    return {"settings_key_hash": SEL.key_hash(settings.settings_key()), "grids": grids, "validations": validations}
 
 
 def current_target() -> str:
@@ -76,8 +139,11 @@ def make_bundle(root: Path, *, builds: Sequence[str] = (), targets: Sequence[str
                 repo: Path = REPO, lock_path: Path | None = None, cache: Path | None = None,
                 fetch: Callable[[Wheel, Path], Path] = fetch_wheel,
                 build_wheel: Callable[[Path, Path], Path] = build_steamstudy_wheel,
-                now: dt.datetime | None = None) -> Path:
-    """Write `<out>/tag-network-<build_id>-<targets>.zip` and return its path."""
+                now: dt.datetime | None = None, skip_parameter_selection: bool = False,
+                map_fn: Callable[..., Iterable[Any]] | None = None) -> Path:
+    """Write `<out>/tag-network-<build_id>-<targets>.zip` and return its path. `skip_parameter_selection` makes a
+    bundle without Parameter Selection results (test bundles only, never a release); `map_fn` replaces the worker
+    pool (tests)."""
     root = Path(root)
     targets = list(dict.fromkeys(targets or [current_target()]))
     for name in targets:
@@ -109,10 +175,18 @@ def make_bundle(root: Path, *, builds: Sequence[str] = (), targets: Sequence[str
         for (target, python), per in sorted(wheel_plan.wheels.items()):
             (stage / "requirements" / f"{target}-py{python[0]}.{python[1]}.txt").write_text(
                 requirements(per, [own_line]), encoding="utf-8")
+        shipped: dict[str, Any] = {}
         for folder in folders:
             dest = stage / "builds" / folder.parent.name / folder.name
             shutil.copytree(folder, dest, ignore=shutil.ignore_patterns("app_cache"))
             (dest.parent / "latest").write_text(folder.name + "\n", encoding="utf-8")
+            build_ref = f"{folder.parent.name}/{folder.name}"
+            if skip_parameter_selection:
+                shipped[build_ref] = "skipped"
+            elif map_fn is not None:
+                shipped[build_ref] = ship_parameter_selection(folder, dest, map_fn)
+            else:
+                shipped[build_ref] = _ship_with_pool(folder, dest)
         (stage / "builds" / "latest").write_text(f"{first.parent.name}/{first.name}\n", encoding="utf-8")
         (stage / "builds" / first.parent.name / "latest").write_text(first.name + "\n", encoding="utf-8")
         shutil.copytree(repo / "docs" / "user-guide", stage / "User Guide")
@@ -125,7 +199,7 @@ def make_bundle(root: Path, *, builds: Sequence[str] = (), targets: Sequence[str
             "uv_lock_sha256": hashlib.sha256(lock_path.read_bytes()).hexdigest(), "targets": targets,
             "python_versions": [f"{a}.{b}" for a, b in PYTHONS], "excluded_python_versions": ["3.14.1"],
             "builds": [f"{f.parent.name}/{f.name}" for f in folders], "latest_build": first.name,
-            "created_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "created_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "parameter_selection": shipped,
         }
         (stage / "bundle.json").write_text(json.dumps(manifest, indent=1), encoding="utf-8")
         readme = (FILES / "READ ME FIRST.txt").read_text(encoding="utf-8").format(
@@ -150,3 +224,15 @@ def make_bundle(root: Path, *, builds: Sequence[str] = (), targets: Sequence[str
         finally:
             partial.unlink(missing_ok=True)  # never leave a half-written zip behind
     return target_zip
+
+
+def _ship_with_pool(source: Path, staged: Path) -> dict[str, Any]:
+    """`ship_parameter_selection` through a pool of `[parameter_selection] workers` (0 = cpu - 1)."""
+    import multiprocess as mp
+
+    from steamstudy.app import ps_run
+    from steamstudy.app.loader import load_build
+
+    workers = ps_run.worker_count(load_build(staged).network.parameter_selection.workers)
+    with mp.Pool(workers) as pool:
+        return ship_parameter_selection(source, staged, pool.imap_unordered)

@@ -13,3 +13,7 @@ Spec: [Automatic Parameter Selection spec](../spec.md): "Running Guide and relea
   - step 4: making a bundle runs Parameter Selection for every carried Build (the measured time per Build); what the stale-cache warning means; `--skip-parameter-selection` is never acceptable for a release;
   - step 5: check that the mode opens on finished results with no Run, and that the provenance line names the maker's machine.
 - [ ] `test_three_rules_and_running_guide_link` and any other guide test still pass.
+
+## Comments
+
+- 2026-10-27, implementation: Not started: `docs/running-guide.md` still carries the researcher's uncommitted edit and `docs/releasing-an-app-bundle.md` is untracked. Issue 32's comment has the measured times to quote.

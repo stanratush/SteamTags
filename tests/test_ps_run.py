@@ -81,11 +81,12 @@ def test_a_cancelled_grid_resumes_to_the_same_files(build, tmp_path):
     first = ps_run.run(ctx, settings, ["overall"], on_progress=ticks.append, should_stop=lambda: len(ticks) >= 2)
     assert first[0].grid == "partial" and 0 < first[0].done < 9
     on_disk = len(list((ps_cache.root(ctx.app_cache)).rglob("graphs/*.json")))
-    assert on_disk == len(ticks)
+    assert on_disk == len(ticks) - 1  # the first record is the start
     resumed = []
     second = ps_run.run(ctx, settings, ["overall"], on_progress=resumed.append)
     assert second[0].grid == "complete"
-    assert [r for r in resumed if r["phase"] == "grid"][0]["done"] > first[0].done
+    assert (resumed[0]["done"], resumed[0]["weight_done"]) == (first[0].done, 0.0)  # starts from the files on disk
+    assert resumed[1]["done"] > first[0].done
     assert _comparable(_files(ctx.app_cache)) == _comparable(_files(reference))
 
 

@@ -22,6 +22,7 @@ GROUP_LABEL = {
     "analysis": "Build analysis/",
     "app_export": "app export zip",
     "snapshot": "Snapshot folder",
+    "parameter_selection": "Parameter Selection export zip",
 }
 
 

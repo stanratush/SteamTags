@@ -12,7 +12,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 
-SCHEMA_VERSION = 2  # 1 + the one shared bump for the ticket 25, 27 and 28 overrides (spec)
+# 1 + the one shared bump for the ticket 25, 27 and 28 overrides (spec); 3 adds the Parameter Selection
+# export zip (`parameter_selection` group) and `applied_from` in export.json.
+SCHEMA_VERSION = 3
 
 # Column types and how the writer renders them:
 #   str        as is
@@ -122,6 +124,7 @@ def columns_block(schemas: list[FileSchema] | tuple[FileSchema, ...]) -> dict[st
 # ============================================================================= declarations
 
 C = Column
+IDENTIFIERS_ENTRY = "identifiers-names-and-lists"
 
 # ----------------------------------------------------------------------------- Build: reports/
 
@@ -727,3 +730,234 @@ RESOLUTION_SWEEP = declare(
     ],
     group="analysis",
 )
+
+
+# ----------------------------------------------------------------------------- Parameter Selection export zip
+
+# Every column names its chapter-3 entry and where the mode shows it; selection_report.md is the report that uses them.
+_PS_REPORT = "selection_report.md"
+_GRID, _ADM = "threshold-pair-and-parameter-grid", "admissible-partition-and-optimality-domain"
+_GHAT, _SELP = "resolution-estimate-and-stable-partition", "selected-partition-and-selected-resolution"
+_NA, _EO, _RET = "neighbour-agreement", "edge-overlap", "information-retention"
+_FRAG, _RULE = "isolated-share-and-lcc-share", "pair-constraints-qualifying-pair-and-the-selection-rule"
+_NULL, _SUB = "null-comparison", "subsample-stability"
+
+
+def _ps(name: str, type_: str, description: str, entry: str, panel: str = "Parameter Selection: Pair Inspector",
+        report: str = _PS_REPORT) -> Column:
+    return Column(name, type_, description, guide_entry=entry, app_panel=panel, report_section=report)
+
+
+_HEAT = "Parameter Selection: heatmap and Pair Inspector"
+_PS_PAIR = (
+    _ps("dataset", "str", "Dataset key.", IDENTIFIERS_ENTRY, "Parameter Selection: dataset strip"),
+    _ps("g", "int", "Minimum games per tag of the Threshold Pair.", _GRID, _HEAT),
+    _ps("s", "int", "Minimum shared games of the Threshold Pair.", _GRID, _HEAT),
+)
+
+PS_PAIRS = declare(
+    "pairs.csv",
+    "One row per dataset and Threshold Pair of the Parameter Grid (153 per dataset).",
+    [
+        *_PS_PAIR,
+        _ps("n_tags", "int", "Tags in the pair's network (nodes).", _GRID),
+        _ps("n_edges", "int", "Edges of the pair's network.", _GRID),
+        _ps("n_e", "int", "Tags with at least one edge.", _GRID),
+        _ps("graph_hash", "str", "SHA-256 of the sorted nodes and (u, v, shared count, weight) edges.", _GRID),
+        _ps("lift_below_1_share", "float", "Share of edges with lift < 1; empty without edges.", _GRID),
+        _ps("gamma_max_n_e", "float", "Gibson & Mucha's γ_max(K) at K = n_e: the scan's end rule.", _ADM),
+        _ps("gamma_end", "float", "The last scan γ, the end of CHAMP's range.", _ADM),
+        _ps("scan_length", "int", "γ values scanned (each with every scan seed).", _ADM),
+        _ps("pass_capped_runs", "int", "Scan runs that reached the 1,000-pass cap.", _ADM),
+        _ps("n_unique", "int", "Distinct partitions the scan found.", _ADM),
+        _ps("n_twins", "int", "Partitions dropped as twins (identical Â and P̂).", _ADM),
+        _ps("selection_reason", "str", "Why there is no Selected Partition: no_edges, no_stable_partition or "
+                                       "too_few_multi_tag_clusters; empty with one.", _SELP),
+        _ps("selected_low", "float", "Start a of the Selected Partition's Optimality Domain.", _SELP),
+        _ps("selected_high", "float", "End b of the Selected Partition's Optimality Domain.", _SELP),
+        _ps("selected_resolution", "float", "The Selected Resolution: (a + b)/2, unrounded.", _SELP),
+        _ps("clipped_high", "bool", "Whether the Selected Partition's domain ends at the scan's end.", _SELP),
+        _ps("workbench_gamma", "float", "The two-decimal γ Apply to Workbench enters.", _SELP),
+        _ps("workbench_seed", "int", "The seed Apply to Workbench enters.", _SELP),
+        _ps("reproduced", "bool", "Whether the Workbench γ and seed give exactly the Selected Partition.", _SELP),
+        _ps("workbench_ari", "float", "ARI of the Workbench γ and seed's partition against the Selected Partition.",
+            _SELP),
+        _ps("not_representable", "bool", "No two-decimal γ ≥ 0.01 lies in the domain.", _SELP),
+        _ps("not_reproduced", "bool", "A two-decimal γ lies in the domain, but no candidate reproduces it.", _SELP),
+        _ps("neighbour_agreement", "float", "Mean ARI over comparable neighbours with a different graph.", _NA, _HEAT),
+        _ps("na_status", "str", "ok, no_selected_partition or no_comparable_neighbours.", _NA),
+        _ps("n_comparable", "int", "Neighbour links that could be compared.", _NA),
+        _ps("n_different_graph", "int", "Comparable links with a different graph (the ones counted).", _NA),
+        _ps("n_identical_graph", "int", "Comparable links with an identical graph (flagged, not counted).", _NA),
+        _ps("n_missing", "int", "Neighbours without a Selected Partition (missing, never 0).", _NA),
+        _ps("na_min_ari", "float", "The lowest ARI among the counted links (descriptive).", _NA),
+        _ps("retention", "float", "Information Retention.", _RET, _HEAT),
+        _ps("retention_status", "str", "no_visible_tags when no tag is visible; else empty.", _RET),
+        _ps("games_with_edged_tag_share", "float", "Share of games with a tag that has an edge (descriptive).", _RET),
+        _ps("n_isolated", "int", "Tags with no edge.", _FRAG),
+        _ps("isolated_share", "float", "Isolated tags / tags.", _FRAG, _HEAT),
+        _ps("n_components", "int", "Connected components with 2 or more tags.", _FRAG),
+        _ps("lcc_tags", "int", "Tags in the largest connected component.", _FRAG),
+        _ps("lcc_share", "float", "Largest component's tags / tags with an edge.", _FRAG),
+        _ps("n_multi_tag_clusters", "int", "Multi-Tag Clusters of the Selected Partition.", _SELP, _HEAT),
+        _ps("n_one_isolated", "int", "One-Tag Clusters that are isolated tags.", _FRAG),
+        _ps("n_one_connected", "int", "One-Tag Clusters of tags with an edge.", _FRAG),
+        _ps("seed_noise_floor", "float", "Seed-Noise Floor at the Selected Resolution: lowest ARI over the noise "
+                                         "seeds.", "adjusted-rand-index", _HEAT),
+        _ps("seed_noise_mean", "float", "Mean ARI over the noise seeds.", "adjusted-rand-index"),
+        _ps("seed_noise_exact", "int", "Noise seeds that give exactly the Selected Partition.", "adjusted-rand-index"),
+        _ps("hits", "int", "Scan runs that found the Selected Partition.", _ADM),
+        _ps("modularity", "float", "Descriptive: Q of the Selected Partition; not comparable across pairs.",
+            "modularity-q", _HEAT),
+        _ps("coverage", "float", "Descriptive: weighted coverage; not comparable across pairs.",
+            "coverage-and-inter-cluster-weight-share"),
+        _ps("silhouette", "float", "Descriptive: mean Jaccard silhouette; not comparable across pairs.",
+            "mean-silhouette"),
+        _ps("silhouette_status", "str", SIL_STATUS, "mean-silhouette"),
+        _ps("qualifies", "bool", "Whether the pair is a Qualifying Pair under the export's constraints.", _RULE,
+            _HEAT),
+        _ps("reasons", "str_list", "Every failing reason code, in the selection rule's order.", _RULE, _HEAT),
+        _ps("near_best", "bool", "In the near-best set.", _RULE, _HEAT),
+        _ps("chosen", "bool", "The chosen pair.", _RULE, _HEAT),
+    ],
+    group="parameter_selection",
+)
+
+PS_ADMISSIBLE = declare(
+    "admissible_partitions.csv",
+    "One row per dataset, Threshold Pair and Admissible Partition, in domain order.",
+    [
+        *_PS_PAIR,
+        _ps("partition", "int", "The Admissible Partition's position, 1 = lowest γ.", _ADM),
+        _ps("a_hat", "float", "Â: twice the weight inside Clusters.", _ADM),
+        _ps("p_hat", "float", "P̂: Σ κ_c² / 2m.", _ADM),
+        _ps("domain_low", "float", "Start a of the Optimality Domain.", _ADM),
+        _ps("domain_high", "float", "End b of the Optimality Domain.", _ADM),
+        _ps("clipped_high", "bool", "The domain ends at the scan's end.", _ADM),
+        _ps("omega_in", "float", "ω_in = Â / P̂.", _GHAT),
+        _ps("omega_out", "float", "ω_out = (2m − Â) / (2m − P̂).", _GHAT),
+        _ps("gamma_hat", "float", "γ̂; empty with gamma_hat_reason.", _GHAT),
+        _ps("gamma_hat_reason", "str", "no_edges, one_group, no_cross_weight or not_assortative.", _GHAT),
+        _ps("map_target", "int", "The partition whose domain holds γ̂; empty if none.", _GHAT),
+        _ps("stable", "bool", "domain_low ≤ γ̂ ≤ domain_high.", _GHAT),
+        _ps("n_multi_tag_clusters", "int", "Multi-Tag Clusters of this partition.", _SELP),
+        _ps("n_one_tag_clusters", "int", "One-Tag Clusters of this partition.", _SELP),
+        _ps("first_gamma", "float", "The first scan γ that found it.", _ADM),
+        _ps("first_seed", "int", "The scan seed of that first run.", _ADM),
+        _ps("hits", "int", "Scan runs that found it.", _ADM),
+        _ps("selected", "bool", "Whether it is the pair's Selected Partition.", _SELP),
+    ],
+    group="parameter_selection",
+)
+
+PS_LINKS = declare(
+    "neighbour_links.csv",
+    "One row per dataset, Threshold Pair and direction (g−, g+, s−, s+).",
+    [
+        *_PS_PAIR,
+        _ps("direction", "str", "g−, g+, s− or s+.", _NA),
+        _ps("neighbour_g", "int", "The neighbour's g.", _NA),
+        _ps("neighbour_s", "int", "The neighbour's s.", _NA),
+        _ps("status", "str", "ok, neighbour_has_no_selected_partition, too_few_compared_tags or outside_grid.", _NA),
+        _ps("identical_graph", "bool", "The two pairs have the same graph hash.", _NA),
+        _ps("n_shared", "int", "Tags in both networks.", _NA),
+        _ps("shared_jaccard", "float", "Jaccard overlap of the two node sets.", _NA),
+        _ps("n_compared", "int", "Shared tags with an edge in at least one network.", _NA),
+        _ps("ari", "float", "ARI of the two Selected Partitions on the compared tags.", _NA),
+        _ps("edge_overlap", "float", "Edge Overlap: Jaccard overlap of the two edge sets.", _EO),
+    ],
+    group="parameter_selection",
+)
+
+PS_SELECTED = declare(
+    "selected_partitions.csv",
+    "One row per dataset, Threshold Pair and tag of its network: the tag's Cluster in the Selected Partition.",
+    [
+        *_PS_PAIR,
+        _ps("tag_id", "int", "Steam tag id.", IDENTIFIERS_ENTRY),
+        _ps("tag", "str", "Tag name.", IDENTIFIERS_ENTRY),
+        _ps("cluster", "str", "C1… as in the app; empty when the pair has no Selected Partition.", _SELP),
+    ],
+    group="parameter_selection",
+)
+
+PS_SELECTION = declare(
+    "selection.csv",
+    "One row per dataset: the chosen pair under the export's constraints.",
+    [
+        _ps("dataset", "str", "Dataset key.", IDENTIFIERS_ENTRY, "Parameter Selection: dataset strip"),
+        _ps("status", "str", "ok or no_qualifying_pair.", _RULE, "Parameter Selection: Why this pair"),
+        _ps("chosen_g", "int", "g of the chosen pair.", _RULE, "Parameter Selection: Why this pair"),
+        _ps("chosen_s", "int", "s of the chosen pair.", _RULE, "Parameter Selection: Why this pair"),
+        _ps("max_neighbour_agreement", "float", "The highest Neighbour Agreement among Qualifying Pairs.", _RULE,
+            "Parameter Selection: Why this pair"),
+        _ps("tolerance", "float", "The near-best tolerance.", _RULE, "Parameter Selection: Pair Constraints"),
+        _ps("near_best", "str_list", "The near-best set as g·s.", _RULE, "Parameter Selection: Why this pair"),
+        _ps("tie_break", "str", "The tie-break used among near-best pairs.", _RULE, "Parameter Selection: Why this pair"),
+        _ps("n_qualifying", "int", "Qualifying Pairs.", _RULE, "Parameter Selection: Why this pair"),
+        _ps("min_retention", "float", "Pair Constraint: minimum Information Retention.", _RULE,
+            "Parameter Selection: Pair Constraints"),
+        _ps("max_isolated_share", "float", "Pair Constraint: maximum isolated share.", _RULE,
+            "Parameter Selection: Pair Constraints"),
+        _ps("min_lcc_share", "float", "Pair Constraint: minimum LCC share.", _RULE,
+            "Parameter Selection: Pair Constraints"),
+        _ps("min_comparable_neighbours", "int", "Pair Constraint: minimum comparable neighbours with a different "
+                                                "graph.", _RULE, "Parameter Selection: Pair Constraints"),
+        _ps("max_multi_tag_clusters", "int", "Pair Constraint: maximum Multi-Tag Clusters; empty = off.", _RULE,
+            "Parameter Selection: Pair Constraints"),
+        _ps("constraints_label", "str", "\"Default constraints\" or \"Custom constraints: …\".", _RULE,
+            "Parameter Selection: Pair Constraints"),
+        _ps("settings_label", "str", "\"Default settings\" or \"Custom settings: …\".", _RULE,
+            "Parameter Selection: Selection settings"),
+    ],
+    group="parameter_selection",
+)
+
+_VAL = "Parameter Selection: validation card"
+PS_REPLICATES = declare(
+    "validation_replicates.csv",
+    "One row per validated pair, replicate and arm (null, subsample_reselected, subsample_at_resolution).",
+    [
+        *_PS_PAIR,
+        _ps("arm", "str", "null, subsample_reselected or subsample_at_resolution.", _SUB, _VAL),
+        _ps("replicate", "int", "1..R or 1..S.", _NULL, _VAL),
+        _ps("seed", "int", "The replicate's seed (stream 4 for nulls, 5 for subsamples).", _NULL, _VAL),
+        _ps("has_selected_partition", "bool", "The replicate's own procedure found a Selected Partition (null and "
+                                              "re-selected arms).", _NULL, _VAL),
+        _ps("reason", "str", "Why not, as for the observed pair.", _NULL, _VAL),
+        _ps("degenerate", "bool", "Subsample left out of the summaries (no edges; re-selected: no Selected "
+                                  "Partition).", _SUB, _VAL),
+        _ps("degenerate_reason", "str", "Why it is degenerate.", _SUB, _VAL),
+        _ps("ari", "float", "Subsamples: ARI against the Selected Partition on the comparison set.", _SUB, _VAL),
+        _ps("null_q", "float", "Nulls: Q at the observed Selected Resolution from the replicate's envelope.", _NULL,
+            _VAL),
+        _ps("domain_width", "float", "Width of the replicate's Selected Partition's domain.", _NULL, _VAL),
+        _ps("selected_resolution", "float", "The replicate's Selected Resolution.", _NULL, _VAL),
+        _ps("n_multi_tag_clusters", "int", "Multi-Tag Clusters of the replicate's Selected Partition.", _NULL, _VAL),
+        _ps("n_edges", "int", "Edges of the replicate's network.", _NULL, _VAL),
+        _ps("scan_length", "int", "γ values the replicate scanned.", _NULL, _VAL),
+        _ps("capped_runs", "int", "Scan runs that reached the pass cap.", _NULL, _VAL),
+    ],
+    group="parameter_selection",
+)
+
+PS_CLUSTERS = declare(
+    "validation_clusters.csv",
+    "One row per validated pair, Subsample Stability arm and Multi-Tag Cluster of its Selected Partition.",
+    [
+        *_PS_PAIR,
+        _ps("arm", "str", "subsample_reselected or subsample_at_resolution.", _SUB, _VAL),
+        _ps("cluster", "str", "C1… of the Selected Partition.", _SUB, _VAL),
+        _ps("member_tag_ids", "int_list", "The Cluster's tags.", IDENTIFIERS_ENTRY, _VAL),
+        _ps("mean_jaccard", "float", "Hennig's mean best-match Jaccard over the B* subsamples where it is present.",
+            _SUB, _VAL),
+        _ps("at_most_half", "int", "Subsamples with a Jaccard ≤ 0.5.", _SUB, _VAL),
+        _ps("present", "int", "B*: subsamples where the Cluster has a tag in the comparison set.", _SUB, _VAL),
+        _ps("mean_retention", "float", "Mean share of the Cluster's tags present.", _SUB, _VAL),
+        _ps("absent", "int", "Subsamples where none of its tags is present (left out of the mean).", _SUB, _VAL),
+        _ps("dissolved", "bool", "mean_jaccard ≤ 0.5 (Hennig 2007, §2).", _SUB, _VAL),
+    ],
+    group="parameter_selection",
+)
+
+PS_TABLES = (PS_PAIRS, PS_ADMISSIBLE, PS_LINKS, PS_SELECTED, PS_SELECTION, PS_REPLICATES, PS_CLUSTERS)

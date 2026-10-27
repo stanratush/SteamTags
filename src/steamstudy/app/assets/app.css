@@ -324,3 +324,58 @@ body[data-form=narrow] #root.workbench .ov-bl{bottom:54px}
 .state-table td{white-space:normal}
 .key-json{font-family:var(--mono);font-size:11.5px;background:#f7f8fa;border:1px solid var(--line2);border-radius:6px;
  padding:8px 10px;white-space:pre-wrap;word-break:break-word}
+
+/* ------------------------------------------------------------------ Parameter Selection mode (ps_view.py) */
+#ps-body{display:none}
+#root.selection #app-body{display:none}
+#root.selection #ps-body{display:grid}
+#root.selection .search-slot,#root.selection #panels,#root.selection #graph-only{visibility:hidden}
+.ps-main{overflow:auto;padding:8px 12px 40px;gap:10px}
+.ps-inspector{grid-area:insp;width:380px;overflow:auto;background:var(--panel);border-left:1px solid var(--line);
+ padding:4px 14px 40px}
+#root.selection .ps-inspector{display:block}
+.ps-controls .ctl-section{margin-bottom:8px}
+.ps-field{margin-bottom:8px}
+.ps-field input{width:90px;margin-right:6px}
+.ps-changed{color:var(--accent,#c0392b);margin-left:6px}
+.ps-rows{margin:6px 0}
+.ps-row{display:grid;grid-template-columns:80px 1fr;gap:2px 8px;align-items:center;margin-bottom:4px}
+.ps-row progress{grid-column:1/-1;width:100%;height:6px}
+.ps-strip{display:flex;align-items:center;gap:6px}
+.ps-strip-row{display:flex;gap:6px;flex-wrap:wrap}
+.ps-strip-btn{display:flex;flex-direction:column;align-items:flex-start;padding:6px 10px;border:1px solid var(--line);
+ border-radius:6px;background:var(--panel);cursor:pointer;min-width:120px}
+.ps-strip-btn.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.ps-strip-v{font-variant-numeric:tabular-nums;font-size:12px}
+.ps-custom{font-size:10px;text-transform:uppercase;color:var(--mute)}
+.ps-loading{border:1px solid var(--line);border-radius:6px;padding:12px;background:var(--panel);display:flex;
+ flex-direction:column;gap:4px}
+.ps-loading:not(.compact){min-height:40vh}
+.ps-eta{font-weight:600}
+.ps-picker{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.ps-metric-help{display:none}
+.ps-key{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px}
+.ps-table{border-collapse:collapse;font-size:12px;margin:6px 0}
+.ps-table th,.ps-table td{padding:2px 6px;border-bottom:1px solid var(--line);text-align:left}
+.ps-kv{font-size:12px;border-collapse:collapse}
+.ps-kv th{text-align:left;font-weight:500;padding:2px 8px 2px 0;vertical-align:top}
+.ps-badges{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+.ps-badge{font-size:11px;border:1px solid var(--line);border-radius:10px;padding:1px 8px}
+.ps-badge.ok{border-color:#59a14f;color:#2f6b2a}
+.ps-cluster{font-size:12px;margin:4px 0}
+.ps-member{display:inline-flex;align-items:center;gap:2px;margin:0 6px 2px 0}
+.ps-q{margin-left:4px;font-size:11px;color:var(--mute);cursor:help}
+.ps-readonly{margin:8px 0}
+/* medium and narrow: one column; the Controls fold into a strip above, the Inspector follows the heatmap */
+body[data-form=medium] #root.selection #ps-body,body[data-form=narrow] #root.selection #ps-body{
+ grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto;grid-template-areas:"ctl" "main" "insp";
+ overflow:auto}
+body[data-form=medium] #root.selection .ps-controls,body[data-form=narrow] #root.selection .ps-controls{
+ display:grid!important;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 16px;width:auto;
+ max-height:45vh;border-right:0;border-bottom:1px solid var(--line)}
+body[data-form=medium] #root.selection .ps-controls .ctl-title,body[data-form=narrow] #root.selection .ps-controls .ctl-title,
+body[data-form=medium] #root.selection .ps-controls .ctl-h,body[data-form=narrow] #root.selection .ps-controls .ctl-h{
+ display:block}
+body[data-form=medium] #root.selection .ps-inspector,body[data-form=narrow] #root.selection .ps-inspector{
+ display:block!important;position:static;width:auto;border-left:0;border-top:1px solid var(--line)}
+body[data-form=medium] #root.selection .ps-main,body[data-form=narrow] #root.selection .ps-main{overflow:visible}

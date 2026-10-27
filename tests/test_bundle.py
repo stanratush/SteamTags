@@ -121,5 +121,139 @@ def test_a_failed_zip_write_leaves_no_partial_file(tmp_path, monkeypatch):
     monkeypatch.setattr("steamstudy.bundle.make.zipfile.ZipFile", Broken)
     with pytest.raises(OSError):
         make_bundle(root, targets=["windows"], out=tmp_path / "out", lock_path=REPO / "uv.lock",
-                    build_wheel=lambda _repo, _out: wheel)
+                    build_wheel=lambda _repo, _out: wheel, skip_parameter_selection=True)  # a stub Build
     assert list((tmp_path / "out").glob("*")) == []
+
+
+# ----------------------------------------------------------------------------- Parameter Selection in the bundle
+
+
+@pytest.fixture(scope="module")
+def ps_root(tmp_path_factory):
+    """A root whose latest Build is the tagged test world with a 2 × 2 grid and R = S = 2."""
+    import tomllib
+
+    from conftest import CONFIG_DIR
+    from steamstudy.build.core import build
+    from steamstudy.build.writer import write_build
+    from steamstudy.config import ALL_FILES, config_from_data
+    from steamstudy.snapshot import Snapshot
+    from test_build_network import tagged_world
+
+    files = {n: tomllib.loads((CONFIG_DIR / f"{n}.toml").read_text(encoding="utf-8")) for n in ALL_FILES}
+    files["network"]["parameter_selection"].update({"g_range": [15, 16], "s_range": [3, 4], "null_replicates": 2,
+                                                    "subsamples": 2, "min_comparable_neighbours": 1})
+    root = tmp_path_factory.mktemp("ps-root")
+    write_build(build(Snapshot(tagged_world().snapshot(root / "snap")), config_from_data(files),
+                      "20261005T170000Z-abcdef12"), root)
+    return root
+
+
+def _ps_bundle(root, tmp_path, monkeypatch, **kw):
+    import zipfile as zf
+
+    monkeypatch.setattr("steamstudy.bundle.make.read_lock",
+                        lambda _path: {"package": [{"name": "steamstudy", "version": "0.1.0", "dependencies": []}]})
+    wheel = tmp_path / "steamstudy-0.1.0-py3-none-any.whl"
+    wheel.write_bytes(b"x")
+    path = make_bundle(root, targets=["windows"], out=tmp_path / "out", lock_path=REPO / "uv.lock",
+                       build_wheel=lambda _repo, _out: wheel, map_fn=map, **kw)
+    extracted = tmp_path / "x"
+    with zf.ZipFile(path) as z:
+        z.extractall(extracted)
+    return next(extracted.iterdir())
+
+
+def _build_folder(root):
+    from steamstudy.builds import resolve_build
+
+    return resolve_build(root)
+
+
+def test_a_bundle_ships_the_default_parameter_selection(ps_root, tmp_path, monkeypatch):
+    import json
+
+    from steamstudy.app import ps_cache
+    from steamstudy.app.loader import load_build
+    from steamstudy.network import selection as SEL
+
+    folder = _build_folder(ps_root)
+    bundle = _ps_bundle(ps_root, tmp_path, monkeypatch)
+    staged = bundle / "builds" / folder.parent.name / folder.name
+    manifest = json.loads((bundle / "bundle.json").read_text(encoding="utf-8"))
+    shipped = manifest["parameter_selection"][f"{folder.parent.name}/{folder.name}"]
+    ctx = load_build(staged)
+    settings = SEL.load_selection_settings(ctx.network, (t.id for t in ctx.genre_tags), ctx.build_id)
+    for d in ctx.datasets:
+        key = settings.grid_key(d.key, ctx.context(d.key))
+        assert SEL.key_hash(key) in shipped["grids"]
+        assert ps_cache.grid_state(staged / "app_cache", key, 4).status == "complete"
+    assert shipped["validations"]
+    assert sorted(p.name for p in (staged / "app_cache").iterdir()) == ["parameter_selection"]
+    assert not (folder / "app_cache" / "parameter_selection").exists()  # the maker's cache is never written
+
+
+def test_a_stale_maker_cache_is_reported_and_not_shipped(ps_root, tmp_path, monkeypatch, caplog):
+    import json
+    import logging
+    import shutil
+
+    from steamstudy.app import ps_cache, ps_run
+    from steamstudy.app.loader import load_build
+    from steamstudy.network import selection as SEL
+
+    folder = _build_folder(ps_root)
+    ctx = load_build(folder)
+    settings = SEL.load_selection_settings(ctx.network, (t.id for t in ctx.genre_tags), ctx.build_id)
+    ps_run.run(ctx, settings, ["overall"])
+    graph = next(ps_cache.root(ctx.app_cache).rglob("graphs/*.json"))
+    data = json.loads(graph.read_text(encoding="utf-8"))
+    data["n_tags"] += 1  # what an unbumped method change leaves behind
+    ps_cache.write_json(graph, data)
+    try:
+        with caplog.at_level(logging.WARNING, logger="steamstudy.bundle"):
+            bundle = _ps_bundle(ps_root, tmp_path, monkeypatch)
+        assert "the maker's Parameter Selection cache differs from the fresh result in 1 file(s)" in caplog.text
+        shipped = bundle / "builds" / folder.parent.name / folder.name / "app_cache" / "parameter_selection"
+        fresh = json.loads((shipped / graph.relative_to(ps_cache.root(ctx.app_cache))).read_text(encoding="utf-8"))
+        assert fresh["n_tags"] == data["n_tags"] - 1
+        assert json.loads(graph.read_text(encoding="utf-8"))["n_tags"] == data["n_tags"]  # left as it was
+    finally:
+        shutil.rmtree(ctx.app_cache)
+
+
+def test_skip_parameter_selection_ships_no_cache(ps_root, tmp_path, monkeypatch):
+    import json
+
+    folder = _build_folder(ps_root)
+    bundle = _ps_bundle(ps_root, tmp_path, monkeypatch, skip_parameter_selection=True)
+    manifest = json.loads((bundle / "bundle.json").read_text(encoding="utf-8"))
+    assert manifest["parameter_selection"] == {f"{folder.parent.name}/{folder.name}": "skipped"}
+    assert not (bundle / "builds" / folder.parent.name / folder.name / "app_cache").exists()
+
+
+def test_an_extracted_bundle_opens_the_mode_on_shipped_results_with_the_provenance_line(ps_root, tmp_path,
+                                                                                         monkeypatch):
+    import json
+
+    from steamstudy.app import callbacks as CB
+    from steamstudy.app import ps_cache
+    from steamstudy.app import ps_view as PV
+    from steamstudy.app.loader import load_build
+
+    folder = _build_folder(ps_root)
+    bundle = _ps_bundle(ps_root, tmp_path, monkeypatch)
+    staged = bundle / "builds" / folder.parent.name / folder.name
+    for manifest_path in (staged / "app_cache").rglob("manifest.json"):
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["computed_with"].update({"system": "Darwin", "machine": "arm64", "utc": "2026-10-26T09:00:00Z"})
+        ps_cache.write_json(manifest_path, manifest)
+    ctx = load_build(staged)
+    defaults, constraints = PV.defaults_of(ctx)
+    out = CB.ps_render("selection", PV.settings_data(defaults), {"shared": PV.constraints_data(constraints),
+                                                                 "datasets": {}}, "overall", "neighbour_agreement",
+                       None, False, None, str(staged))
+    rows, provenance = out[0], out[2]
+    assert provenance.startswith("Computed when this bundle was made: Python") and "Darwin arm64, 2026-10-26" in (
+        provenance)
+    assert "★" in str(out[8])

@@ -925,7 +925,8 @@ def test_every_help_target_in_the_app_opens_an_entry_with_in_short_and_why_it_ma
     out = _recompute(build_folder, **{"min-shared": 20})
     targets = _help_targets([build_layout(load_build(build_folder)), list(out),
                              V._kv([(label, "x") for label in V.INSPECTOR_LABELS])])
-    assert {H.target(key) for key in H.HELP} <= set(targets)  # every help key is on a surface of the app
+    # every help key is on a surface of the app (Parameter Selection's: test_ps_app)
+    assert {H.target(key) for key in H.HELP if key not in H.SELECTION_HELP} <= set(targets)
     assert {H.column_help(columns)[1] for columns in V.INSPECTOR_LABELS.values()} <= set(targets)
     for target in set(targets):
         file, anchor = target.split("#")

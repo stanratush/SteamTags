@@ -47,6 +47,8 @@ def _parser() -> argparse.ArgumentParser:
     n.add_argument("--target", action="append", default=[], choices=("windows", "macos", "linux"),
                    help="an operating system to make it for (repeatable; default: this computer's)")
     n.add_argument("--out", type=Path, help="folder for the zip (default: <root>/bundles)")
+    n.add_argument("--skip-parameter-selection", action="store_true",
+                   help="ship no Parameter Selection results (quick test bundles only; never for a release)")
     return p
 
 
@@ -157,7 +159,8 @@ def _bundle(args: argparse.Namespace) -> int:
 
     log = logging.getLogger("steamstudy.bundle")
     try:
-        path = make_bundle(args.root, builds=args.build, targets=args.target, out=args.out)
+        path = make_bundle(args.root, builds=args.build, targets=args.target, out=args.out,
+                           skip_parameter_selection=args.skip_parameter_selection)
     except BundleError as exc:
         log.error("bundle not written: %s", exc)
         return 2

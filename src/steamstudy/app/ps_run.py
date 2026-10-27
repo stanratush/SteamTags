@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import platform
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -37,7 +37,7 @@ def worker_count(configured: int) -> int:
     return configured if configured > 0 else max(1, (os.cpu_count() or 2) - 1)
 
 
-def eta_text(record: dict[str, Any]) -> str:
+def eta_text(record: Mapping[str, Any]) -> str:
     done, total, elapsed = record["weight_done"], record["weight_total"], record["elapsed"]
     if done <= 0 or (done < ESTIMATE_SHARE * total and elapsed < ESTIMATE_SECONDS):
         return "estimating…"
@@ -106,6 +106,9 @@ def run(ctx: BuildContext, settings: SEL.SelectionSettings, datasets: Iterable[s
                  for d, *_, tasks in plans}
     meter = _Meter(on_progress, len(datasets), grid_weight + sum(estimates.values()))
     outcomes: list[DatasetOutcome] = []
+    if grid_weight and plans:
+        first = next(p for p in plans if p[4])
+        meter.tick(first[0], plans.index(first) + 1, "grid", first[2].done, len(first[3]), 0.0)  # the panel shows now
 
     for index, (d, key, state, pair_hash, tasks) in enumerate(plans, start=1):
         ps_cache.write_manifest(cache_root, key, pair_hash, stamp)

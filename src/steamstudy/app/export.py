@@ -63,6 +63,7 @@ def export_zip(
     state: NetworkState | None = None,
     layout: Layout | None = None,
     now: dt.datetime | None = None,
+    applied_from: dict[str, Any] | None = None,
 ) -> tuple[str, bytes]:
     """The zip for one Network State. `removal_rows` must belong to this exact key (callers check). The layout
     is computed after the state, for the reference canvas, unless one is given."""
@@ -96,6 +97,9 @@ def export_zip(
         "removal_sensitivity": removal_status(removal_rows, len(state.nodes)),
         "columns": columns_block([s for s in S.APP_TABLES if s.name in files]),
     }
+    if applied_from is not None:
+        # Informational only: outside state_key, ignored by Open, never part of state_id.
+        export_json["applied_from"] = applied_from
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, data in sorted(files.items()):

@@ -4,7 +4,7 @@
 
 **Blocked by:** 24, 25
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 Spec: [Automatic Parameter Selection spec](../spec.md): "The Parameter Selection mode" (layout, Controls column item 1, Main column item 1, States), "Jobs, progress and ETA". Prototype: [variant A](../prototypes/10-parameter-selection-mode/README.md).
 
@@ -29,3 +29,7 @@ Spec: [Automatic Parameter Selection spec](../spec.md): "The Parameter Selection
   - Cancel then Continue.
   - The strip shows each status. A click switches the dataset.
   - The provenance line appears when `computed_with` is patched to another Python, and the banner when an app library differs.
+
+## Comments
+
+- 2026-10-27, implementation: Implemented in `app/ps_view.py`, `app/layout.py`, `app/callbacks.py` and `app.css`, and checked live in the wide form (Run, the loading panel with ETA, Cancel, Continue and a run through the real process pool, which Cancel kills). Not met: at medium and narrow widths the mode uses a one-column fallback (Controls as a scrolling strip above, Inspector below the heatmap), not the Workbench's pill bar and floating Inspector, and that fallback was not checked in a browser.

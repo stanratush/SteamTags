@@ -51,7 +51,8 @@ def bundle(tmp_path_factory):
     config = load_config(__import__("conftest").CONFIG_DIR)
     write_build(build(Snapshot(tagged_world().snapshot(root / "snap")), config, "20261006T140000Z-abcdef12"), root)
     try:
-        path = make_bundle(root, out=root / "out", cache=REPO / "bundles" / ".cache" / "wheels")
+        path = make_bundle(root, out=root / "out", cache=REPO / "bundles" / ".cache" / "wheels",
+                           skip_parameter_selection=not os.environ.get("STEAMSTUDY_BUNDLE_PARAMETER_SELECTION"))
     except BundleError as exc:
         if "needs internet" in str(exc):
             pytest.skip(f"the bundle's wheels cannot be fetched: {exc}")

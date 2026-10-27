@@ -1,4 +1,5 @@
-"""The Tag Network app's layout: the Workbench and Analysis Report mode over one set of components.
+"""The Tag Network app's layout: the Workbench and Analysis Report mode over one set of components, and the
+Parameter Selection mode (`ps_view`) beside them.
 
 The main column is a flex column whose blocks are re-ordered and shown or hidden by the mode, so the
 graph, the tables and the inspector are single component instances shared by both modes. In the
@@ -19,6 +20,7 @@ from dash import dcc, html
 
 from steamstudy.app import help as H
 from steamstudy.app.loader import BuildContext
+from steamstudy.app.ps_view import mode_layout
 from steamstudy.app.renderer import graph_component, thickness_key
 from steamstudy.app.view import column_defs, metric_header
 
@@ -281,7 +283,8 @@ def build_layout(ctx: BuildContext) -> html.Div:
     header = html.Header([
         html.Div([html.B("Tag Network", className="title"), html.Span(f"Build {ctx.build_id}", className="mute")],
                  className="brand"),
-        _seg("mode", [("workbench", "Workbench"), ("report", "Analysis Report mode")], "workbench"),
+        _seg("mode", [("workbench", "Workbench"), ("report", "Analysis Report mode"),
+                       ("selection", "Parameter Selection")], "workbench"),
         html.Div(dcc.Dropdown(id="tag-search", options=[], placeholder="Find a tag…", searchable=True,
                               clearable=False, className="tag-search"), id="search-slot", className="search-slot"),
         html.Div([
@@ -303,6 +306,7 @@ def build_layout(ctx: BuildContext) -> html.Div:
     return html.Div([
         *stores, html.Div(id="banners"), header,
         html.Div([_controls(ctx), main, inspector], id="app-body", className="app-body"),
+        mode_layout(ctx),
         help_modal,
     ], id="root", className="workbench controls-on inspector-on tables-on")
 
@@ -343,7 +347,7 @@ def block_styles(mode: str, tab: str, panels: list[str]) -> dict[str, dict[str, 
 
 def root_class(mode: str, panels: list[str], graph_only: bool) -> str:
     """The root's classes: the mode, which panels are open, and "Graph only" (read by app.css and workbench.js)."""
-    classes = ["report" if mode == "report" else "workbench"]
+    classes = [{"report": "report", "selection": "workbench selection"}.get(mode, "workbench")]
     classes += [f"{p}-on" for p in ("controls", "inspector", "tables") if p in panels]
     if graph_only:
         classes.append("graph-only")

@@ -21,7 +21,8 @@ from dash import ALL, ClientsideFunction, Input, Output, Patch, State, ctx, html
 from dash.exceptions import PreventUpdate
 
 from steamstudy.app import help as H
-from steamstudy.app import app_cache, rs_cache
+from steamstudy.app import app_cache, ps_run, rs_cache
+from steamstudy.app import ps_view as PV
 from steamstudy.app import view as V
 from steamstudy.app.export import BuildNotFound, OpenRefused, export_zip, open_export
 from steamstudy.app.guide import PANEL_SECTIONS, help_markdown_at
@@ -33,8 +34,10 @@ from steamstudy.network.cluster import Cluster
 from steamstudy.network.graph import filter_games
 from steamstudy.network.layout import (REFERENCE_CANVAS, Canvas, Layout, LayoutInput, lay_out, label_width,
                                       layout_input, restore, tidy)
+from steamstudy.network import selection as SEL
 from steamstudy.network.model import Settings, resolution_text
 from steamstudy.network.sensitivity import removal_sensitivity
+from steamstudy.network.stability import ari
 from steamstudy.network.state import compute_state
 from steamstudy.network.tables import state_tables
 from steamstudy.versions import version_mismatches
@@ -133,6 +136,30 @@ def tables_of(meta: dict[str, Any], build_path: str) -> dict[str, Any]:
     return tables
 
 
+def applied_line(verify, key, cluster_of):
+    """Apply to Workbench's provenance line: checked once, on the first recompute at the applied key, against the
+    stored Selected Partition; kept while the key stays, gone as soon as a setting changes. Display only."""
+    if verify.get("applied"):
+        applied = verify["applied"]
+        if key != applied["key"]:
+            return no_update, no_update  # the controls are still being set
+        stored = dict(zip(applied["nodes"], applied["membership"]))
+        same_nodes = set(stored) == set(cluster_of)
+        nodes = sorted(stored) if same_nodes else []
+        value = ari(nodes, {t: str(stored[t]) for t in nodes}, cluster_of) if same_nodes else 0.0
+        reproduced = same_nodes and value == 1.0
+        head = f"Applied from Parameter Selection: {applied['dataset']}, g={applied['g']}, s={applied['s']}"
+        text = (f"{head} — Selected Partition reproduced ✓" if reproduced else
+                f"{head} — shows a different partition from the Selected Partition: ARI {value:.2f}")
+        record = {k: applied[k] for k in ("dataset", "g", "s", "grid_key_hash", "method_version", "workbench_gamma",
+                                          "workbench_seed")}
+        record.update({"reproduced": reproduced, "ari": None if reproduced else value})
+        return text, {"applied_key": applied["key"], "applied_from": record, "text": text}
+    if key != verify["applied_key"]:
+        return "", None
+    return no_update, no_update
+
+
 def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidden, defining_hidden, weight,
               algorithm, gamma, seed, removed, verify):
     if not _valid_gamma(gamma) or seed is None or int(seed) < 0:
@@ -192,6 +219,8 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
         ok = state.state_id == verify["expected"]
         verify_text = f"Opened state {verify['expected']}: recomputed state_id {state.state_id} {'✓' if ok else '✗'}"
         verify_out = {"expected": None}
+    elif verify and (verify.get("applied") or verify.get("applied_key")):
+        verify_text, verify_out = applied_line(verify, settings.key(), state.cluster_of)
     rows_total = len(c.rows(dataset))
     defining_ref = c.dataset(dataset).defining_tag
     summary = V.state_table(settings.key(), state.state_id, c.dataset(dataset).label, state.network.n_games, rows_total,
@@ -604,9 +633,10 @@ def show_rs(rs_view, beyond, cluster, tables, meta):
 # ----------------------------------------------------------------------------- 7. export, open, cache, help
 
 
-def do_export(_a, _b, build_path, meta, relayout_store, base, rs_view):
+def do_export(_a, _b, build_path, meta, relayout_store, base, rs_view, verify=None):
     if not meta:
         raise PreventUpdate
+    applied = verify.get("applied_from") if verify and verify.get("applied_key") == meta["key"] else None
     c = load_build(build_path)
     settings = Settings.from_key(meta["key"])
     tidied = relayout_positions(base, relayout_store) if base else None
@@ -614,7 +644,7 @@ def do_export(_a, _b, build_path, meta, relayout_store, base, rs_view):
     rows = None
     if rs_view and rs_view.get("rows") and rs_view.get("state_id") == meta["state_id"] and not rs_view.get("stale"):
         rows = rs_view["rows"]  # only results under the exact current key; stale results are never exported
-    filename, data = export_zip(c, settings, relayout_positions=positions, removal_rows=rows)
+    filename, data = export_zip(c, settings, relayout_positions=positions, removal_rows=rows, applied_from=applied)
     return dash.dcc.send_bytes(data, filename)
 
 
@@ -680,6 +710,278 @@ def show_help(_clicks, _close, target=None, _back=None, history=None):
 
 
 # ----------------------------------------------------------------------------- registration
+
+
+# ----------------------------------------------------------------------------- 8. Parameter Selection mode
+
+
+def _ps_context(build_path, active):
+    c = load_build(build_path)
+    defaults, default_constraints = PV.defaults_of(c)
+    settings = PV.settings_of(active) if active else defaults
+    return c, settings, defaults, default_constraints
+
+
+def _ps_views(c, settings, cstore, default_constraints):
+    return [PV.dataset_view(c, settings, d.key, PV.active_constraints(cstore, d.key, default_constraints),
+                            default_constraints) for d in c.datasets]
+
+
+def ps_render(mode, active, cstore, dataset, metric, pair, running, progress, build_path):
+    """Everything the mode shows, from the cache and the mode's stores (no job). It follows a job through
+    `ps-running` and the progress store, never through the job's own output: Dash would hold it until the job ends."""
+    if mode != "selection":
+        raise PreventUpdate
+    progress = progress if running else None
+    c, settings, defaults, default_constraints = _ps_context(build_path, active)
+    views = _ps_views(c, settings, cstore, default_constraints)
+    view = next(v for v in views if v.dataset == dataset)
+    names = PV.tag_names(c)
+    settings_label = SEL.settings_label(settings, defaults, names)
+    labels = {v.dataset: SEL.constraints_label(PV.active_constraints(cstore, v.dataset, default_constraints),
+                                               default_constraints) for v in views}
+    custom = {d: "; ".join(x.text for x in (settings_label, labels[d]) if x.custom) for d in labels}
+    validated = {v.dataset: PV.is_validated(c, settings, v.dataset, v.default_choice.chosen if v.default_choice
+                                            else None) for v in views}
+    shown = PV.validation_of(c, settings, dataset, view.default_choice.chosen if view.default_choice else None)
+    inspected = tuple(pair) if pair else view.star
+    inspected_validation = PV.validation_of(c, settings, dataset, inspected) if inspected else None
+    computed = next((v.computed_with for v in views if v.computed_with), None)
+    line, banner = PV.provenance(computed)
+    key_hash = SEL.key_hash(settings.settings_key())[:12]
+    cache_line = (f"Results from the app cache: Build {c.build_id}, settings key {key_hash}, method "
+                  f"v{SEL.METHOD_VERSION.rsplit('-', 1)[-1]}")
+    partial = [v for v in views if v.status == "partial"]
+    continue_style = {"display": "inline-block"} if partial and not progress else {"display": "none"}
+    done = sum(v.done for v in partial)
+    total = sum(v.total for v in partial)
+    running = bool(progress)
+    reason = settings_label.text if settings_label.custom else "No results for these settings on this computer yet."
+    loading = PV.loading_panel(progress, views, settings, reason, compact=view.done > 0) if running else []
+    result = view.result(inspected) if inspected else None
+    apply_text, apply_class = PV.workbench_line(result) if result else ("", "small")
+    can_validate = view.status == "complete" and result is not None and result.selected is not None
+    return (
+        PV.run_rows(views, progress, validated), cache_line, line,
+        banner or "", {} if banner else {"display": "none"},
+        continue_style, f"Continue ({done} of {total} pairs)",
+        not any(v.status == "complete" for v in views),
+        PV.strip(views, dataset, {d: t for d, t in custom.items() if t}), loading,
+        PV.heatmap(view, metric or "neighbour_agreement", inspected),
+        PV.why(view, settings_label.text, labels[dataset].text, settings.min_multi_tag_clusters),
+        PV.validation_card(view, shown, names),
+        PV.inspector(view, inspected, inspected_validation, names),
+        result is None or result.selected is None, apply_text, apply_class,
+        {"display": "inline-block"} if can_validate and inspected_validation is None else {"display": "none"},
+        labels[dataset].text, settings_label.text, f"Run {c.dataset(dataset).label}",
+    )
+
+
+def ps_run_request(_all, _one, _continue, active, dataset, build_path):
+    trigger = ctx.triggered_id
+    c = load_build(build_path)
+    if trigger == "ps-run-all":
+        datasets = [d.key for d in c.datasets]
+    elif trigger == "ps-run-one":
+        datasets = [dataset]
+    else:
+        _, settings, _, default_constraints = _ps_context(build_path, active)
+        datasets = [v.dataset for v in _ps_views(c, settings, None, default_constraints) if v.status == "partial"]
+    if not datasets:
+        raise PreventUpdate
+    return {"datasets": datasets, "settings": active, "nonce": time.time()}
+
+
+def ps_job(set_progress, request, build_path, map_fn=None):
+    """Background job: Run (grids, then the default-constraint pairs' validation) through one process pool.
+    Finished graph files are written at once, so Cancel keeps them."""
+    if not request:
+        raise PreventUpdate
+    c = load_build(build_path)
+    settings = PV.settings_of(request["settings"])
+    if map_fn is not None:
+        ps_run.run(c, settings, request["datasets"], map_fn=map_fn, on_progress=set_progress)
+        return request["nonce"]
+    import multiprocess as mp
+
+    set_progress(_starting(request["datasets"][0], len(request["datasets"]), "grid", len(settings.pairs())))
+    with mp.Pool(ps_run.worker_count(c.network.parameter_selection.workers)) as pool:
+        ps_run.run(c, settings, request["datasets"], map_fn=pool.imap_unordered, on_progress=set_progress)
+    return request["nonce"]
+
+
+def _starting(dataset, n_datasets, phase, total):
+    """A first progress record while the worker pool starts (several seconds on Windows), so the loading panel
+    shows at once."""
+    return {"dataset": dataset, "dataset_index": 1, "n_datasets": n_datasets, "phase": phase, "done": 0,
+            "total": total, "weight_done": 0.0, "weight_total": 1.0, "elapsed": 0.0}
+
+
+def ps_validate_request(_n, active, dataset, pair, build_path):
+    if not _n:
+        raise PreventUpdate
+    c, settings, _, default_constraints = _ps_context(build_path, active)
+    if not pair:
+        view = PV.dataset_view(c, settings, dataset, default_constraints, default_constraints)
+        if view.star is None:
+            raise PreventUpdate
+        pair = list(view.star)
+    return {"dataset": dataset, "pair": list(pair), "settings": active, "nonce": time.time()}
+
+
+def ps_validate_job(set_progress, request, build_path, map_fn=None):
+    """Background job: Validate this pair. All-or-nothing: a cancel writes nothing."""
+    if not request:
+        raise PreventUpdate
+    c = load_build(build_path)
+    settings = PV.settings_of(request["settings"])
+    g, s = request["pair"]
+    if map_fn is not None:
+        ps_run.validate_pair(c, settings, request["dataset"], g, s, map_fn=map_fn, on_progress=set_progress)
+        return request["nonce"]
+    import multiprocess as mp
+
+    set_progress(_starting(request["dataset"], 1, "validation", settings.replicates + settings.subsamples))
+    with mp.Pool(ps_run.worker_count(c.network.parameter_selection.workers)) as pool:
+        ps_run.validate_pair(c, settings, request["dataset"], g, s, map_fn=pool.imap_unordered,
+                             on_progress=set_progress)
+    return request["nonce"]
+
+
+def ps_pick_dataset(_clicks):
+    trigger = ctx.triggered_id
+    if not isinstance(trigger, dict) or not any(_clicks or []):
+        raise PreventUpdate
+    return trigger["dataset"], None
+
+
+def ps_pick_cell(click):
+    if not click or not click.get("points"):
+        raise PreventUpdate
+    point = click["points"][0]
+    return [int(point["y"]), int(point["x"])]
+
+
+CONSTRAINT_NAMES = [name for name, *_ in PV.CONSTRAINT_FIELDS]
+
+
+def _constraints_from_inputs(values, minimum_k):
+    data = dict(zip(CONSTRAINT_NAMES, values))
+    maximum = data["max_multi_tag_clusters"]
+    data["max_multi_tag_clusters"] = None if maximum in (None, "", 0) else max(int(maximum), int(minimum_k))
+    data["min_comparable_neighbours"] = int(data["min_comparable_neighbours"] or 0)
+    for name in ("tolerance", "min_retention", "max_isolated_share", "min_lcc_share"):
+        data[name] = float(data[name] if data[name] is not None else 0.0)
+    return SEL.Constraints(**data)
+
+
+def ps_constraint_marks(*args):
+    """The "changed" markers against the defaults, and Confirm only once something differs from the active set."""
+    *values, cstore, dataset, active, build_path = args
+    c, settings, _, default_constraints = _ps_context(build_path, active)
+    current = PV.active_constraints(cstore, dataset, default_constraints)
+    staged = _constraints_from_inputs(values, settings.min_multi_tag_clusters)
+    marks = ["changed" if getattr(staged, n) != getattr(default_constraints, n) else "" for n in CONSTRAINT_NAMES]
+    differs = staged != current
+    return [*marks, not differs, "Unconfirmed changes" if differs else ""]
+
+
+def ps_constraints_store(_confirm, _reset, *args):
+    """Confirm re-chooses from the cache (no job); Reset restores the defaults everywhere."""
+    *values, scope, cstore, dataset, active, build_path = args
+    c, settings, _, default_constraints = _ps_context(build_path, active)
+    store = {"shared": (cstore or {}).get("shared") or PV.constraints_data(default_constraints),
+             "datasets": dict((cstore or {}).get("datasets") or {})}
+    if ctx.triggered_id == "ps-c-reset":
+        return {"shared": PV.constraints_data(default_constraints), "datasets": {}}
+    data = PV.constraints_data(_constraints_from_inputs(values, settings.min_multi_tag_clusters))
+    if scope == "dataset":
+        store["datasets"][dataset] = data
+    else:
+        store = {"shared": data, "datasets": {}}
+    return store
+
+
+def ps_constraint_inputs(cstore, dataset, build_path):
+    """The fields show the active constraints of the shown dataset."""
+    c = load_build(build_path)
+    _, default_constraints = PV.defaults_of(c)
+    current = PV.active_constraints(cstore, dataset, default_constraints)
+    return [getattr(current, n) for n in CONSTRAINT_NAMES]
+
+
+def _staged_settings(build_path, genre, defining, removed, min_months, weight, min_multi):
+    c = load_build(build_path)
+    defaults, _ = PV.defaults_of(c)
+    return defaults.with_(genre_hidden=tuple(int(t) for t in genre or []), hide_defining_tag=bool(defining),
+                          removed_tag_ids=tuple(int(t) for t in removed or []), min_months=int(min_months or 0),
+                          clustering_weight=weight, min_multi_tag_clusters=int(min_multi or 1))
+
+
+def ps_use_settings(_n, genre, defining, removed, min_months, weight, min_multi, cstore, build_path):
+    """Use these settings: switch the mode to the staged settings' key (no job). A minimum above an active
+    constraint maximum raises the maximum, which then shows as custom."""
+    if not _n:
+        raise PreventUpdate
+    staged = _staged_settings(build_path, genre, defining, removed, min_months, weight, min_multi)
+    store = json.loads(json.dumps(cstore or {}))
+    for data in [store.get("shared"), *(store.get("datasets") or {}).values()]:
+        if data and data.get("max_multi_tag_clusters") is not None:
+            data["max_multi_tag_clusters"] = max(data["max_multi_tag_clusters"], staged.min_multi_tag_clusters)
+    return PV.settings_data(staged), store if store else no_update, None
+
+
+def ps_stage_settings(_reset, _copy, _remove, removed, wb_genre, wb_defining, wb_months, wb_weight, wb_removed,
+                      build_path):
+    """Reset to defaults, Copy from Workbench (hidden tags, Minimum Months, weight, removed tags) and the
+    Inspector's Remove all edit the staged settings only."""
+    trigger = ctx.triggered_id
+    c = load_build(build_path)
+    defaults, _ = PV.defaults_of(c)
+    if trigger == "ps-s-reset":
+        return (list(defaults.genre_hidden), [1] if defaults.hide_defining_tag else [], [], defaults.min_months,
+                defaults.clustering_weight, defaults.min_multi_tag_clusters)
+    if trigger == "ps-s-copy":
+        return (list(wb_genre or []), [1] if wb_defining else [], list(wb_removed or []), int(wb_months or 0),
+                wb_weight, no_update)
+    if isinstance(trigger, dict) and trigger.get("type") == "ps-remove" and any(_remove or []):
+        tag = int(trigger["tag"])
+        return no_update, no_update, sorted({*map(int, removed or []), tag}), no_update, no_update, no_update
+    raise PreventUpdate
+
+
+def ps_apply(_n, dataset, pair, active, build_path):
+    """Apply to Workbench: replace every Workbench setting with the pair's, as Open Network State does, then switch.
+    The provenance line is checked on the first recompute through the `verify` store."""
+    if not _n:
+        raise PreventUpdate
+    c, settings, defaults, default_constraints = _ps_context(build_path, active)
+    view = PV.dataset_view(c, settings, dataset, default_constraints, default_constraints)
+    target = tuple(pair) if pair else view.star
+    result = view.result(target) if target else None
+    if result is None or result.selected is None:
+        raise PreventUpdate
+    g, s = target
+    wb = result.workbench
+    workbench = settings.for_pair(dataset, c.context(dataset), g, s).with_(resolution=wb["gamma"], seed=wb["seed"])
+    values = controls_from_settings(c, workbench)
+    applied = {"dataset": dataset, "g": g, "s": s, "grid_key_hash": SEL.key_hash(settings.grid_key(
+                   dataset, c.context(dataset))), "method_version": SEL.METHOD_VERSION,
+               "workbench_gamma": wb["gamma"], "workbench_seed": wb["seed"], "nodes": result.nodes,
+               "membership": result.selected, "key": workbench.key()}
+    pending = {"dataset": values["dataset"], "defining-hidden": values["defining-hidden"], "removed": values["removed"]}
+    return [*[values[k] for k in CONTROL_IDS], values["removed"], None, None, pending, {"applied": applied},
+            "workbench"]
+
+
+def ps_export(_n, active, cstore, build_path):
+    if not _n:
+        raise PreventUpdate
+    from steamstudy.app.ps_export import export_tables
+
+    c, settings, defaults, default_constraints = _ps_context(build_path, active)
+    filename, data = export_tables(c, settings, cstore)
+    return dash.dcc.send_bytes(data, filename)
 
 
 def register(app: dash.Dash) -> None:
@@ -775,7 +1077,8 @@ def register(app: dash.Dash) -> None:
        Input("state-tables", "data"), Input("state-meta", "data"))(show_rs)
     cb(Output("download", "data"), Input("export-btn", "n_clicks"), Input("export-btn-report", "n_clicks"),
        State("build-path", "data"), State("state-meta", "data"), State("relayout", "data"),
-       State("elements-base", "data"), State("rs-view", "data"), prevent_initial_call=True)(do_export)
+       State("elements-base", "data"), State("rs-view", "data"), State("verify", "data"),
+       prevent_initial_call=True)(do_export)
     cb(Output("build-path", "data"), *[Output(i, "value", allow_duplicate=True) for i in CONTROL_IDS],
        Output("removed", "data", allow_duplicate=True), Output("relayout", "data", allow_duplicate=True),
        Output("rs-view", "data", allow_duplicate=True), Output("pending-open", "data"),
@@ -789,3 +1092,65 @@ def register(app: dash.Dash) -> None:
        Input({"type": "help", "panel": ALL}, "n_clicks"), Input("help-close", "n_clicks"),
        Input("help-target", "data"), Input("help-back", "n_clicks"), State("help-history", "data"),
        prevent_initial_call=True)(show_help)
+    # ---- Parameter Selection mode
+    ps_outputs = [Output("ps-rows", "children"), Output("ps-cache-line", "children"),
+                  Output("ps-provenance", "children"), Output("ps-banner", "children"), Output("ps-banner", "style"),
+                  Output("ps-continue", "style"), Output("ps-continue", "children"), Output("ps-export", "disabled"),
+                  Output("ps-strip", "children"), Output("ps-loading", "children"), Output("ps-heatmap", "figure"),
+                  Output("ps-why", "children"), Output("ps-validation", "children"),
+                  Output("ps-inspector-body", "children"), Output("ps-apply", "disabled"),
+                  Output("ps-apply-line", "children"), Output("ps-apply-line", "className"),
+                  Output("ps-validate", "style"), Output("ps-c-label", "children"), Output("ps-s-label", "children"),
+                  Output("ps-run-one", "children")]
+    cb(*ps_outputs, Input("mode", "value"), Input("ps-active", "data"), Input("ps-constraints", "data"),
+       Input("ps-dataset", "data"), Input("ps-metric", "value"), Input("ps-pair", "data"),
+       Input("ps-running", "data"), Input("ps-progress", "data"), State("build-path", "data"))(ps_render)
+    cb(Output("ps-run-request", "data"), Input("ps-run-all", "n_clicks"), Input("ps-run-one", "n_clicks"),
+       Input("ps-continue", "n_clicks"), State("ps-active", "data"), State("ps-dataset", "data"),
+       State("build-path", "data"), prevent_initial_call=True)(ps_run_request)
+    jobs_running = [(Output("ps-run-all", "disabled"), True, False), (Output("ps-run-one", "disabled"), True, False),
+                    (Output("ps-continue", "disabled"), True, False), (Output("ps-validate", "disabled"), True, False),
+                    (Output("ps-cancel", "disabled"), False, True), (Output("ps-running", "data"), True, False)]
+    cb(Output("ps-run-done", "data"), Input("ps-run-request", "data"), State("build-path", "data"), background=True,
+       running=jobs_running, cancel=[Input("ps-cancel", "n_clicks")], progress=[Output("ps-progress", "data")],
+       prevent_initial_call=True)(ps_job)
+    cb(Output("ps-validate-request", "data"), Input("ps-validate", "n_clicks"), State("ps-active", "data"),
+       State("ps-dataset", "data"), State("ps-pair", "data"), State("build-path", "data"),
+       prevent_initial_call=True)(ps_validate_request)
+    cb(Output("ps-validate-done", "data"), Input("ps-validate-request", "data"), State("build-path", "data"),
+       background=True, running=jobs_running, cancel=[Input("ps-cancel", "n_clicks")],
+       progress=[Output("ps-progress", "data", allow_duplicate=True)], prevent_initial_call=True)(ps_validate_job)
+    cb(Output("ps-dataset", "data"), Output("ps-pair", "data"),
+       Input({"type": "ps-strip", "dataset": ALL}, "n_clicks"), prevent_initial_call=True)(ps_pick_dataset)
+    cb(Output("ps-pair", "data", allow_duplicate=True), Input("ps-heatmap", "clickData"),
+       prevent_initial_call=True)(ps_pick_cell)
+    c_inputs = [Input(f"ps-c-{n}", "value") for n in CONSTRAINT_NAMES]
+    cb(*[Output(f"ps-c-{n}-changed", "children") for n in CONSTRAINT_NAMES], Output("ps-c-confirm", "disabled"),
+       Output("ps-c-unconfirmed", "children"), *c_inputs, Input("ps-constraints", "data"),
+       Input("ps-dataset", "data"), Input("ps-active", "data"), State("build-path", "data"))(ps_constraint_marks)
+    cb(Output("ps-constraints", "data", allow_duplicate=True), Input("ps-c-confirm", "n_clicks"),
+       Input("ps-c-reset", "n_clicks"), *[State(f"ps-c-{n}", "value") for n in CONSTRAINT_NAMES],
+       State("ps-c-scope", "value"), State("ps-constraints", "data"), State("ps-dataset", "data"),
+       State("ps-active", "data"), State("build-path", "data"), prevent_initial_call=True)(ps_constraints_store)
+    cb(*[Output(f"ps-c-{n}", "value") for n in CONSTRAINT_NAMES], Input("ps-constraints", "data"),
+       Input("ps-dataset", "data"), State("build-path", "data"), prevent_initial_call=True)(ps_constraint_inputs)
+    staged = [State("ps-s-genre", "value"), State("ps-s-defining", "value"), State("ps-s-removed", "value"),
+              State("ps-s-min-months", "value"), State("ps-s-weight", "value"), State("ps-s-min-multi", "value")]
+    cb(Output("ps-active", "data"), Output("ps-constraints", "data", allow_duplicate=True),
+       Output("ps-pair", "data", allow_duplicate=True), Input("ps-s-use", "n_clicks"), *staged,
+       State("ps-constraints", "data"), State("build-path", "data"), prevent_initial_call=True)(ps_use_settings)
+    cb(Output("ps-s-genre", "value"), Output("ps-s-defining", "value"), Output("ps-s-removed", "value"),
+       Output("ps-s-min-months", "value"), Output("ps-s-weight", "value"), Output("ps-s-min-multi", "value"),
+       Input("ps-s-reset", "n_clicks"), Input("ps-s-copy", "n_clicks"),
+       Input({"type": "ps-remove", "tag": ALL}, "n_clicks"), State("ps-s-removed", "value"),
+       State("genre-hidden", "value"), State("defining-hidden", "value"), State("min-months", "value"),
+       State("weight", "value"), State("removed", "data"), State("build-path", "data"),
+       prevent_initial_call=True)(ps_stage_settings)
+    cb(*[Output(i, "value", allow_duplicate=True) for i in CONTROL_IDS],
+       Output("removed", "data", allow_duplicate=True), Output("relayout", "data", allow_duplicate=True),
+       Output("rs-view", "data", allow_duplicate=True), Output("pending-open", "data", allow_duplicate=True),
+       Output("verify", "data", allow_duplicate=True), Output("mode", "value"), Input("ps-apply", "n_clicks"),
+       State("ps-dataset", "data"), State("ps-pair", "data"), State("ps-active", "data"),
+       State("build-path", "data"), prevent_initial_call=True)(ps_apply)
+    cb(Output("ps-download", "data"), Input("ps-export", "n_clicks"), State("ps-active", "data"),
+       State("ps-constraints", "data"), State("build-path", "data"), prevent_initial_call=True)(ps_export)

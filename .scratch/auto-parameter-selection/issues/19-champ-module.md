@@ -4,7 +4,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 Spec: [Automatic Parameter Selection spec](../spec.md): "The γ scan and Leiden" (scan values, γ_max(K)), "CHAMP", "γ̂ and Stable Partitions", "Selected Partition, Selected Resolution, Workbench γ and seed" (selection rule only). Reference code: [grid_run.py](../prototypes/05-grid-run/grid_run.py), [scan_ends.py](../prototypes/16-citable-upper-bound/scan_ends.py). Formulas: [Research 01](../research/01-resolution-selection-formulas.md), [Research 16](../research/16-citable-gamma-upper-bound.md).
 
@@ -35,3 +35,7 @@ Spec: [Automatic Parameter Selection spec](../spec.md): "The γ scan and Leiden"
   - **Oracle:** on several test-Build Lift graphs (at least 3 pairs), domains, γ̂ and stable sets match `modularitypruning` (`single_threaded=True`) to ≤ 1e-10, restricted to graphs without `not_assortative` partitions.
   - The selection rule: the minimum filter applied after stability (a case where applying it before CHAMP would change the result), width ties, and each no-selection reason.
   - The γ̂ ≤ γ_max(n_e) assertion holds over every Admissible Partition of a full test-Build scan.
+
+## Comments
+
+- 2026-10-27, implementation: Everything else is implemented in `network/champ.py` and tested in `tests/test_champ.py`, including the `modularitypruning` oracle on four test-Build graphs. Not met: the Table S5 test covers K = 2, 3, 5 and 10 only, the values quoted in Research 16; K = 4 and 6–9 need reading from the GM22 SI and adding to `test_gamma_max_matches_gibson_and_mucha_table_s5_and_rises_with_k`.
