@@ -660,4 +660,4 @@ Status `ready-for-agent` unless noted. Numbering continues after the map's decis
 - [30: Apply to Workbench](issues/30-apply-to-workbench.md)
 - [31: Export tables](issues/31-export-tables.md)
 - [32: Shipping results in an App Bundle](issues/32-bundle-shipping.md)
-- [33: Running Guide and release checklist](issues/33-running-guide-and-release-checklist.md) (waits on the researcher's commit)
+- [33: Running Guide and release checklist](issues/33-running-guide-and-release-checklist.md)
