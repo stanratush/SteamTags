@@ -26,10 +26,11 @@ An **implementation-ready spec** (`.scratch/bilingual-cluster-views/spec.md`) pl
 
 <!-- one line per resolved ticket -->
 - [Normalised inter-cluster strength in the literature](issues/05-normalised-inter-cluster-strength.md): the configuration-model ratio w_ab/(k_a k_b/2m) is the degree-corrected SBM affinity and the modularity merge test, so it is at most γ for every pair shown. Density is inflated for two-tag Clusters, game-set Jaccard or Lift is saturated, and PAGA does not fit. The recommendation (ratio as the headline, plus shares of cut) is non-binding; [research](research/05-normalised-inter-cluster-strength.md).
+- [String inventory](issues/01-string-inventory.md): ~500 app strings (mostly `view.py`, `ps_view.py`, `layout.py`, `selection_text.py`) and a 50k-word guide. All 109 code-referenced anchors are slugs of English headings, and the In short labels are parsed by their English words. `selection_text.py` also feeds the English `selection_report.md`. `analysis/templates.py` is Build reports, not Analysis Report mode, so it stays English; [research](research/01-string-inventory.md).
 
 ## Not yet specified
 
-- **Bulk translation sequencing and review**: how roughly 3,500 guide lines plus all UI strings get translated in implementation-sized slices, how parity with English is kept when the English guide changes, and how the researcher reviews. Clears once the inventory, the mechanism and the term table are settled.
+- **Bulk translation sequencing and review**: how the ~43,600 hand-translated guide words and ~500 app strings ([String inventory](issues/01-string-inventory.md)) get translated in implementation-sized slices, how parity with English is kept when the English guide changes, and how the researcher reviews. Clears once the mechanism and the term table are settled.
 - **Exports for features 3 and 4**: whether the cluster-games list becomes a new table in the Workbench export, and the exact column shapes. It depends on the measures and games decisions.
 - **Spec and implementation issues**: written once the frontier is empty.
 
