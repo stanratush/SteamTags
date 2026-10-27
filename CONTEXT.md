@@ -147,7 +147,7 @@ Everything that fixes one **Tag Network** result: the loaded **Top-100 Dataset**
 _Avoid_: view, session, configuration, state (unqualified)
 
 **Interface Language**:
-The language (English or Bulgarian) in which the **Tag Network** app's text and the User Guide are shown. A view choice: never part of a **Network State**, an export or any number.
+The language (English or Bulgarian) in which the **Tag Network** app's text and the User Guide are shown. A view choice: never part of a **Network State**, an export or any number. The Bulgarian form of every term here is in [docs/i18n/bg-terms.md](docs/i18n/bg-terms.md).
 _Avoid_: locale, translation mode
 
 **Analysis Report mode**:
