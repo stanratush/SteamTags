@@ -48,7 +48,9 @@ An **implementation-ready spec** (`.scratch/auto-parameter-selection/spec.md`) p
 
 ## Not yet specified
 
-<!-- nothing: the last patch graduated into [Cross-dataset comparison](issues/17-cross-dataset-comparison.md), now resolved. Every ticket is resolved; the way to the destination is clear and the next step is writing spec.md and the implementation issues. -->
+<!-- nothing: the last patch graduated into [Cross-dataset comparison](issues/17-cross-dataset-comparison.md), now resolved. Every ticket is resolved. -->
+
+**Destination reached (2026-10-27):** [spec.md](spec.md) and implementation issues 18–33 (`ready-for-agent`), listed at the end of the spec.
 
 ## Out of scope
 
