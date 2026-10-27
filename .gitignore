@@ -32,5 +32,8 @@ desktop.ini
 /snapshots/
 /builds/
 
+# Old pre-steamstudy scripts and outputs (a separate git repo, kept locally for reference)
+/legacy/
+
 # App Bundles and their wheel cache (steamstudy bundle)
 /bundles/

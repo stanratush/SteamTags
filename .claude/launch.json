@@ -4,28 +4,76 @@
     {
       "name": "spike17-dash",
       "runtimeExecutable": "C:/Users/Lenovo/AppData/Local/Temp/claude/C--Users-Lenovo-Desktop-Claude-SteamTags/d3187752-ba5d-4669-af2a-6399e8d28c35/scratchpad/spikeenv/Scripts/python.exe",
-      "runtimeArgs": [".scratch/steam-success-study/prototypes/17-dash-cytoscape-spike/app.py"],
+      "runtimeArgs": [
+        ".scratch/steam-success-study/prototypes/17-dash-cytoscape-spike/app.py"
+      ],
       "port": 8050
     },
     {
       "name": "spike22-dash-py314",
       "runtimeExecutable": "C:/Users/Lenovo/AppData/Local/Temp/claude/C--Users-Lenovo-Desktop-Claude-SteamTags/f94b8b8c-e148-4033-9584-9fbd427f2ede/scratchpad/spike314/.venv/Scripts/python.exe",
-      "runtimeArgs": ["C:/Users/Lenovo/AppData/Local/Temp/claude/C--Users-Lenovo-Desktop-Claude-SteamTags/f94b8b8c-e148-4033-9584-9fbd427f2ede/scratchpad/spike314/app.py"],
+      "runtimeArgs": [
+        "C:/Users/Lenovo/AppData/Local/Temp/claude/C--Users-Lenovo-Desktop-Claude-SteamTags/f94b8b8c-e148-4033-9584-9fbd427f2ede/scratchpad/spike314/app.py"
+      ],
       "port": 8050
     },
     {
       "name": "steamstudy-app-demo",
       "runtimeExecutable": "C:/Users/Lenovo/Desktop/Claude/SteamTags/.venv/Scripts/python.exe",
-      "runtimeArgs": ["-m", "steamstudy.cli", "--root", "C:/Users/Lenovo/AppData/Local/Temp/claude/C--Users-Lenovo-Desktop-Claude-SteamTags/987b9961-24dc-449d-bc72-dc99f1d5d10f/scratchpad/demo", "app", "--no-browser", "--port", "8051"],
+      "runtimeArgs": [
+        "-m",
+        "steamstudy.cli",
+        "--root",
+        "C:/Users/Lenovo/AppData/Local/Temp/claude/C--Users-Lenovo-Desktop-Claude-SteamTags/987b9961-24dc-449d-bc72-dc99f1d5d10f/scratchpad/demo",
+        "app",
+        "--no-browser",
+        "--port",
+        "8051"
+      ],
       "port": 8051,
       "url": "http://127.0.0.1:8051"
     },
     {
       "name": "steamstudy-app",
       "runtimeExecutable": "C:/Users/Lenovo/Desktop/Claude/SteamTags/.venv/Scripts/python.exe",
-      "runtimeArgs": ["-m", "steamstudy.cli", "app", "--no-browser", "--port", "8052"],
+      "runtimeArgs": [
+        "-m",
+        "steamstudy.cli",
+        "app",
+        "--no-browser",
+        "--port",
+        "8052"
+      ],
       "port": 8052,
       "url": "http://127.0.0.1:8052"
+    },
+    {
+      "name": "steamstudy-app-help",
+      "runtimeExecutable": "C:/Users/Lenovo/Desktop/Claude/SteamTags/.venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "steamstudy.cli",
+        "app",
+        "--no-browser",
+        "--port",
+        "8053"
+      ],
+      "port": 8053,
+      "url": "http://127.0.0.1:8053"
+    },
+    {
+      "name": "steamstudy-app-links",
+      "runtimeExecutable": "C:/Users/Lenovo/Desktop/Claude/SteamTags/.venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "steamstudy.cli",
+        "app",
+        "--no-browser",
+        "--port",
+        "8054"
+      ],
+      "port": 8054,
+      "url": "http://127.0.0.1:8054"
     }
   ]
 }

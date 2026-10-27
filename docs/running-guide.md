@@ -152,7 +152,7 @@ When a library the app computes with is installed at another version than the on
 
 ## Making an App Bundle
 
-An App Bundle lets a researcher run the Tag Network app on another computer that has only Python 3.12–3.14 (not 3.14.1): no uv, no repository, no internet. It never collects or builds; it opens only the Builds it carries. See [ADR 0001](adr/0001-app-bundle-wheels-not-frozen.md) for why it ships wheels and a launcher rather than a frozen executable.
+An App Bundle lets a researcher run the Tag Network app on another computer that has only Python 3.12–3.14 (not 3.14.1): no uv, no repository, no internet. It never collects or builds; it opens only the Builds it carries. See [ADR 0001](adr/0001-app-bundle-wheels-not-frozen.md) for why it ships wheels and a launcher rather than a frozen executable. To release a bundle after a code update, follow [Releasing an updated App Bundle](releasing-an-app-bundle.md).
 
 ```bash
 uv run steamstudy bundle
