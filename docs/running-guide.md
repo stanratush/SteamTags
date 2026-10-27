@@ -131,7 +131,8 @@ builds/<snapshot_id>/<build_id>/  one Build
   reports/                        exclusions, completeness, impact, ties, diagnostics, reports.html
   analysis/                       feature analysis, network tables, removal_sensitivity.csv,
                                   resolution_sweep.csv, analysis.json, report.html
-  app_cache/                      the app's Removal Sensitivity results and job store (regenerable)
+  app_cache/                      the app's Removal Sensitivity and Parameter Selection results and its job
+                                  store (regenerable)
 ```
 
 `snapshots/`, `builds/` and `bundles/` are git-ignored. Only the derived Top-100 exports, reports and analysis are published; `monthly_players.csv` waits for the operator's agreement.
@@ -142,11 +143,13 @@ builds/<snapshot_id>/<build_id>/  one Build
 uv run steamstudy app
 ```
 
-opens the latest Build (`--build <id>` picks another, `--port` changes the port, `--no-browser` skips opening the browser). The app listens only on `127.0.0.1` and loads nothing from the internet. Removal Sensitivity results are cached in the Build's `app_cache/`, never evicted automatically. Clear them with the app's **Clear app cache** button or:
+opens the latest Build (`--build <id>` picks another, `--port` changes the port, `--no-browser` skips opening the browser). The app listens only on `127.0.0.1` and loads nothing from the internet. Removal Sensitivity and Parameter Selection results are cached in the Build's `app_cache/`, never evicted automatically. Clear them with the app's **Clear app cache** button or:
 
 ```bash
 uv run steamstudy app --clear-cache
 ```
+
+**Parameter Selection** (the app's third mode) searches the Parameter Grid of each dataset and validates each chosen pair. A full Run of all five datasets at the default Selection Settings takes about 8½ minutes on 12 workers (measured on Build `20261008T221504Z-7a23ae9f`: 298 s for the five grids, 208 s for the five validations). Run serially, the grids alone are about 49 minutes of computing, and the whole Run at most about 1½ hours. The worker count is `[parameter_selection] workers` in `config/network.toml` (0 = one fewer than the computer's cores). Results are cached in `<build>/app_cache/parameter_selection/`, so a Run computes only what is missing, and they are never evicted automatically. **Clear app cache** (the button, or `steamstudy app --clear-cache`) deletes them along with the Removal Sensitivity results.
 
 When a library the app computes with is installed at another version than the one the Build recorded in `build.json` (`software_versions`), the app shows a banner naming each library with both versions. Pipeline-only libraries and the Python version never trigger it. **Open Network State…** finds an export's Build by its identity (`build_id` and the `build.json` hash) among the Builds under the `builds/` folder the app was started from; the path recorded in `export.json` is informational only.
 
@@ -163,12 +166,13 @@ writes `bundles/tag-network-<build_id>-<targets>.zip` for this computer's operat
 - `--build <id>` (repeatable) also includes another Build; the latest is always included and opens by default.
 - `--target windows|macos|linux` (repeatable) makes it for those systems instead (Windows x64, macOS on Apple silicon, Linux x86_64 with glibc 2.28 or newer). Intel Macs and ARM Linux are not supported.
 - `--out <folder>` writes the zip elsewhere.
+- `--skip-parameter-selection` ships no Parameter Selection results. It is for quick test bundles only, never for a release.
 
 ```bash
 uv run steamstudy bundle --target windows --target macos --target linux
 ```
 
-makes one zip for all three. What goes in: the launcher `start_tag_network.py` (standard library only) with `Start Tag Network.bat` and `Start Tag Network.command`; `READ ME FIRST.txt`; the User Guide; the app-only `steamstudy` wheel; every dependency wheel each target needs for Python 3.12, 3.13 and 3.14, pinned exactly to `uv.lock` and checked against its hashes (pure-Python wheels stored once); per-target requirement files with those hashes; the Build folders without `app_cache/`, with `latest` pointers; and `bundle.json` (format version, `steamstudy` version, `uv.lock` hash, targets, Python versions, Builds, date). None of the pipeline's libraries are installed, except `requests`: dash itself declares it, so it comes along, but the app never imports it. Each target adds about 220 MB. The command refuses, writing nothing, when a selected Build does not exist or when `uv.lock` has no wheel for some package on some target and Python.
+makes one zip for all three. What goes in: the launcher `start_tag_network.py` (standard library only) with `Start Tag Network.bat` and `Start Tag Network.command`; `READ ME FIRST.txt`; the User Guide; the app-only `steamstudy` wheel; every dependency wheel each target needs for Python 3.12, 3.13 and 3.14, pinned exactly to `uv.lock` and checked against its hashes (pure-Python wheels stored once); per-target requirement files with those hashes; the Build folders with `latest` pointers, without your own `app_cache/` but each with freshly computed Parameter Selection results (every dataset's grid and the validation of its default-constraint pair, under the default Selection Settings, about 8½ minutes per Build on 12 workers); and `bundle.json` (format version, `steamstudy` version, `uv.lock` hash, targets, Python versions, Builds, date, and the shipped Parameter Selection keys or `"skipped"`). None of the pipeline's libraries are installed, except `requests`: dash itself declares it, so it comes along, but the app never imports it. Each target adds about 220 MB. The command refuses, writing nothing, when a selected Build does not exist or when `uv.lock` has no wheel for some package on some target and Python.
 
 **Making a bundle needs internet** (it downloads the wheels from PyPI into `bundles/.cache/`, and later runs reuse them); **using one never does**. On the target computer the launcher installs the wheels into a private `environment/` folder inside the bundle with no package index, and rebuilds it when the folder moved, the Python changed or the bundle changed. It opens the app on port 8050 or the next free one.
 

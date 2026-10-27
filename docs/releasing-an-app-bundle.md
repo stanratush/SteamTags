@@ -80,6 +80,12 @@ Drop the `--target` options to make it for this computer's system only (about 22
 
 The command needs internet only for wheels it has not cached yet: they go to `bundles/<commit>/.cache/wheels/` when you use `--out`, so copy `bundles/.cache/` there first to avoid downloading them again. It refuses, writing nothing, if a Build does not exist or `uv.lock` lacks a wheel for some target and Python. When it finishes it logs the zip's path and size.
 
+**Making a bundle runs Parameter Selection for every Build it carries.** It recomputes each dataset's grid and the validation of its default-constraint pair, under the shipped code's default Selection Settings, into the bundle's copy of the Build. That takes about 8½ minutes per Build on 12 workers (`[parameter_selection] workers` in `config/network.toml`), so a two-Build bundle needs about 17 minutes more than before. It logs one line per Build, dataset and phase as each finishes, for example `Build 20261008T221504Z-7a23ae9f, puzzle: grid 153 of 153 pairs, about 6 min left`.
+
+Your own `app_cache/` is never shipped or changed; it is only compared with the fresh results. A warning that **the maker's Parameter Selection cache differs from the fresh result** means your cache was made by older code that computed something differently without bumping `selection.METHOD_VERSION` or `validation.METHOD_VERSION`. The bundle still ships the fresh result, so the release is fine, but fix the code before the next release: bump the method version that the change affected, so that old caches are no longer read as current. Clearing your app cache makes the warning go away without fixing that.
+
+**Never use `--skip-parameter-selection` for a release.** It makes a bundle without results, for quick test bundles only; researchers would then have to run every grid themselves.
+
 ## 5. Check the bundle like a researcher would
 
 Extract it to a fresh folder outside the repository, at a **short path**, and start it with a Python other than the repository's `.venv`. On Windows, a deep folder (such as one under `%TEMP%`) makes the first start fail with `[WinError 206] The filename or extension is too long` while scikit-learn loads its DLL, even with long paths enabled: Windows does not allow longer paths when loading a DLL, and the bundle's own folder name and `environment/` add about 150 characters.
@@ -96,7 +102,9 @@ Then double-click `Start Tag Network.bat` in the extracted folder (or run `py -3
 - `READ ME FIRST.txt` lists the Builds and systems you meant, and the right Build opens;
 - no library-version banner appears (one means the Build was made with other library versions: go back to step 3);
 - the update itself is visible (look for the change you are releasing);
-- if you included an older Build, an export made from it opens with **Open Network State…**.
+- if you included an older Build, an export made from it opens with **Open Network State…**;
+- the **Parameter Selection** mode opens on finished results with no Run: every dataset in the strip shows its ★ pair (or "no qualifying pair"), and every row in the Run section reads "grid done, validated" ("grid done, not validated" only for a dataset with no qualifying pair);
+- the provenance line under Run names the computer the bundle was made on, for example "Computed when this bundle was made: Python 3.14.8, Windows AMD64, 2026-10-27". It appears only when the Python version or system differs from the one checking, so start the bundle with a Python version other than the maker's to see it. A banner ending "Clear app cache and Run to recompute here" instead means an app library differs from the maker's: go back to step 2.
 
 Delete `../bundle-check` afterwards. macOS and Linux bundles can only be checked for completeness here; they have not been tested on real hardware.
 
@@ -108,7 +116,7 @@ Send the zip and say which commit and Build it carries. Ask researchers to:
 2. start it as before (the first start takes about a minute again);
 3. delete the old folder once the new one works, after copying out any exports they saved inside it.
 
-Extracting over the old folder would also work (the launcher rebuilds its environment whenever `bundle.json` changes), but it keeps the old folder's Removal Sensitivity cache and any Build the new bundle no longer carries.
+Extracting over the old folder would also work (the launcher rebuilds its environment whenever `bundle.json` changes), but it keeps the old folder's app cache (Removal Sensitivity and Parameter Selection results) and any Build the new bundle no longer carries.
 
 A message like this is enough:
 
