@@ -89,3 +89,7 @@ It takes `map_fn`, `on_progress`, `should_stop` and a cache root. The Dash Run j
   - the User Guide says shipped results were computed when the bundle was made, that "Clear app cache" replaces them with this computer's, and why a recomputation might differ (another Python or OS, practically never);
   - the loading panel's link needs a method section to point at.
 - To [Editable fixed settings](14-editable-fixed-settings.md): a non-default fixed setting is never shipped, so it always computes locally, and the loading panel says "Custom settings".
+
+## Comments
+
+- 2026-10-27, amended by [Graph-specific γ scan](16-graph-specific-gamma-scan.md): the scan length per graph (77–356 values) is an extra ETA weight; a full default Run takes 329 s on 12 workers instead of 95 s, with simulation g=5 s=5 (136 s) on the critical path.

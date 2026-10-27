@@ -123,3 +123,4 @@ Decided by the researcher, 2026-10-26, in three rounds of grilling; every recomm
 ## Comments
 
 - 2026-10-26: Resolved in three grilling rounds. The researcher confirmed the summary of the first two rounds and accepted round 3, which handled the hand-on from ticket 13 that arrived meanwhile. The Running Guide figures were corrected to the full Run's, from that ticket. The first two rounds had used the grid-only timing from [Exploratory grid run on the current Build](05-exploratory-grid-run.md).
+- 2026-10-27, amended by [Graph-specific γ scan](16-graph-specific-gamma-scan.md): the pairs table and `parameter_selection.json` gain n_e, γ_max(n_e), the last scan γ, the scan length, `pass_capped_runs` and the rule name `gm22_gamma_max_n_e`; the methods text cites GM22 §J for the γ range, with one sentence that §J.2 needs no equal sizes.

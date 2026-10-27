@@ -62,3 +62,7 @@ Decided by grilling with the researcher, 2026-10-26. Facts: [prototypes/09-apply
 **Amends**
 - [Resolution-selection rules](03-resolution-selection-rules.md): the Workbench resolution is now the γ found by the search, not just the nearest-to-midpoint value. A Workbench seed and the `not_reproduced` flag are added.
 - [Modules, caching and parallelism](08-modules-caching-parallelism.md): the graph file also holds the Workbench resolution, the Workbench seed and the flags. The search is part of the grid task, so it falls under the method version.
+
+## Comments
+
+- 2026-10-27, amended by [Graph-specific γ scan](16-graph-specific-gamma-scan.md): the Workbench γ input becomes min 0.01, no maximum, step 0.01. rpg g=3 s=3 reproduces only at γ = 3.23. The reproduction is still 758 of 764 under the new scan.

@@ -91,3 +91,4 @@ Decided by grilling with the researcher, 2026-10-26. Formulas and section number
 ## Comments
 
 - 2026-10-26, from [Editable fixed settings](14-editable-fixed-settings.md): the fixed 0.25–3.00 scan and CHAMP range are reopened. The range is to be derived per graph; see [Graph-specific γ bounds](15-graph-specific-gamma-bounds.md) and [Graph-specific γ scan](16-graph-specific-gamma-scan.md). The rest of this answer stands unless ticket 16 changes it.
+- 2026-10-27, amended by [Graph-specific γ scan](16-graph-specific-gamma-scan.md): the scan runs from 0 to Gibson & Mucha's γ_max(n_e) on the 0.05 grid; CHAMP runs over [0, last scan γ]; `clipped_low`, `estimate_above_range`, `estimate_below_range` and the `above_range` / `below_range` map targets are removed; `clipped_high` stays. Dedup, ties, γ̂, the minimum Multi-Tag Clusters, the widest-domain rule and rounding stand.

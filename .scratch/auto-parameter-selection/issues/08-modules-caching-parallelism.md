@@ -111,3 +111,7 @@ validation/<validation_key_hash>.json   one per (dataset, pair), written only wh
   - the Continue offer, and what (if anything) a partial grid shows;
   - "Validate this pair" offered only on a complete grid.
 - To [Shipping Parameter Selection results in an App Bundle](13-shipping-results-in-an-app-bundle.md): the cache layout above.
+
+## Comments
+
+- 2026-10-27, amended by [Graph-specific γ scan](16-graph-specific-gamma-scan.md): `grid_key()` carries only the γ step (0.05), not the fixed (0.25, 3.00, 0.05) triple; the end rule changes with `selection.METHOD_VERSION`. `detect` and `leiden_scan` share a pass loop capped at 1,000 passes. Each graph file records n_e, γ_max(n_e), the last scan γ, the scan length and `pass_capped_runs`.
