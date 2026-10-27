@@ -2,7 +2,8 @@
 
 Left, the Controls column (Run, Pair Constraints, Selection settings); in the middle the dataset strip, the metric
 picker, the g × s heatmap, "Why this pair" and the validation card; on the right the Pair Inspector. At medium and
-narrow widths the Workbench's forms apply: the Controls become a pill bar and the Pair Inspector floats until its ×.
+narrow widths the Workbench's forms apply: the Controls become a pill bar, and the Pair Inspector floats from a
+heatmap pick until its ×.
 Everything here is a pure function of the Build, the cache and the mode's stores; `callbacks.py` wires it.
 """
 
@@ -732,7 +733,7 @@ def mode_layout(ctx: BuildContext) -> html.Div:
         html.Div([html.Button("Validate this pair", id="ps-validate", className="btn", style={"display": "none"}),
                   _help("selection.validate")], className="row-inline"),
         html.Div(id="ps-inspector-body"),
-    ], id="ps-inspector", className=inspector_form(True))
+    ], id="ps-inspector", className=inspector_form(False))
     stores = [dcc.Store(id="ps-active", data=settings_data(defaults)),
               dcc.Store(id="ps-constraints", data={"shared": constraints_data(constraints), "datasets": {}}),
               dcc.Store(id="ps-dataset", data=first), dcc.Store(id="ps-pair"),

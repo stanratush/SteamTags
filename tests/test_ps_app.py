@@ -189,11 +189,14 @@ def test_the_run_pill_says_not_run_on_an_empty_cache(empty_build):
     assert render(empty_build)["pill_run"] == "not run"
 
 
-def test_the_floating_inspector_opens_on_every_pick_and_closes_with_its_x():
-    triggered("ps-pair.data")
-    assert CB.ps_inspector_form([16, 3], None).split() == ["inspector", "docked", "ps-inspector", "has-sel"]
+def test_the_floating_inspector_starts_closed_opens_on_a_heatmap_pick_and_closes_with_its_x(ps_build):
+    layout = PV.mode_layout(load_build(ps_build))
+    inspector = next(c for c in _walk(layout) if getattr(c, "id", None) == "ps-inspector")
+    assert "has-sel" not in inspector.className.split()  # docked at wide; hidden at medium and narrow
+    triggered("ps-heatmap.clickData")
+    assert CB.ps_inspector_form({"points": [{"x": 3, "y": 16}]}, None).split() == ["inspector", "docked", "ps-inspector", "has-sel"]
     triggered("ps-inspector-close.n_clicks")
-    assert "has-sel" not in CB.ps_inspector_form([16, 3], 1).split()
+    assert "has-sel" not in CB.ps_inspector_form({"points": [{"x": 3, "y": 16}]}, 1).split()
 
 
 def test_the_provenance_line_and_the_library_banner(ps_build):
