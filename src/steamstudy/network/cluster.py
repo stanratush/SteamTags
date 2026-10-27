@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any
 
 import networkx as nx
+import numpy as np
 
 LOUVAIN_THRESHOLD = 1e-7
+# Leiden stops at the first pass that gains <= 0 (leidenalg's n_iterations=-1) or after this many passes:
+# float-noise gains can keep the strict > 0 test going for ever at high γ.
+PASS_CAP = 1000
 
 
 def detect(graph: nx.Graph, algorithm: str, resolution: float, seed: int) -> list[frozenset[int]]:
@@ -19,23 +25,57 @@ def detect(graph: nx.Graph, algorithm: str, resolution: float, seed: int) -> lis
         )
         return [frozenset(c) for c in communities]
     if algorithm == "leiden":
-        import igraph as ig
-        import leidenalg as la
-
         nodes = sorted(graph.nodes)
-        index = {t: i for i, t in enumerate(nodes)}
-        edges = sorted((min(u, v), max(u, v), d["w"]) for u, v, d in graph.edges(data=True))
-        g = ig.Graph(n=len(nodes), edges=[(index[u], index[v]) for u, v, _ in edges])
-        weights = [w for _, _, w in edges]
-        partition = la.find_partition(
-            g, la.RBConfigurationVertexPartition, weights=weights if edges else None,
-            resolution_parameter=resolution, n_iterations=-1, seed=seed,
-        )
+        g, weights = _leiden_graph(graph)
+        labels, _ = _leiden_passes(g, weights, resolution, seed)
         groups: dict[int, set[int]] = {}
-        for i, membership in enumerate(partition.membership):
-            groups.setdefault(membership, set()).add(nodes[i])
+        for i, label in enumerate(labels):
+            groups.setdefault(label, set()).add(nodes[i])
         return [frozenset(s) for s in groups.values()]
     raise ValueError(f"unknown algorithm {algorithm!r}")
+
+
+def _leiden_graph(graph: nx.Graph) -> tuple[Any, list[float] | None]:
+    """The igraph and weights Leiden runs on: nodes sorted, edges sorted by (min, max)."""
+    import igraph as ig
+
+    nodes = sorted(graph.nodes)
+    index = {t: i for i, t in enumerate(nodes)}
+    edges = sorted((min(u, v), max(u, v), d["w"]) for u, v, d in graph.edges(data=True))
+    g = ig.Graph(n=len(nodes), edges=[(index[u], index[v]) for u, v, _ in edges])
+    return g, ([w for _, _, w in edges] if edges else None)
+
+
+def _leiden_passes(g: Any, weights: list[float] | None, resolution: float, seed: int) -> tuple[list[int], bool]:
+    """One seeded partition and optimiser, one pass at a time; (membership in node order, capped)."""
+    import leidenalg as la
+
+    partition = la.RBConfigurationVertexPartition(g, weights=weights, resolution_parameter=resolution)
+    optimiser = la.Optimiser()
+    optimiser.set_rng_seed(seed)
+    for _ in range(PASS_CAP):
+        if optimiser.optimise_partition(partition, n_iterations=1) <= 0:
+            return list(partition.membership), False
+    return list(partition.membership), True
+
+
+@dataclass(frozen=True)
+class ScanRun:
+    gamma: float
+    seed: int
+    membership: np.ndarray  # Leiden's labels in node order (sorted tag ids)
+    capped: bool
+
+
+def leiden_scan(graph: nx.Graph, gammas: Sequence[float], seeds: Sequence[int]) -> list[ScanRun]:
+    """Leiden at every (γ, seed) in scan order (γ ascending as given, then seeds), on one igraph construction."""
+    g, weights = _leiden_graph(graph)
+    runs = []
+    for gamma in gammas:
+        for seed in seeds:
+            labels, capped = _leiden_passes(g, weights, gamma, seed)
+            runs.append(ScanRun(float(gamma), int(seed), np.asarray(labels, dtype=np.int64), capped))
+    return runs
 
 
 @dataclass(frozen=True)

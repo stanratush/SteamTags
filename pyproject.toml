@@ -27,7 +27,8 @@ dependencies = [
 steamstudy = "steamstudy.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=9.0", "mypy>=1.20"]
+# modularitypruning: a test oracle for network.champ only (never in an App Bundle).
+dev = ["pytest>=9.0", "mypy>=1.20", "modularitypruning==2.0.1"]
 # Collect, Build and the feature analysis (never in an App Bundle).
 pipeline = [
     "pandas>=3.0",

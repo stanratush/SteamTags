@@ -14,7 +14,7 @@ Each control below either sets a field of the Network State key (and so changes 
 | [Hide defining tag](#hide-defining-tag) | Hides the dataset's defining tag (Puzzle, RPG, Strategy or Simulation) | toggle; hidden | `hidden_tag_ids` | As above |
 | [Clustering weight](#clustering-weight) | What community detection runs on: shared games or lift. Edge thickness follows it; thresholds always use shared games | Shared games, Lift; Shared games | `clustering_weight` | Partition, every weighted metric, null model, Seed-Noise Floor, Global layout, edge thickness |
 | [Clustering algorithm](#clustering-algorithm) | Louvain or Leiden (both seek high modularity) | Louvain, Leiden; Louvain | `algorithm` | Partition and everything computed from it |
-| [Resolution γ](#resolution-γ) | Higher γ gives more, smaller clusters. Sends on Enter or when the box loses focus | 0.1–3.0, step 0.05; 1.00 | `resolution` | Partition, the value of Q |
+| [Resolution γ](#resolution-γ) | Higher γ gives more, smaller clusters. Sends on Enter or when the box loses focus | ≥ 0.01, step 0.01; 1.00 | `resolution` | Partition, the value of Q |
 | [Seed](#seed) | Seeds the clustering; the null-model and noise seeds derive from it. Sends on Enter or when the box loses focus | integer ≥ 0; config value | `seed` | Partition, null model, Seed-Noise Floor, Global layout |
 | [Remove (node inspector), Restore, Reset all](#remove--restore) | Removes a tag from the network as a what-if, or brings it back | any node; none removed | `removed_tag_ids` | Node set; not N or any `lift` |
 | [Global / Cluster-separated](#global--cluster-separated) | Moves nodes only: one layout for the whole network, or one region per cluster | Global | none | Positions only |
@@ -179,7 +179,7 @@ Both algorithms search for the split with the highest modularity Q at the chosen
 >
 > **Caution:** Q at different γ is not comparable; compare the clusters instead.
 
-Range 0.1–3.0 in steps of 0.05; default 1.00. Network State field: `resolution`. The box sends its value on Enter or when it loses focus.
+Any value from 0.01 up, in steps of 0.01 (no maximum); default 1.00. Network State field: `resolution`. The box sends its value on Enter or when it loses focus.
 
 γ weighs the "expected" part of modularity. At γ = 1 modularity has its standard form; above 1, splitting clusters pays off sooner, so the clusters become smaller and more numerous; below 1, they merge.
 

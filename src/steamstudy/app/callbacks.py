@@ -77,7 +77,7 @@ def _valid_gamma(gamma: Any) -> bool:
         value = float(gamma)
     except (TypeError, ValueError):
         return False
-    return 0.1 <= value <= 3.0
+    return value >= 0.01  # two decimals, no maximum (the Workbench γ of Parameter Selection)
 
 
 # ----------------------------------------------------------------------------- 1. dataset change

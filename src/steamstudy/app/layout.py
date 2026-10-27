@@ -141,7 +141,7 @@ def _controls(ctx: BuildContext) -> html.Div:
         html.Div([
             _item("gamma", "γ", f"{s.resolution:.2f}", [
                 _label("Resolution γ", "control.gamma", htmlFor="gamma"),
-                dcc.Input(id="gamma", type="number", min=0.1, max=3.0, step=0.05, value=s.resolution, debounce=True)]),
+                dcc.Input(id="gamma", type="number", min=0.01, step=0.01, value=s.resolution, debounce=True)]),
             _item("seed", "Seed", str(s.seed), [
                 _label("Seed", "control.seed", htmlFor="seed"),
                 dcc.Input(id="seed", type="number", min=0, step=1, value=s.seed, debounce=True)]),

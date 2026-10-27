@@ -1002,3 +1002,17 @@ def test_the_inspector_busy_chip_sits_in_its_title_bar(build_folder):
     busy = next(c for c in _walk(title) if "busy" in str(getattr(c, "className", "")).split())
     assert busy.to_plotly_json()["props"].get("role") == "status"
     assert [(c.id, c.hidden) for c in busy.children] == [("busy-selecting", True), ("busy-inspector", True)]
+
+
+@pytest.mark.parametrize("gamma", [1.09, 3.23, 0.01, 7.5])
+def test_the_gamma_input_takes_any_two_decimal_value_from_0_01(build_folder, gamma):
+    from dash.exceptions import PreventUpdate
+
+    from steamstudy.app.layout import build_layout
+
+    gamma_input = next(c for c in _walk(build_layout(load_build(build_folder))) if getattr(c, "id", None) == "gamma")
+    assert (gamma_input.min, gamma_input.step, getattr(gamma_input, "max", None)) == (0.01, 0.01, None)
+    meta, *_ = _recompute(build_folder, gamma=gamma)
+    assert meta["gamma"] == f"{gamma:.2f}" and meta["key"]["resolution"] == f"{gamma:.2f}"
+    with pytest.raises(PreventUpdate):
+        _recompute(build_folder, gamma=0.0)

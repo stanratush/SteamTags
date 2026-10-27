@@ -24,3 +24,17 @@ def neutral_collection(cfg, user_agent: str = "steamstudy-test (contact: test@ex
     collection = dataclasses.replace(cfg.collection, user_agent=user_agent, operator_reply=empty, ethics_check=empty,
                                      steamdb_permission=empty, publish_monthly_players="")
     return dataclasses.replace(cfg, collection=collection)
+
+
+@pytest.fixture(scope="session")
+def tagged_build(tmp_path_factory) -> Path:
+    """The tagged-world test Build (120 games; overall and puzzle), written once per session."""
+    from steamstudy.build.core import build
+    from steamstudy.build.writer import write_build
+    from steamstudy.config import load_config
+    from steamstudy.snapshot import Snapshot
+    from test_build_network import tagged_world
+
+    root = tmp_path_factory.mktemp("tagged")
+    return write_build(build(Snapshot(tagged_world().snapshot(root / "snap")), load_config(CONFIG_DIR),
+                             "20261005T140000Z-abcdef12"), root)

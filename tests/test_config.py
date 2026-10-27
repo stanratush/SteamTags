@@ -61,8 +61,11 @@ def test_hashes_ignore_whitespace_comments_and_key_order(tmp_path, config_dir):
     base = load_config(config_dir)
     shutil.copytree(config_dir, tmp_path / "c")
     path = tmp_path / "c" / "network.toml"
-    lines = [l for l in path.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#")]
-    path.write_text("# reordered\n\n" + "\n\n".join(reversed(lines)) + "\n", encoding="utf-8")
+    top, _, table = path.read_text(encoding="utf-8").partition("[parameter_selection]")
+    keep = lambda text: [l for l in text.splitlines() if l.strip() and not l.startswith("#")]  # noqa: E731
+    text = "# reordered\n\n" + "\n\n".join(reversed(keep(top)))
+    path.write_text(text + "\n\n[parameter_selection]\n" + "\n".join(reversed(keep(table))) + "\n",
+                    encoding="utf-8")
     again = load_config(tmp_path / "c")
     assert again.build_config_hash == base.build_config_hash
     assert again.collection_config_hash == base.collection_config_hash
@@ -84,3 +87,34 @@ def test_build_hash_changes_with_build_config_but_not_collection_config(config_d
 def test_changelog_entries(config_dir):
     entries = load_config(config_dir).changelog_entries()
     assert entries and entries[0]["date"] == "2026-10-04"
+
+
+def test_shipped_parameter_selection_table(config_dir):
+    ps = load_config(config_dir).network.parameter_selection
+    assert (ps.clustering_weight, ps.min_months, ps.min_multi_tag_clusters) == ("lift", 0, 3)
+    assert (ps.g_range, ps.s_range, ps.gamma_step, ps.scan_seeds) == ((3, 20), (2, 12), 0.05, 10)
+    assert (ps.null_replicates, ps.subsamples, ps.workers) == (100, 100, 0)
+    assert (ps.tolerance, ps.min_retention, ps.max_isolated_share, ps.min_lcc_share) == (0.05, 0.5, 0.1, 0.9)
+    assert (ps.min_comparable_neighbours, ps.max_multi_tag_clusters) == (2, None)
+
+
+def test_a_build_without_the_table_gets_the_shipped_defaults(config_dir):
+    files = _files(config_dir)
+    shipped = config_from_data(files).network.parameter_selection
+    del files["network"]["parameter_selection"]
+    assert config_from_data(files).network.parameter_selection == shipped
+
+
+@pytest.mark.parametrize(("key", "value", "message"), [
+    ("clustering_weight", "jaccard", "clustering_weight"), ("min_months", 61, "min_months"),
+    ("min_multi_tag_clusters", 0, "min_multi_tag_clusters"), ("g_range", [5, 4], "g_range"),
+    ("s_range", [1], "s_range"), ("gamma_step", 0, "gamma_step"), ("tolerance", 1.5, "tolerance"),
+    ("min_comparable_neighbours", 5, "min_comparable_neighbours"), ("max_multi_tag_clusters", 2,
+                                                                    "max_multi_tag_clusters"),
+    ("workers", -1, "workers"), ("subsamples", 0, "subsamples"),
+])
+def test_invalid_parameter_selection_values_raise_clear_errors(config_dir, key, value, message):
+    files = _files(config_dir)
+    files["network"]["parameter_selection"][key] = value
+    with pytest.raises(ConfigError, match=message):
+        config_from_data(files)

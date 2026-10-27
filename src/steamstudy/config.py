@@ -50,6 +50,37 @@ class DatasetDef:
 
 
 @dataclass(frozen=True)
+class ParameterSelectionDefaults:
+    """`[parameter_selection]` in network.toml: Automatic Parameter Selection's settings and Pair Constraints."""
+
+    clustering_weight: str
+    min_months: int
+    min_multi_tag_clusters: int
+    g_range: tuple[int, int]
+    s_range: tuple[int, int]
+    gamma_step: float
+    scan_seeds: int
+    null_replicates: int
+    subsamples: int
+    workers: int  # 0 = os.cpu_count() - 1
+    tolerance: float
+    min_retention: float
+    max_isolated_share: float
+    min_lcc_share: float
+    min_comparable_neighbours: int
+    max_multi_tag_clusters: int | None  # None = off (0 in the file)
+
+
+# The shipped table, for Builds whose network.toml predates it.
+PARAMETER_SELECTION_DEFAULTS: dict[str, Any] = {
+    "clustering_weight": "lift", "min_months": 0, "min_multi_tag_clusters": 3, "g_range": [3, 20],
+    "s_range": [2, 12], "gamma_step": 0.05, "scan_seeds": 10, "null_replicates": 100, "subsamples": 100,
+    "workers": 0, "tolerance": 0.05, "min_retention": 0.50, "max_isolated_share": 0.10, "min_lcc_share": 0.90,
+    "min_comparable_neighbours": 2, "max_multi_tag_clusters": 0,
+}
+
+
+@dataclass(frozen=True)
 class NetworkDefaults:
     min_games_per_tag: int
     min_shared_games: int
@@ -63,6 +94,7 @@ class NetworkDefaults:
     null_replicates: int
     noise_seeds: int
     resolution_sweep: tuple[float, ...]
+    parameter_selection: ParameterSelectionDefaults
 
 
 @dataclass(frozen=True)
@@ -386,6 +418,7 @@ def _network(t: dict[str, Any]) -> NetworkDefaults:
         null_replicates=_req(t, "null_replicates", int, w),
         noise_seeds=_req(t, "noise_seeds", int, w),
         resolution_sweep=tuple(float(g) for g in _req(t, "resolution_sweep", list, w)),
+        parameter_selection=_parameter_selection(t.get("parameter_selection", PARAMETER_SELECTION_DEFAULTS)),
     )
     _at_least(defaults.min_games_per_tag, 1, f"{w}.min_games_per_tag")
     _at_least(defaults.min_shared_games, 1, f"{w}.min_shared_games")
@@ -393,6 +426,60 @@ def _network(t: dict[str, Any]) -> NetworkDefaults:
     _at_least(defaults.null_replicates, 2, f"{w}.null_replicates")
     _at_least(defaults.noise_seeds, 2, f"{w}.noise_seeds")
     return defaults
+
+
+def _between(value: int | float, lo: int | float, hi: int | float, where: str) -> None:
+    if not lo <= value <= hi:
+        raise ConfigError(f"{where}: must be between {lo} and {hi}, got {value}")
+
+
+def _int_range(t: dict[str, Any], key: str, where: str) -> tuple[int, int]:
+    value = _req(t, key, list, where)
+    if len(value) != 2 or not all(isinstance(x, int) and not isinstance(x, bool) for x in value):
+        raise ConfigError(f"{where}.{key}: expected [low, high] integers, got {value}")
+    lo, hi = value
+    if lo < 1 or lo > hi:
+        raise ConfigError(f"{where}.{key}: expected 1 <= low <= high, got {value}")
+    return lo, hi
+
+
+def _parameter_selection(t: dict[str, Any]) -> ParameterSelectionDefaults:
+    w = "network.parameter_selection"
+    weight = _req(t, "clustering_weight", str, w)
+    if weight not in CLUSTERING_WEIGHTS:
+        raise ConfigError(f"{w}.clustering_weight: must be one of {CLUSTERING_WEIGHTS}")
+    ps = ParameterSelectionDefaults(
+        clustering_weight=weight,
+        min_months=_req(t, "min_months", int, w),
+        min_multi_tag_clusters=_req(t, "min_multi_tag_clusters", int, w),
+        g_range=_int_range(t, "g_range", w),
+        s_range=_int_range(t, "s_range", w),
+        gamma_step=_req(t, "gamma_step", float, w),
+        scan_seeds=_req(t, "scan_seeds", int, w),
+        null_replicates=_req(t, "null_replicates", int, w),
+        subsamples=_req(t, "subsamples", int, w),
+        workers=_req(t, "workers", int, w),
+        tolerance=_req(t, "tolerance", float, w),
+        min_retention=_req(t, "min_retention", float, w),
+        max_isolated_share=_req(t, "max_isolated_share", float, w),
+        min_lcc_share=_req(t, "min_lcc_share", float, w),
+        min_comparable_neighbours=_req(t, "min_comparable_neighbours", int, w),
+        max_multi_tag_clusters=_req(t, "max_multi_tag_clusters", int, w) or None,
+    )
+    _between(ps.min_months, 0, 60, f"{w}.min_months")
+    _between(ps.min_multi_tag_clusters, 1, 10, f"{w}.min_multi_tag_clusters")
+    if ps.gamma_step <= 0:
+        raise ConfigError(f"{w}.gamma_step: must be > 0")
+    for key in ("scan_seeds", "null_replicates", "subsamples"):
+        _at_least(getattr(ps, key), 1, f"{w}.{key}")
+    _at_least(ps.workers, 0, f"{w}.workers")
+    for key in ("tolerance", "min_retention", "max_isolated_share", "min_lcc_share"):
+        _between(getattr(ps, key), 0, 1, f"{w}.{key}")
+    _between(ps.min_comparable_neighbours, 0, 4, f"{w}.min_comparable_neighbours")
+    if ps.max_multi_tag_clusters is not None and ps.max_multi_tag_clusters < ps.min_multi_tag_clusters:
+        raise ConfigError(f"{w}.max_multi_tag_clusters: must be 0 (off) or >= min_multi_tag_clusters "
+                          f"({ps.min_multi_tag_clusters}), got {ps.max_multi_tag_clusters}")
+    return ps
 
 
 def _analysis(t: dict[str, Any]) -> AnalysisConfig:

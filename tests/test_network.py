@@ -9,7 +9,7 @@ from collections import Counter
 import pytest
 
 from steamstudy.network import metrics as M
-from steamstudy.network.cluster import Cluster, label_clusters
+from steamstudy.network.cluster import Cluster, detect, label_clusters
 from steamstudy.network.graph import to_graph
 from steamstudy.network.layout import layout_state
 from steamstudy.network.model import KEY_VERSION, Game, Settings, TagContext, canonical_key_json, state_id_of
@@ -390,3 +390,67 @@ def test_resolution_sweep_holds_everything_else(toy):
     report = next(r for r in rows if r["resolution"] == 1.0)
     assert report["ari_vs_report"] == 1.0 and report["modularity"] == pytest.approx(toy.modularity)
     assert report["n_multi_tag_clusters"] == 2
+
+
+# ----------------------------------------------------------------------------- Leiden pass loop (issue 18)
+
+
+def _weighted_graph():
+    from steamstudy.network.graph import Edge
+
+    games = _random_games(3, n=80, tags=40)
+    state = compute_state(games, _settings(clustering_weight="lift", algorithm="leiden"))
+    return to_graph(state.nodes, [Edge(e.u, e.v, e.shared, e.lift) for e in state.network.edges], "lift")
+
+
+def test_the_capped_pass_loop_equals_leidenalg_until_convergence():
+    import igraph as ig
+    import leidenalg as la
+
+    from steamstudy.network.cluster import _leiden_graph, leiden_scan
+
+    graph = _weighted_graph()
+    g, weights = _leiden_graph(graph)
+    gammas, seeds = [0.5, 1.0, 1.7], [1, 99, 12345]
+    runs = leiden_scan(graph, gammas, seeds)
+    assert [(r.gamma, r.seed) for r in runs] == [(x, s) for x in gammas for s in seeds]
+    for run in runs:
+        reference = la.find_partition(g, la.RBConfigurationVertexPartition, weights=weights,
+                                      resolution_parameter=run.gamma, n_iterations=-1, seed=run.seed)
+        assert list(run.membership) == reference.membership and not run.capped
+    assert isinstance(g, ig.Graph)
+
+
+def test_detect_shows_the_scan_partition_at_the_same_gamma_and_seed(tagged_build):
+    from steamstudy.app.loader import load_build
+    from steamstudy.network.cluster import leiden_scan
+    from steamstudy.network.graph import build_network
+
+    ctx = load_build(tagged_build)
+    settings = ctx.default_settings("overall").with_(clustering_weight="lift", algorithm="leiden",
+                                                     min_games_per_tag=10, min_shared_games=4)
+    network = build_network(ctx.games("overall"), settings, ctx.context("overall"))
+    graph = to_graph(network.nodes, network.edges, "lift")
+    for run in leiden_scan(graph, [0.0, 0.6, 1.25, 2.4], [3, 17]):
+        groups = detect(graph, "leiden", run.gamma, run.seed)
+        scanned: dict[int, set[int]] = {}
+        for t, label in zip(network.nodes, run.membership.tolist()):
+            scanned.setdefault(label, set()).add(t)
+        assert {frozenset(c) for c in scanned.values()} == set(groups)
+
+
+def test_a_run_that_always_gains_stops_at_the_pass_cap(monkeypatch):
+    import leidenalg as la
+
+    from steamstudy.network.cluster import PASS_CAP, leiden_scan
+
+    graph = _weighted_graph()
+    calls = []
+
+    def always_gains(self, partition, n_iterations=2, is_membership_fixed=None, consider_comms=None):
+        calls.append(n_iterations)
+        return 1e-15
+
+    monkeypatch.setattr(la.Optimiser, "optimise_partition", always_gains)
+    (run,) = leiden_scan(graph, [1.0], [5])
+    assert PASS_CAP == 1000 and run.capped and len(calls) == 1000 and set(calls) == {1}
