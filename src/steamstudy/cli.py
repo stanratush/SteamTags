@@ -132,7 +132,7 @@ def _build(args: argparse.Namespace) -> int:
 
 
 def _app(args: argparse.Namespace) -> int:
-    from steamstudy.app import rs_cache
+    from steamstudy.app import app_cache
     from steamstudy.builds import resolve_build
 
     log = logging.getLogger("steamstudy.app")
@@ -142,8 +142,8 @@ def _app(args: argparse.Namespace) -> int:
         log.error("%s", exc)
         return 2
     if args.clear_cache:
-        removed = rs_cache.clear(folder / "app_cache")
-        log.info("cleared %d cached Removal Sensitivity result(s) in %s", removed, folder / "app_cache")
+        counts = app_cache.clear_all(folder / "app_cache")
+        log.info("%s (%s)", app_cache.cleared_text(counts), folder / "app_cache")
         return 0
     from steamstudy.app.server import run
 

@@ -1,7 +1,8 @@
-"""The app's only persistent cache: Removal Sensitivity results per Network State, in `<build>/app_cache/`.
+"""Removal Sensitivity results per Network State, in `<build>/app_cache/removal_sensitivity/`.
 
-Keyed by the Network State key plus the method version. Never evicted automatically; "Clear app cache"
-(button or `steamstudy app --clear-cache`) deletes it.
+One of the app cache's two kinds (the other is `ps_cache`, Parameter Selection). Keyed by the Network State key plus
+the method version. Never evicted automatically; "Clear app cache" (button or `steamstudy app --clear-cache`,
+both through `app_cache.clear_all`) deletes it.
 """
 
 from __future__ import annotations

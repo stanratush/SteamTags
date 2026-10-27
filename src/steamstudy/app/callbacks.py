@@ -21,7 +21,7 @@ from dash import ALL, ClientsideFunction, Input, Output, Patch, State, ctx, html
 from dash.exceptions import PreventUpdate
 
 from steamstudy.app import help as H
-from steamstudy.app import rs_cache
+from steamstudy.app import app_cache, rs_cache
 from steamstudy.app import view as V
 from steamstudy.app.export import BuildNotFound, OpenRefused, export_zip, open_export
 from steamstudy.app.guide import PANEL_SECTIONS, help_markdown_at
@@ -648,8 +648,7 @@ def do_open(contents, filename, builds_root):
 def clear_cache(_n, build_path):
     if not _n:
         raise PreventUpdate
-    removed = rs_cache.clear(load_build(build_path).app_cache)
-    return f"Cleared {removed} cached Removal Sensitivity result(s).", None
+    return app_cache.cleared_text(app_cache.clear_all(load_build(build_path).app_cache)), None
 
 
 def show_help(_clicks, _close, target=None, _back=None, history=None):

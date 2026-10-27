@@ -27,12 +27,13 @@ The **Cluster quality** tab shows five boxes (Q, Null-model excess, Coverage, Si
 
 Each number is explained in the [metric reference](03-metric-reference.md), and the app shows that help in two layers. Hover over a dotted label or a metric column header, or reach it with Tab, for a short explanation: what the value is, which direction is which, why it matters in this study and the main caution. Click the dotted label or the header's ⓘ, or press Enter, to open its full guide entry inside the app; links inside the help open their entries there too, and **← Back** returns to the previous one. Clicking a column header's name still sorts the table. The `?` button on each panel opens the matching guide section.
 
-## The two modes
+## The three modes
 
-The **Mode** control at the top switches between two views of the same Network State. Settings, removed tags and results carry over when you switch.
+The **Mode** control at the top switches between three views. The Workbench and Analysis Report mode show the same Network State; settings, removed tags and results carry over when you switch between them.
 
 - **Workbench**: controls on the left, the graph in the centre with a cluster legend and the Global / Cluster-separated layout switch, the inspector on the right, and tabbed tables below (Cluster quality, Clusters, Removal sensitivity, Nodes, Edges, Not in network). Controls, Inspector and Tables collapse independently; **Graph only** switches to the narrowest form, with the controls as a pill bar, a floating inspector and the tables as a bottom sheet (see [Window width and the three forms](02-app-controls.md#window-width-and-the-three-forms)).
 - **Analysis Report mode**: one scrolling page of numbered sections over the same state: 1 Dataset · 2 Filters (every tag left out of the network, with its reasons) · 3 Network and inspector · 4 Cluster quality · 5 Removal sensitivity · 6 All nodes and edges · 7 Export. It is meant for reading one Network State top to bottom. It is not the generated feature-analysis report (`report.html`), which the Build writes.
+- **Parameter Selection**: searches the thresholds and γ for each Top-100 Dataset and chooses a Threshold Pair by fixed rules, with the evidence for and against it (see [Parameter Selection mode](02-app-controls.md#parameter-selection-mode) and [How Automatic Parameter Selection works](03-metric-reference.md#how-automatic-parameter-selection-works)). **Apply to Workbench** opens any selected pair in the Workbench.
 
 ## Inspect a node, an edge or a cluster
 

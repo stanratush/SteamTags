@@ -21,7 +21,7 @@ Papers you read will use cut-offs such as "Q above 0.3 indicates community struc
 
 - A cluster-wise mean Jaccard of 0.5 or less indicates a "dissolved" cluster and values above 0.75 "good recoveries, say" (Hennig 2007); the `fpc` package's `clusterboot` documentation adds that values below 0.6 should not be trusted, 0.6–0.75 indicate patterns with doubtful membership, and 0.85 and above highly stable clusters.
 
-**Why not here.** Hennig's measure is per cluster under bootstrap resampling of the data. Membership Stability is per tag across random seeds on fixed data, and the study decided to show it as a plain number.
+**Why not here.** Hennig's measure is per cluster under bootstrap resampling of the data. Membership Stability is per tag across random seeds on fixed data, and the study decided to show it as a plain number. The one exception is Subsample Stability in the Parameter Selection mode, which uses Hennig's measure itself: there ≤ 0.5 = dissolved (Hennig 2007, §2) is the only cut used, because it has a theoretical justification (it is the smallest value at which every cluster of a partition can be dissolved by a new one). The 0.6, 0.75 and 0.85 values stay unused: `fpc` says they refer to the bootstrap.
 
 ## Node roles
 

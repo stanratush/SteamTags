@@ -184,6 +184,46 @@ One row is one tag on at least one game of the dataset that is not a node, with 
 
 The zip's metadata: `schema_version`, the full Network State key and its `state_id`, `layout_source`, the export time and software versions, the Build folder path (informational only: Open Network State finds the Build by its identity, not by this path) and a copy of the Build's `build.json`, each file's row count and SHA-256, the method constants (R and the replicate seeds, K and the noise seeds, the Removal Sensitivity method version, the center tie-break and cluster-label rules, the silhouette distance), the Removal Sensitivity status (`not_run`, or `partial` / `complete` with `done` and `total`) and the `columns` block describing every column. Open Network State reads it to reproduce the state.
 
+## Parameter Selection files
+
+**Export tables** in the Parameter Selection mode writes one zip per settings key. Every table is stacked by a `dataset` column and covers only the datasets whose grid is complete; the two validation tables hold rows for validated pairs only.
+
+### `pairs.csv`
+
+One row is one Threshold Pair of one dataset, 153 per dataset: its network size and graph hash, the γ scan (γ_max(n_e), the last scan γ, the scan length, capped runs), the Selected Partition's domain and Selected Resolution, the Workbench γ and seed with `reproduced` or the ARI, Neighbour Agreement with its neighbour counts, Information Retention, the isolated and LCC shares, the cluster counts, the Seed-Noise Floor, the descriptive Q, Coverage and Silhouette, and `qualifies`, its failing reasons, `near_best` and `chosen` under the export's constraints.
+
+### `admissible_partitions.csv`
+
+One row is one Admissible Partition of one pair: Â, P̂, its Optimality Domain, `clipped_high`, ω_in, ω_out, γ̂ or its reason, the map target, `stable`, its cluster counts, the first (γ, seed) that found it, its hit count and whether it is the Selected Partition. It joins to `pairs.csv` through `dataset`, `g` and `s`.
+
+### `neighbour_links.csv`
+
+One row is one pair and one of its four directions (g−, g+, s−, s+): the neighbour, the link's status, the shared and compared tags, the ARI and the Edge Overlap. Directions outside the grid have status `outside_grid`.
+
+### `selected_partitions.csv`
+
+One row is one tag of one pair's network with its Cluster in the Selected Partition (empty without one), so Neighbour Agreement can be recomputed without Leiden.
+
+### `selection.csv`
+
+One row per dataset: the chosen pair or `no_qualifying_pair`, the highest Neighbour Agreement, the tolerance, the near-best set, the tie-break used, the constraints label and the settings label.
+
+### `validation_replicates.csv`
+
+One row is one validation replicate and arm (`null`, `subsample_reselected`, `subsample_at_resolution`) of a validated pair: its seed, whether it had a Selected Partition or was degenerate and why, its ARI against the Selected Partition, Q at the observed resolution (null arm), the scan length and capped runs.
+
+### `validation_clusters.csv`
+
+One row is one Multi-Tag Cluster of a validated pair's Selected Partition in one Subsample Stability arm: the mean Jaccard, the subsamples with a Jaccard ≤ 0.5 out of those where it is present, the mean retention share, the absent count and `dissolved`.
+
+### `parameter_selection.json`
+
+The zip's metadata, mirroring `export.json`: `schema_version`, the settings key and each dataset's grid key and validated pair's validation key with their hashes, the Selection Settings and both labels, the grid (ranges, γ step, the scan-end rule `gm22_gamma_max_n_e`, scan seeds, pass cap), every seed stream with its seeds, R, S and each validated pair's g′ and s′, the Pair Constraints and tolerance, method and software versions, a copy of `build.json`, each dataset's status (complete, "partial, k of 153" or "not run") and `computed_with` blocks, each file's rows and SHA-256, and the `columns` block.
+
+### `selection_report.md`
+
+A short report: per dataset, the selection explanation with its caveats and the validation sentences, then the methods paragraph with citations. Every sentence comes from the same templates as the app.
+
 ## Metadata files
 
 ### `snapshot.json`

@@ -1180,6 +1180,8 @@ How much more of the network's weight falls inside clusters than would be expect
 
 *Compare with.* 0 = no more weight inside clusters than expected at random (Newman & Girvan 2004, §IV); the [null model](#null-model-baseline) (`q_null_mean`); the Seed-Noise Floor ([`seed_modularity_sd`](#seed-spread-of-modularity-and-silhouette)).
 
+*Descriptive: not comparable across pairs.* The Parameter Selection mode shows Q at the exact Selected Resolution for each Threshold Pair's Selected Partition on its own network. Pairs differ in tags and edges, so a higher value at one pair does not make it a better choice; Parameter Selection never uses it to choose a pair (see [the selection rule](#pair-constraints-qualifying-pair-and-the-selection-rule)).
+
 **Exact definition:** Q = Σ_c [ L_c / m − γ (d_c / 2m)² ], with L_c the active weight inside cluster c, d_c the summed strength of its members and m the total weight (NetworkX `modularity`).
 
 ### Null-model baseline
@@ -1256,6 +1258,8 @@ The share of the total weight on edges inside clusters, and the rest. These are 
 
 *Compare with.* Q, which corrects for what a random split would capture.
 
+*Descriptive: not comparable across pairs.* The Parameter Selection mode shows weighted Coverage for each Threshold Pair's Selected Partition on its own network. Pairs differ in tags and edges, so a higher value at one pair does not make it a better choice; Parameter Selection never uses it to choose a pair (see [the selection rule](#pair-constraints-qualifying-pair-and-the-selection-rule)).
+
 **Exact definition:** `coverage` = (active weight on intra-cluster edges) / (total weight); `inter_cluster_weight_share` = 1 − `coverage`.
 
 ### Disconnected clusters
@@ -1303,6 +1307,8 @@ The average of the per-tag silhouettes: a check on the clustering from game over
 *Bounds.* −1 to 1. Empty with fewer than 2 Multi-Tag Clusters (`fewer_than_2_multi_tag_clusters`) and for One-Tag Clusters in `clusters.csv` (`one_tag_cluster`).
 
 *Compare with.* 0; `seed_silhouette_sd`.
+
+*Descriptive: not comparable across pairs.* The Parameter Selection mode shows the mean Jaccard silhouette for each Threshold Pair's Selected Partition on its own network. Pairs differ in tags and edges, so a higher value at one pair does not make it a better choice; Parameter Selection never uses it to choose a pair (see [the selection rule](#pair-constraints-qualifying-pair-and-the-selection-rule)).
 
 **Exact definition:** mean of `silhouette` over the members of the Multi-Tag Clusters concerned.
 
@@ -1392,6 +1398,23 @@ Every number here is shown as a plain number, with no "stable / unstable" label,
 
 *Why it matters here.* The clustering is a randomised search, and other seeds can give different splits with nearly the same Q. Every number in this section compares the shown clusters with K extra runs on the unchanged network. Read other differences, between settings or after removing a tag, against this floor: a difference of similar size to the seeds' own spread is what another run of the clustering can give.
 
+#### Three kinds of stability
+
+> **In short.** The study reports three kinds of stability, each answering its own question, plus a separate check against random networks.
+>
+> **Here:** keeps a result about seeds, thresholds or games from standing in for the others.
+>
+> **Caution:** never combined into one score.
+
+- **Algorithmic: the [Seed-Noise Floor](#adjusted-rand-index).** The same data and settings, clustered again with other seeds. Does the partition depend on the random seed?
+- **Parameter: [Neighbour Agreement](#neighbour-agreement).** Neighbouring thresholds, one step in g or s. Does the partition depend on the exact thresholds?
+- **Data: [Subsample Stability](#subsample-stability).** 80% of the games, drawn at random. Does the partition depend on which games are in the dataset?
+- **And separately, the [Null Comparison](#null-comparison).** Is there more structure than in random networks with the same tag and game counts?
+
+They answer different questions and are never combined into one score. A high value on one says nothing about the others: a partition can be identical for every seed and still dissolve without a fifth of the games.
+
+*Why it matters here.* Parameter Selection reports all four for its chosen pair, side by side, so a reader can see which question each number answers and which it leaves open.
+
 ### Adjusted Rand index
 
 > **In short.** ARI (adjusted Rand index): how similar two clusterings of the same tags are, corrected for chance.
@@ -1415,6 +1438,8 @@ How similar two partitions of the same tags are, corrected for the agreement exp
 *Bounds.* −0.5 to 1 (scikit-learn); a network with no edges gives every seed the same partition, so all values are 1.
 
 *Compare with.* 1 = identical partitions; about 0 = no more agreement than random labels.
+
+Parameter Selection reports a Seed-Noise Floor for each pair at its exact Selected Resolution; after [Apply to Workbench](02-app-controls.md#apply-to-workbench) the Workbench's own floor can differ.
 
 **Exact definition:** `ari_vs_main` = scikit-learn `adjusted_rand_score` between a noise seed's labels and the main partition's labels over the network's tags; `seed_ari_min` / `seed_ari_mean` = minimum / mean over the K noise seeds. Noise seeds derive from the main seed through a stream separate from the null-model seeds; the two never share a seed.
 
@@ -1748,3 +1773,290 @@ A screening flag, not a significance test: true when the reclustered ARI is belo
 *Compare with.* n / (K + 1), the expected chance count.
 
 **Exact definition:** `rc_ari_beyond_noise` = `rc_ari` < `seed_ari_min`.
+
+## Parameter Selection
+
+> **In short.** Automatic Parameter Selection: for each dataset, a search over the thresholds that picks a Threshold Pair and a resolution γ by fixed, published rules.
+>
+> **Here:** gives each Top-100 Dataset a defensible starting point instead of the shared defaults.
+>
+> **Caution:** a choice of settings to look at, not a claim that the Clusters are real.
+
+#### How Automatic Parameter Selection works
+
+> **In short.** The steps in order: grid, γ scan, CHAMP, γ̂ and Stable Partitions, the Selected Partition, Neighbour Agreement, the constraints and the choice, then validation.
+>
+> **Here:** shows how the Parameter Selection mode arrives at one pair per dataset.
+>
+> **Caution:** each step has its own entry; read the caveats there.
+
+The Parameter Selection mode runs the same procedure for each Top-100 Dataset, one dataset at a time.
+
+1. **Grid.** It builds the Tag Network at every [Threshold Pair](#threshold-pair-and-parameter-grid) of the Parameter Grid (g 3–20, s 2–12, s ≤ g: 153 pairs), under one set of Selection Settings.
+2. **γ scan.** On each distinct graph it runs Leiden with 10 seeds at every γ from 0 to Gibson and Mucha's bound, in steps of 0.05 (see [Admissible Partition and Optimality Domain](#admissible-partition-and-optimality-domain)).
+3. **CHAMP.** It keeps the partitions that are best at some γ, each with the γ range where it is best.
+4. **γ̂ and Stable Partitions.** It asks of each such partition whether its own estimated resolution falls inside that range ([Resolution estimate and Stable Partition](#resolution-estimate-and-stable-partition)).
+5. **Selected Partition.** Among the Stable Partitions with enough Multi-Tag Clusters it takes the one with the widest range ([Selected Partition and Selected Resolution](#selected-partition-and-selected-resolution)).
+6. **Neighbour Agreement.** It compares each pair's Selected Partition with those of the pairs one step away ([Neighbour Agreement](#neighbour-agreement), [Edge Overlap](#edge-overlap)).
+7. **Constraints and choice.** Among the pairs that meet the Pair Constraints ([Information Retention](#information-retention), [Isolated share and LCC share](#isolated-share-and-lcc-share)), it chooses by Neighbour Agreement ([Pair Constraints, Qualifying Pair and the selection rule](#pair-constraints-qualifying-pair-and-the-selection-rule)).
+8. **Validation.** It compares the chosen pair with shuffled networks ([Null Comparison](#null-comparison)) and with 80% subsets of the games ([Subsample Stability](#subsample-stability)).
+
+Each dataset is selected on its own, from its own games and tags. Different pairs in different datasets are expected and are not a disagreement: the same pair builds networks of different sizes in different datasets.
+
+*Why it matters here.* The thresholds and γ decide which tags are nodes and how finely they are grouped, and the shared defaults were not chosen per dataset. The procedure replaces a hand choice with rules that can be stated, rerun and checked, and it shows every number behind its choice. What it gives is a defensible choice, not the true structure: the three kinds of stability it reports (see [Three kinds of stability](#three-kinds-of-stability)) and the Null Comparison each answer a narrower question.
+
+### Threshold Pair and Parameter Grid
+
+> **In short.** A Threshold Pair is one (g, s): minimum games per tag g and minimum shared games s. The Parameter Grid is every pair searched.
+>
+> **Higher →** larger g keeps fewer, more common tags; larger s keeps fewer edges.
+>
+> **Here:** the settings Parameter Selection chooses between for each dataset.
+>
+> **Caution:** count thresholds only; an edge's count alone carries no significance claim.
+
+Columns: `g`, `s`, `n_tags`, `n_edges`, `n_e`, `graph_hash` in `pairs.csv`.
+
+A Threshold Pair (g, s) fixes the Tag Network's two thresholds: a tag is a node when at least g of the dataset's games have it, and two nodes are linked when they share at least s games. The Parameter Grid is g = 3…20 and s = 2…12 with s ≤ g, 153 pairs per dataset, all under the same Selection Settings. Within a dataset, (g + 1, s) is (g, s) restricted to tags with at least g + 1 games, and (g, s + 1) has the same tags as (g, s) with some edges removed. Pairs whose graphs are identical (the same tags, edges and weights) share every result except their (g, s); the mode computes each distinct graph once. An edge's count alone carries no significance claim: the thresholds decide what is drawn, not what is more than chance.
+
+*Why it matters here.* The two thresholds trade coverage against noise: low thresholds keep rare tags and chance co-occurrences, high ones keep a small core of common tags. Searching the grid makes that trade-off visible pair by pair instead of fixing it once.
+
+*Example.* In puzzle, g = 14, s = 2 keeps 31 tags (the tags on at least 14 of the 100 games) and links any two of them that share two games.
+
+*Bounds.* g from 3 to 20, s from 2 to 12, s ≤ g; 153 pairs.
+
+*Compare with.* The shared defaults (8, 8) of `network.toml`, used by the Workbench and the feature-analysis report.
+
+**Exact definition:** `pairs.csv` has one row per (dataset, g, s) of the grid; `graph_hash` = SHA-256 of the sorted node list and the sorted (u, v, shared count, Clustering Weight) edge list.
+
+### Admissible Partition and Optimality Domain
+
+> **In short.** An Admissible Partition is one that is the best found at some range of γ (its Optimality Domain), on the upper envelope of every partition's line Q(γ).
+>
+> **Here:** reduces hundreds of scanned partitions to the few that are ever optimal.
+>
+> **Caution:** optimal among the partitions found, not among every possible partition.
+
+Columns: `a_hat`, `p_hat`, `domain_low`, `domain_high`, `clipped_high` in `admissible_partitions.csv`; `gamma_max_n_e`, `gamma_end`, `scan_length`, `pass_capped_runs` in `pairs.csv`.
+
+Every partition σ of a graph has a modularity that is a straight line in γ: Q_σ(γ) = Â_σ − γ·P̂_σ, where Â is twice the weight inside Clusters and P̂ = Σ κ_c² / 2m sums the squared Cluster strengths (Weir et al. 2017, §2, eqs. 1–4). The γ scan runs Leiden with 10 seeds at every γ from 0 to Gibson and Mucha's bound γ_max(K) at K = n_e, the number of tags with an edge, on the 0.05 grid (Gibson & Mucha 2022, SI §J); no estimate γ̂ on the graph can lie above it, so the scan covers every γ where a partition can be stable. CHAMP keeps the upper envelope of the unique partitions' lines over [0, γ_end]: each partition on top over a range of positive width is admissible, and that range is its Optimality Domain [a, b]. A domain that reaches the scan's end is marked `clipped_high`; it keeps its clipped width. Leiden runs a pass loop capped at 1,000 passes; runs that hit the cap are counted in `pass_capped_runs`.
+
+*Why it matters here.* Leiden at nearby γ values and seeds returns many partitions that differ only by a few tags. CHAMP keeps only those that are best somewhere, with the exact γ range where each is best, so the next steps work on a short list with exact boundaries instead of on the scan's grid.
+
+*Example.* Puzzle g = 14, s = 2 has 31 tags with an edge, so γ_max(31) = 5.14 and the scan runs over 104 γ values (0 to 5.15) × 10 seeds, 1,040 Leiden runs. They find 48 unique partitions, of which 35 are admissible; the Selected Partition owns [1.046, 1.138].
+
+*Bounds.* Domains partition [0, γ_end] without overlap; the first one starts at 0 and belongs to the partition with every connected component as one Cluster. γ_end runs from 3.80 to 17.75 on this Build.
+
+*Compare with.* The Workbench's single γ: it shows the partition Leiden finds there, which need not be admissible.
+
+**Exact definition:** Â = 2·Σ internal edge weights, P̂ = Σ_c κ_c²/2m over all tags (isolated tags add 0); the envelope over [0, γ_end] with γ_end the last scan γ, `round(0.05·i, 2)` for i = 0 … ⌈γ_max(n_e)/0.05 − 1e-9⌉; ties at a breakpoint go to the smaller P̂, single-point domains are dropped, and partitions with identical (Â, P̂) keep the one whose canonical membership sorts first.
+
+### Resolution estimate and Stable Partition
+
+> **In short.** γ̂ is the resolution a partition itself implies, from its internal and external edge weight. A Stable Partition is one whose γ̂ falls inside its own Optimality Domain.
+>
+> **Here:** narrows the admissible partitions to those that agree with their own γ.
+>
+> **Caution:** with Lift or shared-game weights, γ̂ has no likelihood behind it.
+
+Columns: `omega_in`, `omega_out`, `gamma_hat`, `gamma_hat_reason`, `map_target`, `stable` in `admissible_partitions.csv`.
+
+For a partition with Â and P̂ on a graph of total weight 2m, ω_in = Â / P̂ and ω_out = (2m − Â) / (2m − P̂), and γ̂ = (ω_in − ω_out) / (ln ω_in − ln ω_out) (Newman 2016, §III.A, eqs. 15–18). It is evaluated once per Admissible Partition, as Gibson and Mucha's fixed-point test (Gibson & Mucha 2022, Fig. 1(d), SI §C.2–C.3); Newman's iteration is never run. A partition is stable when a ≤ γ̂ ≤ b. There is no estimate, and so no stability, when the graph has no edges (`no_edges`), fewer than two groups have edges (`one_group`), no edge crosses between groups (`no_cross_weight`) or Â ≤ P̂ (`not_assortative`). The map target is the Admissible Partition whose domain holds γ̂; the CHAMP plot draws an arrow to it.
+
+*Why it matters here.* Newman showed that maximising modularity at γ̂ is equivalent to fitting a degree-corrected planted-partition model to a multigraph of counts. A Stable Partition is a fixed point of that correspondence. Our weights are Lift or shared-game counts, not a multigraph, so γ̂ is a heuristic here: the formulas are well defined, but there is no likelihood behind them.
+
+*Example.* A partition with Â = 12, P̂ = 7 on a graph with 2m = 14 has ω_in = 12/7, ω_out = 2/7 and γ̂ = 0.80; if its domain is [0.29, 2.63], it is stable. In puzzle g = 14, s = 2, 1 of the 35 Admissible Partitions is stable: γ̂ = 1.103 lies in its domain [1.046, 1.138].
+
+*Bounds.* γ̂ > 0 for every assortative partition, and γ̂ ≤ γ_max(n_e) ≤ γ_end (Gibson & Mucha 2022, SI §J.2).
+
+*Compare with.* Its domain [a, b]: γ̂ inside means stable.
+
+**Exact definition:** `gamma_hat` = (ω_in − ω_out)/(ln ω_in − ln ω_out) with ω_in = Â/P̂, ω_out = (2m − Â)/(2m − P̂); empty with `gamma_hat_reason` ∈ {`no_edges`, `one_group`, `no_cross_weight`, `not_assortative`}; `stable` = domain_low ≤ γ̂ ≤ domain_high.
+
+### Selected Partition and Selected Resolution
+
+> **In short.** The Selected Partition is the pair's Stable Partition with the widest Optimality Domain, among those with enough Multi-Tag Clusters; the Selected Resolution is that domain's midpoint.
+>
+> **Here:** gives each Threshold Pair one partition and one γ to compare and to apply.
+>
+> **Caution:** a rule of this study, not of the sources; a pair may have none.
+
+Columns: `selected_low`, `selected_high`, `selected_resolution`, `clipped_high`, `workbench_gamma`, `workbench_seed`, `reproduced`, `workbench_ari`, `not_representable`, `not_reproduced`, `selection_reason` in `pairs.csv`; `selected` in `admissible_partitions.csv`; `selected_partitions.csv`.
+
+Among the Stable Partitions with at least the minimum Multi-Tag Clusters (a Selection Setting, default 3, counting only Clusters with 2 or more tags), the one with the widest domain b − a wins; equal widths go to the lower midpoint. The minimum is applied after stability, never to CHAMP's input. The Selected Resolution is the exact midpoint (a + b)/2. Without one, the pair records why: `no_edges`, `no_stable_partition` or `too_few_multi_tag_clusters`. The **Workbench γ and seed** are what Apply to Workbench enters: the two-decimal γ inside the domain nearest the midpoint at which Leiden with the main seed, or else one of the 10 scan seeds, gives exactly the Selected Partition. When no two-decimal value lies in the domain the pair is `not_representable`; when none reproduces it, `not_reproduced`, and Apply uses the rounded midpoint with the main seed.
+
+*Why it matters here.* A wide domain means the partition stays optimal over a large range of γ, so it is not an artefact of one exact resolution. The width is in plain γ units; rescaling it to log γ or to Gibson and Mucha's γ-scaled area was considered and not used.
+
+*Example.* Puzzle g = 14, s = 2: the Selected Partition has 4 Multi-Tag Clusters and the domain [1.046, 1.138], so the Selected Resolution is 1.092; Workbench γ 1.09 with a scan seed reproduces it. On this Build 764 of 765 pairs have a Selected Partition, and the Workbench γ and seed reproduce 758 of them.
+
+*Bounds.* The Selected Resolution lies in (0, γ_end].
+
+*Compare with.* The other Stable Partitions in `admissible_partitions.csv`, and the Workbench's partition at the same γ and seed, which is identical when `reproduced` is true.
+
+**Exact definition:** the Stable Partition with `n_multi` ≥ the minimum and the largest domain_high − domain_low (ties within 1e-12 relative: lower midpoint, then canonical membership); `selected_resolution` = (domain_low + domain_high)/2, unrounded.
+
+### Neighbour Agreement
+
+> **In short.** Neighbour Agreement: the mean ARI between a pair's Selected Partition and those of its one-step neighbours in g or s with a different graph.
+>
+> **Higher →** the Clusters change less when a threshold moves by one.
+>
+> **Here:** the objective of the rule that chooses each dataset's pair.
+>
+> **Caution:** higher at large g partly by construction; not evidence that the Clusters are real.
+
+Columns: `neighbour_agreement`, `na_status`, `n_comparable`, `n_different_graph`, `n_identical_graph`, `n_missing` in `pairs.csv`; `neighbour_links.csv`.
+
+The neighbours of (g, s) are (g − 1, s), (g + 1, s), (g, s − 1) and (g, s + 1) inside the grid. For each link the two Selected Partitions are compared with the adjusted Rand index on the **compared tags**: the tags in both networks with an edge in at least one of them. A tag isolated in both is left out; a tag isolated in one and clustered in the other counts as a disagreement. A link is not comparable when either pair has no Selected Partition (the neighbour is **missing, never 0**) or fewer than 2 tags are compared. A link between identical graphs is flagged and left out of the mean: a step that removes nothing perturbs nothing. Neighbour Agreement measures parameter stability, not correctness: it says how little the clustering changes when g or s moves by one, not that the Clusters are real.
+
+Neighbour Agreement tends to be higher at large g because a one-step change in the thresholds, particularly s, generally produces a smaller change in the graph. This can increase agreement independently of the robustness of the Clusters. Choosing the smallest g among near-best pairs partially counterbalances this tendency.
+
+*Why it matters here.* A Cluster that appears at one threshold and dissolves at the next depends on an arbitrary choice; one that persists across neighbouring thresholds does not. That is the property the selection rule looks for, and the only one it looks for.
+
+*Example.* Puzzle g = 14, s = 2: Neighbour Agreement 0.98 over 3 neighbours with a different graph.
+
+*Bounds.* −0.5 to 1, as ARI; empty (`no_comparable_neighbours`) without a comparable different-graph neighbour, and empty for a pair without a Selected Partition.
+
+*Compare with.* The pair's Seed-Noise Floor (another seed, same thresholds) and its Subsample Stability (other games): see [Three kinds of stability](#three-kinds-of-stability).
+
+**Exact definition:** `neighbour_agreement` = mean of scikit-learn `adjusted_rand_score` over the in-grid neighbour links with status `ok` and different graph hashes, each on the compared tags; computed once per complete grid, independent of the Pair Constraints.
+
+### Edge Overlap
+
+> **In short.** Edge Overlap: the share of edges two neighbouring pairs' graphs have in common, as a Jaccard overlap of their edge sets.
+>
+> **Higher →** the step in g or s changed fewer edges; 1 = the same edges.
+>
+> **Here:** shows how large a perturbation each neighbour link was.
+>
+> **Caution:** reported only; never enters selection.
+
+Columns: `edge_overlap` in `neighbour_links.csv`.
+
+Edge Overlap is |E₁ ∩ E₂| / |E₁ ∪ E₂| over the two graphs' unweighted edge sets, each tag pair counted once. Edges of tags that a g-step drops count as differences. Edge Overlap describes how much the graph changed, not whether the Clusters are right. A link with Edge Overlap near 1 and a high ARI says little: the clustering had little reason to change.
+
+*Why it matters here.* It puts each link's ARI in context: agreement after a large change of the graph means more than agreement after a small one, which is why Neighbour Agreement tends to be higher at large g.
+
+*Example.* A step that keeps 2 of 3 edges and adds none has Edge Overlap 2/3.
+
+*Bounds.* 0 to 1; empty when neither graph has an edge.
+
+*Compare with.* The link's ARI in `neighbour_links.csv` and its `identical_graph` flag (Edge Overlap 1 with the same tags).
+
+**Exact definition:** `edge_overlap` = |E_p ∩ E_q| / |E_p ∪ E_q| with E the set of (u, v) tag pairs with an edge.
+
+### Information Retention
+
+> **In short.** Information Retention: the share of the dataset's visible tag–game assignments that belong to tags with an edge in the pair's network.
+>
+> **Higher →** the network keeps more of what the games' tags say.
+>
+> **Here:** a Pair Constraint (≥ 0.50 by default) keeps the choice from shrinking to a tiny core of tags.
+>
+> **Caution:** counts assignments, so common tags weigh more than rare ones.
+
+Columns: `retention`, `retention_status`, `games_with_edged_tag_share` in `pairs.csv`.
+
+The numerator sums, over the tags with at least one edge, the number of games that have the tag; the denominator sums the same over the visible tags: every tag of the dataset except hidden and removed ones, including tags below g. Games are counted after the Minimum Months Filter. `games_with_edged_tag_share`, descriptive only, is the share of games with at least one tag that has an edge.
+
+*Why it matters here.* High thresholds give clean, agreeing Clusters by dropping most of the data. Retention measures what is dropped, so the choice cannot win by keeping almost nothing.
+
+*Example.* Puzzle g = 14, s = 2 keeps 31 tags with Retention 0.517: about half of the dataset's visible tag assignments.
+
+*Bounds.* 0 to 1; empty with `no_visible_tags` when nothing is visible.
+
+*Compare with.* The Pair Constraint's minimum, 0.50 by default.
+
+**Exact definition:** `retention` = Σ_{tags with ≥ 1 edge} n_games(t) / Σ_{visible tags} n_games(t), after the Minimum Months Filter.
+
+### Isolated share and LCC share
+
+> **In short.** The isolated share is the share of the network's tags with no edge; the LCC share is the share of tags with an edge that sit in the largest connected component.
+>
+> **Higher →** isolated share: more tags left alone; LCC share: the network hangs together more.
+>
+> **Here:** two Pair Constraints keep the chosen network in one piece.
+>
+> **Caution:** describe the graph, not the Clusters.
+
+Columns: `n_isolated`, `isolated_share`, `n_components`, `lcc_tags`, `lcc_share`, `n_one_isolated`, `n_one_connected` in `pairs.csv`.
+
+These are the pair's Fragmentation figures. Isolated tags are nodes with no edge; each becomes a One-Tag Cluster. The LCC share divides the largest connected component's tags by the tags with an edge, not by all tags, so isolated tags do not count twice. The pair also reports connected components with 2 or more tags, and, from the Selected Partition, its One-Tag Clusters split into isolated and connected ones.
+
+*Why it matters here.* A network in several disconnected pieces is clustered piece by piece, and its Clusters say nothing about how the pieces relate. The constraints (isolated share ≤ 0.10, LCC share ≥ 0.90 by default) keep the choice among networks that hang together.
+
+*Example.* Puzzle g = 14, s = 2: 31 tags, none isolated (isolated share 0), all in one component (LCC share 1.0, as on every pair of this Build). With 1 of 31 tags isolated the share would be 0.03.
+
+*Bounds.* Both 0 to 1; the LCC share is empty without edges.
+
+*Compare with.* The Pair Constraint values.
+
+**Exact definition:** `isolated_share` = tags with no edge / tags; `lcc_share` = tags in the largest connected component / tags with ≥ 1 edge.
+
+### Pair Constraints, Qualifying Pair and the selection rule
+
+> **In short.** A Qualifying Pair has a Selected Partition and meets every Pair Constraint; the chosen pair has the smallest g, then s, among those within the tolerance of the highest Neighbour Agreement.
+>
+> **Here:** turns the grid into one pair per dataset by a stated rule.
+>
+> **Caution:** Q, Coverage and Silhouette never enter the choice.
+
+Columns: `qualifies`, `reasons`, `near_best`, `chosen` in `pairs.csv`; `selection.csv`.
+
+The Pair Constraints, all inclusive: Information Retention ≥ 0.50; isolated share ≤ 0.10; LCC share ≥ 0.90; at least 2 comparable neighbours with a different graph; and, off by default, at most a maximum number of Multi-Tag Clusters. The Seed-Noise Floor and the hit count are not constraints. The **near-best set** is every Qualifying Pair whose Neighbour Agreement is at least the highest minus the tolerance (0.05 by default); from it the pair with the smallest g, then the smallest s, is chosen. Every failing reason of a pair is recorded: `no_selected_partition`, `no_neighbour_agreement`, `too_few_comparable_neighbours`, `retention_below_min`, `isolated_share_above_max`, `lcc_share_below_min`, `too_many_clusters` (the heatmap's letters P, A, N, R, I, L, K). When nothing qualifies the status is `no_qualifying_pair`: no pair is chosen and nothing is relaxed. Changing a constraint only re-chooses from the cached grid; non-default values are labelled "Custom constraints". Q, Coverage and Silhouette are descriptive here: not comparable across pairs and never select a pair, because pairs differ in tags and edges.
+
+*Why it matters here.* The constraints rule out pairs that agree with their neighbours only because they keep little data or fall apart; the tolerance and the smallest-g tie-break prefer the larger network among nearly equal pairs, which partly counterbalances Neighbour Agreement's lean towards large g.
+
+*Example.* Under the defaults the chosen pairs are overall g = 17, s = 2; puzzle 14, 2; rpg 7, 5; simulation 14, 5; strategy 14, 2.
+
+*Bounds.* At most one chosen pair per dataset; none under `no_qualifying_pair`.
+
+*Compare with.* The near-best set (orange outlines on the heatmap): the pairs the rule considered nearly equal.
+
+**Exact definition:** near-best = {Qualifying Pairs with NA ≥ max NA − tolerance − 1e-12}; chosen = the near-best pair with the smallest (g, s) in lexicographic order.
+
+### Null Comparison
+
+> **In short.** The chosen pair's procedure repeated on 100 networks whose game–tag table was shuffled, keeping every tag's and game's count.
+>
+> **Here:** shows whether the dataset's tags have more structure than random tagging with the same counts.
+>
+> **Caution:** shows that the network is not random, not that its Clusters are real.
+
+Columns: `null_q`, `has_selected_partition`, `reason` in `validation_replicates.csv` (arm `null`).
+
+Each of R = 100 replicates shuffles the games × the pair's network tags with curveball trades (10 per game), exactly as the Workbench's null model, so every tag keeps its number of games and every game its number of tags; the weight is recomputed from the shuffled table. The whole per-pair procedure then runs at the same (g, s): its own scan range, the same 10 scan seeds, CHAMP, γ̂ and the Selected Partition rule (Karrer, Levina & Newman 2008, abstract, §III and §VI: a null is analysed identically). A second arm reads Q at the observed Selected Resolution from each replicate's own envelope, with no extra Leiden runs. The verdict "Q not above the null" appears when at least one replicate reaches the observed Q; otherwise the text says the observed Q is above all replicates. No z-score or p-value is given.
+
+*Why it matters here.* Tag frequencies alone create clusters of a sort: common tags co-occur by chance. If shuffled networks reach the same Q at the same γ, the observed Clusters are no more than what the counts produce.
+
+*Example.* Q at resolution 1.151 is 0.067; no shuffled network reaches it (−0.021 to −0.012); 79 of 100 also have a Selected Partition, with narrower domains.
+
+*Bounds.* Counts are 0 to R.
+
+*Compare with.* The Workbench's null-model baseline (20 replicates at one γ).
+
+**Exact definition:** replicate r shuffles with `random.Random(seed_r)`, seed_r from stream 4 of the main seed; reach = #{r : Q_r(γ_obs) ≥ Q_obs} with Q_r(γ) = (Â − γP̂)/2m of the replicate's envelope partition at γ.
+
+### Subsample Stability
+
+> **In short.** How much the chosen pair's Clusters change when the procedure runs on random 80% subsets of the games, in two arms.
+>
+> **Higher →** the Clusters depend less on which games are in the dataset.
+>
+> **Here:** separates Clusters the whole Top 100 carries from those a few games create.
+>
+> **Caution:** not evidence that the Clusters are real; absent Clusters are never scored 0.
+
+Columns: `ari`, `degenerate`, `degenerate_reason` in `validation_replicates.csv`; `mean_jaccard`, `at_most_half`, `present`, `mean_retention`, `absent`, `dissolved` in `validation_clusters.csv`.
+
+Each of S = 100 subsamples draws m = ⌊0.8·n⌋ of the n games without replacement, with thresholds scaled by floor: g′ = ⌊g·m/n⌋, s′ = max(2, ⌊s·m/n⌋). In the **re-selected** arm (the headline) the whole procedure runs again at (g′, s′); **at the Selected Resolution**, the subsample's envelope partition at the observed γ is used. Both are compared with the Selected Partition on the tags in both networks with an edge in either: by ARI, and per Multi-Tag Cluster by Hennig's Jaccard, the best match over every subsample Cluster on those tags, averaged over the B* subsamples where the Cluster has a tag (Hennig 2007, §2). The retention share is the part of each Cluster's tags that are present. A Cluster with no tag present is absent: left out of its mean and counted. Subsamples without edges, or (re-selected arm) without a Selected Partition, are degenerate: counted as "k of S" and left out. A Cluster is "Dissolved" when its mean Jaccard is ≤ 0.5, the only cut used (see [Appendix A](appendix-a-rules-of-thumb.md#cluster-wise-jaccard-stability)).
+
+*Why it matters here.* The Top 100 is one ranked list; a few games more or less should not redraw a combination of characteristics that many games share. A Cluster that dissolves without 20% of the games rests on few of them.
+
+*Example.* Re-selected: median ARI 0.69 (0.57–0.86) over 99 of 100 subsamples; 1 of 4 Multi-Tag Clusters dissolved (mean Jaccard ≤ 0.5).
+
+*Bounds.* ARI −0.5 to 1; Jaccard and retention share 0 to 1.
+
+*Compare with.* Neighbour Agreement (other thresholds, same games) and the Seed-Noise Floor (another seed): see [Three kinds of stability](#three-kinds-of-stability).
+
+**Exact definition:** subsample r draws `random.Random(seed_r).sample(games, m)`, seed_r from stream 5; per Cluster C, J_r = max_D |C′ ∩ D′| / |C′ ∪ D′| over the subsample Clusters D, primes meaning restriction to the comparison set; `mean_jaccard` = mean of J_r over the B* present subsamples; `dissolved` = `mean_jaccard` ≤ 0.5.

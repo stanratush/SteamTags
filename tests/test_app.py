@@ -168,7 +168,7 @@ def test_rs_view_reads_the_cache_and_clear_cache_removes_it(build_folder):
     view = CB.refresh_rs_view(meta, None, None, str(build_folder))
     assert view["done"] == 3 and view["state_id"] == meta["state_id"] and not view["from_export"]
     message, cleared = CB.clear_cache(1, str(build_folder))
-    assert message.startswith("Cleared 1") and cleared is None
+    assert message.startswith("Cleared 1 cached Removal Sensitivity result(s) and 0") and cleared is None
     assert CB.refresh_rs_view(meta, None, None, str(build_folder))["rows"] == []
 
 

@@ -76,6 +76,22 @@ def test_no_interpretation_bands_in_the_metric_reference():
         assert phrase not in text
 
 
+def test_hennigs_dissolution_is_the_only_jaccard_cut():
+    """Appendix A allows ≤ 0.5 = dissolved for Subsample Stability; fpc's bands stay unused everywhere."""
+    assert "≤ 0.5 = dissolved (Hennig 2007, §2) is the only cut used" in _text("appendix-a-rules-of-thumb.md")
+    from steamstudy.app.guide import section
+
+    entry = section(_text("03-metric-reference.md"), "subsample-stability")
+    assert "≤ 0.5" in entry
+    assert not re.search(r"(?<![\d.])0\.(6|75|85)(?!\d)", entry) and "good recover" not in entry
+
+
+def test_the_guides_methods_paragraph_is_the_report_template():
+    from steamstudy.network.selection_text import methods_paragraph
+
+    assert f"> {methods_paragraph()}\n" in _text("05-citing-and-reproducing.md")
+
+
 def test_unverified_sources_are_never_cited():
     everything = "\n".join(p.read_text(encoding="utf-8") for p in GUIDE.glob("*.md"))
     for name in ("Kaufman", "Steinley", "Shiffler", "Hubert, L.", "Hubert & Arabie", "Rousseeuw 1987",
@@ -89,6 +105,16 @@ def test_required_statements_in_the_metric_reference():
                      "pulled towards 1", "inherited from one strong pair", "mechanical", "n / (K + 1)",
                      "Karrer, Levina & Newman 2008, §I", "Q = 0.414", "0.150"):
         assert required in text, required
+    from steamstudy.network.selection_text import DATASET_STRIP_SENTENCE, HIGH_G_CAVEAT
+
+    for required in ("count alone carries no significance claim", "not comparable across pairs and never select",
+                     "Neighbour Agreement measures parameter stability, not correctness", HIGH_G_CAVEAT,
+                     "a step that removes nothing perturbs nothing",
+                     "Edge Overlap describes how much the graph changed, not whether the Clusters are right",
+                     "a defensible choice, not the true structure", "no likelihood behind",
+                     "Different pairs in different datasets are expected and are not a disagreement",
+                     DATASET_STRIP_SENTENCE):
+        assert required in text, required
 
 
 def test_known_limitations_chapter_holds_the_full_list():
@@ -96,7 +122,8 @@ def test_known_limitations_chapter_holds_the_full_list():
     for item in ("current snapshot", "ranked selection", "coverage gaps", "Delisted games", "under 10,000",
                  "Ties at rank 100", "joke votes", "ids 3 and 4", "Dating Sim rank", "country", "allow-parse-errors",
                  "pre-launch", "Early Access", "not optimised", "screening aid", "single run", "K = 10",
-                 "fixed γ grid"):
+                 "fixed γ grid", "Neighbour Agreement tends to be higher at large g", "count-only thresholds",
+                 "Lift has no likelihood", "no_qualifying_pair"):
         assert item in text, item
 
 

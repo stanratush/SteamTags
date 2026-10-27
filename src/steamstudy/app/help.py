@@ -47,6 +47,71 @@ HELP: dict[str, tuple[str, str]] = {
     "export.zip": (CITING, "deposit-the-export-zip"),
 }
 
+# The Parameter Selection mode's help: every heatmap metric, Inspector label, Pair Constraint, Selection Setting,
+# reason letter and verdict tag, the dataset strip and the mode's actions.
+_NA, _RET, _FRAG = "neighbour-agreement", "information-retention", "isolated-share-and-lcc-share"
+_ADM, _GHAT = "admissible-partition-and-optimality-domain", "resolution-estimate-and-stable-partition"
+_SEL, _RULE = "selected-partition-and-selected-resolution", "pair-constraints-qualifying-pair-and-the-selection-rule"
+SELECTION_HELP: dict[str, tuple[str, str]] = {
+    "selection.run": (METRIC_REFERENCE, "how-automatic-parameter-selection-works"),
+    "selection.apply": (APP_CONTROLS, "apply-to-workbench"),
+    "selection.validate": (APP_CONTROLS, "validate-this-pair"),
+    "selection.export": (APP_CONTROLS, "export-tables"),
+    "selection.dataset_strip": (APP_CONTROLS, "dataset-strip"),
+    "selection.heatmap": (APP_CONTROLS, "heatmap-and-reason-letters"),
+    "selection.inspector": (APP_CONTROLS, "pair-inspector"),
+    "selection.constraints": (APP_CONTROLS, "pair-constraints"),
+    "selection.settings": (APP_CONTROLS, "selection-settings"),
+    "selection.stability": (METRIC_REFERENCE, "three-kinds-of-stability"),
+    "selection.edge_overlap": (METRIC_REFERENCE, "edge-overlap"),
+    "selection.metric.neighbour_agreement": (METRIC_REFERENCE, _NA),
+    "selection.metric.retention": (METRIC_REFERENCE, _RET),
+    "selection.metric.isolated_share": (METRIC_REFERENCE, _FRAG),
+    "selection.metric.multi_tag_clusters": (METRIC_REFERENCE, _SEL),
+    "selection.metric.seed_noise": (METRIC_REFERENCE, "adjusted-rand-index"),
+    "selection.metric.q": (METRIC_REFERENCE, "modularity-q"),
+    "selection.inspector.neighbour_agreement": (METRIC_REFERENCE, _NA),
+    "selection.inspector.retention": (METRIC_REFERENCE, _RET),
+    "selection.inspector.isolated_share": (METRIC_REFERENCE, _FRAG),
+    "selection.inspector.lcc_share": (METRIC_REFERENCE, _FRAG),
+    "selection.inspector.clusters": (METRIC_REFERENCE, _SEL),
+    "selection.inspector.seed_noise": (METRIC_REFERENCE, "adjusted-rand-index"),
+    "selection.inspector.hits": (METRIC_REFERENCE, _ADM),
+    "selection.inspector.domain": (METRIC_REFERENCE, _ADM),
+    "selection.inspector.resolution": (METRIC_REFERENCE, _SEL),
+    "selection.inspector.scan_range": (METRIC_REFERENCE, _ADM),
+    "selection.inspector.gamma_hat": (METRIC_REFERENCE, _GHAT),
+    "selection.inspector.descriptive": (METRIC_REFERENCE, _RULE),
+    "selection.inspector.q": (METRIC_REFERENCE, "modularity-q"),
+    "selection.inspector.coverage": (METRIC_REFERENCE, "coverage-and-inter-cluster-weight-share"),
+    "selection.inspector.silhouette": (METRIC_REFERENCE, "mean-silhouette"),
+    "selection.inspector.links": (METRIC_REFERENCE, _NA),
+    "selection.inspector.champ": (METRIC_REFERENCE, _ADM),
+    "selection.constraint.min_retention": (METRIC_REFERENCE, _RET),
+    "selection.constraint.max_isolated_share": (METRIC_REFERENCE, _FRAG),
+    "selection.constraint.min_lcc_share": (METRIC_REFERENCE, _FRAG),
+    "selection.constraint.min_comparable_neighbours": (METRIC_REFERENCE, _NA),
+    "selection.constraint.max_multi_tag_clusters": (METRIC_REFERENCE, _RULE),
+    "selection.constraint.tolerance": (METRIC_REFERENCE, _RULE),
+    "selection.setting.hidden": (APP_CONTROLS, "hidden-genre-tags"),
+    "selection.setting.removed": (APP_CONTROLS, "remove--restore"),
+    "selection.setting.min_months": (APP_CONTROLS, "minimum-months-filter"),
+    "selection.setting.weight": (APP_CONTROLS, "clustering-weight"),
+    "selection.setting.min_multi_tag_clusters": (METRIC_REFERENCE, _SEL),
+    "selection.reason.P": (METRIC_REFERENCE, _SEL),
+    "selection.reason.A": (METRIC_REFERENCE, _NA),
+    "selection.reason.N": (METRIC_REFERENCE, _NA),
+    "selection.reason.R": (METRIC_REFERENCE, _RET),
+    "selection.reason.I": (METRIC_REFERENCE, _FRAG),
+    "selection.reason.L": (METRIC_REFERENCE, _FRAG),
+    "selection.reason.K": (METRIC_REFERENCE, _RULE),
+    "selection.verdict.dissolved": (METRIC_REFERENCE, "subsample-stability"),
+    "selection.verdict.q_not_above_null": (METRIC_REFERENCE, "null-comparison"),
+    "selection.null": (METRIC_REFERENCE, "null-comparison"),
+    "selection.subsample": (METRIC_REFERENCE, "subsample-stability"),
+}
+HELP.update(SELECTION_HELP)
+
 # (declared file, column name), as in `view.INSPECTOR_LABELS`
 Columns = Iterable[tuple[str, str]]
 

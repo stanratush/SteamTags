@@ -29,3 +29,14 @@ This chapter is the single home of every caveat the study carries. The reports' 
 - **The Resolution Sweep covers a fixed γ grid**, at the report's settings only, and only in the Build.
 - **Removal Sensitivity uses one main-seed run per removed tag.** Its flag is a screening aid, not a significance test, and some flags are expected by chance.
 - **The app is not optimised in v1.** At the loosest thresholds a change can take several seconds, mostly for the null model.
+
+## Parameter Selection
+
+- **Thresholds are count-only thresholds.** An edge needs s shared games; its count carries no significance claim, and no statistically validated edges are used.
+- **Neighbour Agreement tends to be higher at large g**, because a one-step change in the thresholds changes a small network's graph less. Choosing the smallest g among near-best pairs only partly counterbalances it.
+- **Lift has no likelihood.** γ̂ is defined through a model of unweighted multigraphs; with Lift or shared-game weights the self-consistent resolution is a heuristic, whichever weight is used.
+- **Optimal among the partitions found.** CHAMP and the Stable Partitions work on the partitions the scan found with 10 seeds; a partition no seed found cannot be selected.
+- **The widest-domain rule and the Selected Resolution as a midpoint are this study's rules**; the sources give none.
+- **A dataset can end with `no_qualifying_pair`.** Nothing is relaxed automatically; the mode then shows the exclusion table.
+- **Validation is one 80% fraction and one null model.** No curve of fractions, no other noise type, and no Subsample Stability on null replicates.
+- **One pair per dataset, chosen independently.** No pair common to all five datasets is chosen, and the datasets' Clusters are not compared.

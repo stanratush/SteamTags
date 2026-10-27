@@ -19,7 +19,7 @@ Each control below either sets a field of the Network State key (and so changes 
 | [Remove (node inspector), Restore, Reset all](#remove--restore) | Removes a tag from the network as a what-if, or brings it back | any node; none removed | `removed_tag_ids` | Node set; not N or any `lift` |
 | [Global / Cluster-separated](#global--cluster-separated) | Moves nodes only: one layout for the whole network, or one region per cluster | Global | none | Positions only |
 | [Tidy](#tidy) | Settles the Global layout from the current positions, keeping the nodes you dragged where you dropped them; kept until the dataset, filter, weight, seed or the visible tags change | none | none (`layout_source` in exports) | Positions only |
-| Mode | Workbench or Analysis Report mode | Workbench | none | none |
+| Mode | Workbench, Analysis Report mode or [Parameter Selection](#parameter-selection-mode) | Workbench | none | none |
 | Controls / Inspector / Tables | Collapse each panel independently | all shown | none | none |
 | Graph only | Switches to the narrowest form (pill bar, floating Inspector, bottom sheet) at any width; press again to leave it | off | none | none |
 | Find a tag… (header) | Finds any tag of the dataset: a tag in the network is selected, centred and opened in the Inspector; a missing tag opens a "Not in the network" card | none | none (Restore / Unhide on the card change `removed_tag_ids` / `hidden_tag_ids`) | none until you press the card's button |
@@ -27,7 +27,7 @@ Each control below either sets a field of the Network State key (and so changes 
 | Run, Continue, Cancel, Run for this tag | Removal Sensitivity, as a background job | not run | none (results are cached per `state_id`) | `removal_sensitivity.csv` only |
 | Export this state | Downloads one zip with every table and the full state key | none | none | none |
 | Open Network State… | Reopens an export zip or its `export.json` | none | all key fields | All, recomputed |
-| Clear app cache | Deletes cached Removal Sensitivity results | none | none | none |
+| Clear app cache | Deletes cached Removal Sensitivity and Parameter Selection results (shipped ones included) | none | none | none |
 
 Sliders send their value when you release them; the value beside the slider's label updates while you drag. The number of null-model replicates R and of noise seeds K are set in the Build's config only; they have no control.
 
@@ -400,3 +400,155 @@ Open the **Not in network** tab (section 2 in Analysis Report mode). Every tag o
 1. Set up the state, run Removal Sensitivity if you need it, and press **Export this state**.
 2. Quote the `state_id` from the file name or from section 1 of Analysis Report mode with every number you use.
 3. Deposit the zip with the paper. See [Citing and reproducing a Network State](05-citing-and-reproducing.md).
+
+## Parameter Selection mode
+
+The third mode runs [Automatic Parameter Selection](03-metric-reference.md#how-automatic-parameter-selection-works) and shows its results. It has the Workbench's three panes: Controls on the left (Run, Pair Constraints, Selection settings), the dataset strip, heatmap, "Why this pair" and validation card in the middle, and the Pair Inspector on the right. At medium and narrow widths the Controls become a pill bar and the Inspector a floating card, as in the Workbench.
+
+### Run
+
+> **In short.** Run searches the Parameter Grid of one dataset or of all five, chooses a pair for each and validates it, as a background job.
+>
+> **Here:** produces every number this mode shows; finished work is cached and never recomputed.
+>
+> **Caution:** a full run takes minutes; Cancel keeps finished pairs but discards an unfinished validation.
+
+**Run all datasets** or **Run ‹dataset›** starts a background job; **Cancel** stops it. Each dataset's row shows its phase and progress: "grid 87 of 153 pairs", "validation 40 of 200 replicates", "grid done, not validated" or "not run". "All datasets" computes every grid before any validation. After a cancel, **Continue (k of 153 pairs)** resumes from the pairs already on disk; a cancelled validation starts again from the beginning. While a job runs, a loading panel says what is computed, why, where the job is and how long it should still take; it is not modal, so you can inspect other datasets meanwhile.
+
+The cache line names the Build, the settings key and the method version. When the results were computed elsewhere, a quiet **provenance line** says so, for example "Computed when this bundle was made: Python 3.14.0, Windows AMD64, 2026-10-26": an App Bundle ships each Build's results, computed when the bundle was made. **Clear app cache** replaces them with this computer's on the next Run. A recomputation on another Python version or operating system could in principle differ, but practically never does, because every library version is locked. If a library the app computes with is installed at a different version, a banner says so instead and suggests "Clear app cache and Run to recompute here".
+
+*Why it matters here.* The grid is 153 pairs × up to several hundred γ values × 10 seeds per dataset, plus 200 validation replicates; caching it makes the mode instant after the first run.
+
+*Caution.* Results belong to one Build and one set of Selection Settings; another set needs its own run.
+
+*Example.* "Run all datasets" on a 12-worker computer fills the five heatmaps one dataset at a time, then validates each chosen pair.
+
+### Pair Constraints
+
+> **In short.** The Pair Constraints and the tolerance decide which pairs qualify and how close to the best Neighbour Agreement a pair must be; Confirm re-chooses from the cache.
+>
+> **Here:** lets you see how the choice depends on each constraint without rerunning anything.
+>
+> **Caution:** non-default values are labelled "Custom constraints"; the shipped validation stays with the default pair.
+
+One field per constraint (minimum Information Retention, maximum isolated share, minimum LCC share, minimum comparable neighbours with a different graph, maximum Multi-Tag Clusters) and the tolerance, each with its default beside it and a "changed" marker; an empty maximum means off. **Apply to** chooses between all five datasets and the current one only. **Confirm** is enabled once something changed ("Unconfirmed changes" shows meanwhile) and recomputes the choice from the cache, with no job; **Reset to defaults** restores the configured values. The constraints label below names each changed value. The definitions are in [Pair Constraints, Qualifying Pair and the selection rule](03-metric-reference.md#pair-constraints-qualifying-pair-and-the-selection-rule).
+
+*Why it matters here.* A pick that moves under a small change of a constraint is a weaker reason to prefer it; the heatmap's reason letters show which constraint excludes which pair.
+
+*Caution.* Validation is cached per pair and runs automatically only for the pair chosen under the default constraints; use Validate this pair for another.
+
+*Example.* Raising the minimum retention to 0.60 and pressing Confirm moves the ★ in puzzle and labels the explanation "Custom constraints: Information Retention ≥ 0.60 (default 0.50)".
+
+### Selection settings
+
+> **In short.** The Selection Settings fix every pair's network and Selected Partition: hidden and removed tags, Minimum Months, the Clustering Weight and the minimum Multi-Tag Clusters.
+>
+> **Here:** run the selection under the settings you study, not only the defaults.
+>
+> **Caution:** a change needs its own run; Lift is the studied default.
+
+Edits are staged: **Use these settings** switches the mode to that settings key and shows what the cache holds for it, or "not run"; no edit starts a job. **Reset to defaults** restores the configured values, and **Copy from Workbench** copies the Workbench's hidden tags, Minimum Months, Clustering Weight and removed tags (never g, s, γ or seed). Removed tags come from the tag picker, from Copy from Workbench, or from **Remove** on a tag in the Pair Inspector's Clusters. The settings last for the session; the app always opens on the defaults. The read-only settings are shown with their values: Leiden only (the scan and Apply's reproduction search are built on it), the Parameter Grid, the γ step, the 10 scan seeds, R and S. Lift is the studied default weight. Whichever weight is used, γ̂ is a heuristic outside unweighted multigraphs: [Resolution estimate and Stable Partition](03-metric-reference.md#resolution-estimate-and-stable-partition) explains why.
+
+*Why it matters here.* A tag hidden or removed in the Workbench changes every network the selection would see; the selection under default settings says nothing about such a network.
+
+*Caution.* Raising the minimum Multi-Tag Clusters above an active constraint maximum raises the maximum to match, as custom.
+
+*Example.* Minimum Months 12 shows "Custom settings: Minimum Months 12 (default 0)" under the section and in the explanation.
+
+### Dataset strip
+
+> **In short.** Five buttons, one per dataset, each with its chosen pair and Neighbour Agreement or its status.
+>
+> **Here:** the only comparison between datasets this mode makes.
+>
+> **Caution:** different pairs in different datasets are not a disagreement.
+
+Each button shows "★ 14·2 NA 0.98", "no qualifying pair", "not run" or "grid k of 153", with a "custom" marker when either label is custom (its tooltip says which). A click switches the dataset and resets the heatmap and Inspector to that dataset's ★ pair; the metric picker keeps its choice. Each dataset is selected on its own, from its own games and tags. Different pairs in different datasets are expected and are not a disagreement: the same pair builds networks of different sizes in different datasets.
+
+*Why it matters here.* The datasets differ in which tags are common, so the thresholds that keep a coherent network differ too.
+
+*Caution.* No agreement score between datasets is computed; comparing their Clusters is a question for the feature-analysis report.
+
+*Example.* "★ 17·2 NA 0.97" for overall beside "★ 14·2 NA 0.98" for puzzle.
+
+### Heatmap and reason letters
+
+> **In short.** The g × s grid of one dataset, coloured by one metric, with the chosen pair, the near-best set and each pair's failing reasons marked.
+>
+> **Here:** shows where in the grid each number and each exclusion lies.
+>
+> **Caution:** Q is descriptive: not comparable across pairs, shown in grey with no best marker.
+
+The metric picker chooses Neighbour Agreement, Information Retention, isolated share, Multi-Tag Clusters, Seed-Noise Floor or Q. ★ marks the chosen pair, orange outlines the near-best set and a dark outline the inspected pair. Each non-qualifying cell carries one letter per failing reason: **P** no Selected Partition, **A** no Neighbour Agreement, **N** too few comparable neighbours, **R** retention below the minimum, **I** isolated share above the maximum, **L** LCC share below the minimum, **K** too many Multi-Tag Clusters. Hovering shows the value, NA, tags, Multi-Tag Clusters and "✓ qualifies" or the reasons in words; clicking a cell inspects it. While a grid is unfinished, computed cells fill in as they arrive, a cell's NA appears once its neighbours are computed, and no ★ or outline is shown.
+
+*Why it matters here.* Neighbour Agreement tends to rise with g; the heatmap shows that trend next to the retention it costs.
+
+*Caution.* A cell's colour compares pairs only for the selection metrics; Q and the Seed-Noise Floor describe each pair on its own network.
+
+*Example.* A cell marked "R I" keeps too little of the data and leaves too many tags isolated.
+
+### Pair Inspector
+
+> **In short.** Everything about one pair: its badges, Apply, its metrics, its neighbour links, the CHAMP plot, its Clusters and a compact validation.
+>
+> **Here:** shows why a pair qualifies or not, and what its Selected Partition is.
+>
+> **Caution:** the CHAMP plot is for inspection; only the Selected Partition can be applied.
+
+It shows the dataset's ★ pair until you click a cell. Top to bottom: the title and status badges (qualifies or its reasons; `clipped_high`, `not_representable`, `not_reproduced`); **Apply to Workbench** with the Workbench γ and seed line; the metrics (NA with its neighbour counts, Retention, isolated and LCC share, Multi-Tag and One-Tag Clusters, the Seed-Noise Floor, the hit count, the domain, the Selected Resolution and the scan range), then the descriptive group (Q, Coverage, Silhouette) under "Descriptive: not comparable across pairs"; the neighbour links table (direction, status, ARI, tag overlap, [Edge Overlap](03-metric-reference.md#edge-overlap), identical-graph marker); the CHAMP plot (each Admissible Partition's Q(γ) line, the envelope, the domains, each γ̂ with an arrow to its map target, the Stable Partitions and the Selected Resolution, from 0 to γ_end); the Selected Partition's Clusters, with **Remove** on each tag; and the two verdict tags with the median ARIs.
+
+*Why it matters here.* The heatmap shows where a pair stands; the Inspector shows the numbers behind it.
+
+*Caution.* The descriptive group describes this pair only.
+
+*Example.* A pair with an "N" letter shows, in its links table, which neighbours were missing or had an identical graph.
+
+### Apply to Workbench
+
+> **In short.** Opens the inspected pair's Selected Partition in the Workbench: its dataset, thresholds, Selection Settings, γ and seed.
+>
+> **Here:** turns a selected pair into a Network State with every Workbench metric and export.
+>
+> **Caution:** the Workbench's Seed-Noise Floor can differ from the one Parameter Selection reports.
+
+Apply replaces every Workbench setting, as Open Network State… does: the dataset, g, s, Minimum Months, the hidden Genre Tags and defining tag, the removed tags, the Clustering Weight, the algorithm (Leiden), γ and seed. Tidy and the Removal Sensitivity view are cleared and the app switches to the Workbench, without asking. γ and seed are the pair's Workbench γ and seed: the two-decimal γ and the seed at which Leiden reproduces the Selected Partition. For a `not_reproduced` or `not_representable` pair, Apply uses the Selected Resolution rounded to two decimals and the main seed. The Workbench then shows "Applied from Parameter Selection: ‹dataset›, g=…, s=… — Selected Partition reproduced ✓", or the ARI of the partition it shows instead; the line stays until a setting changes, and an export made meanwhile records an `applied_from` block. Any pair with a Selected Partition can be applied.
+
+The Seed-Noise Floor can differ: when the Workbench seed is one of the scan seeds, the Workbench derives its noise seeds from that seed, while Parameter Selection derives them from the main seed and runs them at the exact, unrounded Selected Resolution.
+
+*Why it matters here.* Inspecting, removing tags from and exporting the selected network all happen in the Workbench.
+
+*Caution.* The provenance line is display only: the Network State key and `state_id` are the same as for the same settings entered by hand.
+
+*Example.* Applying puzzle g = 14, s = 2 sets γ 1.09 with a scan seed and shows "Selected Partition reproduced ✓".
+
+### Validate this pair
+
+> **In short.** Runs the Null Comparison and Subsample Stability for the inspected pair, as a background job.
+>
+> **Here:** validates a near-best or hand-picked pair, not only the chosen one.
+>
+> **Caution:** all-or-nothing: Cancel discards it.
+
+It is offered on any pair with a Selected Partition in a complete grid, also under `no_qualifying_pair`. It cannot run beside Run. Results are cached per pair, whatever the constraints. See [Null Comparison](03-metric-reference.md#null-comparison) and [Subsample Stability](03-metric-reference.md#subsample-stability).
+
+*Why it matters here.* The validation card shows the default pair's validation; pairs you consider instead deserve the same check.
+
+*Caution.* It never changes the chosen pair or its explanation.
+
+*Example.* Under custom constraints the card notes "Validation ran for g = 17, s = 2, the pair chosen under the default constraints"; Validate this pair validates the new pick.
+
+### Export tables
+
+> **In short.** Writes one zip per settings key with seven tables, `parameter_selection.json` and a templated `selection_report.md`, for every dataset with a complete grid.
+>
+> **Here:** the record of a selection, for a paper's supplement.
+>
+> **Caution:** a record only: there is no way to open it back into the mode.
+
+The zip is named `steamstudy_parameter-selection_<settings key>_<UTC>.zip`. Incomplete datasets are left out and listed in `parameter_selection.json`. The files are described in [chapter 4](04-files.md#parameter-selection-files); [Report a Parameter Selection](05-citing-and-reproducing.md#report-a-parameter-selection) says how to deposit and check it.
+
+*Why it matters here.* Readers can recompute Neighbour Agreement and the choice from the tables without running Leiden.
+
+*Caution.* The button is disabled until at least one dataset's grid is complete.
+
+*Example.* An export after "Run all datasets" holds 765 rows in `pairs.csv`.

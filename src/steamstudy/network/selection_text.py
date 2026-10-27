@@ -230,3 +230,56 @@ def validation_block(summary: Any, pair: tuple[int, int], chosen_pair: tuple[int
     if summary is None:
         return out + [[("Not validated.", None)]]
     return out + null_sentences(summary) + subsample_sentences(summary, names)
+
+
+# ----------------------------------------------------------------------------- the methods paragraph
+
+
+# One template for `selection_report.md` and the User Guide (ch. 5, shown with placeholders; a test keeps them equal).
+METHODS_TEMPLATE = (
+    "For each Top-100 Dataset we built the Tag Network at every Threshold Pair (g, s) of the Parameter Grid, "
+    "{g_range} games per tag and {s_range} shared games with s ≤ g ({n_pairs} pairs), with {weight} as the "
+    "Clustering Weight, a Minimum Months Filter of {min_months} and {hidden} hidden. On each distinct graph we ran "
+    "Leiden (RBConfiguration, at most 1,000 passes) with {scan_seeds} seeds at every γ from 0 to Gibson and Mucha's "
+    "γ_max(K), K being the number of tags with an edge, in steps of {gamma_step} (Gibson & Mucha 2022, SI §J); the "
+    "derivation in SI §J.2 uses only the Cauchy–Schwarz inequality and assortativity, so the bound also holds for "
+    "Clusters of unequal size and for weighted graphs. The unique partitions found were reduced to the upper envelope "
+    "of their lines Q(γ) = Â − γP̂, giving the Admissible Partitions and their Optimality Domains (CHAMP; Weir et al. "
+    "2017, §2, eqs. 1–4). For each we evaluated once the self-consistent resolution γ̂ = (ω_in − ω_out)/(ln ω_in − "
+    "ln ω_out) (Newman 2016, §III.A, eqs. 15–18) and called the partition stable when γ̂ lies in its own domain "
+    "(Gibson & Mucha 2022, Fig. 1(d), SI §C.2–C.3). Among the Stable Partitions with at least {min_multi} Multi-Tag "
+    "Clusters, the Selected Partition has the widest domain in plain γ units, and the Selected Resolution is the "
+    "domain's midpoint; the sources give no rule for choosing among Stable Partitions, and we did not rescale the "
+    "width to log γ or to Gibson and Mucha's γ-scaled area (SI §A.7), whose usefulness the authors leave open. "
+    "Neighbour Agreement is the mean adjusted Rand index between a pair's Selected Partition and those of its grid "
+    "neighbours (g ± 1, s ± 1) with a different graph, on the shared tags with an edge in either graph. The chosen "
+    "pair is the one with the smallest g, then the smallest s, among the pairs whose Neighbour Agreement is within "
+    "{tolerance} of the highest, among pairs with {constraints}. We compared the chosen pair with {replicates} "
+    "networks whose game–tag table was shuffled by curveball trades (every tag and game keeps its count), each "
+    "analysed by the identical procedure (Karrer, Levina & Newman 2008, abstract, §III and §VI), and with "
+    "{subsamples} random subsets of m = ⌊0.8·n⌋ of the n games, with the thresholds scaled by floor (g′ = ⌊g·m/n⌋, "
+    "s′ = max(2, ⌊s·m/n⌋)). For each Multi-Tag Cluster we report Hennig's (2007, §2) mean best-match Jaccard on "
+    "the tags present in both networks, over the B* subsamples in which the Cluster has a tag, and call it "
+    "dissolved at a mean of 0.5 or less; the 0.6, 0.75 and 0.85 bands of the fpc package refer to the bootstrap and "
+    "are not applied."
+)
+METHODS_FIELDS = ("g_range", "s_range", "n_pairs", "weight", "min_months", "hidden", "scan_seeds", "gamma_step",
+                  "min_multi", "tolerance", "constraints", "replicates", "subsamples")
+
+
+def methods_paragraph(values: dict[str, Any] | None = None) -> str:
+    """The template filled with a run's values, or with ‹placeholders› (as in the User Guide)."""
+    values = values or {name: f"‹{name}›" for name in METHODS_FIELDS}
+    return METHODS_TEMPLATE.format(**values)
+
+
+def methods_values(settings: Any, constraints: Any) -> dict[str, Any]:
+    weight = {"lift": "Lift", "shared_games": "shared games"}[settings.clustering_weight]
+    n_hidden = len(settings.genre_hidden)
+    hidden = f"{n_hidden} Genre Tags" + (" and each dataset's defining tag" if settings.hide_defining_tag else "")
+    return {"g_range": f"{settings.g_range[0]}–{settings.g_range[1]}",
+            "s_range": f"{settings.s_range[0]}–{settings.s_range[1]}", "n_pairs": len(settings.pairs()),
+            "weight": weight, "min_months": settings.min_months, "hidden": hidden, "scan_seeds": settings.scan_seeds,
+            "gamma_step": f"{settings.gamma_step:g}", "min_multi": settings.min_multi_tag_clusters,
+            "tolerance": f"{constraints.tolerance:.2f}", "constraints": _and_list(constraint_phrases(constraints)),
+            "replicates": settings.replicates, "subsamples": settings.subsamples}
