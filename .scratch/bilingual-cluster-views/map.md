@@ -32,13 +32,14 @@ An **implementation-ready spec** (`.scratch/bilingual-cluster-views/spec.md`) pl
 - [Edge appearance controls](issues/04-edge-appearance-controls.md): the legend's thickness key opens a floating card with a histogram of link values. Its controls are width, linear, √ or log scaling, four colour modes, strength, the strength of links between Clusters, and a view-only hide-below handle that clears when the measure changes. The look is kept by cookie; Reset all leaves it alone. `graph.js` owns it from raw edge values, so no control re-sends the graph; [prototype](prototypes/04-edge-appearance/PROTOTYPE-edge-appearance.html).
 - [Inter-cluster measures](issues/06-inter-cluster-measures.md): the headline is the **Connection Ratio** w_ab/(k_a k_b/2m) in the Clustering Weight, shown with γ (its ceiling), plus the directional **Connection Share** w_ab/cut_a. `one_tag_pool` stays, with a distinct-pair pool–pool expectation. A shared-game total and ratio are always filled (not γ-bounded under Lift). Five additive `cluster_connections.csv` columns; empty where undefined, never clamped. The per-cluster view sorts by ratio and lists zero pairs; [ADR 0004](../../docs/adr/0004-connection-ratio-is-the-configuration-model-ratio.md).
 - [Cluster connections view](issues/07-cluster-connections-view.md): a **Connections matrix** in the Cluster quality tab (Ratio, or Share row → column; one 0…γ ramp; pool last; a Table toggle keeps the CSV grid) plus a floating **Cluster map** card opened from the canvas. The Inspector holds every selection: a Connections ranking for a Cluster and a new pair view with its links. The pool's share divides by k_p − w_pp. A pair is one new selection kind, highlighted by a `graph.js` restyle; no new export or callback; [prototype](prototypes/07-cluster-connections/PROTOTYPE-cluster-connections.html).
+- [Games within a Cluster](issues/08-games-within-a-cluster.md): a **Games** section in the Cluster Inspector. It lists every game with ≥ 1 of the Cluster's Tags (nearly all 100 for a large Cluster), ranked by matched count, then Rank. Its columns are Matched "7 / 26", "of its tags" (matched ÷ the game's network tags; not a sort key) and the matched tags in full. It shows the first 10 rows, then "Show all". One-Tag Clusters drop the constant columns. A new additive `cluster_games.csv` goes in the export, under one shared schema bump to 4 with 06's columns.
 
 ## Not yet specified
 
-- **Exports for feature 4**: whether the cluster-games list becomes a new table in the Workbench export, and its column shape. It depends on the games decision. (Feature 3's columns are settled in Inter-cluster measures.)
 - **Spec and implementation issues**: written once the frontier is empty.
 
 ## Out of scope
 
 - Features 3 and 4 in the Parameter Selection mode's Pair Inspector or in Analysis Report mode.
 - Translating exports, the CLI, the Running Guide or the release checklist.
+- A game as a selection kind (highlighting its tags on the canvas); ruled out in [Games within a Cluster](issues/08-games-within-a-cluster.md).
