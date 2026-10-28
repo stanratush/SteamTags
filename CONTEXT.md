@@ -55,6 +55,14 @@ _Avoid_: community (except when citing methods literature), theme, category
 A **Cluster** with a single **Tag**: usually an isolated tag (it reaches the minimum games per tag but no edge reaches the minimum shared games), rarely a connected tag the algorithm left on its own. Stays in the network, but is counted apart from **Multi-Tag Clusters** and never enters a cluster-quality average as a cluster of its own.
 _Avoid_: singleton, unclustered tag, noise
 
+**Connection Ratio**:
+For two **Clusters**: the link weight between them divided by the weight their total link weight alone would predict, in the **Clustering Weight**. 1 = as predicted; it never exceeds the resolution γ, because a pair above γ would have been merged into one **Cluster**. It describes how the clustering split the tags, not independent evidence about the games.
+_Avoid_: connection strength (a tag's strength is its summed link weight), affinity, association strength, Lift, density
+
+**Connection Share**:
+Of all the link weight leaving a **Cluster**, the part that goes to one other **Cluster**. A Cluster's shares add up to 1. Big Clusters take large shares just by being big; the **Connection Ratio** judges strength.
+_Avoid_: connection strength, proportion of cut
+
 **Cluster Center**:
 The member of a **Multi-Tag Cluster** of three or more **Tags** whose games overlap most with the other members' games (the smallest mean Jaccard distance between game sets). It marks the cluster's most typical **Tag**, not its most frequent or most important one. A **One-Tag Cluster** or a two-tag cluster has none.
 _Avoid_: hub, leader, representative tag, core tag

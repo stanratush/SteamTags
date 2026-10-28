@@ -4,7 +4,7 @@ Label: wayfinder:map
 
 ## Destination
 
-An **implementation-ready spec** (`.scratch/bilingual-cluster-views/spec.md`) plus numbered `ready-for-agent` implementation issues for four Tag Network app features: (1) an English/Bulgarian language switch across the whole interface and User Guide, (2) customisable edge appearance, (3) size-aware connection strength between Clusters, explorable visually and pair by pair, and (4) the games within each Cluster, ranked by matching tags. Every design decision is fixed, so implementation can start without further design questions. Implementation itself comes after this map, on branch `bilingual-cluster-views`.
+An **implementation-ready spec** (`.scratch/bilingual-cluster-views/spec.md`) plus numbered `ready-for-agent` implementation issues for four Tag Network app features: (1) an English/Bulgarian language switch across the whole interface and User Guide, (2) customisable edge appearance, (3) the size-aware **Connection Ratio** between Clusters, explorable visually and pair by pair, and (4) the games within each Cluster, ranked by matching tags. Every design decision is fixed, so implementation can start without further design questions. Implementation itself comes after this map, on branch `bilingual-cluster-views`.
 
 ## Notes
 
@@ -30,10 +30,11 @@ An **implementation-ready spec** (`.scratch/bilingual-cluster-views/spec.md`) pl
 - [Translation mechanism](issues/02-translation-mechanism.md): a live EN | BG switch remembered by cookie. Python dicts keyed by the English text, with an explicit required `tx` translator (two plural forms, one number rule per language). A `bg/` guide whose headings carry English-slug `{#id}` anchors, with a label set per language. Structural parity tests now, completeness at the end, English fallback at runtime; [ADR 0003](../../docs/adr/0003-bulgarian-is-a-view-only-translation.md).
 - [Bulgarian terminology](issues/03-bulgarian-terminology.md): the term table is in [docs/i18n/bg-terms.md](../../docs/i18n/bg-terms.md). Translate by default, with proper names and abbreviations in Latin script, and the English term once at each guide entry heading. таг, клъстер, мрежа от тагове, състояние на мрежата, разбиване, лифт. Dataset labels stay English. On screen in BG: decimal comma, no thousands separator.
 - [Edge appearance controls](issues/04-edge-appearance-controls.md): the legend's thickness key opens a floating card with a histogram of link values. Its controls are width, linear, √ or log scaling, four colour modes, strength, the strength of links between Clusters, and a view-only hide-below handle that clears when the measure changes. The look is kept by cookie; Reset all leaves it alone. `graph.js` owns it from raw edge values, so no control re-sends the graph; [prototype](prototypes/04-edge-appearance/PROTOTYPE-edge-appearance.html).
+- [Inter-cluster measures](issues/06-inter-cluster-measures.md): the headline is the **Connection Ratio** w_ab/(k_a k_b/2m) in the Clustering Weight, shown with γ (its ceiling), plus the directional **Connection Share** w_ab/cut_a. `one_tag_pool` stays, with a distinct-pair pool–pool expectation. A shared-game total and ratio are always filled (not γ-bounded under Lift). Five additive `cluster_connections.csv` columns; empty where undefined, never clamped. The per-cluster view sorts by ratio and lists zero pairs; [ADR 0004](../../docs/adr/0004-connection-ratio-is-the-configuration-model-ratio.md).
 
 ## Not yet specified
 
-- **Exports for features 3 and 4**: whether the cluster-games list becomes a new table in the Workbench export, and the exact column shapes. It depends on the measures and games decisions.
+- **Exports for feature 4**: whether the cluster-games list becomes a new table in the Workbench export, and its column shape. It depends on the games decision. (Feature 3's columns are settled in Inter-cluster measures.)
 - **Spec and implementation issues**: written once the frontier is empty.
 
 ## Out of scope
