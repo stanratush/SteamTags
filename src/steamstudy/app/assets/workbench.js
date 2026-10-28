@@ -56,12 +56,40 @@
   }
 
   function watchHtml() {
-    const body = document.getElementById("inspector-body");
-    if (!body) { setTimeout(watchHtml, 50); return; }
-    new MutationObserver(() => fillHtml(body)).observe(body, {childList: true, subtree: true, attributes: true,
-                                                               attributeFilter: ["data-html"]});
-    fillHtml(body);
+    const body = document.getElementById("inspector-body"), quality = document.getElementById("quality-detail");
+    if (!body || !quality) { setTimeout(watchHtml, 50); return; }
+    for (const el of [body, quality]) {
+      new MutationObserver(() => { fillHtml(el); if (el === quality) applyMatrixChoices(); })
+        .observe(el, {childList: true, subtree: true, attributes: true, attributeFilter: ["data-html"]});
+      fillHtml(el);
+    }
+    applyMatrixChoices();
   }
+
+  // ------------------------------------------------------------------ Connections matrix (Cluster quality tab)
+
+  // View choices kept in the browser (no callback): Ratio or Share per cell, back to Ratio on a new dataset; and
+  // Matrix or Table, the Table being the cluster_connections.csv grid.
+  const matrix = {dataset: null, mode: "ratio", view: "matrix"};
+
+  function applyMatrixChoices() {
+    const cm = document.querySelector("#quality-detail .cm"), block = document.getElementById("blk-quality");
+    if (cm) {
+      if (cm.dataset.dataset !== matrix.dataset) { matrix.dataset = cm.dataset.dataset; matrix.mode = "ratio"; }
+      if (cm.dataset.mode !== matrix.mode) cm.dataset.mode = matrix.mode;
+      cm.querySelectorAll("[data-cm-mode]").forEach((b) => b.classList.toggle("on", b.dataset.cmMode === matrix.mode));
+      cm.querySelectorAll("[data-cm-view]").forEach((b) => b.classList.toggle("on", b.dataset.cmView === matrix.view));
+    }
+    if (block) block.classList.toggle("cm-table-view", matrix.view === "table");
+  }
+
+  document.addEventListener("click", (ev) => {
+    const btn = ev.target instanceof Element ? ev.target.closest("#quality-detail [data-cm-mode], #quality-detail [data-cm-view]") : null;
+    if (!btn) return;
+    if (btn.dataset.cmMode) matrix.mode = btn.dataset.cmMode;
+    if (btn.dataset.cmView) matrix.view = btn.dataset.cmView;
+    applyMatrixChoices();
+  });
 
   // ------------------------------------------------------------------ pills
 

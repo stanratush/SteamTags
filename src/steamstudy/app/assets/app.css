@@ -128,6 +128,29 @@ body[data-form=narrow] #root.workbench .edge-card{bottom:128px}
 .rbar-fill{position:absolute;left:0;top:0;bottom:0;background:#3b2f6b;border-radius:3px}
 .rbar-one{position:absolute;top:-2px;bottom:-2px;width:1px;background:#1b2130}
 tr.hidden-link td{color:var(--mute)}
+/* The Connections matrix (view.connections_matrix): one ramp, sticky headers, cells at least 40 px. */
+.cm-bar{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0}
+.cm-bar button{border:1px solid var(--line);background:#fff;padding:2px 8px;cursor:pointer;font:inherit;font-size:12px}
+.cm-bar button.on{background:var(--ink);color:#fff}
+.cm-key{display:flex;gap:6px;align-items:center;font-size:11.5px;margin:2px 0 6px}
+.cm-strip{position:relative;display:inline-block;width:120px;height:8px;border-radius:4px;
+ background:linear-gradient(90deg,#c9ced8,#3b2f6b)}
+.cm-mark{position:absolute;top:-3px;bottom:-3px;width:2px;background:#1b2130}
+.cm[data-mode=ratio] .cm-share,.cm[data-mode=ratio] .cm-key-share{display:none}
+.cm[data-mode=share] .cm-ratio,.cm[data-mode=share] .cm-key-ratio{display:none}
+.cm-scroll{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:6px}
+.cm-table{border-collapse:separate;border-spacing:0;font-size:12px}
+.cm-table th{position:sticky;background:var(--panel,#fff);z-index:1;padding:3px 6px;font-weight:600}
+.cm-table thead th{top:0}
+.cm-table th.cm-row{left:0;text-align:left}
+.cm-table thead th:first-child{left:0;z-index:2}
+.cm-table td{min-width:40px;height:28px;text-align:center;border:1px solid #fff}
+.cm-table td.cm-diag{background:repeating-linear-gradient(45deg,#eef0f4,#eef0f4 4px,#fff 4px,#fff 8px);color:var(--mute)}
+.cm-table .click{cursor:pointer}
+.cm-table .cm-hl{box-shadow:inset 0 0 0 1px #2457d6}
+.cm-table td.cm-sel{outline:2px solid #2457d6;outline-offset:-2px}
+#blk-quality.cm-table-view .cm-scroll,#blk-quality.cm-table-view .cm-key{display:none}
+#blk-quality:not(.cm-table-view) #connections-grid{display:none}
 .lchip{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:12px;padding:1px 8px 1px 6px;
  font-size:12px;background:#fff;cursor:pointer;color:var(--ink)}
 .lchip:hover{border-color:#a9b1bf}

@@ -195,3 +195,44 @@ def test_a_pair_travels_the_event_path_and_the_canvas_is_told_to_fit_it():
     patch = CB.show_selection(sel).to_plotly_json()["operations"]
     assert {"operation": "Assign", "location": ["selected"], "params": {"value": {"kind": "pair", "id": "C1|C2"}}} in patch
     assert any(op["location"] == ["view"] and op["params"]["value"]["cmd"] == "focus_pair" for op in patch)
+
+
+# ----------------------------------------------------------------------------- the matrix (issue 19)
+
+
+def test_each_matrix_cell_is_its_csv_row_in_both_modes(tagged_build):
+    import html as markup
+    import re
+
+    from steamstudy.app import callbacks as CB
+    from steamstudy.app import view as V
+    from steamstudy.app.loader import load_build
+    from steamstudy.i18n import text
+
+    ctx = load_build(tagged_build)
+    s = ctx.default_settings("overall").with_(min_shared_games=3)
+    values = CB.controls_from_settings(ctx, s)
+    meta, tables, *_ = CB.recompute(str(tagged_build), *[values[k] for k in CB.CONTROL_IDS], values["removed"], None,
+                                    "en")
+    en = text("en")
+    block = V.connections_matrix(tables["clusters"], tables["connections"], s.clustering_weight, s.resolution,
+                                 "overall", tx=en)
+    html_text = markup.unescape(getattr(block.children[1], "data-html"))
+    rows = {(r["cluster_a"], r["cluster_b"]): r for r in tables["connections"]}
+    for mode in ("ratio", "share"):
+        table = re.search(rf'<table class="cm-table cm-{mode}">(.*?)</table>', html_text, re.S).group(1)
+        cells = re.findall(r'<td class="cm-cell click" data-row="([^"]+)" data-col="([^"]+)" data-pair="([^"]+)"[^>]*>'
+                           r'([^<]*)</td>', table)
+        assert cells
+        shares: dict[str, float] = {}
+        for row, col, pair, shown in cells:
+            r = rows[tuple(pair.split("|"))]
+            assert {row, col} == {r["cluster_a"], r["cluster_b"]}
+            if mode == "ratio":
+                assert shown == ("" if r["ratio"] is None else en.num(r["ratio"]))
+            else:
+                share = r["share_of_a"] if row == r["cluster_a"] else r["share_of_b"]
+                assert shown == ("" if share is None else V._share(share, en))
+                shares[row] = shares.get(row, 0.0) + (share or 0.0)
+        if mode == "share":  # each row adds up to 100 % (a group with outside links)
+            assert all(total == pytest.approx(1.0) or total == 0.0 for total in shares.values()), shares

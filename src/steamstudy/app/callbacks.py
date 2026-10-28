@@ -225,7 +225,9 @@ def state_views(c: BuildContext, meta: dict[str, Any], tables: dict[str, Any], t
                                            defining.name if defining else None,
                                            [str(names.get(t, t)) for t in settings.removed_tag_ids], meta["state_id"],
                                            tx=tx),
-        "quality-detail": V.quality_boxes(q, gamma_text, meta["k"], settings.null_replicates, tx=tx),
+        "quality-detail": [*V.quality_boxes(q, gamma_text, meta["k"], settings.null_replicates, tx=tx),
+                           V.connections_matrix(tables["clusters"], tables["connections"], settings.clustering_weight,
+                                                settings.resolution, dataset, tx=tx)],
         "banners": banners,
         "dataset-summary": V.state_table(meta["key"], meta["state_id"], c.dataset(dataset).label, meta["n_games"],
                                          rows_total, names, tx=tx),
@@ -458,7 +460,7 @@ def do_tidy(_n, base, relayout_store, canvas=None, dragged=None):
 # ----------------------------------------------------------------------------- 4. selection and inspector
 
 
-def select(event, _legend, cluster_rows, rs_rows, node_rows, panels, search=None):
+def select(event, _legend, cluster_rows, rs_rows, node_rows, panels, search=None, connection_rows=None):
     trigger = ctx.triggered_id
     sel: dict[str, Any] | None = None
     if trigger == "tag-search":
@@ -489,6 +491,8 @@ def select(event, _legend, cluster_rows, rs_rows, node_rows, panels, search=None
         sel = {"kind": "cluster", "id": trigger["cluster"]}
     elif trigger == "clusters-grid" and cluster_rows:
         sel = {"kind": "cluster", "id": cluster_rows[0]["cluster"]}
+    elif trigger == "connections-grid" and connection_rows:
+        sel = {"kind": "pair", "id": V.pair_id(connection_rows[0]["cluster_a"], connection_rows[0]["cluster_b"])}
     elif trigger in ("rs-grid", "nodes-grid"):
         rows = rs_rows if trigger == "rs-grid" else node_rows
         if rows:
@@ -1185,7 +1189,7 @@ def register(app: dash.Dash) -> None:
        Input(R.EVENT_ID, "data"),
        Input({"type": "legend", "cluster": ALL}, "n_clicks"), Input("clusters-grid", "selectedRows"),
        Input("rs-grid", "selectedRows"), Input("nodes-grid", "selectedRows"),
-       State("panels", "value"), Input("tag-search", "value"),
+       State("panels", "value"), Input("tag-search", "value"), Input("connections-grid", "selectedRows"),
        running=[(Output("busy-selecting", "hidden"), False, True)], prevent_initial_call=True)(select)
     cb(Output("tag-search", "value", allow_duplicate=True), Input("tag-search", "value"),
        prevent_initial_call=True)(lambda v: None if v else no_update)  # ready for the next pick

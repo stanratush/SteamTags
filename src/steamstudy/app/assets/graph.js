@@ -796,8 +796,40 @@
       cy.elements().not(keep).not(".region, .leaving").addClass("dim");
     });
     sizeLabels();
+    markMatrix(sel);
     if (ringed && changed && dur()) ring(ringed);
   }
+
+  // The Connections matrix shows the selection too: the selected pair's cells, or the selected Cluster's row and
+  // column (and the pair's two rows and columns).
+  function markMatrix(sel) {
+    const root = document.querySelector("#quality-detail .cm");
+    if (!root) return;
+    root.querySelectorAll(".cm-sel, .cm-hl").forEach((el) => el.classList.remove("cm-sel", "cm-hl"));
+    if (!sel) return;
+    const groups = sel.kind === "cluster" ? [sel.id] : sel.kind === "pair" ? String(sel.id).split("|") : [];
+    for (const g of groups) {
+      root.querySelectorAll(`[data-row="${CSS.escape(g)}"], [data-col="${CSS.escape(g)}"]`)
+        .forEach((el) => el.classList.add("cm-hl"));
+    }
+    if (sel.kind === "pair") {
+      root.querySelectorAll(`td[data-pair="${CSS.escape(String(sel.id))}"]`).forEach((el) => el.classList.add("cm-sel"));
+    }
+  }
+  // A new matrix (a recompute) shows the selection that is already drawn.
+  function watchMatrix() {
+    const quality = document.getElementById("quality-detail");
+    if (!quality) { setTimeout(watchMatrix, 50); return; }
+    new MutationObserver(() => {
+      const root = quality.querySelector(".cm");
+      if (root && root.dataset.marked !== G.selected) {
+        root.dataset.marked = G.selected;
+        markMatrix(G.selected ? JSON.parse(G.selected) : null);
+      }
+    }).observe(quality, {childList: true, subtree: true});
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", watchMatrix);
+  else watchMatrix();
 
   // The selected tag's ring: a DOM element over the canvas that only CSS animates (transform and opacity), so the
   // compositor runs it smoothly even while Dash applies the Inspector, and the canvas never redraws for it.
@@ -968,7 +1000,14 @@
 
   // A pair from the Inspector (a Connections row, "show this pair", "← C1 ↔ C2"): drawn at once, like a tap.
   function selectPair(ev) {
-    const el = ev.target.closest && ev.target.closest("#inspector-body [data-pair]");
+    const cluster = ev.target.closest && ev.target.closest("#quality-detail [data-cluster]");
+    if (cluster && (ev.type !== "keydown" || ev.key === "Enter" || ev.key === " ")) {  // a matrix row header
+      if (ev.type === "keydown") ev.preventDefault();
+      emit({kind: "region", cluster: cluster.dataset.cluster});
+      selectNow({kind: "cluster", id: cluster.dataset.cluster});
+      return;
+    }
+    const el = ev.target.closest && ev.target.closest("#inspector-body [data-pair], #quality-detail [data-pair]");
     if (!el || (ev.type === "keydown" && ev.key !== "Enter" && ev.key !== " ")) return;
     if (ev.type === "keydown") ev.preventDefault();
     emit({kind: "pair", id: el.dataset.pair});

@@ -600,6 +600,100 @@ def pair_inspector(row: dict[str, Any], links: list[dict[str, Any]], colors: tup
     return out
 
 
+RAMP = ("#c9ced8", "#3b2f6b")  # the Edge Appearance's value ramp
+
+
+def _ramp(t: float) -> str:
+    """A colour on the ramp at t in 0..1 (a value above the top takes the darkest colour)."""
+    t = max(0.0, min(t, 1.0))
+    lo, hi = (tuple(int(c[i:i + 2], 16) for i in (1, 3, 5)) for c in RAMP)
+    return "#" + "".join(f"{round(a + (b - a) * t):02x}" for a, b in zip(lo, hi))
+
+
+def matrix_cells(clusters: list[dict[str, Any]], rows: list[dict[str, Any]]) -> tuple[list[str], dict[tuple[str, str], Any]]:
+    """The matrix's groups (Multi-Tag Clusters in label order, then the pool when it has rows) and, for each ordered
+    (row, column), its connections row and the row group's Connection Share."""
+    labels = [c["cluster"] for c in clusters if c["kind"] == "multi_tag"]
+    if any(POOL in (r["cluster_a"], r["cluster_b"]) for r in rows):
+        labels.append(POOL)
+    cells: dict[tuple[str, str], Any] = {}
+    for r in rows:
+        a, b = r["cluster_a"], r["cluster_b"]
+        cells[(a, b)] = (r, r["share_of_a"])
+        if a != b:
+            cells[(b, a)] = (r, r["share_of_b"])
+    return labels, cells
+
+
+def connections_matrix(clusters: list[dict[str, Any]], rows: list[dict[str, Any]], weight: str, gamma: float,
+                       dataset: str, *, tx: Text) -> html.Div:
+    """The Cluster quality tab's Connections matrix (issue 19): Ratio (symmetric) or Share (row → column) per cell,
+    on one ramp fixed to 0…γ (Share: 0…100 %), the diagonal hatched with each Cluster's tag count. A cell selects
+    the pair, a row header the Cluster (graph.js); workbench.js switches the mode and Matrix | Table."""
+    labels, cells = matrix_cells(clusters, rows)
+    sizes = {c["cluster"]: c["size"] for c in clusters}
+    name = lambda g: tx("pool") if g == POOL else g  # noqa: E731
+    lift = weight == "lift"
+
+    def tip(r: dict[str, Any], row: str, col: str, share: Any) -> str:
+        lines = [f"{_group_name(row, tx)} ↔ {_group_name(col, tx)}",
+                 tx("Connection Ratio {ratio} (γ = {gamma})", ratio=tx.num(r["ratio"]), gamma=tx.fixed(gamma, ".2f")),
+                 tx("Share {row} → {col}: {share}", row=name(row), col=name(col), share=_share(share, tx)),
+                 tx("Total {total} · {n} links", total=_total(r["weight"], weight, tx), n=r["edge_count"])]
+        if lift:
+            lines.append(tx("Shared games {total} · ratio {ratio} (not tied to the clustering; can exceed γ)",
+                            total=_total(r["shared_weight"], "shared_games", tx), ratio=tx.num(r["shared_ratio"])))
+        if r["ratio"] is None:
+            lines.append(tx("Ratio empty: no link weight is expected (a pool of isolated tags only, or fewer than "
+                            "two linked pool tags)."))
+        return "\n".join(lines)
+
+    def table(mode: str) -> str:
+        head = "<th></th>" + "".join(f'<th class="cm-col" data-col="{_e(g)}">{_e(name(g))}</th>' for g in labels)
+        body = []
+        for row in labels:
+            header = (f'<th class="cm-row" data-row="{_e(row)}">{_e(name(row))}</th>' if row == POOL else
+                      f'<th class="cm-row click" data-row="{_e(row)}" data-cluster="{_e(row)}" tabindex="0" '
+                      f'title="{_e(tx("Select this cluster"))}">{_e(row)}</th>')
+            tds = []
+            for col in labels:
+                attrs = f'data-row="{_e(row)}" data-col="{_e(col)}"'
+                if row == col and row != POOL:
+                    tds.append(f'<td class="cm-diag" {attrs} title="{_e(tx.n(sizes.get(row, 0), one="{n} tag", other="{n} tags"))}">'
+                               f'{_e(sizes.get(row, ""))}</td>')
+                    continue
+                found = cells.get((row, col))
+                if found is None:
+                    tds.append(f"<td {attrs}></td>")
+                    continue
+                r, share = found
+                value = r["ratio"] if mode == "ratio" else share
+                text_ = "" if value is None else (tx.num(value) if mode == "ratio" else _share(value, tx))
+                t = 0.0 if value is None else (value / gamma if mode == "ratio" and gamma > 0 else value)
+                style = "" if value is None else f' style="background:{_ramp(t)};color:{"#fff" if t > 0.55 else "#1b2130"}"'
+                tds.append(f'<td class="cm-cell click" {attrs} data-pair="{_e(pair_id(r["cluster_a"], r["cluster_b"]))}" '
+                           f'tabindex="0" title="{_e(tip(r, row, col, share))}"{style}>{_e(text_)}</td>')
+            body.append(f"<tr>{header}{''.join(tds)}</tr>")
+        return f'<table class="cm-table cm-{mode}"><thead><tr>{head}</tr></thead><tbody>{"".join(body)}</tbody></table>'
+
+    one = min(1.0 / gamma, 1.0) * 100 if gamma > 0 else 100.0
+    key = (f'<div class="cm-key cm-key-ratio"><span>0</span><span class="cm-strip">'
+           f'<span class="cm-mark" style="left:{one:.1f}%" title="1"></span></span>'
+           f'<span>{_e(tx("γ = {gamma}", gamma=tx.fixed(gamma, ".2f")))}</span>'
+           f'<span class="mute">{_e(tx("1 = as their total link weight predicts; γ is the most a ratio can reach."))}</span></div>'
+           f'<div class="cm-key cm-key-share"><span>0%</span><span class="cm-strip"></span><span>100%</span>'
+           f'<span class="mute">{_e(tx("Share: each row adds up to 100%."))}</span></div>')
+    bar = (f'<div class="cm-bar"><span class="seg cm-modes"><button data-cm-mode="ratio">{_e(tx("Ratio"))}</button>'
+           f'<button data-cm-mode="share">{_e(tx("Share (row → column)"))}</button></span>'
+           f'<span class="seg cm-views"><button data-cm-view="matrix">{_e(tx("Matrix"))}</button>'
+           f'<button data-cm-view="table">{_e(tx("Table"))}</button></span></div>')
+    block = (f'<div class="cm" data-dataset="{_e(dataset)}" data-mode="ratio">{bar}{key}'
+             f'<div class="cm-scroll">{table("ratio")}{table("share")}</div></div>')
+    return html.Div([html.Div([html.Span(tx("Connections matrix"), className="term", tabIndex="0",
+                                         **H.attrs("connections.ratio", tx))], className="i-h"), _html(block)],
+                    className="connections-matrix")
+
+
 # ----------------------------------------------------------------------------- tag search and missing tags
 
 
