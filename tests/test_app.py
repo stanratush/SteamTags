@@ -839,6 +839,8 @@ def _help_targets(tree) -> list[str]:
             params = d.get("headerComponentParams", {}).get("innerHeaderComponentParams", {})
             if params.get("help"):
                 out.append(params["help"])
+        if getattr(c, "id", None) == "ui-words":  # the Edge appearance card's controls (graph.js renderCard)
+            out += [h["help"] for h in c.data["edges"]["help"].values()]
     return out
 
 
@@ -892,9 +894,12 @@ def test_the_edge_thickness_key_sits_in_the_legend_overlay_and_explains_itself(b
     page = list(_walk(build_layout(load_build(build_folder))))
     overlay = next(c for c in page if getattr(c, "data-graph-overlay", None) == "bottom")
     ids = {getattr(c, "id", None) for c in _walk(overlay)}
-    assert {"legend", "thickness-label", "thickness-shared"} <= ids
+    assert {"legend", "thickness-label", "edge-card-toggle"} <= ids
+    card = next(c for c in page if getattr(c, "id", None) == "edge-card")  # the switch is in the card's header
+    assert getattr(card, "data-graph-transient") == "yes" and getattr(card, "data-graph-overlay") == "bottom"
+    assert "thickness-shared" in {getattr(c, "id", None) for c in _walk(card)}
     label = next(c for c in _walk(overlay) if getattr(c, "id", None) == "thickness-label")
-    assert getattr(label, "data-help") == "02-app-controls.md#edge-thickness"
+    assert getattr(label, "data-help") == "02-app-controls.md#edge-appearance"
     deps = create_app(build_folder).server.test_client().get("/_dash-dependencies").get_json()
     drawing = next(d for d in deps if d["output"] == "graph-data.data" and "elements-base" in [i["id"] for i in d["inputs"]])
     assert "thickness-shared" not in [i["id"] for i in drawing["inputs"]]  # the switch never re-sends the graph

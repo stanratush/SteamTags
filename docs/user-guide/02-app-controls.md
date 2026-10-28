@@ -312,7 +312,7 @@ The diameter is 18 pixels plus up to 30 more, growing with the square root of th
 
 *Example.* With the dataset's most frequent tag on 80 games, a tag on 20 games is drawn 18 + 30 × √(20 / 80) = 33 pixels across at 100 % zoom, and the most frequent tag 48 pixels.
 
-### Edge thickness
+### Edge appearance
 
 > **In short.** A link's thickness shows the Clustering Weight: how many games carry both tags, or the pair's lift.
 >
@@ -322,13 +322,65 @@ The diameter is 18 pixels plus up to 30 more, growing with the square root of th
 >
 > **Caution:** the legend says which one is drawn; never compare thicknesses across the two.
 
-Under the Shared games weight, thickness shows shared games. Under Lift it shows lift; tick **show shared games** beside "Edge thickness" in the legend to draw shared games while the clustering still runs on lift. The legend always says which one is drawn: "Edge thickness: shared games" or "Edge thickness: lift". The switch changes the drawing only, never the Network State, a threshold or any number.
+Under the Shared games weight, thickness shows shared games. Under Lift it shows lift; tick **show shared games** in the legend to draw shared games while the clustering still runs on lift. The legend always says which one is drawn: "Edge thickness: shared games" or "Edge thickness: lift". When the look differs from the default it says so too, for example "Edge thickness: shared games (√, 0.5–4 px) · 12 hidden".
 
-Every link is drawn thin and faint, from 0.4 pixels up to 3 pixels at 100 % zoom for the pair with the largest value in the network, so that the dense network stays readable; the first fit is never above 100 %, so links usually look thinner. Selecting a tag darkens its links. A link exists only when the pair reaches the minimum shared games, whatever thickness shows.
+By default every link is drawn thin and faint, from 0.4 pixels up to 3 pixels at 100 % zoom for the pair with the largest value in the network, so that the dense network stays readable; the first fit is never above 100 %, so links usually look thinner. Selecting a tag makes its links opaque (in one colour, darker). A link exists only when the pair reaches the minimum shared games, whatever thickness shows.
+
+Press **Edges** beside the legend's key to open the Edge appearance card over the graph: a histogram of the drawn value per link, with the drawn width over it, and the controls below. Every control changes the drawing only, never the Network State, a threshold of the network or any number, and none of them is exported. The look (width, scaling, colour and the two strengths) is remembered per browser, like the [Interface language](#interface-language); **Reset all** leaves it alone, and the card's own **Reset** returns to the default look. The same look applies to both layouts and to Analysis Report mode.
 
 *Why it matters here.* Drawn by the Clustering Weight, the thick links are the ones that pull tags into the same cluster, so the drawing and the clusters tell the same story. Shared-game thickness picks out the pairings that recur most among the most-played games, which mostly join common tags; lift thickness picks out pairings carried together more often than the tags' frequencies predict, which often join rarer tags. Under lift, switching to shared games shows how many games stand behind a thick link; read both numbers in the Inspector.
 
 *Example.* If the most shared pair in the network shares 60 games, a link of 30 shared games is drawn 0.4 + 2.6 × 30 / 60 = 1.7 pixels wide at 100 % zoom. Under lift, with a largest lift of 8, a link of lift 2 is drawn 0.4 + 2.6 × 2 / 8 = 1.05 pixels wide.
+
+#### Width
+
+> **In short.** − and + make every link thinner or thicker, the thinnest and the thickest together, by a quarter each step.
+
+The thinnest link stays between 0.1 and 3 pixels and the thickest between 1 and 12. The button's tooltip gives the current range.
+
+*Why it matters here.* A figure for print or a large screen often needs heavier links than the dense default.
+
+#### Scaling
+
+> **In short.** How a link's value turns into its width: linear, square root or logarithmic.
+
+Linear is the default: width grows in proportion to the value. Square root (√) and logarithmic (log, from the smallest value to the largest) widen the many low values, so that the differences among the weaker links show.
+
+*Why it matters here.* On shared games a few pairs of common tags take most of the range; √ or log make the rest of the most-played games' pairings readable.
+
+#### Colour
+
+> **In short.** One colour; by Cluster (links inside a Multi-Tag Cluster in its colour); within vs between Clusters; or by value.
+
+By value runs from light grey for the smallest drawn value to dark violet for the largest, on the same scale as the width. A selected tag's links keep their colour and become opaque.
+
+*Why it matters here.* By Cluster and within vs between show at a glance which links hold a cluster together and which join two.
+
+#### Strength
+
+> **In short.** − and + make every link fainter or bolder (its opacity), by about a third each step, from 3 % to 100 %.
+
+The default is 18 %, faint enough to read the tags through a dense network.
+
+*Why it matters here.* A sparse network (a high minimum shared games) reads better with bolder links.
+
+#### Links between Clusters
+
+> **In short.** In the Cluster-separated layout, how faint the links between two Clusters are, from 0 % (not drawn) to 100 %.
+
+The default is 6 %. Shown and applied only in the Cluster-separated layout, where those links cross between the regions.
+
+*Why it matters here.* Raise it to see how the separated clusters of the most-played games' tags connect; lower it to read each region on its own.
+
+#### Hide links below
+
+> **In short.** Drag the handle on the histogram to stop drawing the links below a value; every number still counts them.
+>
+> **Caution:** a view choice only; **Minimum shared games** is the filter that changes the network.
+
+The card always says how many links are hidden from the drawing. A hidden link is not drawn, cannot be clicked and does not light up when its tag is selected, but it still counts in the Inspector's connected tags, the Edges table and every number; a tag whose links are all hidden stays drawn. The value is in the drawn measure's units: it clears when the measure changes (the Clustering Weight, the show-shared switch or the dataset), is kept across other changes of the Network State, and is never remembered.
+
+*Why it matters here.* It thins a crowded drawing of the most-played games' tag network without changing a single number, unlike Minimum shared games, which removes the links from the Network State.
 
 ### Cluster colour
 

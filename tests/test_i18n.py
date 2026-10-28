@@ -243,7 +243,7 @@ def texts(tree, props=("children", "title", "placeholder", "label")) -> list[str
 
 
 # Words that stay English in every language: proper names and symbols (spec: "Never translated").
-KEPT = {"Louvain", "Leiden", "EN", "BG"}
+KEPT = {"Louvain", "Leiden", "EN", "BG", "log"}  # log: an abbreviation, Latin in both languages
 
 
 def unbracketed(strings: list[str], names: set[str] = frozenset()) -> list[str]:
@@ -272,9 +272,17 @@ def test_every_registered_static_prop_passes_through_the_translator(app, pseudo)
         value = message_value(message, tx)
         if id_ == "ui-words":
             value = {k: v for k, v in value.items() if k != "tip"}  # the tip labels are the guide's label set
-            strings = [v for v in value.values() if isinstance(v, str)] + [
-                v for group in ("pills", "edges") for p in value[group].values()
-                for v in (p if isinstance(p, list) else [p])]
+            def leaves(node):  # every word, nested; the card's help is the guide's text (its own parity test)
+                if isinstance(node, str):
+                    yield node
+                elif isinstance(node, list):
+                    for x in node:
+                        yield from leaves(x)
+                elif isinstance(node, dict):
+                    for k, x in node.items():
+                        if k != "help":
+                            yield from leaves(x)
+            strings = list(leaves({k: v for k, v in value.items() if k != "decimal"}))
         elif prop == "labels":
             strings = list(value.values())
         else:

@@ -93,7 +93,7 @@ def thickness_key(weight: str, show_shared: bool, tx: Text) -> tuple[str, dict[s
 def payload(nodes: list[dict[str, Any]], edges: list[dict[str, Any]], positions: dict[str, list[float]], *,
             dataset: str, layout: str = "global", regions: list[dict[str, Any]] | None = None,
             selection: dict[str, Any] | None = None, weight: str = "shared_games",
-            basis: list[Any] | None = None, zoom: float = 1.0) -> dict[str, Any]:
+            basis: list[Any] | None = None, zoom: float = 1.0, min_shared: int | None = None) -> dict[str, Any]:
     """The `graph-data` store. nodes: {id, label, cluster, kind, size, center}; edges: {source, target, shared,
     lift, intra}; positions: node id -> [x, y]; regions: {label, cluster, color, x, y, width, height} (top-left corner).
     A node's size comes from the layout (fixed by its games, in the positions' units), never from what is visible;
@@ -119,6 +119,6 @@ def payload(nodes: list[dict[str, Any]], edges: list[dict[str, Any]], positions:
                     "color": r.get("color", REGION_COLOR), "x": r["x"] + r["width"] / 2, "y": r["y"] + r["height"] / 2,
                     "w": r["width"], "h": r["height"]} for i, r in enumerate(regions or [])]
     return {"dataset": dataset, "layout": layout, "basis": list(basis or [dataset]), "nodes": out_nodes,
-            "edges": out_edges, "weight": weight, "appearance": APPEARANCE,
+            "edges": out_edges, "weight": weight, "appearance": APPEARANCE, "min_shared": min_shared,
             "positions": {n["id"]: list(positions.get(n["id"], (0.0, 0.0))) for n in nodes},
             "regions": out_regions, "selected": selection_ref(selection), "view": None, "zoom": zoom}

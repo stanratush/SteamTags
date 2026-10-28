@@ -67,8 +67,13 @@ def headings(markdown: str) -> list[tuple[int, str, str]]:
     return [h for h in map(heading, markdown.splitlines()) if h]
 
 
+# An anchor kept after its heading was renamed: code, help keys and in-guide links that use it still resolve.
+ALIASES = {"edge-thickness": "edge-appearance"}
+
+
 def section(markdown: str, anchor: str) -> str | None:
-    """The section under the heading with this anchor, up to the next heading of the same or a higher level."""
+    """The section under the heading with this anchor, up to the next heading of the same or a higher level (an
+    `ALIASES` anchor gives its heading's section)."""
     lines = markdown.splitlines()
     start, level = None, 0
     for i, line in enumerate(lines):
@@ -79,7 +84,9 @@ def section(markdown: str, anchor: str) -> str | None:
             start, level = i, h[0]
         elif start is not None and h[0] <= level:
             return "\n".join(lines[start:i])
-    return "\n".join(lines[start:]) if start is not None else None
+    if start is None:
+        return section(markdown, ALIASES[anchor]) if anchor in ALIASES else None
+    return "\n".join(lines[start:])
 
 
 def shown(markdown: str) -> str:

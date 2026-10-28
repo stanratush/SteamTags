@@ -448,7 +448,7 @@
   // port. It is never part of the Network State, an export or a number.
   const EDGE_COOKIE = "steamstudy_edges";
   const LOOK = ["width", "scale", "color", "strength", "between"];
-  const A = {look: null, hideBelow: null, measureKey: null, showShared: false, hidden: 0, config: null};
+  const A = {look: null, hideBelow: null, measureKey: null, showShared: false, hidden: 0, config: null, ui: null};
 
   function readLook() {
     const m = document.cookie.match(new RegExp("(?:^|; )" + EDGE_COOKIE + "=([^;]*)"));
@@ -538,6 +538,8 @@
     writeLook();
     restyle();
     if (G.selected) applySelection(JSON.parse(G.selected), false);
+    renderCard();
+    updateKey();
     return getAppearance();
   }
 
@@ -560,11 +562,180 @@
   // The legend's show-shared switch (browser-only: no request) and the key's words, from the ui-words store.
   function edgeKey(switchValue, base, words) {
     A.showShared = !!(switchValue && switchValue.length);
-    if (G.data) { adoptAppearance(G.data); restyle(); }
-    const w = (words && words.edges) || {key: "{measure}", shared: "shared games", lift: "lift"};
-    const lift = base && base.weight === "lift" && !A.showShared;
-    return w.key.split("{measure}").join(lift ? w.lift : w.shared);
+    if (words) A.ui = words;
+    if (G.data) { adoptAppearance(G.data); restyle(); renderCard(); }
+    return keyText();
   }
+
+  // ------------------------------------------------------------------ the Edge appearance card
+
+  // The legend's Edges toggle opens it; a transient overlay (data-graph-transient), so it never changes the canvas,
+  // the layout or the fit. Its words come from the ui-words store (layout.py `edge_words`), its numbers in the
+  // Interface Language's decimal mark. Every control calls setAppearance: a restyle, no request.
+  const HIST = {w: 300, h: 92, pad: 8, base: 66, bins: 24};
+  const fill = (word, values) => Object.keys(values).reduce((s, k) => s.split(`{${k}}`).join(values[k]), word || "");
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})[c]);
+
+  function decimal(text) { return text.replace(".", (A.ui && A.ui.decimal) || "."); }
+  function fmtValue(v) { return measure() === "lift" ? decimal(v.toFixed(2)) : String(Math.round(v)); }
+  function fmtPx(v) { return decimal(String(+v.toFixed(1))); }
+  function fmtPct(v) { return decimal(String(+(v * 100).toFixed(1))) + "%"; }
+
+  function isDefault(key) {
+    const d = A.config.defaults;
+    return JSON.stringify(A.look[key]) === JSON.stringify(d[key]);
+  }
+
+  // The legend's key: what is drawn, then a short summary of a look that is not the default and of hidden links.
+  function keyText() {
+    const w = (A.ui && A.ui.edges) || {key: "{measure}", shared: "shared games", lift: "lift"};
+    let text = fill(w.key, {measure: measure() === "lift" ? w.lift : w.shared});
+    if (!A.config) return text;
+    const parts = [];
+    if (!isDefault("scale")) parts.push(w.scales[A.look.scale]);
+    if (!isDefault("width")) parts.push(fill(w.px, {lo: fmtPx(A.look.width[0]), hi: fmtPx(A.look.width[1])}));
+    if (!isDefault("color")) parts.push(w.colors[A.look.color]);
+    if (!isDefault("strength")) parts.push(fmtPct(A.look.strength));
+    if (parts.length) text += ` (${parts.join(", ")})`;
+    if (A.hideBelow !== null) text += " · " + fill(w.hidden_short, {n: A.hidden});
+    return text;
+  }
+
+  function updateKey() {
+    if (window.dash_clientside && window.dash_clientside.set_props) {
+      window.dash_clientside.set_props("thickness-label", {children: keyText()});
+    }
+  }
+
+  function cardOpen() {
+    const card = document.getElementById("edge-card");
+    return !!card && card.classList.contains("open");
+  }
+
+  // A control's name with both help layers (its guide paragraph), as workbench.js reads them.
+  function term(name) {
+    const w = A.ui.edges, h = w.help[name];
+    return `<span class="term" tabindex="0" data-tip="${esc(h.tip)}" data-help="${esc(h.help)}">${esc(w[name])}</span>`;
+  }
+
+  function stepper(name, value) {
+    const w = A.ui.edges, title = esc(`${w[name]}: ${value}`);
+    return `<span class="ea-step">${term(name)} <button data-act="${name}-" title="${title}" aria-label="${esc(w.less)}">−</button>` +
+           `<button data-act="${name}+" title="${title}" aria-label="${esc(w.more)}">+</button></span>`;
+  }
+
+  function choices(name, options, current) {
+    return `<span class="ea-choice">${term(name)} ` + options.map(([v, label]) =>
+      `<button data-act="${name}=${v}" class="${v === current ? "on" : ""}">${esc(label)}</button>`).join("") + "</span>";
+  }
+
+  function renderCard() {
+    const body = document.getElementById("edge-card-body");
+    if (!body || !cardOpen() || !G.cy || !A.config || !A.ui) return;
+    const w = A.ui.edges, key = measure() === "lift" ? "lift" : "shared";
+    const vals = G.cy.edges().not(".leaving").map((e) => e.data(key));
+    if (!vals.length) { body.innerHTML = ""; return; }
+    const lo = Math.min(...vals), hi = Math.max(...vals), low = Math.min(...vals.filter((v) => v > 0), Infinity);
+    const {w: W, pad, base, bins} = HIST, span = hi - lo || 1;
+    const xOf = (v) => pad + (v - lo) / span * (W - 2 * pad);
+    const counts = new Array(bins).fill(0);
+    for (const v of vals) counts[Math.min(bins - 1, Math.floor((v - lo) / span * bins))] += 1;
+    const cmax = Math.max(...counts), bw = (W - 2 * pad) / bins, cut = A.hideBelow === null ? lo : A.hideBelow;
+    const bars = counts.map((c, i) => {
+      const off = A.hideBelow !== null && lo + (i + 1) / bins * span <= A.hideBelow;
+      return `<rect x="${pad + i * bw + 0.5}" y="${base - c / cmax * 30}" width="${Math.max(bw - 1, 0.5)}" ` +
+             `height="${c / cmax * 30}" fill="${off ? "#e5e7eb" : "#cbd5e1"}"/>`;
+    }).join("");
+    // The drawn width along the values: a band as thick as the link (×1.5 for legibility).
+    const [w0, w1] = A.look.width, pts = [];
+    for (let i = 0; i <= 40; i++) { const v = lo + i / 40 * span; pts.push([xOf(v), w0 + (w1 - w0) * scaled(v, hi, low)]); }
+    const band = pts.map(([x, t]) => `${x},${16 - t * 1.5}`).concat(pts.slice().reverse().map(([x, t]) => `${x},${16 + t * 1.5}`)).join(" ");
+    const colors = A.config.colors, ramp = A.look.color === "value";
+    const svg = `<svg id="edge-hist" width="${W}" height="${HIST.h}" style="cursor:ew-resize">` +
+      `<defs><linearGradient id="ea-ramp"><stop offset="0" stop-color="${colors.ramp[0]}"/><stop offset="1" stop-color="${colors.ramp[1]}"/></linearGradient></defs>` +
+      `<polygon points="${band}" fill="${ramp ? "url(#ea-ramp)" : colors.one}" opacity="${Math.min(1, A.look.strength * 2.6)}"/>` +
+      `<text x="${pad}" y="34" font-size="10" fill="#6b7280">${fmtPx(w0)} px</text>` +
+      `<text x="${W - pad}" y="34" font-size="10" fill="#6b7280" text-anchor="end">${fmtPx(w1)} px</text>${bars}` +
+      `<line x1="${pad}" y1="${base}" x2="${W - pad}" y2="${base}" stroke="#9aa1ad"/>` +
+      (A.hideBelow !== null ? `<rect x="${pad}" y="10" width="${Math.max(0, xOf(cut) - pad)}" height="${base - 10}" fill="#fff" opacity="0.55"/>` : "") +
+      `<line x1="${xOf(cut)}" y1="8" x2="${xOf(cut)}" y2="${base + 4}" stroke="${A.hideBelow === null ? "#c0c6d0" : "#2457d6"}" stroke-width="2"/>` +
+      `<rect x="${xOf(cut) - 5}" y="${base - 2}" width="10" height="12" rx="2" fill="${A.hideBelow === null ? "#fff" : "#2457d6"}" stroke="#2457d6"/>` +
+      `<text x="${pad}" y="${HIST.h - 4}" font-size="10" fill="#6b7280">${fmtValue(lo)}</text>` +
+      `<text x="${W / 2}" y="${HIST.h - 4}" font-size="10" fill="#6b7280" text-anchor="middle">${esc(fill(w.axis, {measure: w[key], n: vals.length}))}</text>` +
+      `<text x="${W - pad}" y="${HIST.h - 4}" font-size="10" fill="#6b7280" text-anchor="end">${fmtValue(hi)}</text></svg>`;
+    const separated = G.data && G.data.layout === "separated";
+    body.innerHTML = svg +
+      `<div class="ea-line">${term("hide")}: ${esc(fill(w.hidden[A.hidden === 1 ? 0 : 1], {n: A.hidden}))}. ` +
+      `${esc(fill(w.filter, {n: G.data && G.data.min_shared != null ? G.data.min_shared : "…"}))}</div>` +
+      `<div class="ea-line mute">${esc(w.drag)}</div>` +
+      `<div class="ea-row">${stepper("width", fill(w.px, {lo: fmtPx(w0), hi: fmtPx(w1)}))}` +
+      `${stepper("strength", fmtPct(A.look.strength))}` +
+      (separated ? stepper("between", fmtPct(A.look.between)) : "") + `</div>` +
+      `<div class="ea-row">${choices("scale", ["linear", "sqrt", "log"].map((s) => [s, w.scales[s]]), A.look.scale)}</div>` +
+      `<div class="ea-row">${choices("color", ["one", "cluster", "within", "value"].map((c) => [c, w.colors[c]]), A.look.color)}</div>`;
+    body.dataset.lo = lo; body.dataset.hi = hi;
+  }
+
+  // The steppers: width by both ends, the strengths by a factor, within renderer.py's bounds (setAppearance clamps).
+  function act(name) {
+    const s = A.config.steps, look = A.look;
+    const [k, op] = name.endsWith("+") || name.endsWith("-") ? [name.slice(0, -1), name.slice(-1)] : name.split("=");
+    if (op === "+" || op === "-") {
+      const f = k === "width" ? s.width : s[k], m = op === "+" ? f : 1 / f;
+      if (k === "width") return setAppearance({width: look.width.map((x) => +(x * m).toFixed(3))});
+      return setAppearance({[k]: +Math.max(k === "between" && op === "+" ? 0.02 : 0, look[k] * m).toFixed(4)});
+    }
+    return setAppearance({[k]: op});
+  }
+
+  function dragTo(ev) {
+    const body = document.getElementById("edge-card-body"), svg = document.getElementById("edge-hist");
+    if (!svg) return;
+    const lo = +body.dataset.lo, hi = +body.dataset.hi, r = svg.getBoundingClientRect();
+    const x = Math.max(HIST.pad, Math.min(HIST.w - HIST.pad, ev.clientX - r.left));
+    let v = lo + (x - HIST.pad) / (HIST.w - 2 * HIST.pad) * (hi - lo);
+    v = measure() === "lift" ? Math.round(v * 20) / 20 : Math.round(v);
+    setAppearance({hideBelow: v <= lo ? null : v});
+  }
+
+  document.addEventListener("click", (ev) => {
+    const t = ev.target instanceof Element ? ev.target : null;
+    if (!t) return;
+    const toggle = t.closest("#edge-card-toggle");
+    if (toggle) {
+      const card = document.getElementById("edge-card");
+      card.classList.toggle("open");
+      toggle.setAttribute("aria-expanded", String(card.classList.contains("open")));
+      renderCard();
+      return;
+    }
+    if (t.closest("#edge-card-reset") && A.config) {
+      setAppearance(Object.assign({}, A.config.defaults, {hideBelow: null}));
+      return;
+    }
+    const btn = t.closest("#edge-card-body button[data-act]");
+    if (btn && A.config) act(btn.dataset.act);
+  });
+  document.addEventListener("pointerdown", (ev) => {
+    const svg = ev.target instanceof Element && ev.target.closest("#edge-hist");
+    if (!svg) return;
+    ev.preventDefault();
+    dragTo(ev);
+    const move = (e) => dragTo(e), up = () => {
+      window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  });
+  document.addEventListener("keydown", (ev) => {
+    const card = document.getElementById("edge-card");
+    if (ev.key === "Escape" && card && card.classList.contains("open")) {
+      card.classList.remove("open");
+      const toggle = document.getElementById("edge-card-toggle");
+      if (toggle) toggle.setAttribute("aria-expanded", "false");
+    }
+  });
+
 
   // Region ids carry a sequence suffix so a fading old region and its replacement can coexist.
   function region(cluster) {
@@ -690,6 +861,8 @@
       const fresh = !prev || prev.dataset !== data.dataset, moved = moveSig !== G.moveSig;
       sync(data, fresh);
       restyle();
+      renderCard();
+      updateKey();  // the summary follows a cleared threshold and a new hidden count
       if (fresh || moved) G.userMoved = false;
       if (!G.userMoved) fit(!!prev);  // the move and the fit run together; a new dataset only fits
       G.sig = sig; G.moveSig = moveSig;

@@ -48,8 +48,32 @@ def ui_words(tx: Text) -> dict[str, Any]:
             "pills": {"genre": [genre(1), genre(2)], "defining": tx("{hidden} + defining", hidden="{hidden}"),
                       "lift": tx("Lift"), "shared": tx("Shared games"),
                       "of": tx("{n} of {total}", n="{n}", total="{total}")},
-            "edges": {"key": tx("Edge thickness: {measure}", measure="{measure}"), "shared": tx("shared games"),
-                      "lift": tx("lift")}}
+            "edges": edge_words(tx)}
+
+
+# The Edge appearance card's controls and the help key of each (help.py `edges.*`).
+EDGE_HELP = {"width": "edges.width", "scale": "edges.scale", "color": "edges.color", "strength": "edges.strength",
+             "between": "edges.between", "hide": "edges.hide"}
+
+
+def edge_words(tx: Text) -> dict[str, Any]:
+    """The legend key's and the Edge appearance card's words (graph.js `edgeKey`, `renderCard`), `{…}` filled in the
+    browser, and each control's two help layers."""
+    hidden = lambda n: tx.n(n, one="{n} link hidden from the drawing", other="{n} links hidden from the drawing",  # noqa: E731
+                            n="{n}")
+    return {"key": tx("Edge thickness: {measure}", measure="{measure}"), "shared": tx("shared games"),
+            "lift": tx("lift"), "hidden_short": tx("{n} hidden", n="{n}"), "hidden": [hidden(1), hidden(2)],
+            "px": tx("{lo}–{hi} px", lo="{lo}", hi="{hi}"),
+            "filter": tx("Minimum shared games ({n}) is the separate filter, part of the Network State.", n="{n}"),
+            "axis": tx("{measure} per link · {n} links", measure="{measure}", n="{n}"),
+            "drag": tx("Drag the handle to stop drawing the links below a value (view only)."),
+            "width": tx("Width"), "strength": tx("Strength"), "between": tx("Links between Clusters"),
+            "scale": tx("Scaling"), "color": tx("Colour"), "hide": tx("Hide links below"),
+            "less": tx("Less"), "more": tx("More"),
+            "scales": {"linear": tx("linear"), "sqrt": "√", "log": "log"},
+            "colors": {"one": tx("one colour"), "cluster": tx("By Cluster"), "within": tx("within vs between"),
+                       "value": tx("by value")},
+            "help": {name: {"tip": H.tip(key, tx), "help": H.target(key)} for name, key in EDGE_HELP.items()}}
 
 
 def grid_locale(tx: Text) -> dict[str, str]:
@@ -263,16 +287,39 @@ def _controls(L: Labels, ctx: BuildContext) -> html.Div:
 
 
 def _thickness_legend(L: Labels, ctx: BuildContext) -> html.Div:
-    """What edge width shows (`thickness_key`, kept current by a callback), and the switch that shows shared games
-    while the clustering runs on lift. A view choice only: never part of the Network State."""
-    label, style = thickness_key(ctx.default_settings(ctx.datasets[0].key).clustering_weight, False, L.tx)
+    """What edge width shows (`thickness_key`; graph.js `edgeKey` keeps it current and sums up a look that is not
+    the default) and the Edges toggle that opens the Edge appearance card. A view choice only: never part of the
+    Network State."""
+    label, _ = thickness_key(ctx.default_settings(ctx.datasets[0].key).clustering_weight, False, L.tx)
+    aria: dict[str, Any] = {"aria-expanded": "false", "aria-controls": "edge-card"}  # graph.js keeps it current
     return html.Div([
         html.Span(label, id="thickness-label", className="lkey term", tabIndex="0",
                   **{"data-tip": L.prop("thickness-label", "data-tip", lambda tx: H.tip("legend.thickness", tx)),
                      "data-help": H.target("legend.thickness")}),
-        dcc.Checklist(id="thickness-shared", options=L.options("thickness-shared", [(1, msg("show shared games"))]),
-                      value=[], className="check", style=style),
+        html.Button(L.prop("edge-card-toggle", "children", msg("Edges")), id="edge-card-toggle", className="lchip",
+                    title=L.prop("edge-card-toggle", "title", msg("Edge appearance: width, scaling, colour, strength")),
+                    **aria),
     ], className="legend thickness-key")
+
+
+def _edge_card(L: Labels, ctx: BuildContext) -> html.Div:
+    """The Edge appearance card (variant C): a transient overlay over the graph, so opening or closing it never
+    changes the canvas, the layout or the fit. Its header holds the show-shared switch (offered only under lift) and
+    the card's Reset; graph.js fills the body (the histogram, the hide handle and the controls) from the ui-words
+    store."""
+    _, style = thickness_key(ctx.default_settings(ctx.datasets[0].key).clustering_weight, False, L.tx)
+    return html.Div([
+        html.Div([html.B(L.span(msg("Edge appearance"))),
+                  dcc.Checklist(id="thickness-shared",
+                                options=L.options("thickness-shared", [(1, msg("show shared games"))]), value=[],
+                                className="check", style=style),
+                  html.Button(L.prop("edge-card-reset", "children", msg("Reset")), id="edge-card-reset",
+                              className="btn small", title=L.prop("edge-card-reset", "title",
+                                                                  msg("Back to the default look")))],
+                 className="edge-card-head"),
+        html.Div(id="edge-card-body", className="edge-card-body"),
+    ], id="edge-card", className="ov edge-card", role="dialog",
+        **_data(graph_overlay="bottom", graph_transient="yes"))
 
 
 def build_layout(ctx: BuildContext, lang: str = "en") -> html.Div:
@@ -294,6 +341,7 @@ def build_layout(ctx: BuildContext, lang: str = "en") -> html.Div:
                      className="ov ov-tr", **_data(graph_overlay="top")),
             html.Div([html.Div(id="legend", className="legend"), _thickness_legend(L, ctx)], className="ov ov-bl",
                      **_data(graph_overlay="bottom")),
+            _edge_card(L, ctx),
             # Shown while a callback runs (callbacks.py: `running`); never a graph overlay, so it never resizes the
             # canvas the layout is made for. role="status" is a polite live region: screen readers announce the label.
             html.Div([html.Span(L.prop("busy-clustering", "children", msg("Clustering…")), id="busy-clustering",

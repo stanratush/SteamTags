@@ -288,6 +288,7 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
         "start": {str(t): list(p) for t, p in inp.start.items()},  # the loose layout: where the layout starts
         "basis": [dataset, settings.min_months, settings.clustering_weight, settings.seed],
         "weight": settings.clustering_weight, "seed": settings.seed, "dataset": dataset,
+        "min_shared": settings.min_shared_games,  # named on the Edge appearance card, beside Hide links below
     }
     restore = [{"label": f"{names.get(t, t)} ({t})", "value": t} for t in settings.removed_tag_ids]
     verify_text: Any = no_update
@@ -405,7 +406,7 @@ def render_graph(base, layout_mode, relayout_store, selection, canvas=None):
             r["color"] = R.REGION_COLOR if r["cluster"] == "one_tag_pool" else cluster_color(r["cluster"], "multi_tag")
     return R.payload(base["nodes"], base["edges"], {str(t): list(p) for t, p in positions.items()},
                      dataset=base["dataset"], layout=layout_mode, regions=regions, selection=selection,
-                     weight=base["weight"], basis=base["basis"], zoom=zoom)
+                     weight=base["weight"], basis=base["basis"], zoom=zoom, min_shared=base.get("min_shared"))
 
 
 def thickness_legend(base):

@@ -19,7 +19,11 @@ def _text(name: str) -> str:
 
 
 def _anchors(name: str) -> set[str]:
-    return {anchor for _, _, anchor in headings(_text(name))}
+    """Every heading anchor of a file, and the aliases of renamed headings (guide.ALIASES)."""
+    from steamstudy.app.guide import ALIASES
+
+    found = {anchor for _, _, anchor in headings(_text(name))}
+    return found | {old for old, new in ALIASES.items() if new in found}
 
 
 def test_committed_column_index_is_not_stale():
@@ -308,7 +312,7 @@ def test_the_control_reference_links_each_analytical_row_to_its_entry():
         assert f"](#{slug(name)})" in table, name
 
 
-GRAPH_ENTRIES = ("Node size", "Edge thickness", "Cluster colour", "Position", "Grey One-Tag Clusters")
+GRAPH_ENTRIES = ("Node size", "Edge appearance", "Cluster colour", "Position", "Grey One-Tag Clusters")
 
 
 def test_reading_the_graph_explains_each_part_of_the_drawing():
@@ -338,3 +342,15 @@ def test_every_metric_entry_opens_with_in_short_and_says_why_it_matters():
     missing = [entry.splitlines()[0] for entry in entries
                if not in_short("### " + entry.split("\n## ")[0]) or "*Why it matters here.*" not in entry.split("\n## ")[0]]
     assert missing == []
+
+
+def test_the_renamed_edge_thickness_anchor_still_resolves():
+    """Issue 16: "Edge thickness" became "Edge appearance"; the old anchor opens the same entry."""
+    from steamstudy.app.guide import help_markdown_at, in_short_at
+
+    old = help_markdown_at("en", "02-app-controls.md", "edge-thickness")
+    assert old.startswith("### Edge appearance") and old == help_markdown_at("en", "02-app-controls.md",
+                                                                              "edge-appearance")
+    assert in_short_at("en", "02-app-controls.md", "edge-thickness") == in_short_at("en", "02-app-controls.md",
+                                                                                    "edge-appearance")
+    assert "](#edge-thickness)" in _text("02-app-controls.md")  # an old in-guide link, kept on purpose
