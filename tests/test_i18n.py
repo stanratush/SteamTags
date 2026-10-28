@@ -253,7 +253,7 @@ def unbracketed(strings: list[str], names: set[str] = frozenset()) -> list[str]:
 
     bad = []
     for s in strings:
-        rest = re.sub(r"⟦.*⟧", "", s, flags=re.S)
+        rest = re.sub(r"⟦.*⟧|⟦.*$|^.*⟧", "", s, flags=re.S)  # a message split by a bold number keeps one bracket
         for name in sorted(names | KEPT, key=len, reverse=True):
             rest = rest.replace(name, "")
         if re.search(r"[A-Za-z]{2}", rest):
@@ -332,3 +332,48 @@ def test_a_language_switch_re_renders_the_state_text_without_recomputing(app):
     for d in deps:  # every computing callback reads the language as State at most
         if any(o in d["output"] for o in ("state-meta.data", "graph-data.data", "rs-done.data", "ps-run-done.data")):
             assert "lang" not in [i["id"] for i in d["inputs"]], d["output"]
+
+
+def test_the_workbench_views_render_every_word_through_the_translator(tagged_build, pseudo):
+    """Issue 13: the Inspector (tag, Cluster, link and missing-tag views), the Network State sentence and table, the
+    summary row, the quality boxes and lines, and the search: every word bracketed; names, titles and C1… not."""
+    import json as _json
+
+    from steamstudy.app import callbacks as CB
+    from steamstudy.app.loader import load_build
+
+    ctx = load_build(tagged_build)
+    s = ctx.default_settings("overall")
+    values = [s.dataset, s.min_games_per_tag, s.min_shared_games, s.min_months, [], [], s.clustering_weight,
+              s.algorithm, s.resolution, s.seed, []]
+    first = CB.recompute(str(tagged_build), *values, None, "bg")[1]["nodes"][0]["tag_id"]
+    meta, tables, *_ = CB.recompute(str(tagged_build), *values[:-1], [first], None, "bg")  # one tag removed
+    games = {g.name for g in ctx.games("overall")}
+    names = {r["tag"] for r in tables["nodes"]} | {r["tag"] for r in tables["nin"]} | games | {"Overall", meta["state_id"]}
+    views = CB.state_views(ctx, meta, tables, text("bg"))
+    for key in ("summary-row", "state-sentence", "quality-detail", "dataset-summary", "tag-search"):
+        shown = [x for x in texts(views[key]) if not x.startswith("{" + chr(10))]  # the raw state key is data
+        assert not unbracketed(shown, names), key
+    node, edge = tables["nodes"][0], tables["edges"][0]
+    cluster = next(r for r in tables["clusters"] if r["kind"] == "multi_tag")
+    missing = tables["nin"][0]
+    rs_row = {"rc_ari": 0.9, "rc_ari_beyond_noise": True, "rc_delta_modularity": 0.01, "rc_silhouette_after": 0.2,
+              "rc_silhouette_after_status": None, "rc_delta_silhouette": 0.01, "rc_delta_k": 0, "rc_delta_s": 1,
+              "rc_centers_lost": [], "fp_delta_modularity": 0.0, "fp_silhouette_after": None,
+              "fp_silhouette_after_status": "too_few", "fp_delta_silhouette": None, "tag_id": node["tag_id"]}
+    for selection, rs in (({"kind": "node", "id": str(node["tag_id"])}, {"rows": [rs_row], "state_id": "x"}),
+                          ({"kind": "edge", "id": "e", "source": str(edge["source_tag_id"]),
+                            "target": str(edge["target_tag_id"])}, None),
+                          ({"kind": "cluster", "id": cluster["cluster"]}, None),
+                          ({"kind": "nin", "id": str(missing["tag_id"])}, None)):
+        body, *_ = CB.inspector(selection, tables, rs, str(tagged_build), "overall", 0, meta, "bg")
+        strings = texts(body)
+        for block in body:  # the escaped HTML blocks: their text nodes and titles
+            html_text = getattr(block, "data-html", None) if hasattr(block, "to_plotly_json") else None
+            if html_text:
+                import html as markup
+                import re
+
+                strings += [markup.unescape(t) for t in re.findall(r">([^<>]+)<", html_text)]
+                strings += [markup.unescape(t) for t in re.findall(r'title="([^"]*)"', html_text)]
+        assert not unbracketed([x for x in strings if x.strip()], names), selection["kind"]

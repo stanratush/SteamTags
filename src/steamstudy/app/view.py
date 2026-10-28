@@ -1,4 +1,9 @@
-"""Text and table views of a Network State: the quality and noise lines, grid columns, the inspector."""
+"""Text and table views of a Network State: the quality and noise lines, grid columns, the inspector.
+
+Every function that renders visible text takes the Interface Language's translator `tx` (`steamstudy.i18n`) and
+writes its words and numbers through it. Tag names, game titles, dataset labels and cluster labels `C1…` are never
+translated.
+"""
 
 from __future__ import annotations
 
@@ -12,57 +17,57 @@ from dash import html
 
 from steamstudy.app import help as H
 from steamstudy.export import schema as S
-from steamstudy.i18n import Text, text
+from steamstudy.i18n import Text
 from steamstudy.network.metrics import within_z_cap
 
-SILHOUETTE_LABEL = "silhouette (Jaccard game-set distance), descriptive diagnostic, not a selection criterion"
-SCREENING = "screening flag, not a significance test"
-WIRE = text("en")  # i18n: wire (issue 13 passes the page's translator instead)
 
-
-def num(value: Any, digits: int = 2) -> str:
-    if value is None:
-        return "n/a"
-    if isinstance(value, bool):
-        return "yes" if value else "no"
-    if isinstance(value, int):
-        return str(value)
-    return f"{value:.{digits}f}"
-
-
-def z_text(z: float | None) -> str:
+def z_text(z: float | None, tx: Text) -> str:
     if z is None:
-        return "n/a"
-    return f"{z:.0f}" if abs(z) >= 10 else f"{z:.1f}"
+        return tx.num(None)
+    return tx.fixed(z, ".0f") if abs(z) >= 10 else tx.fixed(z, ".1f")
 
 
-def quality_line(q: dict[str, Any], gamma: str) -> str:
+def _na_status(status: Any, tx: Text) -> str:
+    return tx("n/a ({status})", status=status)
+
+
+def quality_line(q: dict[str, Any], gamma: str, *, tx: Text) -> str:
+    gamma = tx.figure(gamma)
     if q["modularity"] is None:
-        qtext = f"Q (γ = {gamma}) n/a: no edges"
+        qtext = tx("Q (γ = {gamma}) n/a: no edges", gamma=gamma)
     else:
-        null_edges = "n/a" if q["null_n_edges_mean"] is None else f"{q['null_n_edges_mean']:.0f}"
-        qtext = (f"Q (γ = {gamma}) {num(q['modularity'])} vs null {num(q['q_null_mean'])} ± {num(q['q_null_sd'])} "
-                 f"(excess {num(q['q_excess'])}, z {z_text(q['modularity_z'])}; null networks average {null_edges} "
-                 f"edges vs {q['n_edges']})")
-    sil = num(q["mean_silhouette"]) if q["mean_silhouette"] is not None else f"n/a ({q['silhouette_status']})"
-    parts = [qtext, f"coverage {num(q['coverage'])}",
-             f"{q['n_multi_tag_clusters']} multi-tag + {q['n_one_tag_clusters']} one-tag",
-             f"{SILHOUETTE_LABEL} {sil}"]
+        null_edges = tx.num(None) if q["null_n_edges_mean"] is None else tx.fixed(q["null_n_edges_mean"], ".0f")
+        qtext = tx("Q (γ = {gamma}) {q} vs null {mean} ± {sd} (excess {excess}, z {z}; null networks average "
+                   "{null_edges} edges vs {edges})", gamma=gamma, q=tx.num(q["modularity"]),
+                   mean=tx.num(q["q_null_mean"]), sd=tx.num(q["q_null_sd"]), excess=tx.num(q["q_excess"]),
+                   z=z_text(q["modularity_z"], tx), null_edges=null_edges, edges=q["n_edges"])
+    sil = tx.num(q["mean_silhouette"]) if q["mean_silhouette"] is not None else _na_status(q["silhouette_status"], tx)
+    parts = [qtext, tx("coverage {value}", value=tx.num(q["coverage"])),
+             tx("{multi} multi-tag + {one} one-tag", multi=q["n_multi_tag_clusters"], one=q["n_one_tag_clusters"]),
+             tx("silhouette (Jaccard game-set distance), descriptive diagnostic, not a selection criterion {value}",
+                value=sil)]
     if q["n_disconnected_clusters"]:
-        parts.append(f"{q['n_disconnected_clusters']} disconnected cluster(s): try Leiden")
+        parts.append(tx.n(q["n_disconnected_clusters"], one="{n} disconnected cluster: try Leiden",
+                          other="{n} disconnected clusters: try Leiden"))
     return " · ".join(parts)
 
 
-def noise_line(q: dict[str, Any], k: int) -> str:
-    sil_sd = num(q["seed_silhouette_sd"]) if q["seed_silhouette_sd"] is not None else "n/a"
-    return (f"Seed-noise floor (K = {k}): ARI vs. main min {num(q['seed_ari_min'])}, mean {num(q['seed_ari_mean'])} · "
-            f"multi-tag clusters {q['seed_k_min']}–{q['seed_k_max']} · SD Q {num(q['seed_modularity_sd'], 3)} · "
-            f"SD silhouette {sil_sd}")
+def noise_line(q: dict[str, Any], k: int, *, tx: Text) -> str:
+    sil_sd = tx.num(q["seed_silhouette_sd"])
+    return tx("Seed-noise floor (K = {k}): ARI vs. main min {min}, mean {mean} · multi-tag clusters {lo}–{hi} · "
+              "SD Q {sd_q} · SD silhouette {sd_sil}", k=k, min=tx.num(q["seed_ari_min"]),
+              mean=tx.num(q["seed_ari_mean"]), lo=q["seed_k_min"], hi=q["seed_k_max"],
+              sd_q=tx.num(q["seed_modularity_sd"], 3), sd_sil=sil_sd)
 
 
-def chance_footer(flagged: int, n: int, k: int) -> str:
-    return (f"{flagged} of {n} tags flagged; if removals acted only like another seed, about "
-            f"{n / (k + 1):.0f} would be flagged on average (n / (K + 1)). {SCREENING.capitalize()}.")
+def chance_footer(flagged: int, n: int, k: int, *, tx: Text) -> str:
+    return tx("{flagged} of {n} tags flagged; if removals acted only like another seed, about {expected} would be "
+              "flagged on average (n / (K + 1)). Screening flag, not a significance test.",
+              flagged=flagged, n=n, expected=tx.fixed(n / (k + 1), ".0f"))
+
+
+def _screening(tx: Text) -> str:
+    return tx("screening flag, not a significance test")
 
 
 # ----------------------------------------------------------------------------- grids
@@ -113,8 +118,9 @@ def grid_rows(rows: list[dict[str, Any]], drop: tuple[str, ...] = ()) -> list[di
 NODES, EDGES, CLUSTERS, RS = ("app_export/nodes.csv", "app_export/edges.csv", "app_export/clusters.csv",
                               "app_export/removal_sensitivity.csv")
 
-# The Inspector's plain names. Grids, exports and the Column Index keep the column names; each label's tooltip
-# is its guide entry's In short with the column names, and the entry says "Shown in the app as" this label.
+# The Inspector's plain names (English; shown through `tx`). Grids, exports and the Column Index keep the column
+# names; each label's tooltip is its guide entry's In short with the column names, and the entry says "Shown in the
+# app as" this label.
 INSPECTOR_LABELS: dict[str, tuple[tuple[str, str], ...]] = {
     "Cluster": ((NODES, "cluster"),),
     "Games": ((NODES, "n_games"),),
@@ -149,7 +155,7 @@ GAMES_SHOWN = 10
 
 
 @lru_cache(maxsize=None)
-def label_help(label: str, cls: str = "term", tx: Text = WIRE) -> str:
+def label_help(label: str, tx: Text, cls: str = "term") -> str:
     """A plain name's two help layers as escaped HTML attributes (see `steamstudy.app.help`)."""
     attrs = {"class": cls, "tabindex": "0", **H.column_attrs(INSPECTOR_LABELS[label], tx)}
     return " ".join(f'{k}="{_e(v)}"' for k, v in attrs.items())
@@ -159,10 +165,10 @@ class Markup(str):
     """HTML that is already escaped (a value with its note, a bold number) for `_kv`."""
 
 
-def _kv(rows: list[tuple[str, Any]]) -> html.Div:
+def _kv(rows: list[tuple[str, Any]], tx: Text) -> html.Div:
     """Metrics as a two-column list: muted plain names (with both help layers), values. One component (see
     `_html`)."""
-    items = "".join(f'<dt {label_help(label)}>{_e(label)}</dt>'
+    items = "".join(f'<dt {label_help(label, tx)}>{_e(tx(label))}</dt>'
                     f'<dd>{value if isinstance(value, Markup) else _e(value)}</dd>' for label, value in rows)
     return _html(f'<dl class="kv">{items}</dl>')
 
@@ -173,6 +179,18 @@ def _note(value: str, note: str) -> Markup:
 
 def _swatch(color: str) -> html.Span:
     return html.Span(className="sw", style={"background": color})
+
+
+def _bold_count(message: str, n: int) -> list[Any]:
+    """A counted sentence whose number is bold: `message` holds the count as "\\0" (`tx.n(…, n="\\0")`)."""
+    parts = message.split("\0")
+    out: list[Any] = []
+    for i, part in enumerate(parts):
+        if i:
+            out.append(html.B(str(n)))
+        if part:
+            out.append(part)
+    return out
 
 
 def tag_games(games: list[Any], min_months: int, tag: int) -> list[dict[str, Any]]:
@@ -221,9 +239,9 @@ def _cell(value: Any, cls: str | None = None, tag: str = "td") -> str:
     return f"<{tag}{attrs}>{_e(value)}</{tag}>"
 
 
-def _label_th(label: str) -> str:
+def _label_th(label: str, tx: Text) -> str:
     """A right-aligned table header that is an Inspector label, with its help."""
-    return f"<th {label_help(label, 'term r')}>{_e(label)}</th>"
+    return f"<th {label_help(label, tx, 'term r')}>{_e(tx(label))}</th>"
 
 
 def _table(head: str, rows: list[str]) -> str:
@@ -235,136 +253,151 @@ def _swatch_html(color: str) -> str:
     return f'<span class="sw" style="background:{safe}"></span>'
 
 
-def _games_table(games: list[dict[str, Any]], with_appid: bool = False) -> str:
-    head = _cell("Rank", "r", "th") + (_cell("AppID", tag="th") if with_appid else "") + _cell("Name", tag="th")
+def _games_table(games: list[dict[str, Any]], tx: Text, with_appid: bool = False) -> str:
+    head = (_cell(tx("Rank"), "r", "th") + (_cell(tx("AppID"), tag="th") if with_appid else "")
+            + _cell(tx("Name"), tag="th"))
     return _table(head, [f'<tr>{_cell(g["rank"], "r mute")}{_cell(g["appid"], "mono mute") if with_appid else ""}'
                          f'{_cell(g["name"], "name")}</tr>' for g in games])
 
 
-def _connected_table(connected: list[dict[str, Any]]) -> str:
+def _show_all(games: list[dict[str, Any]], tx: Text) -> str:
+    """The first `GAMES_SHOWN` games, then "Show all N" with the rest."""
+    n = len(games)
+    return _games_table(games[:GAMES_SHOWN], tx) + (
+        f'<details><summary class="more">{_e(tx("Show all {n}", n=n))}</summary>'
+        f'{_games_table(games[GAMES_SHOWN:], tx)}</details>' if n > GAMES_SHOWN else "")
+
+
+def _connected_table(connected: list[dict[str, Any]], tx: Text) -> str:
     """Connected tags; a row selects its link (graph.js listens for clicks on `data-edge`)."""
-    head = _cell("Tag", tag="th") + _label_th("Shared games") + _label_th("Lift")
-    return _table(head, [f'<tr class="click" data-edge="{_e(c["edge"])}" tabindex="0" title="Select this link">'
+    head = _cell(tx("Tag"), tag="th") + _label_th("Shared games", tx) + _label_th("Lift", tx)
+    title = _e(tx("Select this link"))
+    return _table(head, [f'<tr class="click" data-edge="{_e(c["edge"])}" tabindex="0" title="{title}">'
                          f'<td>{_swatch_html(c["color"])}{_e(c["tag"])}</td>{_cell(c["shared"], "r")}'
-                         f'{_cell(num(c["lift"]), "r")}</tr>' for c in connected])
+                         f'{_cell(tx.num(c["lift"]), "r")}</tr>' for c in connected])
 
 
 def node_inspector(node: dict[str, Any], weight: str, rs_row: dict[str, Any] | None, cluster_size: int,
                    stale: bool, games: list[dict[str, Any]] | None = None,
-                   connected: list[dict[str, Any]] | None = None, color: str = "#999") -> list[Any]:
+                   connected: list[dict[str, Any]] | None = None, color: str = "#999", *, tx: Text) -> list[Any]:
     """The tag view: its games, its connected tags, then its metrics (and its Removal Sensitivity, if run)."""
     games, connected = games or [], connected or []
     active = "strength_shared" if weight == "shared_games" else "strength_lift"
-    used = lambda column, value: _note(value, "used for clustering") if column.startswith(active) else value  # noqa: E731
+    used_note = tx("used for clustering")
+    used = lambda column, value: _note(value, used_note) if column.startswith(active) else value  # noqa: E731
     within = node["within_z"]
     cap = within_z_cap(cluster_size) if cluster_size >= 2 else None
-    within_text: Any = "n/a" if within is None else _note(
-        num(within, 1), f"max {num(cap, 1)} in a {cluster_size}-tag cluster; not comparable across cluster sizes")
-    silhouette: Any = _note(num(node["silhouette"]), "descriptive") if node["silhouette"] is not None \
-        else _note("n/a", str(node["silhouette_status"]))
+    within_text: Any = tx.num(None) if within is None else _note(
+        tx.num(within, 1), tx("max {cap} in a {size}-tag cluster; not comparable across cluster sizes",
+                              cap=tx.num(cap, 1), size=cluster_size))
+    silhouette: Any = _note(tx.num(node["silhouette"]), tx("descriptive")) if node["silhouette"] is not None \
+        else _note(tx.num(None), str(node["silhouette_status"]))
     n = len(games)
     out: list[Any] = [
-        html.H4([_swatch(color), node["tag"]] + ([html.Span("◆ Cluster Center", className="badge")]
+        html.H4([_swatch(color), node["tag"]] + ([html.Span("◆ " + tx("Cluster Center"), className="badge")]
                                                  if node["is_center"] else []), className="i-title"),
-        html.P(f"Tag {node['tag_id']} · {node['cluster']} ({cluster_size} tags)", className="i-sub"),
-        html.P([html.B(str(n)), f" game{'' if n == 1 else 's'} in the network {'has' if n == 1 else 'have'} this tag"],
-               className="lead"),
-        _html(_games_table(games[:GAMES_SHOWN]) + (
-            f'<details><summary class="more">Show all {n}</summary>{_games_table(games[GAMES_SHOWN:])}</details>'
-            if n > GAMES_SHOWN else "")),
+        html.P(tx.n(cluster_size, one="Tag {tag_id} · {cluster} ({n} tag)", other="Tag {tag_id} · {cluster} ({n} tags)",
+                    tag_id=node["tag_id"], cluster=node["cluster"]), className="i-sub"),
+        html.P(_bold_count(tx.n(n, one="{n} game in the network has this tag",
+                                other="{n} games in the network have this tag", n="\0"), n), className="lead"),
+        _html(_show_all(games, tx)),
     ]
-    out.append(html.Div(["Connected tags ", html.Span(f"{len(connected)}, by shared games", className="cnt")],
-                        className="i-h"))
-    out.append(_html(_connected_table(connected)))
-    out.append(html.Div("Metrics", className="i-h"))
+    out.append(html.Div([tx("Connected tags") + " ",
+                         html.Span(tx("{n}, by shared games", n=len(connected)), className="cnt")], className="i-h"))
+    out.append(_html(_connected_table(connected, tx)))
+    out.append(html.Div(tx("Metrics"), className="i-h"))
     out.append(_kv([
         ("Cluster", node["cluster"]),
         ("Games", str(node["n_games"])),
-        ("Total shared games", used("strength_shared", num(node["strength_shared"]))),
-        ("Total lift", used("strength_lift", num(node["strength_lift"]))),
-        ("Shared games in own cluster", used("strength_shared_intra", num(node["strength_shared_intra"]))),
-        ("Lift in own cluster", used("strength_lift_intra", num(node["strength_lift_intra"]))),
+        ("Total shared games", used("strength_shared", tx.num(node["strength_shared"]))),
+        ("Total lift", used("strength_lift", tx.num(node["strength_lift"]))),
+        ("Shared games in own cluster", used("strength_shared_intra", tx.num(node["strength_shared_intra"]))),
+        ("Lift in own cluster", used("strength_lift_intra", tx.num(node["strength_lift_intra"]))),
         ("Links · in own cluster", f"{node['degree']} · {node['degree_intra']}"),
-        ("Membership Stability", num(node["membership_stability"])),
+        ("Membership Stability", tx.num(node["membership_stability"])),
         ("Prominence in own cluster (z)", within_text),
-        ("Spread across clusters", num(node["participation"])),
+        ("Spread across clusters", tx.num(node["participation"])),
         ("Fit to own cluster (silhouette)", silhouette),
-        ("Mean game-set distance to members", num(node["medoid_score"], 3)),
-        ("Cluster Center", "yes ◆" if node["is_center"] else "no"),
-    ]))
+        ("Mean game-set distance to members", tx.num(node["medoid_score"], 3)),
+        ("Cluster Center", tx.num(True) + " ◆" if node["is_center"] else tx.num(False)),
+    ], tx))
     if rs_row is not None:
-        out += [html.Div("Removal Sensitivity" + (" (stale: other settings)" if stale else ""), className="i-h"),
+        out += [html.Div(tx("Removal Sensitivity (stale: other settings)") if stale else tx("Removal Sensitivity"),
+                         className="i-h"),
                 _kv([
-                    ("Agreement after removal (ARI, reclustered)", num(rs_row["rc_ari"])),
-                    ("Beyond seed noise", _note("yes" if rs_row["rc_ari_beyond_noise"] else "no", SCREENING)),
-                    ("Change in Q (reclustered)", num(rs_row["rc_delta_modularity"], 3)),
-                    ("Silhouette after removal (reclustered)", _transition(rs_row, "rc")),
+                    ("Agreement after removal (ARI, reclustered)", tx.num(rs_row["rc_ari"])),
+                    ("Beyond seed noise", _note(tx.num(bool(rs_row["rc_ari_beyond_noise"])), _screening(tx))),
+                    ("Change in Q (reclustered)", tx.num(rs_row["rc_delta_modularity"], 3)),
+                    ("Silhouette after removal (reclustered)", _transition(rs_row, "rc", tx)),
                     ("Change in multi-tag · one-tag clusters", f"{rs_row['rc_delta_k']} · {rs_row['rc_delta_s']}"),
-                    ("Cluster Centers lost", ", ".join(rs_row["rc_centers_lost"] or []) or "none"),
-                    ("Change in Q (clusters kept)", num(rs_row["fp_delta_modularity"], 3)),
-                    ("Silhouette after removal (clusters kept)", _transition(rs_row, "fp")),
-                ])]
+                    ("Cluster Centers lost", ", ".join(rs_row["rc_centers_lost"] or []) or tx("none")),
+                    ("Change in Q (clusters kept)", tx.num(rs_row["fp_delta_modularity"], 3)),
+                    ("Silhouette after removal (clusters kept)", _transition(rs_row, "fp", tx)),
+                ], tx)]
     return out
 
 
-def _transition(row: dict[str, Any], prefix: str) -> str:
+def _transition(row: dict[str, Any], prefix: str, tx: Text) -> str:
     after, status, delta = row[f"{prefix}_silhouette_after"], row[f"{prefix}_silhouette_after_status"], row[f"{prefix}_delta_silhouette"]
     if delta is not None:
-        return f"Δ {num(delta, 3)} (after {num(after)})"
-    return f"→ {num(after)}" if after is not None else f"→ n/a ({status})"
+        return tx("Δ {delta} (after {after})", delta=tx.num(delta, 3), after=tx.num(after))
+    return f"→ {tx.num(after)}" if after is not None else f"→ {_na_status(status, tx)}"
 
 
-def edge_inspector(edge: dict[str, Any], games: list[dict[str, Any]]) -> list[Any]:
+def edge_inspector(edge: dict[str, Any], games: list[dict[str, Any]], *, tx: Text) -> list[Any]:
     same = edge["source_cluster"] == edge["target_cluster"]
     return [
         html.H4([edge["source_tag"], html.Span(" — ", className="mute"), edge["target_tag"]], className="i-title"),
-        html.P(f"Inside {edge['source_cluster']}" if same
-               else f"Between {edge['source_cluster']} and {edge['target_cluster']}", className="i-sub"),
-        _kv([("Shared games", Markup(f"<b>{_e(edge['shared_games'])}</b>")), ("Lift", num(edge["lift"]))]),
-        html.Div(["Games having both tags ", html.Span(str(len(games)), className="cnt")], className="i-h"),
-        _html(_games_table(games, with_appid=True)),
+        html.P(tx("Inside {cluster}", cluster=edge["source_cluster"]) if same
+               else tx("Between {a} and {b}", a=edge["source_cluster"], b=edge["target_cluster"]), className="i-sub"),
+        _kv([("Shared games", Markup(f"<b>{_e(edge['shared_games'])}</b>")), ("Lift", tx.num(edge["lift"]))], tx),
+        html.Div([tx("Games having both tags") + " ", html.Span(str(len(games)), className="cnt")], className="i-h"),
+        _html(_games_table(games, tx, with_appid=True)),
     ]
 
 
-def cluster_inspector(cluster: dict[str, Any], members: list[dict[str, Any]], weight: str, color: str = "#999") -> list[Any]:
+def cluster_inspector(cluster: dict[str, Any], members: list[dict[str, Any]], weight: str, color: str = "#999", *,
+                      tx: Text) -> list[Any]:
     out: list[Any] = [
-        html.H4([_swatch(color), f"{cluster['cluster']} · {cluster['size']} tags"], className="i-title"),
-        html.P("Multi-Tag Cluster" if cluster["kind"] == "multi_tag" else "One-Tag Cluster", className="i-sub"),
+        html.H4([_swatch(color), tx.n(cluster["size"], one="{cluster} · {n} tag", other="{cluster} · {n} tags",
+                                      cluster=cluster["cluster"])], className="i-title"),
+        html.P(tx("Multi-Tag Cluster") if cluster["kind"] == "multi_tag" else tx("One-Tag Cluster"), className="i-sub"),
     ]
     if not cluster["connected"]:
-        out.append(html.P("This Louvain cluster is not a connected group of tags (never split). The Leiden mode "
-                          "avoids such clusters.", className="warning"))
+        out.append(html.P(tx("This Louvain cluster is not a connected group of tags (never split). The Leiden mode "
+                             "avoids such clusters."), className="warning"))
     out.append(_kv([
-        ("Cluster Center", ("◆ " + cluster["center"]) if cluster["center"] else f"none ({cluster['center_status']})"),
-        ("Center's game-set distance", num(cluster["center_medoid_score"], 3)),
-        ("Most-linked member", cluster["top_strength_tag"] or "n/a"),
-        ("Center is the most-linked member", num(cluster["center_is_top_strength"])),
-        ("Mean Membership Stability", num(cluster["mean_membership_stability"])),
-        ("Boundary crossing (conductance)", num(cluster["conductance"]) if cluster["conductance"] is not None
-         else f"n/a ({cluster['conductance_status']})"),
-    ]))
-    out.append(html.Div(["Members ", html.Span("by game-set distance to the others", className="cnt")],
+        ("Cluster Center", ("◆ " + cluster["center"]) if cluster["center"]
+         else tx("none ({status})", status=cluster["center_status"])),
+        ("Center's game-set distance", tx.num(cluster["center_medoid_score"], 3)),
+        ("Most-linked member", cluster["top_strength_tag"] or tx.num(None)),
+        ("Center is the most-linked member", tx.num(cluster["center_is_top_strength"])),
+        ("Mean Membership Stability", tx.num(cluster["mean_membership_stability"])),
+        ("Boundary crossing (conductance)", tx.num(cluster["conductance"]) if cluster["conductance"] is not None
+         else _na_status(cluster["conductance_status"], tx)),
+    ], tx))
+    out.append(html.Div([tx("Members") + " ", html.Span(tx("by game-set distance to the others"), className="cnt")],
                         className="i-h"))
-    head = _cell("Tag", tag="th") + "".join(_label_th(label) for label in (
+    head = _cell(tx("Tag"), tag="th") + "".join(_label_th(label, tx) for label in (
         "Games", "Mean game-set distance to members", "Membership Stability"))
     out.append(_html(_table(
         head,
         [f'<tr>{_cell(("◆ " if m["is_center"] else "") + m["tag"])}{_cell(m["n_games"], "r")}'
-         f'{_cell(num(m["medoid_score"], 3), "r")}{_cell(num(m["membership_stability"]), "r")}</tr>'
+         f'{_cell(tx.num(m["medoid_score"], 3), "r")}{_cell(tx.num(m["membership_stability"]), "r")}</tr>'
          for m in members])))
     return out
 
 
 # ----------------------------------------------------------------------------- tag search and missing tags
 
-REASONS = {"removed": "removed", "defining_tag_hidden": "defining tag hidden", "genre_tag_hidden": "Genre Tag hidden"}
 
-
-def reason_text(reason: str, n_games: int, min_games: int) -> str:
+def reason_text(reason: str, n_games: int, min_games: int, *, tx: Text) -> str:
     """A `not_in_network.csv` reason in plain words."""
     if reason == "below_min_games":
-        return f"{n_games} game{'' if n_games == 1 else 's'}, below {min_games}"
-    return REASONS.get(reason, reason)
+        return tx.n(n_games, one="{n} game, below {min}", other="{n} games, below {min}", min=min_games)
+    words = {"removed": tx("removed"), "defining_tag_hidden": tx("defining tag hidden"),
+             "genre_tag_hidden": tx("Genre Tag hidden")}
+    return words.get(reason, reason)
 
 
 def nin_action(reasons: list[str]) -> str | None:
@@ -377,7 +410,7 @@ def nin_action(reasons: list[str]) -> str | None:
     return None
 
 
-def search_options(tables: dict[str, Any], min_games: int) -> list[dict[str, Any]]:
+def search_options(tables: dict[str, Any], min_games: int, *, tx: Text) -> list[dict[str, Any]]:
     """The header search: every tag of the network (by name, with cluster and games), then every tag not in the
     network (greyed, by games, with all its reasons). Values are `node:<id>` and `nin:<id>`."""
     from steamstudy.app.renderer import cluster_color
@@ -385,107 +418,125 @@ def search_options(tables: dict[str, Any], min_games: int) -> list[dict[str, Any
     kinds = {r["cluster"]: r["kind"] for r in tables["clusters"]}
     nodes = sorted(tables["nodes"], key=lambda r: (str(r["tag"]).lower(), r["tag_id"]))
     missing = sorted(tables["nin"], key=lambda r: (-r["n_games"], str(r["tag"]).lower()))
-    options: list[dict[str, Any]] = [{"label": html.Span(f"In the network · {len(nodes)}", className="grp"),
+    options: list[dict[str, Any]] = [{"label": html.Span(tx("In the network · {n}", n=len(nodes)), className="grp"),
                                       "value": "group:in", "disabled": True, "search": ""}]
     for r in nodes:
         options.append({"label": html.Span([
             html.Span(className="sw", style={"background": cluster_color(r["cluster"], kinds[r["cluster"]])}),
-            r["tag"], html.Span(f"{r['cluster']} · {r['n_games']} games", className="why")], className="opt"),
+            r["tag"], html.Span(tx.n(r["n_games"], one="{cluster} · {n} game", other="{cluster} · {n} games",
+                                     cluster=r["cluster"]), className="why")], className="opt"),
             "value": f"node:{r['tag_id']}", "search": str(r["tag"])})
     if missing:
-        options.append({"label": html.Span(f"Not in the network · {len(missing)}", className="grp"),
+        options.append({"label": html.Span(tx("Not in the network · {n}", n=len(missing)), className="grp"),
                         "value": "group:nin", "disabled": True, "search": ""})
     for r in missing:
-        why = " · ".join(reason_text(x, r["n_games"], min_games) for x in r["reasons"])
+        why = " · ".join(reason_text(x, r["n_games"], min_games, tx=tx) for x in r["reasons"])
         options.append({"label": html.Span([r["tag"], html.Span(why, className="why")], className="opt gone"),
                         "value": f"nin:{r['tag_id']}", "search": str(r["tag"])})
     return options
 
 
-def nin_inspector(row: dict[str, Any], min_games: int) -> list[Any]:
+def nin_inspector(row: dict[str, Any], min_games: int, *, tx: Text) -> list[Any]:
     """The "Not in the network" card: the tag's reasons and games, and the one action that brings it back."""
     action = nin_action(list(row["reasons"]))
     n = row["n_games"]
     out: list[Any] = [
-        html.H4(row["tag"]), html.P(f"Tag {row['tag_id']} · not in the network", className="mute"),
-        html.P([html.Span(reason_text(x, n, min_games), className="reason") for x in row["reasons"]]),
-        html.P(f"{n} game{'' if n == 1 else 's'} of the dataset {'has' if n == 1 else 'have'} this tag.",
+        html.H4(row["tag"]), html.P(tx("Tag {tag_id} · not in the network", tag_id=row["tag_id"]), className="mute"),
+        html.P([html.Span(reason_text(x, n, min_games, tx=tx), className="reason") for x in row["reasons"]]),
+        html.P(tx.n(n, one="{n} game of the dataset has this tag.", other="{n} games of the dataset have this tag."),
                className="mute"),
     ]
     if action:
         out.append(html.Div([
-            html.Button("Restore" if action == "restore" else "Unhide", id={"type": "nin-action", "action": action},
-                        className="btn primary"),
-            html.Span(" Pressing it changes the Network State.", className="mute small")], className="row-inline"))
+            html.Button(tx("Restore") if action == "restore" else tx("Unhide"),
+                        id={"type": "nin-action", "action": action}, className="btn primary"),
+            html.Span(" " + tx("Pressing it changes the Network State."), className="mute small")],
+            className="row-inline"))
     else:
-        out.append(html.P("No single control brings this tag back; change the settings listed above.",
+        out.append(html.P(tx("No single control brings this tag back; change the settings listed above."),
                           className="mute small"))
     return out
 
 
 # ----------------------------------------------------------------------------- summary row and quality boxes
 
-def _excess(q: dict[str, Any]) -> str:
-    return "n/a" if q["q_excess"] is None else f"{q['q_excess']:+.2f}"
+def _excess(q: dict[str, Any], tx: Text) -> str:
+    return tx.num(None) if q["q_excess"] is None else tx.fixed(q["q_excess"], "+.2f")
 
 
-def _stat(label: str, value: str, sub: str, key: str, now: str | None) -> html.Div:
+def _stat(label: str, value: str, sub: str, key: str, now: str | None, tx: Text) -> html.Div:
     """One summary number: hover or focus shows its In short, a click opens its guide entry."""
     return html.Div([html.B(value, className="num"), html.Span(label, className="term"),
-                     html.Small(sub) if sub else None], className="m", tabIndex="0", **H.attrs(key, WIRE, now))
+                     html.Small(sub) if sub else None], className="m", tabIndex="0", **H.attrs(key, tx, now))
 
 
-def summary_row(q: dict[str, Any], n_rows: int, gamma: str, r: int) -> list[Any]:
+def summary_row(q: dict[str, Any], n_rows: int, gamma: str, r: int, *, tx: Text) -> list[Any]:
     """The key numbers above the graph, each large with a muted label and the two help layers."""
-    q_value = "n/a" if q["modularity"] is None else f"{num(q['modularity'])} · excess {_excess(q)}"
-    sil = num(q["mean_silhouette"]) if q["mean_silhouette"] is not None else "n/a"
-    q_now = (f"γ = {gamma}; no links, so no Q." if q["modularity"] is None else
-             f"γ = {gamma}; null mean {num(q['q_null_mean'])} ± {num(q['q_null_sd'])} from R = {r} shuffled "
-             "networks; excess = Q − null mean.")
-    items = [
-        ("Games", f"{q['n_dataset_games']} of {n_rows}", "", "summary.games",
-         f"{q['n_dataset_games']} of the dataset's {n_rows} games pass the Minimum Months Filter."),
-        ("Tags", str(q["n_nodes"]), "", "summary.tags", None),
-        ("Links", str(q["n_edges"]), "", "summary.links",
-         None if q["null_n_edges_mean"] is None else f"shuffled networks average {q['null_n_edges_mean']:.0f} links."),
-        ("Clusters", f"{q['n_multi_tag_clusters']} + {q['n_one_tag_clusters']}", "multi-tag + one-tag",
-         "summary.clusters", None if q["seed_k_min"] is None else
-         f"all other seeds give {q['seed_k_min']} multi-tag clusters." if q["seed_k_min"] == q["seed_k_max"] else
-         f"other seeds give {q['seed_k_min']}–{q['seed_k_max']} multi-tag clusters."),
-        ("Q", q_value, "", "summary.q", q_now),
-        ("Silhouette", f"{sil} · descriptive", "", "summary.silhouette",
-         None if q["seed_silhouette_sd"] is None else f"SD across seeds {num(q['seed_silhouette_sd'])}."),
-    ]
-    return [_stat(*item) for item in items]
-
-
-def quality_boxes(q: dict[str, Any], gamma: str, k: int, r: int) -> list[Any]:
-    """The Cluster quality tab: five boxes with both help layers, then the two full sentences once, small and muted."""
-    null = f"null mean {num(q['q_null_mean'])} ± {num(q['q_null_sd'])} from R = {r} shuffled networks"
-    if q["modularity"] is None:
-        excess_sub, q_now, excess_now = "no edges", f"γ = {gamma}; no links, so no Q.", None
+    gamma = tx.figure(gamma)
+    q_value = tx.num(None) if q["modularity"] is None else tx("{q} · excess {excess}", q=tx.num(q["modularity"]),
+                                                              excess=_excess(q, tx))
+    sil = tx.num(q["mean_silhouette"])
+    q_now = (tx("γ = {gamma}; no links, so no Q.", gamma=gamma) if q["modularity"] is None else
+             tx("γ = {gamma}; null mean {mean} ± {sd} from R = {r} shuffled networks; excess = Q − null mean.",
+                gamma=gamma, mean=tx.num(q["q_null_mean"]), sd=tx.num(q["q_null_sd"]), r=r))
+    if q["seed_k_min"] is None:
+        clusters_now = None
+    elif q["seed_k_min"] == q["seed_k_max"]:
+        clusters_now = tx.n(q["seed_k_min"], one="all other seeds give {n} multi-tag cluster.",
+                            other="all other seeds give {n} multi-tag clusters.")
     else:
-        excess_sub = (f"z {z_text(q['modularity_z'])} · null {num(q['q_null_mean'])} ± {num(q['q_null_sd'])} "
-                      f"· excess over the null mean")
-        q_now = f"γ = {gamma}; {null}."
-        excess_now = f"Q {num(q['modularity'])} − {null}; z {z_text(q['modularity_z'])}."
-    sil = num(q["mean_silhouette"]) if q["mean_silhouette"] is not None else f"n/a ({q['silhouette_status']})"
+        clusters_now = tx("other seeds give {lo}–{hi} multi-tag clusters.", lo=q["seed_k_min"], hi=q["seed_k_max"])
+    items = [
+        (tx("Games"), tx("{n} of {total}", n=q["n_dataset_games"], total=n_rows), "", "summary.games",
+         tx("{n} of the dataset's {total} games pass the Minimum Months Filter.", n=q["n_dataset_games"],
+            total=n_rows)),
+        (tx("Tags"), str(q["n_nodes"]), "", "summary.tags", None),
+        (tx("Links"), str(q["n_edges"]), "", "summary.links",
+         None if q["null_n_edges_mean"] is None else
+         tx("shuffled networks average {n} links.", n=tx.fixed(q["null_n_edges_mean"], ".0f"))),
+        (tx("Clusters"), f"{q['n_multi_tag_clusters']} + {q['n_one_tag_clusters']}", tx("multi-tag + one-tag"),
+         "summary.clusters", clusters_now),
+        ("Q", q_value, "", "summary.q", q_now),
+        (tx("Silhouette"), tx("{value} · descriptive", value=sil), "", "summary.silhouette",
+         None if q["seed_silhouette_sd"] is None else
+         tx("SD across seeds {sd}.", sd=tx.num(q["seed_silhouette_sd"]))),
+    ]
+    return [_stat(*item, tx) for item in items]
+
+
+def quality_boxes(q: dict[str, Any], gamma: str, k: int, r: int, *, tx: Text) -> list[Any]:
+    """The Cluster quality tab: five boxes with both help layers, then the two full sentences once, small and muted."""
+    gamma_shown = tx.figure(gamma)
+    null = tx("null mean {mean} ± {sd} from R = {r} shuffled networks", mean=tx.num(q["q_null_mean"]),
+              sd=tx.num(q["q_null_sd"]), r=r)
+    if q["modularity"] is None:
+        excess_sub, q_now, excess_now = tx("no edges"), tx("γ = {gamma}; no links, so no Q.", gamma=gamma_shown), None
+    else:
+        excess_sub = tx("z {z} · null {mean} ± {sd} · excess over the null mean", z=z_text(q["modularity_z"], tx),
+                        mean=tx.num(q["q_null_mean"]), sd=tx.num(q["q_null_sd"]))
+        q_now = tx("γ = {gamma}; {null}.", gamma=gamma_shown, null=null)
+        excess_now = tx("Q {q} − {null}; z {z}.", q=tx.num(q["modularity"]), null=null,
+                        z=z_text(q["modularity_z"], tx))
+    sil = tx.num(q["mean_silhouette"]) if q["mean_silhouette"] is not None else _na_status(q["silhouette_status"], tx)
     boxes = [
-        ("Q", num(q["modularity"]), f"γ = {gamma}", "quality.q", q_now),
-        ("Null-model excess", _excess(q), excess_sub, "quality.excess", excess_now),
-        ("Coverage", num(q["coverage"]), "link weight inside clusters", "quality.coverage", None),
-        ("Silhouette", sil, "descriptive", "quality.silhouette",
-         None if q["seed_silhouette_sd"] is None else f"SD across the K = {k} seeds {num(q['seed_silhouette_sd'])}."),
-        ("Seed noise", num(q["seed_ari_min"]), f"ARI min · mean {num(q['seed_ari_mean'])}", "quality.seed_noise",
-         f"each of the K = {k} extra seeds against the clusters shown; min is the seed that differed most."),
+        ("Q", tx.num(q["modularity"]), f"γ = {gamma_shown}", "quality.q", q_now),
+        (tx("Null-model excess"), _excess(q, tx), excess_sub, "quality.excess", excess_now),
+        (tx("Coverage"), tx.num(q["coverage"]), tx("link weight inside clusters"), "quality.coverage", None),
+        (tx("Silhouette"), sil, tx("descriptive"), "quality.silhouette",
+         None if q["seed_silhouette_sd"] is None else
+         tx("SD across the K = {k} seeds {sd}.", k=k, sd=tx.num(q["seed_silhouette_sd"]))),
+        (tx("Seed noise"), tx.num(q["seed_ari_min"]), tx("ARI min · mean {mean}", mean=tx.num(q["seed_ari_mean"])),
+         "quality.seed_noise",
+         tx("each of the K = {k} extra seeds against the clusters shown; min is the seed that differed most.", k=k)),
     ]
     return [
         html.Div([html.Div([html.Div(html.Span(label, className="term"), className="l"),
                             html.Div(value, className="v"), html.Div(sub, className="s")],
-                           className="qbox", tabIndex="0", **H.attrs(key, WIRE, now))
+                           className="qbox", tabIndex="0", **H.attrs(key, tx, now))
                   for label, value, sub, key, now in boxes], className="qboxes"),
-        html.Div([html.P(quality_line(q, gamma), tabIndex="0", **H.attrs("quality.sentence", WIRE)),
-                  html.P(noise_line(q, k), tabIndex="0", **H.attrs("quality.noise_sentence", WIRE))], className="sentences"),
+        html.Div([html.P(quality_line(q, gamma, tx=tx), tabIndex="0", **H.attrs("quality.sentence", tx)),
+                  html.P(noise_line(q, k, tx=tx), tabIndex="0", **H.attrs("quality.noise_sentence", tx))],
+                 className="sentences"),
     ]
 
 
@@ -495,25 +546,28 @@ def _copied(tx: Text) -> dict[str, Any]:
 
 
 def state_sentence(dataset_label: str, n_rows: int, settings: Any, hidden: list[str], defining: str | None,
-                   removed: list[str], state_id: str) -> list[Any]:
+                   removed: list[str], state_id: str, *, tx: Text) -> list[Any]:
     """The Network State in one readable sentence, ending with its state_id (click to copy)."""
     genre = [h for h in hidden if h != defining]
     if not genre:
-        hidden_text = "no Genre Tag hidden"
+        hidden_text = tx("no Genre Tag hidden")
     elif len(genre) <= 3:
-        hidden_text = f"Genre Tag{'s' if len(genre) > 1 else ''} {', '.join(genre)} hidden"
+        hidden_text = tx.n(len(genre), one="Genre Tag {tags} hidden", other="Genre Tags {tags} hidden",
+                           tags=", ".join(genre))
     else:
-        hidden_text = f"{len(genre)} Genre Tags hidden"
+        hidden_text = tx.n(len(genre), one="{n} Genre Tag hidden", other="{n} Genre Tags hidden")
     if defining and defining in hidden:
-        hidden_text += f", defining tag {defining} hidden"
-    removed_text = f"removed: {', '.join(removed)}" if removed else "no tag removed"
-    weight = "shared games" if settings.clustering_weight == "shared_games" else "lift"
-    text = (f"{dataset_label} Top {n_rows}, games with ≥ {settings.min_months} months observed; "
-            f"tags on ≥ {settings.min_games_per_tag} games, links of ≥ {settings.min_shared_games} shared games; "
-            f"{hidden_text}; {removed_text}; {settings.algorithm.capitalize()} on {weight}, "
-            f"γ {settings.resolution:.2f}, seed {settings.seed} · ")
-    return [text, html.Span(state_id, className="mono copy-id", title="Network State id: click to copy",
-                            **_copied(WIRE))]
+        hidden_text = tx("{hidden}, defining tag {tag} hidden", hidden=hidden_text, tag=defining)
+    removed_text = tx("removed: {tags}", tags=", ".join(removed)) if removed else tx("no tag removed")
+    weight = tx("shared games") if settings.clustering_weight == "shared_games" else tx("lift")
+    sentence = tx("{dataset} Top {rows}, games with ≥ {months} months observed; tags on ≥ {g} games, links of ≥ {s} "
+                  "shared games; {hidden}; {removed}; {algorithm} on {weight}, γ {gamma}, seed {seed} · ",
+                  dataset=dataset_label, rows=n_rows, months=settings.min_months, g=settings.min_games_per_tag,
+                  s=settings.min_shared_games, hidden=hidden_text, removed=removed_text,
+                  algorithm=settings.algorithm.capitalize(), weight=weight,
+                  gamma=tx.fixed(settings.resolution, ".2f"), seed=settings.seed)
+    return [sentence, html.Span(state_id, className="mono copy-id", title=tx("Network State id: click to copy"),
+                                **_copied(tx))]
 
 
 # ----------------------------------------------------------------------------- Analysis Report §1
@@ -532,47 +586,48 @@ STATE_HELP = {"n_games": "state.n_games", "min_months": "control.min-months", "c
               "null_replicates": "state.null_replicates", "noise_seeds": "state.noise_seeds"}
 
 
-def _state_th(field: str, label: str, key_field: str) -> html.Th:
+def _state_th(field: str, label: str, key_field: str, tx: Text) -> html.Th:
     """A Network State row's name: with both help layers when it shows a metric or a choice that needs interpretation,
-    the key field as the tooltip's last line (workbench.js styles "Field:" like "Column:")."""
+    the key field as the tooltip's last line (workbench.js styles the field line like the column line)."""
     if field not in STATE_HELP:
-        return html.Th(label, title=f"State key field: {key_field}")
+        return html.Th(label, title=tx("State key field: {field}", field=key_field))
     last = ("field", field) if field == key_field else None  # n_games is derived, not a key field
-    return html.Th(html.Span(label, className="term"), tabIndex="0", **H.attrs(STATE_HELP[field], WIRE, last=last))
+    return html.Th(html.Span(label, className="term"), tabIndex="0", **H.attrs(STATE_HELP[field], tx, last=last))
 
 
 def state_table(key: dict[str, Any], state_id: str, dataset_label: str, n_games: int, n_rows: int,
-                names: dict[int, str]) -> list[Any]:
+                names: dict[int, str], *, tx: Text) -> list[Any]:
     """Analysis Report §1: the state_id (click to copy), then the Network State as a short table a reader can
     cite (tags by name, never by bare id), then the raw state key behind "Show JSON"."""
     def tags(ids: list[int]) -> str:
-        return ", ".join(names.get(int(t), f"tag {t}") for t in ids) or "none"
+        return ", ".join(names.get(int(t), tx("tag {tag_id}", tag_id=t)) for t in ids) or tx("none")
 
-    weight = "Shared games" if key["clustering_weight"] == "shared_games" else "Lift"
+    weight = tx("Shared games") if key["clustering_weight"] == "shared_games" else tx("Lift")
     rows = [
-        ("dataset", "Dataset and Build", f"{dataset_label} · Build {key['build_id']}"),
-        ("n_games", "Games after the Minimum Months Filter", f"{n_games} of {n_rows}"),
-        ("min_months", "Minimum Months Filter", f"≥ {key['min_months']} months observed"),
-        ("min_games_per_tag", "Minimum games per tag", str(key["min_games_per_tag"])),
-        ("min_shared_games", "Minimum shared games", str(key["min_shared_games"])),
-        ("hidden_tag_ids", "Hidden tags", tags(key["hidden_tag_ids"])),
-        ("removed_tag_ids", "Removed tags", tags(key["removed_tag_ids"])),
-        ("clustering_weight", "Clustering Weight", weight),
-        ("algorithm", "Algorithm", str(key["algorithm"]).capitalize()),
-        ("resolution", "Resolution γ", str(key["resolution"])),
-        ("seed", "Seed", str(key["seed"])),
-        ("null_replicates", "Null-model replicates R", str(key["null_replicates"])),
-        ("noise_seeds", "Noise seeds K", str(key["noise_seeds"])),
-        ("key_version", "Method version", str(key["key_version"])),
+        ("dataset", tx("Dataset and Build"), tx("{dataset} · Build {build_id}", dataset=dataset_label,
+                                                build_id=key["build_id"])),
+        ("n_games", tx("Games after the Minimum Months Filter"), tx("{n} of {total}", n=n_games, total=n_rows)),
+        ("min_months", tx("Minimum Months Filter"), tx("≥ {n} months observed", n=key["min_months"])),
+        ("min_games_per_tag", tx("Minimum games per tag"), str(key["min_games_per_tag"])),
+        ("min_shared_games", tx("Minimum shared games"), str(key["min_shared_games"])),
+        ("hidden_tag_ids", tx("Hidden tags"), tags(key["hidden_tag_ids"])),
+        ("removed_tag_ids", tx("Removed tags"), tags(key["removed_tag_ids"])),
+        ("clustering_weight", tx("Clustering Weight"), weight),
+        ("algorithm", tx("Algorithm"), str(key["algorithm"]).capitalize()),
+        ("resolution", tx("Resolution γ"), tx.figure(str(key["resolution"]))),
+        ("seed", tx("Seed"), str(key["seed"])),
+        ("null_replicates", tx("Null-model replicates R"), str(key["null_replicates"])),
+        ("noise_seeds", tx("Noise seeds K"), str(key["noise_seeds"])),
+        ("key_version", tx("Method version"), str(key["key_version"])),
     ]
-    fields = {"dataset": "dataset, build_id", "n_games": "derived from dataset and min_months"}
+    fields = {"dataset": "dataset, build_id", "n_games": tx("derived from dataset and min_months")}
     return [
-        html.Div([html.Span("Network State ", className="mute"),
-                  html.Span(state_id, className="mono copy-id state-id", title="Click to copy",
-                            **_copied(WIRE)),
-                  html.Span(" — quote it with every network number.", className="mute small")], className="state-head"),
-        html.Table(html.Tbody([html.Tr([_state_th(field, label, fields.get(field, field)), html.Td(value)],
+        html.Div([html.Span(tx("Network State") + " ", className="mute"),
+                  html.Span(state_id, className="mono copy-id state-id", title=tx("Click to copy"), **_copied(tx)),
+                  html.Span(" " + tx("— quote it with every network number."), className="mute small")],
+                 className="state-head"),
+        html.Table(html.Tbody([html.Tr([_state_th(field, label, fields.get(field, field), tx), html.Td(value)],
                                        id=f"state-row-{field}") for field, label, value in rows]),
                    className="tl state-table"),
-        html.Details([html.Summary("Show JSON", className="more"), html.Pre(key_json(key), className="key-json")]),
+        html.Details([html.Summary(tx("Show JSON"), className="more"), html.Pre(key_json(key), className="key-json")]),
     ]

@@ -219,19 +219,20 @@ def state_views(c: BuildContext, meta: dict[str, Any], tables: dict[str, Any], t
                                 "for this exact state if any.", dataset=dataset, state_id=meta["state_id"])])
     return {
         "legend": legend,
-        "summary-row": V.summary_row(q, rows_total, gamma_text, settings.null_replicates),
+        "summary-row": V.summary_row(q, rows_total, gamma_text, settings.null_replicates, tx=tx),
         "state-sentence": V.state_sentence(c.dataset(dataset).label, rows_total, settings,
                                            [str(names.get(t, t)) for t in settings.hidden_tag_ids],
                                            defining.name if defining else None,
-                                           [str(names.get(t, t)) for t in settings.removed_tag_ids], meta["state_id"]),
-        "quality-detail": V.quality_boxes(q, gamma_text, meta["k"], settings.null_replicates),
+                                           [str(names.get(t, t)) for t in settings.removed_tag_ids], meta["state_id"],
+                                           tx=tx),
+        "quality-detail": V.quality_boxes(q, gamma_text, meta["k"], settings.null_replicates, tx=tx),
         "banners": banners,
         "dataset-summary": V.state_table(meta["key"], meta["state_id"], c.dataset(dataset).label, meta["n_games"],
-                                         rows_total, names),
+                                         rows_total, names, tx=tx),
         "filters-summary": filters,
         "rs-estimate": estimate,
         "export-summary": export_summary,
-        "tag-search": V.search_options(tables, settings.min_games_per_tag),
+        "tag-search": V.search_options(tables, settings.min_games_per_tag, tx=tx),
     }
 
 
@@ -503,7 +504,7 @@ def inspector(selection, tables, rs_view, build_path, dataset, min_months, meta,
     if selection["kind"] == "nin":
         row = next((r for r in tables["nin"] if str(r["tag_id"]) == selection["id"]), None)
         if row is not None:
-            return V.nin_inspector(row, (meta or {})["key"]["min_games_per_tag"]), hide, hide
+            return V.nin_inspector(row, (meta or {})["key"]["min_games_per_tag"], tx=tx), hide, hide
         selection = {"kind": "node", "id": selection["id"]}  # it has come back into the network
     if selection["kind"] == "node":
         node = next((r for r in tables["nodes"] if str(r["tag_id"]) == selection["id"]), None)
@@ -518,7 +519,7 @@ def inspector(selection, tables, rs_view, build_path, dataset, min_months, meta,
         kind = next(r["kind"] for r in tables["clusters"] if r["cluster"] == node["cluster"])
         games = V.tag_games(load_build(build_path).games(dataset), int(min_months), int(node["tag_id"]))
         return (V.node_inspector(node, weight, rs_row, size, stale, games, V.connected_tags(tables, node["tag_id"]),
-                                 cluster_color(node["cluster"], kind)), show, show)
+                                 cluster_color(node["cluster"], kind), tx=tx), show, show)
     if selection["kind"] == "edge":
         u, v = int(selection["source"]), int(selection["target"])
         edge = next((r for r in tables["edges"] if r["source_tag_id"] == min(u, v) and r["target_tag_id"] == max(u, v)), None)
@@ -527,13 +528,14 @@ def inspector(selection, tables, rs_view, build_path, dataset, min_months, meta,
         c = load_build(build_path)
         games = [{"appid": g.appid, "name": g.name, "rank": g.rank}
                  for g in filter_games(c.games(dataset), int(min_months)) if u in g.tag_ids and v in g.tag_ids]
-        return V.edge_inspector(edge, games), hide, hide
+        return V.edge_inspector(edge, games, tx=tx), hide, hide
     cluster = next((r for r in tables["clusters"] if r["cluster"] == selection["id"]), None)
     if cluster is None:
         return [html.P(tx("This cluster is not in the current partition."))], hide, hide
     by_id = {r["tag_id"]: r for r in tables["nodes"]}
     members = [by_id[t] for t in cluster["member_tag_ids"] if t in by_id]
-    return V.cluster_inspector(cluster, members, weight, cluster_color(cluster["cluster"], cluster["kind"])), hide, hide
+    return (V.cluster_inspector(cluster, members, weight, cluster_color(cluster["cluster"], cluster["kind"]), tx=tx),
+            hide, hide)
 
 
 def nin_act(_n, selection, action, removed, genre_hidden, defining_hidden, build_path, dataset):
@@ -687,7 +689,7 @@ def show_rs(rs_view, beyond, cluster, tables, meta, lang=None):
     elif rows and done < total:
         banner, banner_style = tx("Partial result: {done} of {total} tags.", done=done, total=total), {}
     flagged = sum(1 for r in rows if r["rc_ari_beyond_noise"])
-    footer = V.chance_footer(flagged, done, meta["k"]) if rows else tx("Not run for this state.")
+    footer = V.chance_footer(flagged, done, meta["k"], tx=tx) if rows else tx("Not run for this state.")
     continue_style = {"display": "inline-block"} if current and 0 < done < total else {"display": "none"}
     clusters = sorted({r["cluster"] for r in rows}, key=lambda s: int(s[1:]))
     return (V.grid_rows(view_rows), "" if current or not rows else "stale", banner, banner_style, footer, noise,

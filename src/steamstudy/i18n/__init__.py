@@ -113,6 +113,10 @@ class Text:
             return str(value)
         return self._decimal(f"{value:.{digits}f}")
 
+    def figure(self, number_text: str) -> str:
+        """A number already written as text in English form (`resolution_text`'s "1.00"), in the language's mark."""
+        return self._decimal(number_text)
+
     def fixed(self, value: float, spec: str) -> str:
         """A number formatted with a format spec (`".0f"`, `"+.2f"`, `"g"`), with the language's decimal mark."""
         return self._decimal(format(value, spec))

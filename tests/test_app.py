@@ -36,11 +36,14 @@ def build_folder(tmp_path_factory):
                        root)
 
 
+EN = text("en")
+
+
 def _tip(data_tip: str | None) -> str:
     """A tooltip's structured lines (help.py) as the English text the browser shows."""
     from steamstudy.app.help import tip_text
 
-    return tip_text(json.loads(data_tip), text("en")) if data_tip else ""
+    return tip_text(json.loads(data_tip), EN) if data_tip else ""
 
 
 def _controls(ctx, dataset="overall"):
@@ -349,7 +352,7 @@ def test_tag_search_lists_every_node_then_every_tag_not_in_the_network_with_its_
     meta, tables, base, *_ = _recompute(build_folder)
     from steamstudy.app import view as V
 
-    options = V.search_options(tables, meta["key"]["min_games_per_tag"])
+    options = V.search_options(tables, meta["key"]["min_games_per_tag"], tx=EN)
     values = _search_values(options)
     nodes = [f"node:{r['tag_id']}" for r in tables["nodes"]]
     missing = [f"nin:{r['tag_id']}" for r in tables["nin"]]
@@ -359,11 +362,11 @@ def test_tag_search_lists_every_node_then_every_tag_not_in_the_network_with_its_
             if not o.get("disabled")}
     for r in tables["nin"]:
         for reason in r["reasons"]:
-            assert V.reason_text(reason, r["n_games"], meta["key"]["min_games_per_tag"]) in text[f"nin:{r['tag_id']}"]
-    assert V.reason_text("below_min_games", 3, 8) == "3 games, below 8"
-    assert V.reason_text("genre_tag_hidden", 0, 8) == "Genre Tag hidden"
-    assert V.reason_text("defining_tag_hidden", 0, 8) == "defining tag hidden"
-    assert V.reason_text("removed", 0, 8) == "removed"
+            assert V.reason_text(reason, r["n_games"], meta["key"]["min_games_per_tag"], tx=EN) in text[f"nin:{r['tag_id']}"]
+    assert V.reason_text("below_min_games", 3, 8, tx=EN) == "3 games, below 8"
+    assert V.reason_text("genre_tag_hidden", 0, 8, tx=EN) == "Genre Tag hidden"
+    assert V.reason_text("defining_tag_hidden", 0, 8, tx=EN) == "defining tag hidden"
+    assert V.reason_text("removed", 0, 8, tx=EN) == "removed"
 
 
 def test_choosing_a_tag_in_the_search_selects_and_centres_it_or_opens_its_card():
@@ -482,7 +485,7 @@ def test_inspector_tables_escape_names_and_carry_the_link_to_select():
     games = [{"appid": 7, "name": "<script>alert(1)</script> & Co", "rank": 1}]
     connected = [{"edge": "1-2", "tag": "Rock & <Roll>", "cluster": "C1", "color": "#123456", "shared": 3, "lift": 2.0}]
     html_text = json.dumps([c.to_plotly_json() for c in V.node_inspector(node, "shared_games", None, 2, False, games,
-                                                                         connected)], default=str)
+                                                                         connected, tx=EN)], default=str)
     assert "<script>" not in html_text and "&lt;script&gt;alert(1)&lt;/script&gt; &amp; Co" in html_text
     assert "Rock &amp; &lt;Roll&gt;" in html_text and 'data-edge=\\"1-2\\"' in html_text
 
@@ -518,13 +521,13 @@ def test_summary_row_and_quality_boxes_show_the_state_values(build_folder):
     text = " ".join(_texts(summary))
     assert f"{q['n_dataset_games']} of 100" in text or f"{q['n_dataset_games']} of " in text
     for expected in (str(q["n_nodes"]), str(q["n_edges"]), f"{q['n_multi_tag_clusters']} + {q['n_one_tag_clusters']}",
-                     V.num(q["modularity"]), f"excess +{V.num(q['q_excess'])}", V.num(q["mean_silhouette"]),
+                     EN.num(q["modularity"]), f"excess +{EN.num(q['q_excess'])}", EN.num(q["mean_silhouette"]),
                      "descriptive", "not a selection criterion"):
         assert expected in text, expected
     boxes = " ".join(_texts(quality))
-    for expected in (V.num(q["modularity"]), f"+{V.num(q['q_excess'])}", V.z_text(q["modularity_z"]),
-                     f"{V.num(q['q_null_mean'])} ± {V.num(q['q_null_sd'])}", V.num(q["coverage"]),
-                     V.num(q["seed_ari_min"]), V.num(q["seed_ari_mean"]), "adjusted Rand index"):
+    for expected in (EN.num(q["modularity"]), f"+{EN.num(q['q_excess'])}", V.z_text(q["modularity_z"], EN),
+                     f"{EN.num(q['q_null_mean'])} ± {EN.num(q['q_null_sd'])}", EN.num(q["coverage"]),
+                     EN.num(q["seed_ari_min"]), EN.num(q["seed_ari_mean"]), "adjusted Rand index"):
         assert expected in boxes, expected
     assert meta["state_id"] in " ".join(_texts(sentence))
     for word in ("stable", "unstable", "excellent", "strong", "weak"):
@@ -702,7 +705,7 @@ def _help_attrs(html_text: str) -> list[tuple[str, dict[str, str]]]:
 def test_inspector_labels_show_their_in_short_and_open_their_guide_entry():
     from steamstudy.app import view as V
 
-    block = V._kv([("Membership Stability", "0.95"), ("Links · in own cluster", "9 · 5")])
+    block = V._kv([("Membership Stability", "0.95"), ("Links · in own cluster", "9 · 5")], EN)
     text = block.to_plotly_json()["props"]["data-html"]
     (first, a), (second, b) = _help_attrs(text)
     assert first == "Membership Stability" and a["data-help"] == "03-metric-reference.md#membership-stability"
@@ -721,7 +724,7 @@ def test_inspector_table_headers_carry_the_help_of_their_label():
                "mean_membership_stability": 1.0, "conductance": 0.1, "conductance_status": None}
     members = [{"tag": "A", "is_center": True, "n_games": 9, "medoid_score": 0.2, "membership_stability": 1.0}]
     text = "".join(c.to_plotly_json()["props"].get("data-html", "")
-                   for c in V.cluster_inspector(cluster, members, "shared_games"))
+                   for c in V.cluster_inspector(cluster, members, "shared_games", tx=EN))
     labels = [label for label, _ in _help_attrs(text)]
     assert {"Games", "Mean game-set distance to members", "Membership Stability", "Cluster Center"} <= set(labels)
     assert "title=" not in text
@@ -911,7 +914,7 @@ def test_the_dataset_summary_explains_each_analytical_field(build_folder):
 
     ctx = load_build(build_folder)
     s = ctx.default_settings("overall")
-    rows = {tr.id: tr for tr in _walk(V.state_table(s.key(), "abc", "Overall", 100, 100, {}))
+    rows = {tr.id: tr for tr in _walk(V.state_table(s.key(), "abc", "Overall", 100, 100, {}, tx=EN))
             if str(getattr(tr, "id", "")).startswith("state-row-")}
     th = {field[len("state-row-"):]: tr.children[0] for field, tr in rows.items()}
     assert getattr(th["min_months"], "data-help") == "02-app-controls.md#minimum-months-filter"
@@ -933,10 +936,10 @@ def test_every_help_target_in_the_app_opens_an_entry_with_in_short_and_why_it_ma
 
     out = _recompute(build_folder, **{"min-shared": 20})
     targets = _help_targets([build_layout(load_build(build_folder)), list(out),
-                             V._kv([(label, "x") for label in V.INSPECTOR_LABELS])])
+                             V._kv([(label, "x") for label in V.INSPECTOR_LABELS], EN)])
     # every help key is on a surface of the app (Parameter Selection's: test_ps_app)
     assert {H.target(key) for key in H.HELP if key not in H.SELECTION_HELP} <= set(targets)
-    assert {H.column_help(columns, text("en"))[1] for columns in V.INSPECTOR_LABELS.values()} <= set(targets)
+    assert {H.column_help(columns, EN)[1] for columns in V.INSPECTOR_LABELS.values()} <= set(targets)
     for target in set(targets):
         file, anchor = target.split("#")
         assert in_short_at("en", file, anchor), target

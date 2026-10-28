@@ -46,7 +46,14 @@ def _schema_tips() -> Iterable[str]:
 
 # Text that reaches `tx` as a variable, by area: the declared non-literal sources (schema descriptions shown as
 # header tooltips, the OpenRefused reasons). The In short label sets are the guide's (guide.LABELS), not catalogued.
-NON_LITERAL: dict[str, Callable[[], Iterable[str]]] = {"refusals": _refusals, "schema_tips": _schema_tips}
+def _inspector_labels() -> Iterable[str]:
+    from steamstudy.app.view import INSPECTOR_LABELS
+
+    return INSPECTOR_LABELS
+
+
+NON_LITERAL: dict[str, Callable[[], Iterable[str]]] = {"refusals": _refusals, "schema_tips": _schema_tips,
+                                                       "view": _inspector_labels}
 
 
 @dataclass(frozen=True)

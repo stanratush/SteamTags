@@ -4,7 +4,7 @@
 
 **Blocked by:** 11
 
-**Status:** done
+**Status:** ready-for-agent
 
 Spec: [Bilingual Interface and Cluster Views spec](../spec.md): "Catalogue and translator", "Plurals and numbers", "JS, CSS and third-party widgets". Inventory: [research 01](../research/01-string-inventory.md) (the `layout.py`, `callbacks.py`, `workbench.js`, `app.css` and `export.py` rows).
 
@@ -41,3 +41,4 @@ Spec: [Bilingual Interface and Cluster Views spec](../spec.md): "Catalogue and t
 - **Plurals now real in English**: the cache message reads "1 cached Removal Sensitivity result" (was "result(s)") in the app. The CLI keeps `app_cache.cleared_text`, unchanged. The "tags not in the network" line has a singular form.
 - **Grids**: `layout.GRIDS` is the column-definition factory per grid. `grid_words` sends every grid's `columnDefs` and `dashGridOptions` (`localeText`) again on a switch. Floats use `tx.d3_format`.
 - **Exports**: no export code reads the language (the export zip's tables and `export.json` were compared for the same Network State before and after this work).
+- Status stays `ready-for-agent` until issue 14 wires the Plotly heatmap; then this ticket is `done`.
