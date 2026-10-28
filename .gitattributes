@@ -4,3 +4,5 @@ src/steamstudy/app/assets/cytoscape.min.js -diff linguist-vendored
 # App Bundle wrappers: a shell script needs LF, a batch file CRLF
 *.command text eol=lf
 *.bat text eol=crlf
+# Golden files compared byte for byte
+tests/fixtures/selection_report_*.md -text
