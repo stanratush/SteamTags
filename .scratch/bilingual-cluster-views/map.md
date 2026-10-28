@@ -37,7 +37,9 @@ An **implementation-ready spec** (`.scratch/bilingual-cluster-views/spec.md`) pl
 
 ## Not yet specified
 
-- **Spec and implementation issues**: the frontier is empty as of 2026-10-28, with every ticket resolved. What remains is writing `spec.md` and the numbered `ready-for-agent` / `ready-for-human` issues: the mechanism, features 2–4, the A/G translation slices and the R1/R2 reviews with their follow-ups.
+<!-- nothing: every ticket is resolved, and the last patch graduated into the spec. -->
+
+**Destination reached (2026-10-28):** [spec.md](spec.md) and implementation issues 10–40 (`ready-for-agent`, with 22, 28 and 39 `ready-for-human`), listed at the end of the spec.
 
 ## Out of scope
 
