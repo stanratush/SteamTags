@@ -20,6 +20,7 @@ from steamstudy.app.loader import load_build
 from steamstudy.build.core import build
 from steamstudy.build.writer import write_build
 from steamstudy.config import load_config
+from steamstudy.i18n import text
 from steamstudy.network.layout import REFERENCE_CANVAS, Canvas, label_width, layout_state
 from steamstudy.network.sensitivity import removal_sensitivity
 from steamstudy.network.state import compute_state
@@ -33,6 +34,13 @@ def build_folder(tmp_path_factory):
     root = tmp_path_factory.mktemp("ui")
     return write_build(build(Snapshot(tagged_world().snapshot(root / "snap")), config, "20261005T130000Z-abcdef12"),
                        root)
+
+
+def _tip(data_tip: str | None) -> str:
+    """A tooltip's structured lines (help.py) as the English text the browser shows."""
+    from steamstudy.app.help import tip_text
+
+    return tip_text(json.loads(data_tip), text("en")) if data_tip else ""
 
 
 def _controls(ctx, dataset="overall"):
@@ -654,7 +662,7 @@ def test_help_modal_follows_guide_links_with_a_back_stack():
 
     triggered("help-target.data", {"target": q, "n": 1})  # a metric label opened from the app
     style, body, history, back = CB.show_help(None, None, {"target": q, "n": 1}, None, ["02-app-controls.md"])
-    assert style["display"] == "flex" and body == help_markdown_at("03-metric-reference.md", "modularity-q")
+    assert style["display"] == "flex" and body == help_markdown_at("en", "03-metric-reference.md", "modularity-q")
     assert history == [q] and back["display"] == "none"
 
     triggered("help-target.data", {"target": null, "n": 2, "follow": True})  # a link inside the modal
@@ -699,9 +707,9 @@ def test_inspector_labels_show_their_in_short_and_open_their_guide_entry():
     (first, a), (second, b) = _help_attrs(text)
     assert first == "Membership Stability" and a["data-help"] == "03-metric-reference.md#membership-stability"
     assert a["tabindex"] == "0" and "term" in a["class"] and "title" not in a
-    lines = a["data-tip"].split("\n")
+    lines = _tip(a["data-tip"]).split("\n")
     assert lines[0].startswith("In short. ") and lines[-1] == "Column: membership_stability (nodes.csv)"
-    assert b["data-tip"].split("\n")[-1] == "Columns: degree, degree_intra (nodes.csv)"
+    assert _tip(b["data-tip"]).split("\n")[-1] == "Columns: degree, degree_intra (nodes.csv)"
     assert b["data-help"] == "03-metric-reference.md#degree-and-isolated-tags"
 
 
@@ -728,8 +736,9 @@ def test_quality_boxes_and_sentences_show_the_guide_text_with_now_lines(build_fo
     assert [p["data-help"].split("#")[1] for p in props] == [
         "modularity-q", "excess-modularity-and-z-score", "coverage-and-inter-cluster-weight-share", "mean-silhouette",
         "adjusted-rand-index", "clusters-and-partition-quality", "stability"]
-    assert all(p["data-tip"].startswith("In short. ") and "title" not in p for p in props)
-    now = {p["data-help"].split("#")[1]: p["data-tip"].split("Now: ")[-1] for p in props if "Now: " in p["data-tip"]}
+    assert all(_tip(p["data-tip"]).startswith("In short. ") and "title" not in p for p in props)
+    now = {p["data-help"].split("#")[1]: _tip(p["data-tip"]).split("Now: ")[-1] for p in props
+           if "Now: " in _tip(p["data-tip"])}
     assert "γ = 1.00" in now["modularity-q"] and f"R = {s.null_replicates}" in now["excess-modularity-and-z-score"]
     assert f"K = {s.noise_seeds}" in now["adjusted-rand-index"]
 
@@ -761,9 +770,9 @@ def test_every_grid_metric_header_shows_its_in_short_and_has_an_info_mark(build_
             assert d["field"] in lines[-1], (grid.id, d["field"])
             params = d["headerComponentParams"]
             assert params["innerHeaderComponent"] == "MetricHeader"
-            assert params["innerHeaderComponentParams"]["tip"] == tip
+            assert _tip(params["innerHeaderComponentParams"]["tip"]) == tip
             file, anchor = params["innerHeaderComponentParams"]["help"].split("#")
-            assert "*Why it matters here.*" in section(chapter(file), anchor), (grid.id, d["field"])
+            assert "*Why it matters here.*" in section(chapter("en", file), anchor), (grid.id, d["field"])
     assert metric > 60
     assert {("nodes-grid", "n_games"), ("edges-grid", "lift"), ("clusters-grid", "conductance"), ("rs-grid", "rc_ari"),
             ("rs-grid", "run_order"), ("nin-grid", "reasons"), ("seed-grid", "ari_vs_main")} <= info
@@ -794,7 +803,7 @@ def test_only_controls_that_need_interpretation_carry_help(build_folder):
     pills = {getattr(c, "data-pill"): getattr(c, "data-tip", None) for c in components
              if getattr(c, "className", None) == "pill-btn"}
     for pill in ("min-months", "weight", "algorithm", "gamma", "seed"):
-        assert (pills[pill] or "").startswith("In short. "), pill
+        assert _tip(pills[pill]).startswith("In short. "), pill
     for pill in ("min-games", "min-shared", "hidden", "dataset", "state"):
         assert pills[pill] is None, pill
     for anchor in ("minimum-games-per-tag", "minimum-shared-games", "hidden-genre-tags", "hide-defining-tag",
@@ -827,7 +836,7 @@ def test_the_legend_has_a_key_and_the_one_tag_chip_explains_itself(build_folder)
     legend = out[3]
     key, *chips = legend
     assert getattr(key, "data-help") == "02-app-controls.md#reading-the-graph"
-    assert getattr(key, "data-tip").startswith("In short. ")
+    assert _tip(getattr(key, "data-tip")).startswith("In short. ")
     clusters = [c for c in chips if isinstance(getattr(c, "id", None), dict)]
     assert clusters and all(c.title == "Select this cluster" and not getattr(c, "data-help", None) for c in clusters)
     one_tag = next(c for c in chips if "one-tag" in " ".join(_texts(c)))
@@ -908,8 +917,8 @@ def test_the_dataset_summary_explains_each_analytical_field(build_folder):
     assert getattr(th["min_months"], "data-help") == "02-app-controls.md#minimum-months-filter"
     assert getattr(th["resolution"], "data-help") == "02-app-controls.md#resolution-γ"
     assert getattr(th["null_replicates"], "data-help") == "03-metric-reference.md#null-model-baseline"
-    assert getattr(th["min_months"], "data-tip").split("\n")[-1] == "Field: min_months"
-    assert not getattr(th["n_games"], "data-tip").split("\n")[-1].startswith("Field:")  # derived, not a key field
+    assert _tip(getattr(th["min_months"], "data-tip")).split("\n")[-1] == "Field: min_months"
+    assert not _tip(getattr(th["n_games"], "data-tip")).split("\n")[-1].startswith("Field:")  # derived, not a key field
     assert not getattr(th["dataset"], "data-help", None) and not getattr(th["key_version"], "data-help", None)
     for field in ("min_games_per_tag", "min_shared_games", "hidden_tag_ids", "removed_tag_ids"):
         assert not getattr(th[field], "data-help", None) and th[field].title, field
@@ -927,11 +936,11 @@ def test_every_help_target_in_the_app_opens_an_entry_with_in_short_and_why_it_ma
                              V._kv([(label, "x") for label in V.INSPECTOR_LABELS])])
     # every help key is on a surface of the app (Parameter Selection's: test_ps_app)
     assert {H.target(key) for key in H.HELP if key not in H.SELECTION_HELP} <= set(targets)
-    assert {H.column_help(columns)[1] for columns in V.INSPECTOR_LABELS.values()} <= set(targets)
+    assert {H.column_help(columns, text("en"))[1] for columns in V.INSPECTOR_LABELS.values()} <= set(targets)
     for target in set(targets):
         file, anchor = target.split("#")
-        assert in_short_at(file, anchor), target
-        assert "*Why it matters here.*" in section(chapter(file), anchor), target
+        assert in_short_at("en", file, anchor), target
+        assert "*Why it matters here.*" in section(chapter("en", file), anchor), target
 
 
 def test_the_help_modal_keeps_back_and_close_outside_the_scrolling_content(build_folder):

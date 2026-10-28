@@ -2,7 +2,10 @@
 each metric's In short block is its tooltip (see `steamstudy.app.help`). Guide links inside the modal open their
 target entry there.
 
-The guide files are the repository's `docs/user-guide/*.md`, shipped as package data (`steamstudy/guide/`).
+The guide files are the repository's `docs/user-guide/*.md`, shipped as package data (`steamstudy/guide/`), and
+their Bulgarian copy in `bg/` with the same file names. A Bulgarian heading ends with `{#<english-slug>}`, so every
+anchor, help key and in-guide link is the same in both languages. A Bulgarian file, `##` section or anchor that is
+not written yet falls back to the English one.
 """
 
 from __future__ import annotations
@@ -27,11 +30,11 @@ PANEL_SECTIONS: dict[str, tuple[str, str]] = {
 }
 
 
-def guide_dir() -> Path:
+def guide_dir(lang: str = "en") -> Path:
+    """The folder of the guide in `lang`: the English guide, or its `bg/` copy."""
     packaged = Path(__file__).resolve().parents[1] / "guide"
-    if packaged.is_dir():
-        return packaged
-    return Path(__file__).resolve().parents[3] / "docs" / "user-guide"
+    base = packaged if packaged.is_dir() else Path(__file__).resolve().parents[3] / "docs" / "user-guide"
+    return base if lang == "en" else base / lang
 
 
 def slug(heading: str) -> str:
@@ -42,14 +45,26 @@ def slug(heading: str) -> str:
     return text.replace(" ", "-")
 
 
+_HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
+_ID = re.compile(r"^(.*?)\s*\{#([^}\s]+)\}$")
+
+
+def heading(line: str) -> tuple[int, str, str] | None:
+    """(level, shown text, anchor) of a Markdown heading line: an explicit `{#id}` is the anchor and is not shown;
+    otherwise the anchor is the text's slug."""
+    m = _HEADING.match(line)
+    if not m:
+        return None
+    text = m.group(2)
+    explicit = _ID.match(text)
+    if explicit:
+        return len(m.group(1)), explicit.group(1), explicit.group(2)
+    return len(m.group(1)), text, slug(text)
+
+
 def headings(markdown: str) -> list[tuple[int, str, str]]:
     """(level, text, anchor) of every Markdown heading."""
-    out = []
-    for line in markdown.splitlines():
-        m = re.match(r"^(#{1,6})\s+(.*?)\s*#*\s*$", line)
-        if m:
-            out.append((len(m.group(1)), m.group(2), slug(m.group(2))))
-    return out
+    return [h for h in map(heading, markdown.splitlines()) if h]
 
 
 def section(markdown: str, anchor: str) -> str | None:
@@ -57,21 +72,59 @@ def section(markdown: str, anchor: str) -> str | None:
     lines = markdown.splitlines()
     start, level = None, 0
     for i, line in enumerate(lines):
-        m = re.match(r"^(#{1,6})\s+(.*?)\s*#*\s*$", line)
-        if not m:
+        h = heading(line)
+        if not h:
             continue
-        if start is None and slug(m.group(2)) == anchor:
-            start, level = i, len(m.group(1))
-        elif start is not None and len(m.group(1)) <= level:
+        if start is None and h[2] == anchor:
+            start, level = i, h[0]
+        elif start is not None and h[0] <= level:
             return "\n".join(lines[start:i])
     return "\n".join(lines[start:]) if start is not None else None
 
 
-@lru_cache(maxsize=None)
-def chapter(file: str) -> str | None:
-    """A guide chapter's Markdown, read once per process."""
-    path = guide_dir() / file
+def shown(markdown: str) -> str:
+    """The Markdown as the modal shows it: headings without their `{#id}`."""
+    return "\n".join(re.sub(r"\s*\{#[^}\s]+\}\s*$", "", line) if heading(line) else line
+                     for line in markdown.splitlines())
+
+
+def _sections(markdown: str) -> tuple[str, list[tuple[str, str]]]:
+    """A chapter as its preamble (title and introduction) and its `##` sections, (anchor, text), in order."""
+    lines = markdown.splitlines()
+    cuts = [(i, h[2]) for i, h in ((i, heading(line)) for i, line in enumerate(lines)) if h and h[0] == 2]
+    if not cuts:
+        return markdown, []
+    bounds = [i for i, _ in cuts] + [len(lines)]
+    return ("\n".join(lines[:cuts[0][0]]),
+            [(anchor, "\n".join(lines[bounds[k]:bounds[k + 1]])) for k, (_, anchor) in enumerate(cuts)])
+
+
+def splice(translated: str, english: str) -> str:
+    """A partly translated chapter: the English chapter's `##` sections in their order, each translated one in place
+    of its English text. The translated title and introduction are used once it has a title of its own."""
+    pre, done = _sections(translated)
+    en_pre, en_parts = _sections(english)
+    have = dict(done)
+    if not any(h and h[0] == 1 for h in map(heading, pre.splitlines())):
+        pre = en_pre
+    return "\n".join([pre, *(have.get(anchor, text) for anchor, text in en_parts)])
+
+
+def _read(lang: str, file: str) -> str | None:
+    path = guide_dir(lang) / file
     return path.read_text(encoding="utf-8") if path.is_file() else None
+
+
+@lru_cache(maxsize=None)
+def chapter(lang: str, file: str) -> str | None:
+    """A guide chapter's Markdown in `lang`, read once per process: English wherever the translation is missing."""
+    english = _read("en", file)
+    if lang == "en":
+        return english
+    translated = _read(lang, file)
+    if translated is None or english is None:
+        return translated or english
+    return splice(translated, english)
 
 
 def first_section(markdown: str) -> str:
@@ -81,10 +134,21 @@ def first_section(markdown: str) -> str:
     return "\n".join(lines[:starts[2]] if len(starts) > 2 else lines)
 
 
+def entry_at(lang: str, file: str, anchor: str) -> str | None:
+    """The section under one anchor in `lang`, or the English one where the translation has none."""
+    for each in dict.fromkeys((lang, "en")):
+        text = chapter(each, file)
+        found = section(text, anchor) if text is not None else None
+        if found is not None:
+            return found
+    return None
+
+
 # ----------------------------------------------------------------------------- links inside the help modal
 
 # An in-guide link shown in the modal points here, followed by its target (`<file>#<anchor>` or `<file>`):
-# workbench.js opens that entry in the modal instead of following the link.
+# workbench.js opens that entry in the modal instead of following the link. Targets are the same in every
+# language: the modal opens them in the language shown.
 HELP_LINK = "#help:"
 # A Markdown link: (`[text]`, href)
 LINK = re.compile(r"(\[[^\]]*\])\(([^)\s]+)\)")
@@ -108,26 +172,43 @@ def modal_links(markdown: str, file: str) -> str:
     return LINK.sub(point, markdown)
 
 
-def help_markdown_at(file: str, anchor: str | None = None) -> str:
+def help_markdown_at(lang: str, file: str, anchor: str | None = None) -> str:
     """The guide section under one heading (the chapter's first section without one), for the help modal."""
-    text = chapter(file)
+    text = chapter(lang, file)
     if text is None:
         return f"The User Guide file {file} is not installed."
-    found = section(text, anchor) if anchor else first_section(text)
+    found = entry_at(lang, file, anchor) if anchor else first_section(text)
     if found is None:
         return f"Section #{anchor} not found in {file}."
-    return modal_links(found, file)
+    return modal_links(shown(found), file)
 
 
-def help_markdown(panel: str) -> str:
-    return help_markdown_at(*PANEL_SECTIONS.get(panel, ("00-three-rules.md", "three-rules")))
+def help_markdown(lang: str, panel: str) -> str:
+    return help_markdown_at(lang, *PANEL_SECTIONS.get(panel, ("00-three-rules.md", "three-rules")))
 
 
 # ----------------------------------------------------------------------------- In short (the tooltip layer)
 
-# An entry's In short block: a blockquote right under its heading, one labelled line per paragraph, in this order.
-IN_SHORT_LABELS = ("In short.", "Higher →", "Lower →", "Raising it →", "Here:", "Caution:")
-_LABEL_ORDER = {"In short.": 0, "Higher →": 1, "Lower →": 1, "Raising it →": 1, "Here:": 2, "Caution:": 3}
+# The labels of an entry's In short block (a blockquote right under its heading, one labelled line per paragraph, in
+# this order), of a tooltip's other lines, and the entry markers, per language. Kinds are the same in every language;
+# the Bulgarian words are the term table's Guide labels (docs/i18n/bg-terms.md).
+IN_SHORT_KINDS = ("in_short", "higher", "lower", "raising", "here", "caution")
+LABELS: dict[str, dict[str, str]] = {
+    "en": {"in_short": "In short.", "higher": "Higher →", "lower": "Lower →", "raising": "Raising it →",
+           "here": "Here:", "caution": "Caution:", "now": "Now:", "column": "Column:", "columns": "Columns:",
+           "field": "Field:"},
+    "bg": {"in_short": "Накратко.", "higher": "По-високо →", "lower": "По-ниско →", "raising": "При повишаване →",
+           "here": "Тук:", "caution": "Внимание:", "now": "Сега:", "column": "Колона:", "columns": "Колони:",
+           "field": "Поле:"},
+}
+MARKERS: dict[str, dict[str, str]] = {
+    "en": {"why": "Why it matters here", "exact": "Exact definition", "example": "Example", "bounds": "Bounds",
+           "compare": "Compare with", "caution": "Caution", "shown": "Shown in the app as"},
+    "bg": {"why": "Защо има значение тук", "exact": "Точна дефиниция", "example": "Пример", "bounds": "Граници",
+           "compare": "Сравнете с", "caution": "Внимание", "shown": "В приложението се показва като"},
+}
+_ORDER = {"in_short": 0, "higher": 1, "lower": 1, "raising": 1, "here": 2, "caution": 3}
+IN_SHORT_LABELS = tuple(LABELS["en"][kind] for kind in IN_SHORT_KINDS)
 IN_SHORT_MAX_WORDS = 60
 
 
@@ -139,10 +220,8 @@ def plain(markdown: str) -> str:
     return "".join(p[1:-1] if p.startswith("`") else re.sub(r"\*|(?<!\w)_|_(?!\w)", "", p) for p in parts).strip()
 
 
-def in_short(entry: str) -> list[tuple[str, str]]:
-    """The (label, text) lines of the In short block that opens an entry, or [] if it has none.
-
-    The block is the first blockquote after the heading, before any other paragraph."""
+def _in_short(entry: str, kinds: dict[str, str]) -> list[tuple[str, str]]:
+    """(label, text) of the In short block's lines whose label is a key of `kinds`."""
     lines = entry.splitlines()[1:]
     while lines and not lines[0].strip():
         lines.pop(0)
@@ -154,26 +233,41 @@ def in_short(entry: str) -> list[tuple[str, str]]:
     out = []
     for para in " ".join(q if q else "\n" for q in quote).split("\n"):
         m = re.match(r"^\*\*(.+?)\*\*\s*(.*)$", para.strip())
-        if m and m.group(1) in IN_SHORT_LABELS:
+        if m and m.group(1) in kinds:
             out.append((m.group(1), plain(m.group(2))))
     return out
 
 
+def _kinds(lang: str) -> dict[str, str]:
+    """In short label -> kind, for one language."""
+    return {LABELS[lang][kind]: kind for kind in IN_SHORT_KINDS}
+
+
+def in_short(entry: str, lang: str = "en") -> list[tuple[str, str]]:
+    """The (label, text) lines of the In short block that opens an entry, in the language's labels, or [] if it has
+    none. The block is the first blockquote after the heading, before any other paragraph."""
+    return _in_short(entry, _kinds(lang))
+
+
 @lru_cache(maxsize=None)
-def in_short_at(file: str, anchor: str) -> tuple[tuple[str, str], ...]:
-    """An entry's In short lines, read once per process (the Inspector asks on every selection)."""
-    text = chapter(file)
-    entry = section(text, anchor) if text is not None else None
-    return tuple(in_short(entry)) if entry else ()
+def in_short_at(lang: str, file: str, anchor: str) -> tuple[tuple[str, str], ...]:
+    """An entry's In short lines as (kind, text), read once per process (the Inspector asks on every selection).
+    An entry not translated yet gives its English lines."""
+    entry = entry_at(lang, file, anchor)
+    if not entry:
+        return ()
+    either = {**_kinds("en"), **_kinds(lang)}
+    return tuple((either[label], text) for label, text in _in_short(entry, either))
 
 
-def in_short_problems(lines: list[tuple[str, str]]) -> list[str]:
+def in_short_problems(lines: list[tuple[str, str]], lang: str = "en") -> list[str]:
     """What breaks the In short form: no first line, labels out of order or repeated, over the word cap."""
     problems = []
-    if not lines or lines[0][0] != "In short.":
-        problems.append("does not open with 'In short.'")
-    order = [_LABEL_ORDER[label] for label, _ in lines]
-    if order != sorted(set(order)):
+    kinds = _kinds(lang)
+    if not lines or kinds.get(lines[0][0]) != "in_short":
+        problems.append(f"does not open with {LABELS[lang]['in_short']!r}")
+    order = [_ORDER[kinds[label]] for label, _ in lines if label in kinds]
+    if order != sorted(set(order)) or len(order) != len(lines):
         problems.append(f"labels out of order or repeated: {[label for label, _ in lines]}")
     words = sum(len(text.split()) for _, text in lines)
     if words > IN_SHORT_MAX_WORDS:

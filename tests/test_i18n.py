@@ -3,6 +3,8 @@ bilingual-cluster-views/spec.md, "Interface Language")."""
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from steamstudy import i18n
@@ -164,7 +166,7 @@ def test_the_switch_sits_in_the_header_beside_the_mode_switch(tagged_build):
     box = {getattr(c, "id", None): c for c in _walk(header.children[ids.index("lang-box")])}
     assert [o["value"] for o in box["lang-switch"].options] == ["en", "bg"]
     assert getattr(box["lang-term"], "data-help") == "02-app-controls.md#interface-language"
-    assert getattr(box["lang-term"], "data-tip").startswith("In short. ")
+    assert json.loads(getattr(box["lang-term"], "data-tip"))[0][0] == "in_short"
 
 
 def test_a_language_switch_relabels_every_registered_prop_and_recomputes_nothing(app, monkeypatch):
@@ -183,7 +185,7 @@ def test_a_language_switch_relabels_every_registered_prop_and_recomputes_nothing
     CB.relabel("bg")
     assert set(set_) == {str(id_) for id_, _, _ in L.RELABEL.values()}
     assert next(iter(L.RELABEL.values()))[:2] == ("lang-term", "data-tip")  # the switch's tooltip comes first
-    assert set_["lang-term"]["children"] == "Език" and set_["lang-term"]["data-tip"].startswith("In short. ")
+    assert set_["lang-term"]["children"] == "Език" and json.loads(set_["lang-term"]["data-tip"])[0][0] == "in_short"
     assert set_["ui-words"]["data"]["title"] == "Мрежа от тагове"
 
 

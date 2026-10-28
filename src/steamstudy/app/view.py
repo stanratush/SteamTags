@@ -12,10 +12,12 @@ from dash import html
 
 from steamstudy.app import help as H
 from steamstudy.export import schema as S
+from steamstudy.i18n import Text, text
 from steamstudy.network.metrics import within_z_cap
 
 SILHOUETTE_LABEL = "silhouette (Jaccard game-set distance), descriptive diagnostic, not a selection criterion"
 SCREENING = "screening flag, not a significance test"
+WIRE = text("en")  # i18n: wire (issue 13 passes the page's translator instead)
 
 
 def num(value: Any, digits: int = 2) -> str:
@@ -92,10 +94,10 @@ def column_defs(schema_key: str, columns: list[str] | None = None, *, extra: lis
 def metric_header(schema_key: str, name: str) -> dict[str, Any]:
     """A metric column's header help: ag-grid's tooltip shows the In short lines and the Column line on hover, and
     an ⓘ (workbench.js `MetricHeader`) shows them on keyboard focus and opens the entry."""
-    tip, target = H.column_help([(schema_key, name)])
-    return {"headerTooltip": tip,
+    lines, target = H.column_help([(schema_key, name)], WIRE)
+    return {"headerTooltip": H.tip_text(lines, WIRE),
             "headerComponentParams": {"innerHeaderComponent": "MetricHeader",
-                                      "innerHeaderComponentParams": {"help": target, "tip": tip}}}
+                                      "innerHeaderComponentParams": {"help": target, "tip": H.tip_json(lines)}}}
 
 
 def grid_rows(rows: list[dict[str, Any]], drop: tuple[str, ...] = ()) -> list[dict[str, Any]]:
@@ -144,9 +146,9 @@ GAMES_SHOWN = 10
 
 
 @lru_cache(maxsize=None)
-def label_help(label: str, cls: str = "term") -> str:
+def label_help(label: str, cls: str = "term", tx: Text = WIRE) -> str:
     """A plain name's two help layers as escaped HTML attributes (see `steamstudy.app.help`)."""
-    attrs = {"class": cls, "tabindex": "0", **H.column_attrs(INSPECTOR_LABELS[label])}
+    attrs = {"class": cls, "tabindex": "0", **H.column_attrs(INSPECTOR_LABELS[label], tx)}
     return " ".join(f'{k}="{_e(v)}"' for k, v in attrs.items())
 
 
@@ -427,7 +429,7 @@ def _excess(q: dict[str, Any]) -> str:
 def _stat(label: str, value: str, sub: str, key: str, now: str | None) -> html.Div:
     """One summary number: hover or focus shows its In short, a click opens its guide entry."""
     return html.Div([html.B(value, className="num"), html.Span(label, className="term"),
-                     html.Small(sub) if sub else None], className="m", tabIndex="0", **H.attrs(key, now))
+                     html.Small(sub) if sub else None], className="m", tabIndex="0", **H.attrs(key, WIRE, now))
 
 
 def summary_row(q: dict[str, Any], n_rows: int, gamma: str, r: int) -> list[Any]:
@@ -477,10 +479,10 @@ def quality_boxes(q: dict[str, Any], gamma: str, k: int, r: int) -> list[Any]:
     return [
         html.Div([html.Div([html.Div(html.Span(label, className="term"), className="l"),
                             html.Div(value, className="v"), html.Div(sub, className="s")],
-                           className="qbox", tabIndex="0", **H.attrs(key, now))
+                           className="qbox", tabIndex="0", **H.attrs(key, WIRE, now))
                   for label, value, sub, key, now in boxes], className="qboxes"),
-        html.Div([html.P(quality_line(q, gamma), tabIndex="0", **H.attrs("quality.sentence")),
-                  html.P(noise_line(q, k), tabIndex="0", **H.attrs("quality.noise_sentence"))], className="sentences"),
+        html.Div([html.P(quality_line(q, gamma), tabIndex="0", **H.attrs("quality.sentence", WIRE)),
+                  html.P(noise_line(q, k), tabIndex="0", **H.attrs("quality.noise_sentence", WIRE))], className="sentences"),
     ]
 
 
@@ -526,8 +528,8 @@ def _state_th(field: str, label: str, key_field: str) -> html.Th:
     the key field as the tooltip's last line (workbench.js styles "Field:" like "Column:")."""
     if field not in STATE_HELP:
         return html.Th(label, title=f"State key field: {key_field}")
-    last = f"Field: {field}" if field == key_field else None  # n_games is derived, not a key field
-    return html.Th(html.Span(label, className="term"), tabIndex="0", **H.attrs(STATE_HELP[field], last=last))
+    last = ("field", field) if field == key_field else None  # n_games is derived, not a key field
+    return html.Th(html.Span(label, className="term"), tabIndex="0", **H.attrs(STATE_HELP[field], WIRE, last=last))
 
 
 def state_table(key: dict[str, Any], state_id: str, dataset_label: str, n_games: int, n_rows: int,

@@ -3,15 +3,22 @@
 Layer 1 is the In short block of the element's User Guide entry: workbench.js shows it as a tooltip on hover or
 keyboard focus. Layer 2 is the whole entry, which a click opens in the help modal. The guide is the only source
 of the text; the app adds at most one "Now:" line of live values, and a label shown for export columns names them.
+
+A tooltip reaches the browser as structured lines, `[kind, text]` in JSON (`data-tip`): the kinds are the In short
+labels' (`guide.IN_SHORT_KINDS`) plus "now", "column", "columns" and "field". workbench.js shows each kind's label in
+the Interface Language (the `ui-words` store), so the browser never parses a label. The guide text comes in the
+translator's language, English wherever the Bulgarian guide is not written yet.
 """
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable
 from typing import Any
 
-from steamstudy.app.guide import in_short_at
+from steamstudy.app.guide import LABELS, in_short_at
 from steamstudy.export import schema as S
+from steamstudy.i18n import Text
 
 METRIC_REFERENCE = "03-metric-reference.md"
 APP_CONTROLS = "02-app-controls.md"
@@ -117,13 +124,33 @@ HELP.update(SELECTION_HELP)
 Columns = Iterable[tuple[str, str]]
 
 
-def _tip(entry: tuple[str, str], now: str | None = None, last: str | None = None) -> str:
-    lines = [f"{label} {text}" for label, text in in_short_at(*entry)]
+# One tooltip line: (kind, text).
+TipLine = tuple[str, str]
+
+
+def tip_lines(entry: tuple[str, str], tx: Text, now: str | None = None,
+              last: TipLine | None = None) -> list[TipLine]:
+    """An entry's In short lines in the translator's language, then the optional Now line and last line."""
+    lines = list(in_short_at(tx.lang, *entry))
     if now:
-        lines.append(f"Now: {now}")
+        lines.append(("now", now))
     if last:
         lines.append(last)
-    return "\n".join(lines)
+    return lines
+
+
+def tip_json(lines: list[TipLine]) -> str:
+    """The lines as `data-tip` carries them (workbench.js `showTip`)."""
+    return json.dumps([list(line) for line in lines], ensure_ascii=False)
+
+
+def tip_text(lines: list[TipLine], tx: Text) -> str:
+    """The lines as plain text, each with its label (ag-grid's own header tooltip)."""
+    return "\n".join(f"{LABELS[tx.lang][kind]} {text}" for kind, text in lines)
+
+
+def _tip(entry: tuple[str, str], tx: Text, now: str | None = None, last: TipLine | None = None) -> str:
+    return tip_json(tip_lines(entry, tx, now, last))
 
 
 def _target(entry: tuple[str, str]) -> str:
@@ -131,9 +158,9 @@ def _target(entry: tuple[str, str]) -> str:
     return f"{file}#{anchor}"
 
 
-def tip(key: str, now: str | None = None, last: str | None = None) -> str:
-    """The tooltip text: one labelled line per In short line, then the optional Now line and last line."""
-    return _tip(HELP[key], now, last)
+def tip(key: str, tx: Text, now: str | None = None, last: TipLine | None = None) -> str:
+    """The tooltip (`data-tip`): one line per In short line, then the optional Now line and last line."""
+    return _tip(HELP[key], tx, now, last)
 
 
 def target(key: str) -> str:
@@ -141,9 +168,9 @@ def target(key: str) -> str:
     return _target(HELP[key])
 
 
-def attrs(key: str, now: str | None = None, last: str | None = None) -> dict[str, Any]:
+def attrs(key: str, tx: Text, now: str | None = None, last: TipLine | None = None) -> dict[str, Any]:
     """The data attributes that give a Dash component both help layers (workbench.js reads them)."""
-    return {"data-tip": tip(key, now, last), "data-help": target(key)}
+    return {"data-tip": tip(key, tx, now, last), "data-help": target(key)}
 
 
 # Columns that identify or label a row have no help of their own (spec: identifier columns are out of scope): those
@@ -170,24 +197,25 @@ def column_entry(columns: Columns) -> tuple[str, str]:
     return METRIC_REFERENCE, entry
 
 
-def column_line(columns: Columns) -> str:
-    """"Column: name (file)", or "Columns: a, b (file); c (other file)" (workbench.js styles the line)."""
+def column_line(columns: Columns, tx: Text) -> TipLine:
+    """The column line: ("column", "name (file)"), or ("columns", "a, b (file); c (other file)"). Column and file
+    names stay English in every language; only the label is the language's."""
     by_file: dict[str, list[str]] = {}
     for file, name in columns:
         by_file.setdefault(file.split("/")[-1], []).append(name)
     names = "; ".join(f"{', '.join(names)} ({file})" for file, names in by_file.items())
-    return f"{'Column' if sum(map(len, by_file.values())) == 1 else 'Columns'}: {names}"
+    return ("column" if sum(map(len, by_file.values())) == 1 else "columns"), names
 
 
-def column_help(columns: Columns) -> tuple[str, str]:
-    """Both help layers for a label or header shown for export columns: the tooltip (its entry's In short, then the
-    column names) and where a click opens the help modal."""
+def column_help(columns: Columns, tx: Text) -> tuple[list[TipLine], str]:
+    """Both help layers for a label or header shown for export columns: the tooltip lines (its entry's In short,
+    then the column names) and where a click opens the help modal."""
     columns = list(columns)
     entry = column_entry(columns)
-    return _tip(entry, last=column_line(columns)), _target(entry)
+    return tip_lines(entry, tx, last=column_line(columns, tx)), _target(entry)
 
 
-def column_attrs(columns: Columns) -> dict[str, str]:
+def column_attrs(columns: Columns, tx: Text) -> dict[str, str]:
     """`column_help` as the data attributes workbench.js reads."""
-    tip_, target_ = column_help(columns)
-    return {"data-tip": tip_, "data-help": target_}
+    lines, target_ = column_help(columns, tx)
+    return {"data-tip": tip_json(lines), "data-help": target_}

@@ -126,6 +126,7 @@ The label set that `in_short()` reads for Bulgarian.
 | Caution: | Внимание: |
 | Now: | Сега: |
 | Column: / Columns: | Колона: / Колони: |
+| Field: (the Network State table's tooltip) | Поле: (proposed) |
 | Why it matters here | Защо има значение тук |
 | Exact definition | Точна дефиниция |
 | Example | Пример |

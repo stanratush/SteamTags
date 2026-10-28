@@ -24,6 +24,13 @@ def _anchors(name: str) -> set[str]:
 
 def test_committed_column_index_is_not_stale():
     assert _text(INDEX_FILE) == render(), "run: python -m steamstudy.export.column_index"
+    from steamstudy.export.column_index import FIXED
+
+    bg = GUIDE / "bg" / INDEX_FILE
+    if bg.is_file():  # written by issue 38, with FIXED["bg"]
+        assert bg.read_text(encoding="utf-8") == render("bg"), "run: python -m steamstudy.export.column_index"
+    else:
+        assert "bg" not in FIXED, "run: python -m steamstudy.export.column_index"
 
 
 def test_every_column_has_a_guide_entry_with_a_heading():
@@ -49,7 +56,7 @@ def test_every_declared_file_has_a_paragraph_in_chapter_4():
 def test_every_in_app_help_anchor_has_a_guide_heading(panel):
     file, anchor = PANEL_SECTIONS[panel]
     assert anchor in _anchors(file)
-    assert help_markdown(panel).startswith("#")
+    assert help_markdown("en", panel).startswith("#")
 
 
 def test_three_rules_and_running_guide_link():
@@ -70,6 +77,7 @@ def test_every_metric_entry_ends_with_one_exact_definition():
 
 
 def test_no_interpretation_bands_in_the_metric_reference():
+    """English only: the Bulgarian guide is checked for structure, and for meaning by the researcher's review."""
     text = _text("03-metric-reference.md").lower()
     for phrase in ("excellent", "strong structure", "weak structure", "good division", "moderate recovery",
                    "highly stable", "is significant"):
@@ -77,7 +85,7 @@ def test_no_interpretation_bands_in_the_metric_reference():
 
 
 def test_hennigs_dissolution_is_the_only_jaccard_cut():
-    """Appendix A allows ≤ 0.5 = dissolved for Subsample Stability; fpc's bands stay unused everywhere."""
+    """English only. Appendix A allows ≤ 0.5 = dissolved for Subsample Stability; fpc's bands stay unused everywhere."""
     assert "≤ 0.5 = dissolved (Hennig 2007, §2) is the only cut used" in _text("appendix-a-rules-of-thumb.md")
     from steamstudy.app.guide import section
 
@@ -93,6 +101,7 @@ def test_the_guides_methods_paragraph_is_the_report_template():
 
 
 def test_unverified_sources_are_never_cited():
+    """English only (docs/user-guide/*.md, never bg/)."""
     everything = "\n".join(p.read_text(encoding="utf-8") for p in GUIDE.glob("*.md"))
     for name in ("Kaufman", "Steinley", "Shiffler", "Hubert, L.", "Hubert & Arabie", "Rousseeuw 1987",
                  "Rousseeuw, P. J. (1987)"):
@@ -100,6 +109,7 @@ def test_unverified_sources_are_never_cited():
 
 
 def test_required_statements_in_the_metric_reference():
+    """English only (docs/user-guide/*.md, never bg/)."""
     text = _text("03-metric-reference.md")
     for required in ("0.5 but a member of a twenty-tag cluster only 0.05", "√(n − 1)", "not comparable",
                      "pulled towards 1", "inherited from one strong pair", "mechanical", "n / (K + 1)",
@@ -118,6 +128,7 @@ def test_required_statements_in_the_metric_reference():
 
 
 def test_known_limitations_chapter_holds_the_full_list():
+    """English only (docs/user-guide/*.md, never bg/)."""
     text = _text("06-known-limitations.md")
     for item in ("current snapshot", "ranked selection", "coverage gaps", "Delisted games", "under 10,000",
                  "Ties at rank 100", "joke votes", "ids 3 and 4", "Dating Sim rank", "country", "allow-parse-errors",
@@ -169,6 +180,7 @@ def test_in_short_parser_reads_labelled_lines_in_order():
 
 
 def test_every_in_short_block_keeps_the_form_and_avoids_quality_words():
+    """English only: the banned quality words are English words (docs/user-guide/*.md, never bg/)."""
     from steamstudy.app.guide import in_short, in_short_problems
 
     exempt = [t.lower() for t in _glossary_terms()]
@@ -194,8 +206,8 @@ def test_every_app_help_key_resolves_to_an_entry_with_in_short_and_why_it_matter
 
     for key, (file, anchor) in HELP.items():
         assert anchor in _anchors(file), key
-        assert in_short_at(file, anchor), key
-        assert "*Why it matters here.*" in section(chapter(file), anchor), key
+        assert in_short_at("en", file, anchor), key
+        assert "*Why it matters here.*" in section(chapter("en", file), anchor), key
 
 
 # ----------------------------------------------------------------------------- links inside the help modal
@@ -226,17 +238,17 @@ def test_modal_links_point_in_guide_links_at_the_modal_and_leave_the_rest():
 def test_a_chapter_without_an_anchor_opens_its_first_section():
     from steamstudy.app.guide import help_markdown_at
 
-    shown = help_markdown_at("03-metric-reference.md")
+    shown = help_markdown_at("en", "03-metric-reference.md")
     assert shown.startswith("# Metric reference")
     assert "## How to read this chapter" in shown and "## Settings that change the numbers" not in shown
-    assert help_markdown_at("appendix-b-column-index.md").startswith("# Appendix B")
+    assert help_markdown_at("en", "appendix-b-column-index.md").startswith("# Appendix B")
 
 
 def test_help_markdown_at_rewrites_the_links_it_shows():
     from steamstudy.app.guide import HELP_LINK, help_markdown_at
 
     assert f"]({HELP_LINK}03-metric-reference.md#null-model-baseline)" in help_markdown_at(
-        "03-metric-reference.md", "modularity-q")
+        "en", "03-metric-reference.md", "modularity-q")
 
 
 def test_every_in_guide_link_the_modal_follows_points_to_an_existing_heading():
@@ -263,8 +275,8 @@ def test_every_inspector_label_resolves_to_an_entry_with_in_short_and_why_it_mat
 
     for label, columns in INSPECTOR_LABELS.items():
         file, anchor = column_entry(columns)
-        assert in_short_at(file, anchor), label
-        assert "*Why it matters here.*" in section(chapter(file), anchor), label
+        assert in_short_at("en", file, anchor), label
+        assert "*Why it matters here.*" in section(chapter("en", file), anchor), label
 
 
 # ----------------------------------------------------------------------------- analytical controls

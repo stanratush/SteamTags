@@ -49,6 +49,7 @@ from steamstudy.versions import version_mismatches
 
 BLOCKS = ["blk-dataset", "blk-filters", "blk-graph", "blk-tabs", "blk-quality", "blk-clusters", "blk-rs",
           "blk-nodes", "blk-edges", "blk-export"]
+WIRE = text("en")  # i18n: wire (issue 12 passes the page's translator instead)
 CONTROL_IDS = ["dataset", "min-games", "min-shared", "min-months", "genre-hidden", "defining-hidden", "weight",
                "algorithm", "gamma", "seed"]
 
@@ -195,7 +196,7 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
         "basis": [dataset, settings.min_months, settings.clustering_weight, settings.seed],
         "weight": settings.clustering_weight, "seed": settings.seed, "dataset": dataset,
     }
-    legend: list[Any] = [html.Span("Key", className="lkey term", tabIndex="0", **H.attrs("legend.key"))] + [
+    legend: list[Any] = [html.Span("Key", className="lkey term", tabIndex="0", **H.attrs("legend.key", WIRE))] + [
         html.Button([html.Span(className="sw", style={"background": cluster_color(r["cluster"], r["kind"])}),
                      f"{r['cluster']} · {r['size']}"], id={"type": "legend", "cluster": r["cluster"]}, className="lchip",
                     title="Select this cluster")
@@ -203,7 +204,7 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
     n_one = sum(r["kind"] == "one_tag" for r in tables["clusters.csv"])
     if n_one:
         legend.append(html.Span([html.Span(className="sw", style={"background": R.ONE_TAG_COLOR}), f"{n_one} one-tag"],
-                                className="lchip static term", tabIndex="0", **H.attrs("legend.one_tag")))
+                                className="lchip static term", tabIndex="0", **H.attrs("legend.one_tag", WIRE)))
     banners = []
     if c.mode == "test":
         banners.append(html.Div("mode: test — this Build comes from a test Snapshot; never publish it.", className="banner"))
@@ -236,7 +237,7 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
                      f"listed below with all its reasons.")
     estimate = (f"Estimate: {len(state.nodes)} tags × {state.clustering_seconds * 1000:.0f} ms (one clustering) "
                 f"≈ {len(state.nodes) * state.clustering_seconds:.1f} s, plus about 4 s job start-up")
-    export_summary = html.P([html.Span("Export", className="term", tabIndex="0", **H.attrs("export.zip")),
+    export_summary = html.P([html.Span("Export", className="term", tabIndex="0", **H.attrs("export.zip", WIRE)),
                              f": steamstudy_{dataset}_{state.state_id}_<UTC timestamp>.zip, with every table above, "
                              f"export.json with the full state key and provenance, and Removal Sensitivity results "
                              f"for this exact state if any."])
@@ -686,13 +687,17 @@ def clear_cache(_n, build_path):
     return app_cache.cleared_text(app_cache.clear_all(load_build(build_path).app_cache)), None
 
 
-def show_help(_clicks, _close, target=None, _back=None, history=None):
+def show_help(_clicks, _close, target=None, _back=None, history=None, lang=None):
     """The help modal: a panel's `?` opens its guide section; a metric or control (workbench.js sets `help-target`
     to `<file>#<anchor>`) opens its own entry. A guide link inside the modal (`follow`) opens its target on top of
-    the history, which ← Back walks down and closing clears."""
+    the history, which ← Back walks down and closing clears. The guide is shown in the Interface Language, and an
+    open entry is shown again in the new language when it is switched."""
     trigger = ctx.triggered_id
     history = list(history or [])
-    if trigger == "help-target":
+    if trigger == "lang":
+        if not history:
+            raise PreventUpdate
+    elif trigger == "help-target":
         if not target or not target.get("target"):
             raise PreventUpdate
         if not target.get("follow"):
@@ -710,7 +715,7 @@ def show_help(_clicks, _close, target=None, _back=None, history=None):
     else:  # help-close
         return {"display": "none"}, "", [], {"display": "none"}
     file, _, anchor = history[-1].partition("#")
-    return ({"display": "flex", "width": "560px"}, help_markdown_at(file, anchor or None), history,
+    return ({"display": "flex", "width": "560px"}, help_markdown_at(lang_of(lang), file, anchor or None), history,
             {"display": "inline-block" if len(history) > 1 else "none"})
 
 
@@ -1014,7 +1019,7 @@ def register(app: dash.Dash) -> None:
     # ---- Interface Language: the switch writes the store and the cookie; the tab title follows the words
     app.clientside_callback(ClientsideFunction(namespace="workbench", function_name="language"),
                             Output("lang", "data"), Input("lang-switch", "value"), prevent_initial_call=True)
-    app.clientside_callback(ClientsideFunction(namespace="workbench", function_name="title"),
+    app.clientside_callback(ClientsideFunction(namespace="workbench", function_name="uiWords"),
                             Input("ui-words", "data"))
     cb(Input("lang", "data"), prevent_initial_call=True)(relabel)
     cb(Output("defining-hidden", "options"), Output("defining-hidden", "value", allow_duplicate=True),
@@ -1122,7 +1127,7 @@ def register(app: dash.Dash) -> None:
        Output("help-back", "style"),
        Input({"type": "help", "panel": ALL}, "n_clicks"), Input("help-close", "n_clicks"),
        Input("help-target", "data"), Input("help-back", "n_clicks"), State("help-history", "data"),
-       prevent_initial_call=True)(show_help)
+       Input("lang", "data"), prevent_initial_call=True)(show_help)
     # ---- Parameter Selection mode
     ps_outputs = [Output("ps-rows", "children"), Output("ps-cache-line", "children"),
                   Output("ps-provenance", "children"), Output("ps-banner", "children"), Output("ps-banner", "style"),

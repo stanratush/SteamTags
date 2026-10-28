@@ -25,6 +25,7 @@ import dash_ag_grid as dag
 from dash import dcc, html
 
 from steamstudy.app import help as H
+from steamstudy.app.guide import LABELS
 from steamstudy.app.loader import BuildContext
 from steamstudy.app.ps_view import mode_layout
 from steamstudy.app.renderer import graph_component, thickness_key
@@ -36,6 +37,8 @@ WB_TABS = [("quality", "Cluster quality"), ("clusters", "Clusters"), ("rs", "Rem
 SLIDERS = ("min-games", "min-shared", "min-months")
 PILLS = ("dataset", "min-months", "min-games", "min-shared", "hidden", "weight", "algorithm", "gamma", "seed")
 
+
+WIRE = text("en")  # i18n: wire (issue 12 passes the page's translator instead)
 
 # A registered message: English text for `tx`, or a function of the translator (a tooltip, a store's words).
 Message = str | Callable[[Text], Any]
@@ -54,17 +57,19 @@ def _t(tx: Text, id_: Any, prop: str, message: Message) -> Any:
 
 
 def ui_words(tx: Text) -> dict[str, Any]:
-    """The words the browser code shows (the `ui-words` store): JS and CSS hold none of their own."""
-    return {"title": tx("Tag Network")}
+    """The words the browser code shows (the `ui-words` store): JS and CSS hold none of their own. `tip` labels each
+    kind of tooltip line (help.py), `more` is the tooltip's footer and `info` the ⓘ's aria-label."""
+    return {"title": tx("Tag Network"), "tip": LABELS[tx.lang], "more": tx("Click for the full User Guide entry"),
+            "info": tx("User Guide entry for {name}", name="{name}")}
 
 
 def _language(tx: Text, lang: str) -> html.Div:
     """The EN | BG switch: writes the `lang` store and the cookie (workbench.js `language`). Its dotted label carries
     both help layers, like an analytical control's; its tooltip is the registry's first entry."""
-    tip = _t(tx, "lang-term", "data-tip", lambda _tx: H.tip("header.lang"))
+    tip = _t(tx, "lang-term", "data-tip", lambda tx_: H.tip("header.lang", tx_))
     return html.Div([
         html.Span(_t(tx, "lang-term", "children", "Language"), id="lang-term", className="term", tabIndex="0",
-                  **{**H.attrs("header.lang"), "data-tip": tip}),
+                  **{**H.attrs("header.lang", tx), "data-tip": tip}),
         _seg("lang-switch", [(code, code.upper()) for code in LANGS], lang),
     ], id="lang-box", className="lang-box")
 
@@ -76,7 +81,7 @@ def _data(**attrs: str) -> dict[str, Any]:
 
 def _term(text: str, key: str) -> tuple[list[Any], dict[str, Any]]:
     """A control's label text, dotted, and the attributes that give the label both help layers."""
-    return [html.Span(text, className="term")], {"tabIndex": "0", **H.attrs(key)}
+    return [html.Span(text, className="term")], {"tabIndex": "0", **H.attrs(key, WIRE)}
 
 
 def _control_key(control: str) -> str | None:
@@ -104,7 +109,7 @@ def _item(pill: str, pill_label: str, value: str, children: list[Any]) -> html.D
     """One control: shown inline in the Controls panel, or as a pill with a popover in the pill bar. The pill of a
     control with help shows its In short on hover or focus; its click opens the popover, whose label opens the entry."""
     key = _control_key(pill)
-    tip = _data(tip=H.tip(key)) if key else {}
+    tip = _data(tip=H.tip(key, WIRE)) if key else {}
     return html.Div([
         html.Button([f"{pill_label} " if pill_label else "", html.B(value, id=f"pill-{pill}", className="num")],
                     className="pill-btn", **_data(pill=pill), **tip),
@@ -213,7 +218,7 @@ def _thickness_legend(ctx: BuildContext) -> html.Div:
     while the clustering runs on lift. A view choice only: never part of the Network State."""
     label, style = thickness_key(ctx.default_settings(ctx.datasets[0].key).clustering_weight, False)
     return html.Div([
-        html.Span(label, id="thickness-label", className="lkey term", tabIndex="0", **H.attrs("legend.thickness")),
+        html.Span(label, id="thickness-label", className="lkey term", tabIndex="0", **H.attrs("legend.thickness", WIRE)),
         dcc.Checklist(id="thickness-shared", options=[{"label": "show shared games", "value": 1}], value=[],
                       className="check", style=style),
     ], className="legend thickness-key")

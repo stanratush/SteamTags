@@ -26,6 +26,7 @@ from steamstudy.app.loader import BuildContext
 from steamstudy.network import selection as SEL
 from steamstudy.network import selection_text as T
 from steamstudy.network.cluster import label_clusters
+from steamstudy.i18n import text
 from steamstudy.versions import APP_LIBRARIES, software_versions
 
 METRICS = [("neighbour_agreement", "Neighbour Agreement"), ("retention", "Information Retention"),
@@ -188,12 +189,15 @@ def validation_of(ctx: BuildContext, settings: SEL.SelectionSettings, dataset: s
 # ----------------------------------------------------------------------------- small helpers
 
 
+WIRE = text("en")  # i18n: wire (issues 12-14 pass the page's translator instead)
+
+
 def _help(key: str) -> html.Span:
-    return html.Span("?", className="ps-q term", tabIndex="0", **H.attrs(key))
+    return html.Span("?", className="ps-q term", tabIndex="0", **H.attrs(key, WIRE))
 
 
 def _term(text: str, key: str) -> html.Span:
-    return html.Span(text, className="term", tabIndex="0", **H.attrs(key))
+    return html.Span(text, className="term", tabIndex="0", **H.attrs(key, WIRE))
 
 
 def _num(value: Any, digits: int = 2) -> str:
@@ -247,7 +251,7 @@ def _constraint_inputs(defaults: SEL.Constraints) -> list[Any]:
 def _pill(pill: str, label: str, key: str, section: html.Div) -> html.Div:
     """One Controls section: inline in the column, or a pill with a popover in the pill bar (medium and narrow, as
     in the Workbench). The pill's value is filled by `ps_render`."""
-    attrs: dict[str, Any] = {"data-pill": pill, "data-tip": H.tip(key)}
+    attrs: dict[str, Any] = {"data-pill": pill, "data-tip": H.tip(key, WIRE)}
     return html.Div([
         html.Button([f"{label} ", html.B("", id=f"ps-pill-{pill}", className="num")], className="pill-btn", **attrs),
         html.Div(section, className="pill-pop"),
@@ -401,7 +405,7 @@ def loading_panel(progress: Mapping[str, Any] | None, views: list[DatasetView], 
     body = [html.B("Computing Parameter Selection"), html.Div(what), html.Div(reason, className="mute"),
             html.Div(where), html.Div(once, className="mute small"), html.Div(eta, className="ps-eta"),
             html.A("How Automatic Parameter Selection works", href="#", className="term",
-                   **H.attrs("selection.run"))]
+                   **H.attrs("selection.run", WIRE))]
     return [html.Div(body, className="ps-loading" + (" compact" if compact else ""))]
 
 

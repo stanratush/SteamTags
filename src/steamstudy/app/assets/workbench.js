@@ -122,9 +122,11 @@
   // or keyboard focus, never over the element itself. Layer 2: a click (or Enter) on a data-help element opens its
   // guide entry in the help modal through the help-target store. A touch tap goes straight to layer 2.
   const HELP_LINK = "#help:";  // guide.py HELP_LINK
-  // guide.py IN_SHORT_LABELS, the Now line, help.py column_line and the dataset summary's Field line (view.py)
-  const TIP_LABEL = /^(In short\.|Higher →|Lower →|Raising it →|Here:|Caution:|Now:|Columns?:|Field:)\s*/;
+  // The tooltip lines' kinds styled apart (help.py: the Now line, the column line, the state table's Field line).
+  const TIP_CLASS = {now: "now", column: "col", columns: "col", field: "col"};
   let tipBox = null, tipFor = null, lastPointer = "mouse";
+  // The words this file shows, in the Interface Language (layout.py `ui_words`, through the ui-words store).
+  let words = {tip: {}, more: "", info: "{name}"};
 
   function escapeHtml(s) {
     return s.replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})[c]);
@@ -138,14 +140,14 @@
       tipBox.id = "help-tip";
       document.body.appendChild(tipBox);
     }
-    tipBox.innerHTML = el.dataset.tip.split("\n").map((line) => {
-      const m = line.match(TIP_LABEL);
-      let cls = "";
-      if (m && m[1] === "Now:") cls = ' class="now"';
-      else if (m && (m[1].startsWith("Column") || m[1] === "Field:")) cls = ' class="col"';
-      return m ? `<p${cls}><b>${escapeHtml(m[1])}</b> ${escapeHtml(line.slice(m[0].length))}</p>`
-               : `<p>${escapeHtml(line)}</p>`;
-    }).join("") + (el.dataset.help ? '<p class="more">Click for the full User Guide entry</p>' : "");
+    // data-tip is help.py's structured lines, [[kind, text], ...]; each kind's label comes from the ui-words store.
+    let lines;
+    try { lines = JSON.parse(el.dataset.tip); } catch (e) { lines = [["", el.dataset.tip]]; }
+    tipBox.innerHTML = lines.map(([kind, text]) => {
+      const cls = TIP_CLASS[kind] ? ` class="${TIP_CLASS[kind]}"` : "";
+      const label = words.tip[kind];
+      return label ? `<p${cls}><b>${escapeHtml(label)}</b> ${escapeHtml(text)}</p>` : `<p>${escapeHtml(text)}</p>`;
+    }).join("") + (el.dataset.help && words.more ? `<p class="more">${escapeHtml(words.more)}</p>` : "");
     tipFor = el;
     el.setAttribute("aria-describedby", "help-tip");
     tipBox.style.display = "block";
@@ -227,7 +229,7 @@
     const h = window.React.createElement;
     return h(window.React.Fragment, null, props.displayName,
              h("span", {className: "hinfo", role: "button", tabIndex: 0, "data-help": props.help, "data-tip": props.tip,
-                        "aria-label": `User Guide entry for ${props.displayName}`}, "ⓘ"));
+                        "aria-label": words.info.replace("{name}", props.displayName)}, "ⓘ"));
   }
   window.dashAgGridComponentFunctions = Object.assign({}, window.dashAgGridComponentFunctions, {MetricHeader});
 
@@ -267,11 +269,13 @@
     return lang;
   }
 
-  // The browser tab title, from the ui-words store (layout.py `ui_words`).
-  function title(words) {
-    if (words && words.title) document.title = words.title;
+  // The ui-words store (layout.py `ui_words`): the words of this file and the browser tab title.
+  function uiWords(data) {
+    if (!data) return;
+    words = data;
+    if (data.title) document.title = data.title;
   }
 
-  window.dash_clientside = Object.assign({}, window.dash_clientside, {workbench: {pills, language, title}});
+  window.dash_clientside = Object.assign({}, window.dash_clientside, {workbench: {pills, language, uiWords}});
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();
