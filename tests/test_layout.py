@@ -13,13 +13,15 @@ import networkx as nx
 
 import pytest
 
+from steamstudy.app.layout import ui_words
 from steamstudy.app.loader import load_build
 from steamstudy.build.core import build
 from steamstudy.build.writer import write_build
 from steamstudy.config import load_config
-from steamstudy.network.layout import (LABEL_HEIGHT, LABEL_MARGIN, MIN_ZOOM, REFERENCE_CANVAS, TITLE_ROOM, Canvas, Layout,
-                                      LayoutParams, label_width, layout_input, layout_state, loose_layout,
-                                      node_sizes, restore, tidy, cluster_separated_positions)
+from steamstudy.i18n import LANGS, Text
+from steamstudy.network.layout import (LABEL_HEIGHT, LABEL_MARGIN, MIN_ZOOM, REFERENCE_CANVAS, TITLE_PX, TITLE_ROOM,
+                                      Canvas, Layout, LayoutParams, label_width, layout_input, layout_state,
+                                      loose_layout, node_sizes, restore, tidy, cluster_separated_positions)
 from steamstudy.network.cluster import Cluster
 from steamstudy.network.model import Game, Settings
 from steamstudy.network.state import compute_state
@@ -324,7 +326,8 @@ def test_regions_are_packed_tightly_with_each_center_in_the_middle(ctx, dataset,
     y1 = min(r["y"] for r in regions)
     x2 = max(r["x"] + r["width"] for r in regions)
     y2 = max(r["y"] + r["height"] for r in regions)
-    assert (x2 - x1) * (y2 - y1) <= 1.5 * sum(r["width"] * r["height"] for r in regions)
+    # 1.6, not 1.5: a small region (the test world's pool) is as wide as its title, which packs a little looser
+    assert (x2 - x1) * (y2 - y1) <= 1.6 * sum(r["width"] * r["height"] for r in regions)
     boxes = _boxes(state, positions, layout.sizes, zoom)
     for c, r in zip(multi, regions):
         center = state.centers[c.label].center
@@ -368,6 +371,49 @@ def test_the_one_tag_pool_is_a_grid_as_wide_as_its_longest_label():
     assert pool["width"] >= label_width(names[7]) / layout.separated_zoom
     boxes = _boxes(state, layout.separated, layout.sizes, layout.separated_zoom)
     assert _box_overlaps({t: boxes[t] for t in singles}) == []
+
+
+def _shown_title(region, words):
+    """A region's title as graph.js `regionTitle` writes it from the ui-words store."""
+    count = len(region["members"])
+    form = lambda forms: forms[0 if count == 1 else 1].replace("{n}", str(count))  # noqa: E731
+    if region["cluster"] == "one_tag_pool":
+        return form(words["pool_region"])
+    return f"{region['cluster']} · {form(words['tags'])}"
+
+
+@pytest.mark.parametrize("canvas", [Canvas(1380, 700), Canvas(956, 561), Canvas(620, 520)],
+                         ids=["1500 wide", "1100 wide", "760 wide"])
+@pytest.mark.parametrize("start_zoom", [1.0, 0.5])
+def test_region_titles_never_overlap_in_either_language(canvas, start_zoom):
+    """Small clusters and a small pool make regions narrower than their titles (constant on screen): each region
+    is widened to its longest title in the Interface Languages, so no title runs into a neighbour's."""
+    clusters = [Cluster(f"C{i + 1}", frozenset(range(10 * i + 1, 10 * i + 1 + n))) for i, n in enumerate([2, 3, 2, 2])]
+    clusters += [Cluster(f"C{5 + i}", frozenset({100 + i})) for i in range(4)]
+    graph = nx.Graph()
+    for c in clusters:
+        graph.add_nodes_from(c.members)
+        members = sorted(c.members)
+        graph.add_edges_from(zip(members, members[1:]), w=3.0)
+    tags = sorted(graph.nodes)
+    start = {t: (40.0 * math.cos(t), 40.0 * math.sin(t)) for t in tags}
+    positions, regions, zoom = cluster_separated_positions(
+        graph, clusters, start, centers={c.label: None for c in clusters}, sizes={t: 18.0 for t in tags},
+        widths={t: label_width("ab") for t in tags}, canvas=canvas, zoom=start_zoom)
+    assert zoom <= start_zoom
+    by_cluster = {c.label: c.members for c in clusters if c.size >= 2}
+    pool = frozenset(t for c in clusters if c.size == 1 for t in c.members)
+    for r in regions:
+        r["members"] = pool if r["cluster"] == "one_tag_pool" else by_cluster[r["cluster"]]
+    for lang in LANGS:
+        words = ui_words(Text(lang))["map"]
+        titles = []
+        for r in regions:  # on screen: centred over the region, TITLE_ROOM high above it
+            half = label_width(_shown_title(r, words)) * TITLE_PX / LABEL_PX / 2
+            mid, top = (r["x"] + r["width"] / 2) * zoom, r["y"] * zoom
+            assert half <= r["width"] * zoom / 2, (lang, _shown_title(r, words))
+            titles.append((mid - half, top - TITLE_ROOM, mid + half, top))
+        assert _box_overlaps(dict(enumerate(titles))) == [], lang
 
 
 @pytest.mark.parametrize("canvas", CANVASES, ids=["1440x900", "1280x800"])

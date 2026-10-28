@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 import networkx as nx
 import numpy as np
 
+from steamstudy.i18n import LANGS, Text
 from steamstudy.network.cluster import Cluster
 from steamstudy.network.graph import build_network, filter_games, to_graph
 from steamstudy.network.model import Game, Settings, TagContext
@@ -237,7 +238,14 @@ CHAR_WIDTHS = {
     "U": 8.32, "V": 7.67, "W": 11.56, "X": 7.54, "Y": 6.98, "Z": 6.98,
     "a": 6.19, "b": 7.13, "c": 5.52, "d": 7.12, "e": 6.22, "f": 4.41, "g": 7.12, "h": 6.92, "i": 3.27, "j": 3.27,
     "k": 6.43, "l": 3.27, "m": 10.53, "n": 6.96, "o": 7.03, "p": 7.13, "q": 7.12, "r": 4.58, "s": 5.06, "t": 4.48,
-    "u": 6.96, "v": 6.23, "w": 9.17, "x": 6.35, "y": 6.19, "z": 5.51,
+    "u": 6.96, "v": 6.23, "w": 9.17, "x": 6.35, "y": 6.19, "z": 5.51, "·": 3.12,
+    # Cyrillic, for the Bulgarian region titles (CLUSTER_TITLES)
+    "а": 6.19, "б": 7.0, "в": 6.67, "г": 4.72, "д": 7.13, "е": 6.22, "ж": 9.75, "з": 5.53, "и": 7.22, "й": 7.22,
+    "к": 6.43, "л": 6.93, "м": 8.93, "н": 7.04, "о": 7.03, "п": 7.04, "р": 7.13, "с": 5.52, "т": 5.23, "у": 6.19,
+    "ф": 9.02, "х": 6.35, "ц": 7.49, "ч": 6.91, "ш": 9.91, "щ": 10.37, "ъ": 7.46, "ь": 6.43, "ю": 10.16, "я": 6.54,
+    "А": 8.09, "Б": 7.38, "В": 7.37, "Г": 5.88, "Д": 8.91, "Е": 6.12, "Ж": 11.42, "З": 6.42, "И": 9.09, "Й": 9.09,
+    "К": 7.46, "Л": 8.39, "М": 11.01, "Н": 8.81, "О": 8.72, "П": 8.8, "Р": 7.06, "С": 7.18, "Т": 6.74, "У": 7.07,
+    "Ф": 9.65, "Х": 7.54, "Ц": 9.44, "Ч": 8.35, "Ш": 11.63, "Щ": 12.26, "Ъ": 8.71, "Ь": 7.17, "Ю": 12.24, "Я": 7.36,
 }
 WIDE_CHAR = LABEL_PX  # a character outside the table without a base letter in it (one em)
 WIDTH_SLACK = 1.1  # room for other fonts and the halo
@@ -616,6 +624,22 @@ REGION_PAD = 8.0  # between a region's edge and its members' boxes, in model uni
 REGION_START = FILL  # the members' share of the region's half side before the label-aware pass
 REGION_CROWDING = 0.3  # where the zoom search starts: packed regions take about three times their members' boxes
 TITLE_ROOM = 22.0  # above each row of regions, for the region titles (constant on screen), in pixels
+TITLE_PX = 12.5  # a region title's on-screen size (graph.js TITLE_PX)
+TITLE_PAD = 6.0  # free space kept on each side of a region title inside its region, in pixels
+# A region's title in each Interface Language, as graph.js `regionTitle` writes it from ui-words (app/layout.py).
+CLUSTER_TITLES = {"one": "{n} tag", "other": "{n} tags"}
+POOL_TITLES = {"one": "one-tag clusters · {n} tag", "other": "one-tag clusters · {n} tags"}
+
+
+def title_width(cluster: str, count: int) -> float:
+    """The widest of a region's titles in the Interface Languages, on screen at TITLE_PX: the region is at least
+    that wide (plus TITLE_PAD each side), so a title never runs into its neighbour's in either language at the
+    zoom the labels are spaced for or above (further out, graph.js `fitTitles` shortens it)."""
+    def title(tx: Text) -> str:
+        if cluster == "one_tag_pool":
+            return tx.n(count, **POOL_TITLES)
+        return f"{cluster} · {tx.n(count, **CLUSTER_TITLES)}"
+    return max(label_width(title(Text(lang))) for lang in LANGS) * TITLE_PX / LABEL_PX
 
 
 def cluster_separated_positions(graph: nx.Graph, clusters: list[Cluster], start: Mapping[int, tuple[float, float]],
@@ -624,7 +648,7 @@ def cluster_separated_positions(graph: nx.Graph, clusters: list[Cluster], start:
                                 zoom: float = 1.0) -> tuple[Positions, list[dict[str, Any]], float]:
     """One region per Multi-Tag Cluster, with its Center pinned in the middle; One-Tag Clusters share one grid
     region, listed last. Regions are shelf-packed in label order or tallest first, whichever packs tighter, rows
-    aimed at the canvas aspect.
+    aimed at the canvas aspect. A region is at least as wide as its title (constant on screen, `title_width`).
     Like the Global layout, the labels are spaced for the highest zoom (down to MIN_ZOOM) at which the first fit
     holds them all, starting from `zoom` (the Global layout's: regions never need less room). Returns positions,
     the regions (top-left corner, width, height, label and cluster) and that zoom."""
@@ -638,9 +662,11 @@ def cluster_separated_positions(graph: nx.Graph, clusters: list[Cluster], start:
         boxes: list[tuple[str, str, Positions, float, float]] = []
         for c in multi:
             local, w, h = _region_members(shapes[c.label], sizes, widths, zoom)
+            w = max(w, (title_width(c.label, c.size) + 2 * TITLE_PAD) / zoom)
             boxes.append((f"{c.label} · {c.size} tags", c.label, local, w, h))
         if singles:
-            local, w, h = _pool(singles, sizes, widths, zoom)
+            local, w, h = _pool(singles, sizes, widths, zoom,
+                                (title_width("one_tag_pool", len(singles)) + 2 * TITLE_PAD) / zoom)
             boxes.append((f"one-tag clusters · {len(singles)} tags", "one_tag_pool", local, w, h))
         corners = _pack([(w, h) for *_, w, h in boxes], canvas.aspect, TITLE_ROOM / zoom)
         positions: Positions = {}
@@ -699,20 +725,22 @@ def _region_members(shape: tuple[list[int], int, np.ndarray, np.ndarray], sizes:
     return {t: (float(x), float(y)) for t, (x, y) in zip(keys, xy)}, width, height
 
 
-def _pool(singles: list[int], sizes: Mapping[int, float], widths: Mapping[int, float],
-          zoom: float) -> tuple[Positions, float, float]:
+def _pool(singles: list[int], sizes: Mapping[int, float], widths: Mapping[int, float], zoom: float,
+          min_width: float = 0.0) -> tuple[Positions, float, float]:
     """The One-Tag Clusters' grid: every cell as wide as the longest label (or node) and as tall as the biggest
-    node with its label; about as many columns as rows by area."""
+    node with its label; about as many columns as rows by area, or as many as `min_width` (its title's) holds.
+    The region is at least `min_width` wide."""
     s = np.array([sizes[t] for t in singles], dtype=float)
     boxes = Boxes(s, np.array([widths[t] for t in singles], dtype=float), zoom)
     cell_w = 2 * float(boxes.half_width.max()) + boxes.gap
     cell_h = float(s.max()) + (LABEL_MARGIN + LABEL_HEIGHT) / zoom + boxes.gap
-    cols = max(1, math.ceil(math.sqrt(len(singles) * cell_h / cell_w)))
+    cols = max(1, math.ceil(math.sqrt(len(singles) * cell_h / cell_w)),
+               min(len(singles), math.floor((min_width - 2 * REGION_PAD) / cell_w)))
     rows = math.ceil(len(singles) / cols)
     drop = (LABEL_MARGIN + LABEL_HEIGHT) / zoom / 2  # the node sits above its label, the pair centred in the cell
     local = {t: (((i % cols) - (cols - 1) / 2) * cell_w, ((i // cols) - (rows - 1) / 2) * cell_h - drop)
              for i, t in enumerate(singles)}
-    return local, cols * cell_w + 2 * REGION_PAD, rows * cell_h + 2 * REGION_PAD
+    return local, max(cols * cell_w + 2 * REGION_PAD, min_width), rows * cell_h + 2 * REGION_PAD
 
 
 def _regions_fit(regions: list[dict[str, Any]], canvas: Canvas) -> float:
