@@ -568,6 +568,138 @@
     return keyText();
   }
 
+  // ------------------------------------------------------------------ the Cluster map card
+
+  // One bubble per Cluster (area by tag count) where its tags are drawn now (their centroid in Global, the region's
+  // centre in Cluster-separated), nudged apart; the pool as a grey bubble; a line for each pair with a link, 0.6-7.6
+  // px by ratio / γ. From the `cluster-connections` store and the positions this file already holds: redrawn in the
+  // browser, never a request. A bubble selects its Cluster, a line its pair; any selection lights up here.
+  const MAP = {w: 280, h: 190, pad: 18};
+  const M = {data: null, open: false};
+  try { M.open = window.sessionStorage.getItem("steamstudy_map") === "1"; } catch (e) { M.open = false; }
+
+  function mapData(data, words) {
+    M.data = data || null;
+    if (words) A.ui = words;
+    drawMap();
+    return Date.now();
+  }
+
+  // Where each group sits on the canvas now, mapped into the card and nudged apart.
+  function mapPlaces(groups) {
+    const raw = {};
+    for (const g of groups) {
+      const r = region(g.cluster), nodes = members(g.cluster);
+      let p = null;
+      if (r.nonempty()) p = r.position();
+      else if (nodes.nonempty()) {
+        const xs = nodes.map((n) => n.position("x")), ys = nodes.map((n) => n.position("y"));
+        p = {x: xs.reduce((a, b) => a + b, 0) / xs.length, y: ys.reduce((a, b) => a + b, 0) / ys.length};
+      }
+      if (p) raw[g.cluster] = {x: p.x, y: p.y};
+    }
+    const ids = Object.keys(raw);
+    if (!ids.length) return {};
+    const xs = ids.map((k) => raw[k].x), ys = ids.map((k) => raw[k].y);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const sx = (MAP.w - 2 * MAP.pad) / ((x1 - x0) || 1), sy = (MAP.h - 2 * MAP.pad) / ((y1 - y0) || 1), s = Math.min(sx, sy);
+    const out = {};
+    for (const k of ids) {
+      out[k] = {x: MAP.pad + (raw[k].x - x0) * s + ((MAP.w - 2 * MAP.pad) - (x1 - x0) * s) / 2,
+                y: MAP.pad + (raw[k].y - y0) * s + ((MAP.h - 2 * MAP.pad) - (y1 - y0) * s) / 2};
+    }
+    const radius = Object.fromEntries(groups.map((g) => [g.cluster, g.r]));
+    for (let it = 0; it < 40; it++) {  // nudge overlapping bubbles apart
+      let moved = false;
+      for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) {
+        const a = out[ids[i]], b = out[ids[j]], need = radius[ids[i]] + radius[ids[j]] + 3;
+        const dx = b.x - a.x || 0.01, dy = b.y - a.y, d = Math.hypot(dx, dy);
+        if (d < need) {
+          const push = (need - d) / 2, ux = dx / d, uy = dy / d;
+          a.x -= ux * push; a.y -= uy * push; b.x += ux * push; b.y += uy * push; moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+    for (const k of ids) {
+      out[k].x = Math.max(radius[k], Math.min(MAP.w - radius[k], out[k].x));
+      out[k].y = Math.max(radius[k], Math.min(MAP.h - radius[k], out[k].y));
+    }
+    return out;
+  }
+
+  // `current`: the selection being drawn (applySelection passes it before it is recorded); else the recorded one.
+  function drawMap(current) {
+    const body = document.getElementById("cluster-map-body"), card = document.getElementById("cluster-map");
+    const toggle = document.getElementById("map-toggle");
+    if (card) card.classList.toggle("open", M.open);
+    if (toggle) toggle.setAttribute("aria-expanded", String(M.open));
+    if (!body || !M.open || !M.data || !G.cy || !A.ui) return;
+    const w = A.ui.map, gamma = M.data.gamma || 1;
+    const multi = M.data.clusters.filter((c) => c.kind === "multi_tag");
+    const poolSize = M.data.clusters.filter((c) => c.kind !== "multi_tag").length;
+    const groups = multi.map((c) => ({cluster: c.cluster, size: c.size, r: 4 + 2.2 * Math.sqrt(c.size)}));
+    if (poolSize) groups.push({cluster: "one_tag_pool", size: poolSize, r: 4 + 2.2 * Math.sqrt(poolSize)});
+    const at = mapPlaces(groups);
+    const sel = current !== undefined ? current : (G.selected ? JSON.parse(G.selected) : null);
+    const selPair = sel && sel.kind === "pair" ? sel.id : null, selCluster = sel && sel.kind === "cluster" ? sel.id : null;
+    const color = (c) => { const n = members(c).first(); return n.nonempty() ? n.data("color") : "#b8b8b8"; };
+    let lines = "", labels = "", any = false;
+    for (const r of M.data.rows) {
+      const a = at[r.cluster_a], b = at[r.cluster_b];
+      if (!r.edge_count || !a || !b || r.cluster_a === r.cluster_b) continue;
+      any = true;
+      const id = `${r.cluster_a}|${r.cluster_b}`, on = id === selPair;
+      const lit = on || (selCluster && (r.cluster_a === selCluster || r.cluster_b === selCluster));
+      const width = 0.6 + 7 * Math.min(Math.max((r.ratio || 0) / gamma, 0), 1);
+      lines += `<line class="map-link" data-pair="${esc(id)}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" ` +
+               `stroke="${on ? "#2457d6" : "#3b2f6b"}" stroke-width="${width.toFixed(2)}" ` +
+               `stroke-opacity="${lit || !sel ? 0.85 : 0.25}"><title>${esc(fill(w.ratio, {value: decimal((r.ratio || 0).toFixed(2))}))}</title></line>`;
+      if (lit && r.ratio !== null) {
+        labels += `<text x="${(a.x + b.x) / 2}" y="${(a.y + b.y) / 2 - 3}" font-size="10" text-anchor="middle" ` +
+                  `class="map-ratio">${esc(decimal(r.ratio.toFixed(2)))}</text>`;
+      }
+    }
+    let bubbles = "";
+    for (const g of groups) {
+      const p = at[g.cluster];
+      if (!p) continue;
+      const pool = g.cluster === "one_tag_pool";
+      const on = g.cluster === selCluster || (selPair && selPair.split("|").includes(g.cluster));
+      const label = pool ? String(g.size) : g.cluster;
+      const title = pool ? `${w.pool}: ${fill(w.tags[g.size === 1 ? 0 : 1], {n: g.size})}`
+                         : `${g.cluster}: ${fill(w.tags[g.size === 1 ? 0 : 1], {n: g.size})}`;
+      bubbles += `<g class="${pool ? "map-pool" : "map-bubble"}"${pool ? "" : ` data-cluster="${esc(g.cluster)}"`}>` +
+                 `<circle cx="${p.x}" cy="${p.y}" r="${g.r}" fill="${pool ? "#b8b8b8" : color(g.cluster)}" ` +
+                 `stroke="${on ? "#2457d6" : "#fff"}" stroke-width="${on ? 2.5 : 1}"><title>${esc(title)}</title></circle>` +
+                 `<text x="${p.x}" y="${p.y + 3}" font-size="9.5" text-anchor="middle" fill="#1b2130">${esc(label)}</text></g>`;
+    }
+    body.innerHTML = `<svg width="${MAP.w}" height="${MAP.h}" class="map-svg">${lines}${bubbles}${labels}</svg>` +
+                     (any ? "" : `<div class="mute small">${esc(w.empty)}</div>`);
+  }
+
+  document.addEventListener("click", (ev) => {
+    const t = ev.target instanceof Element ? ev.target : null;
+    if (!t) return;
+    if (t.closest("#map-toggle")) {
+      M.open = !M.open;
+      try { window.sessionStorage.setItem("steamstudy_map", M.open ? "1" : "0"); } catch (e) { /* session only */ }
+      drawMap();
+      return;
+    }
+    const bubble = t.closest("#cluster-map-body [data-cluster]");
+    if (bubble) {
+      emit({kind: "region", cluster: bubble.dataset.cluster});
+      selectNow({kind: "cluster", id: bubble.dataset.cluster});
+      return;
+    }
+    const link = t.closest("#cluster-map-body [data-pair]");
+    if (link) {
+      emit({kind: "pair", id: link.dataset.pair});
+      selectNow({kind: "pair", id: link.dataset.pair});
+    }
+  });
+
   // ------------------------------------------------------------------ the Edge appearance card
 
   // The legend's Edges toggle opens it; a transient overlay (data-graph-transient), so it never changes the canvas,
@@ -797,6 +929,7 @@
     });
     sizeLabels();
     markMatrix(sel);
+    drawMap(sel || null);
     if (ringed && changed && dur()) ring(ringed);
   }
 
@@ -923,6 +1056,9 @@
       restyle();
       renderCard();
       updateKey();  // the summary follows a cleared threshold and a new hidden count
+      // the map follows the bubbles' new places once the nodes have moved
+      clearTimeout(G.mapTimer);
+      G.mapTimer = setTimeout(() => drawMap(), dur() + 30);
       if (fresh || moved) G.userMoved = false;
       if (!G.userMoved) fit(!!prev);  // the move and the fit run together; a new dataset only fits
       G.sig = sig; G.moveSig = moveSig;
@@ -1053,7 +1189,7 @@
   }
   document.addEventListener("click", selectLegendChip);
 
-  window.dash_clientside = Object.assign({}, window.dash_clientside, {tagGraph: {render, edgeKey}});
+  window.dash_clientside = Object.assign({}, window.dash_clientside, {tagGraph: {render, edgeKey, mapData}});
   window.tagGraph = G;  // for inspection in the browser console and browser checks
   G.setAppearance = setAppearance;  // for the Edge appearance card and browser checks
   G.getAppearance = getAppearance;

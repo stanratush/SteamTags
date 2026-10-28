@@ -48,8 +48,17 @@ def ui_words(tx: Text) -> dict[str, Any]:
             "pills": {"genre": [genre(1), genre(2)], "defining": tx("{hidden} + defining", hidden="{hidden}"),
                       "lift": tx("Lift"), "shared": tx("Shared games"),
                       "of": tx("{n} of {total}", n="{n}", total="{total}")},
-            "edges": edge_words(tx)}
+            "edges": edge_words(tx),
+            "map": {"title": tx("Cluster map"), "pool": tx("pool"),
+                    "tags": [tx.n(1, one="{n} tag", other="{n} tags", n="{n}"),
+                             tx.n(2, one="{n} tag", other="{n} tags", n="{n}")],
+                    "ratio": tx("ratio {value}", value="{value}"),
+                    "empty": tx("No links between clusters."),
+                    "help": {"tip": H.tip("graph.cluster_map", tx), "help": H.target("graph.cluster_map")}}}
 
+
+# The Cluster map toggle's state for assistive technology (graph.js keeps aria-expanded current).
+MAP_ARIA: dict[str, Any] = {"aria-expanded": "false", "aria-controls": "cluster-map"}
 
 # The Edge appearance card's controls and the help key of each (help.py `edges.*`).
 EDGE_HELP = {"width": "edges.width", "scale": "edges.scale", "color": "edges.color", "strength": "edges.strength",
@@ -337,9 +346,18 @@ def build_layout(ctx: BuildContext, lang: str = "en") -> html.Div:
                                                                     ("separated", msg("Cluster-separated"))]), "global"),
                       _button(L, "relayout-btn", msg("Tidy"),
                               title=msg("Settle the graph around the nodes you dragged; positions only")),
+                      html.Button(L.prop("map-toggle", "children", msg("Cluster map")), id="map-toggle",
+                                  className="btn", title=L.prop("map-toggle", "title",
+                                                                msg("A map of the clusters and how they connect")),
+                                  **MAP_ARIA),
                       html.Button("⤢", id="fit-btn", className="btn",
                                   title=L.prop("fit-btn", "title", msg("Fit the graph to the view")))],
                      className="ov ov-tr", **_data(graph_overlay="top")),
+            # The Cluster map card (graph.js `drawMap`): a transient overlay, like the Edge appearance card.
+            html.Div([html.Div([html.B(L.term(msg("Cluster map"), "graph.cluster_map"))], className="map-head"),
+                      html.Div(id="cluster-map-body")],
+                     id="cluster-map", className="ov cluster-map", role="dialog",
+                     **_data(graph_overlay="top", graph_transient="yes")),
             html.Div([html.Div(id="legend", className="legend"), _thickness_legend(L, ctx)], className="ov ov-bl",
                      **_data(graph_overlay="bottom")),
             _edge_card(L, ctx),
@@ -421,6 +439,7 @@ def build_layout(ctx: BuildContext, lang: str = "en") -> html.Div:
         dcc.Store(id="build-path", data=str(ctx.path)),
         dcc.Store(id="builds-root", data=str(ctx.path.resolve().parents[1])),  # <root>/builds: where exports' Builds are found
         dcc.Store(id="state-meta"), dcc.Store(id="state-tables"), dcc.Store(id="elements-base"),
+        dcc.Store(id="cluster-connections"),  # the Cluster map's rows (graph.js `drawMap`), written by the recompute
         dcc.Store(id="relayout"), dcc.Store(id="selection"), dcc.Store(id="floating-open", data=False),
         dcc.Store(id="graph-only-on", data=False),
         dcc.Store(id="removed", data=[]), dcc.Store(id="rs-view"), dcc.Store(id="rs-request"),

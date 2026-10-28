@@ -151,6 +151,13 @@ tr.hidden-link td{color:var(--mute)}
 .cm-table td.cm-sel{outline:2px solid #2457d6;outline-offset:-2px}
 #blk-quality.cm-table-view .cm-scroll,#blk-quality.cm-table-view .cm-key{display:none}
 #blk-quality:not(.cm-table-view) #connections-grid{display:none}
+/* The Cluster map card (graph.js drawMap): a transient overlay under the top-right controls. */
+.cluster-map{right:10px;top:52px;display:none;background:#fffffff2;border:1px solid var(--line);border-radius:10px;
+ box-shadow:0 2px 10px #0002;padding:6px 8px;font-size:12px}
+.cluster-map.open{display:block}
+.map-svg{display:block}
+.map-bubble,.map-link{cursor:pointer}
+.map-ratio{fill:#1b2130;paint-order:stroke;stroke:#fff;stroke-width:3px}
 .lchip{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:12px;padding:1px 8px 1px 6px;
  font-size:12px;background:#fff;cursor:pointer;color:var(--ink)}
 .lchip:hover{border-color:#a9b1bf}

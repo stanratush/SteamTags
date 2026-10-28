@@ -236,3 +236,19 @@ def test_each_matrix_cell_is_its_csv_row_in_both_modes(tagged_build):
                 shares[row] = shares.get(row, 0.0) + (share or 0.0)
         if mode == "share":  # each row adds up to 100 % (a group with outside links)
             assert all(total == pytest.approx(1.0) or total == 0.0 for total in shares.values()), shares
+
+
+def test_the_recompute_writes_the_cluster_maps_store_and_nothing_else_changes_in_the_payload(tagged_build):
+    """Issue 20: the Cluster map is drawn in the browser from this store and the positions graph.js holds."""
+    from steamstudy.app import callbacks as CB
+    from steamstudy.app.loader import load_build
+
+    ctx = load_build(tagged_build)
+    s = ctx.default_settings("overall")
+    values = CB.controls_from_settings(ctx, s)
+    out = CB.recompute(str(tagged_build), *[values[k] for k in CB.CONTROL_IDS], values["removed"], None, "en")
+    meta, tables, base, store = out[0], out[1], out[2], out[-1]
+    assert store["rows"] == tables["connections"] and store["gamma"] == s.resolution
+    assert store["clusters"] == [{"cluster": r["cluster"], "size": r["size"], "kind": r["kind"]} for r in tables["clusters"]]
+    payload = CB.render_graph(base, "global", None, None)
+    assert not {"rows", "clusters", "connections"} & set(payload)

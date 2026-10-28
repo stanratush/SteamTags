@@ -382,6 +382,20 @@ The card always says how many links are hidden from the drawing. A hidden link i
 
 *Why it matters here.* It thins a crowded drawing of the most-played games' tag network without changing a single number, unlike Minimum shared games, which removes the links from the Network State.
 
+### Cluster map
+
+> **In short.** A small map of the clusters: a bubble per cluster, sized by its tags; a line per linked pair.
+>
+> **Higher →** a thicker line: a higher [Connection Ratio](03-metric-reference.md#connection-ratio), up to γ.
+>
+> **Here:** which clusters of the most-played games' tags connect, and how strongly for their sizes.
+>
+> **Caution:** where a bubble sits follows the drawing; distance on the map is not a metric.
+
+Press **Cluster map** at the top right of the graph to open a card over it; press again to close it. It stays open while the app runs and opens closed the next time. Each Multi-Tag Cluster is a bubble in its colour, with an area by its number of tags, placed where its tags are drawn (their centre in Global, its region in Cluster-separated) and nudged apart; the pool of One-Tag Clusters is a grey bubble labelled with its number of tags. Only pairs with at least one link get a line, from 0.6 to 7.6 pixels by ratio / γ. Click a bubble to select its cluster, or a line to select the pair; any selection lights up on the map, with the ratio written on the selected pair and on the selected cluster's lines. The card never moves or re-draws the graph.
+
+*Why it matters here.* The full graph shows every tag; the map shows the same clusters of the most-played games' characteristics as a handful of groups, so their connections can be read at once, then explored pair by pair in the Inspector.
+
 ### Cluster colour
 
 > **In short.** Each Multi-Tag Cluster gets a colour by its label, C1 (the largest) first; the 16 colours repeat from C17.

@@ -50,6 +50,7 @@ HELP: dict[str, tuple[str, str]] = {
     "legend.one_tag": (APP_CONTROLS, "grey-one-tag-clusters"),
     "legend.thickness": (APP_CONTROLS, "edge-appearance"),
     "connections.ratio": (METRIC_REFERENCE, "connection-ratio"),
+    "graph.cluster_map": (APP_CONTROLS, "cluster-map"),
     "connections.share": (METRIC_REFERENCE, "connection-share"),
     "edges.width": (APP_CONTROLS, "width"),
     "edges.scale": (APP_CONTROLS, "scaling"),

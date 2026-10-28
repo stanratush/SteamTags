@@ -309,7 +309,10 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
             V.grid_rows(tables["clusters.csv"]), V.grid_rows(tables["cluster_connections.csv"]),
             V.grid_rows(tables["null_model.csv"]), V.grid_rows(tables["seed_noise.csv"]),
             views["banners"], restore, verify_text, verify_out, views["dataset-summary"], views["filters-summary"],
-            views["rs-estimate"], views["export-summary"], "", views["tag-search"])
+            views["rs-estimate"], views["export-summary"], "", views["tag-search"],
+            {"rows": store_tables["connections"], "gamma": settings.resolution,
+             "clusters": [{"cluster": r["cluster"], "size": r["size"], "kind": r["kind"]}
+                          for r in store_tables["clusters"]]})
 
 
 # ----------------------------------------------------------------------------- 3. graph
@@ -1162,7 +1165,7 @@ def register(app: dash.Dash) -> None:
        Output("restore-pick", "options"), Output("verify-result", "children"),
        Output("verify", "data", allow_duplicate=True), Output("dataset-summary", "children"),
        Output("filters-summary", "children"), Output("rs-estimate", "children"), Output("export-summary", "children"),
-       Output("error-message", "children"), Output("tag-search", "options"),
+       Output("error-message", "children"), Output("tag-search", "options"), Output("cluster-connections", "data"),
        Input("build-path", "data"), Input("dataset", "value"), Input("min-games", "value"),
        Input("min-shared", "value"), Input("min-months", "value"), Input("genre-hidden", "value"),
        Input("defining-hidden", "value"), Input("weight", "value"), Input("algorithm", "value"),
@@ -1174,6 +1177,9 @@ def register(app: dash.Dash) -> None:
        running=[(Output("busy-layout", "hidden"), False, True)])(render_graph)
     cb(Output("thickness-shared", "style"), Input("elements-base", "data"))(thickness_legend)
     # The show-shared switch and the key's words: in the browser, no request (graph.js `edgeKey`).
+    app.clientside_callback(ClientsideFunction(namespace="tagGraph", function_name="mapData"),
+                            Output("cluster-map-body", "data-drawn"), Input("cluster-connections", "data"),
+                            Input("ui-words", "data"))
     app.clientside_callback(ClientsideFunction(namespace="tagGraph", function_name="edgeKey"),
                             Output("thickness-label", "children"), Input("thickness-shared", "value"),
                             Input("elements-base", "data"), Input("ui-words", "data"))
