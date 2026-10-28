@@ -9,6 +9,9 @@ Two things make this checklist necessary:
 
 ## 1. Pick the code
 
+**No release while `tests/i18n_done.py` exists** (the Bulgarian translation is unfinished; spec: `.scratch/bilingual-cluster-views/spec.md`, "Visibility and the release gate"). The last guide slice deletes that file, and this step with it.
+
+
 Check out the code you want researchers to run, and make sure nothing that ships is uncommitted:
 
 ```bash

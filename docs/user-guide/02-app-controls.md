@@ -20,6 +20,7 @@ Each control below either sets a field of the Network State key (and so changes 
 | [Global / Cluster-separated](#global--cluster-separated) | Moves nodes only: one layout for the whole network, or one region per cluster | Global | none | Positions only |
 | [Tidy](#tidy) | Settles the Global layout from the current positions, keeping the nodes you dragged where you dropped them; kept until the dataset, filter, weight, seed or the visible tags change | none | none (`layout_source` in exports) | Positions only |
 | Mode | Workbench, Analysis Report mode or [Parameter Selection](#parameter-selection-mode) | Workbench | none | none |
+| [EN / BG](#interface-language) (header) | Shows the interface and this guide in English or Bulgarian; remembered per browser | English | none | none |
 | Controls / Inspector / Tables | Collapse each panel independently | all shown | none | none |
 | Graph only | Switches to the narrowest form (pill bar, floating Inspector, bottom sheet) at any width; press again to leave it | off | none | none |
 | Find a tag… (header) | Finds any tag of the dataset: a tag in the network is selected, centred and opened in the Inspector; a missing tag opens a "Not in the network" card | none | none (Restore / Unhide on the card change `removed_tag_ids` / `hidden_tag_ids`) | none until you press the card's button |
@@ -32,6 +33,28 @@ Each control below either sets a field of the Network State key (and so changes 
 Sliders send their value when you release them; the value beside the slider's label updates while you drag. The number of null-model replicates R and of noise seeds K are set in the Build's config only; they have no control.
 
 The Controls panel is split into four sections: **Data** (dataset, Minimum Months Filter), **Filters** (the two thresholds, the hidden Genre Tags and the defining tag), **Clustering** (weight, algorithm, γ, seed) and **State** (removed tags, Reset all, Export, Open, Clear app cache). A struck-through Genre Tag chip is hidden from the network; click it to show the tag. The count beside the heading ("11 of 11") says how many are hidden.
+
+### Interface language
+
+> **In short.** Shows the app and this User Guide in English or Bulgarian; nothing else changes.
+>
+> **Here:** lets a Bulgarian-speaking reader work with the most-played games' tag network in their own language.
+>
+> **Caution:** exports, tag names, game titles and dataset labels stay English in both languages.
+
+The EN | BG switch in the header, beside the mode switch, in all three modes. Default English. Not part of the Network State.
+
+Switching relabels every label, message, tooltip and generated sentence at once, and opens this guide in the chosen language; nothing is recomputed and a running job carries on. Numbers on screen follow the language: Bulgarian writes 0,42 and 42%. Where a Bulgarian text is not written yet, the English one is shown in its place.
+
+These stay English in both languages: every exported file (the CSV tables, `export.json`, `selection_report.md`), Steam tag names, game titles, Steam Genre values, the cluster labels `C1…`, the five dataset labels and the column names of the tables.
+
+The choice is remembered per browser, in a cookie, so it survives closing the app and starting it on another port. Another browser, or a private window, starts in English.
+
+*Why it matters here.* The numbers and the clusters of the most-played games are the same in both languages, so a reader can work in Bulgarian and cite an English export.
+
+*Caution.* Quote column names, file names and tag names as the exports write them, in English, even when you read the interface in Bulgarian.
+
+*Example.* Choose BG: the Controls become Настройки and Q 0.42 is shown as 0,42; an export made now has the same English files as before.
 
 ## Analytical controls explained
 

@@ -3,6 +3,10 @@ from the loaded dataset; the browser holds only plain data in dcc.Store componen
 small memo of recent layouts (`LAYOUTS`), a pure function of the inputs it is keyed by.
 
 Functions are module-level so background jobs (Removal Sensitivity) can import them in a spawned process.
+
+The Interface Language (the `lang` store) is a view choice. Callbacks that render text take `lang` as an Input, so a
+switch re-renders them; callbacks that compute (a Network State, a layout, a job) take it only as State, so a switch
+never recomputes anything. Static labels are relabelled by `relabel`, from the layout's registry.
 """
 
 from __future__ import annotations
@@ -17,7 +21,7 @@ from typing import Any
 
 import dash
 import networkx as nx
-from dash import ALL, ClientsideFunction, Input, Output, Patch, State, ctx, html, no_update
+from dash import ALL, ClientsideFunction, Input, Output, Patch, State, ctx, html, no_update, set_props
 from dash.exceptions import PreventUpdate
 
 from steamstudy.app import help as H
@@ -26,7 +30,7 @@ from steamstudy.app import ps_view as PV
 from steamstudy.app import view as V
 from steamstudy.app.export import BuildNotFound, OpenRefused, export_zip, open_export
 from steamstudy.app.guide import PANEL_SECTIONS, help_markdown_at
-from steamstudy.app.layout import PILLS, SLIDERS, block_styles, root_class
+from steamstudy.app.layout import PILLS, RELABEL, SLIDERS, block_styles, message_value, root_class
 from steamstudy.app.loader import BuildContext, load_build
 from steamstudy.app import renderer as R
 from steamstudy.app.renderer import cluster_color
@@ -40,6 +44,7 @@ from steamstudy.network.sensitivity import removal_sensitivity
 from steamstudy.network.stability import ari
 from steamstudy.network.state import compute_state
 from steamstudy.network.tables import state_tables
+from steamstudy.i18n import lang_of, text
 from steamstudy.versions import version_mismatches
 
 BLOCKS = ["blk-dataset", "blk-filters", "blk-graph", "blk-tabs", "blk-quality", "blk-clusters", "blk-rs",
@@ -709,6 +714,13 @@ def show_help(_clicks, _close, target=None, _back=None, history=None):
             {"display": "inline-block" if len(history) > 1 else "none"})
 
 
+def relabel(lang):
+    """A language switch: every static prop the layout registered, in the new language (no recompute)."""
+    tx = text(lang_of(lang))
+    for id_, prop, message in RELABEL.values():
+        set_props(id_, {prop: message_value(message, tx)})
+
+
 # ----------------------------------------------------------------------------- registration
 
 
@@ -999,6 +1011,12 @@ def ps_export(_n, active, cstore, build_path):
 
 def register(app: dash.Dash) -> None:
     cb = app.callback
+    # ---- Interface Language: the switch writes the store and the cookie; the tab title follows the words
+    app.clientside_callback(ClientsideFunction(namespace="workbench", function_name="language"),
+                            Output("lang", "data"), Input("lang-switch", "value"), prevent_initial_call=True)
+    app.clientside_callback(ClientsideFunction(namespace="workbench", function_name="title"),
+                            Input("ui-words", "data"))
+    cb(Input("lang", "data"), prevent_initial_call=True)(relabel)
     cb(Output("defining-hidden", "options"), Output("defining-hidden", "value", allow_duplicate=True),
        Output("removed", "data", allow_duplicate=True),
        Input("dataset", "value"), State("build-path", "data"), State("pending-open", "data"),

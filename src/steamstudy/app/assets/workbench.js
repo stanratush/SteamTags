@@ -258,6 +258,20 @@
             seed === null || seed === undefined ? "—" : String(seed), `${n} of ${total}`];
   }
 
-  window.dash_clientside = Object.assign({}, window.dash_clientside, {workbench: {pills}});
+  // ------------------------------------------------------------------ Interface Language
+
+  // The EN | BG switch: the choice is kept per browser in a cookie (i18n.COOKIE), which ignores the port, so it
+  // survives restarts and --port changes; the server reads it when it serves the page.
+  function language(lang) {
+    document.cookie = `steamstudy_lang=${lang}; path=/; max-age=${400 * 24 * 3600}; SameSite=Lax`;
+    return lang;
+  }
+
+  // The browser tab title, from the ui-words store (layout.py `ui_words`).
+  function title(words) {
+    if (words && words.title) document.title = words.title;
+  }
+
+  window.dash_clientside = Object.assign({}, window.dash_clientside, {workbench: {pills, language, title}});
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();

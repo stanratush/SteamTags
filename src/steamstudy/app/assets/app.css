@@ -74,6 +74,7 @@ input[type=text],input:not([type]),.dash-input-element{border-radius:6px}
 .brand .title{font-weight:650;font-size:14px}
 .search-slot{flex:1 1 240px;max-width:420px;margin:0 auto}
 .search-slot:empty{visibility:hidden}
+.lang-box{display:inline-flex;align-items:center}
 .hdr-right{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
 .graph-only #graph-only{background:var(--ink);border-color:var(--ink);color:#fff}
 

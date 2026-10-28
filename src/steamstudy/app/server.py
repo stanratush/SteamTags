@@ -8,14 +8,21 @@ from pathlib import Path
 
 import dash
 import diskcache
+import flask
 from dash import DiskcacheManager
 
 from steamstudy.app import callbacks
 from steamstudy.app.layout import build_layout
 from steamstudy.app.loader import load_build
 from steamstudy.app.rs_cache import JOBS_DIR
+from steamstudy.i18n import COOKIE, DEFAULT, lang_of
 
 HOST = "127.0.0.1"
+
+
+def served_lang() -> str:
+    """The Interface Language of the page being served: the browser's cookie, English without one."""
+    return lang_of(flask.request.cookies.get(COOKIE)) if flask.has_request_context() else DEFAULT
 
 
 def create_app(build_path: str | Path) -> dash.Dash:
@@ -27,7 +34,8 @@ def create_app(build_path: str | Path) -> dash.Dash:
         __name__, title="Tag Network", background_callback_manager=manager, serve_locally=True,
         assets_folder=str(Path(__file__).parent / "assets"), suppress_callback_exceptions=True,
     )
-    app.layout = build_layout(ctx)
+    build_layout(ctx)  # fills the relabel registry before any page is served
+    app.layout = lambda: build_layout(ctx, served_lang())  # the first paint is already in the chosen language
     callbacks.register(app)
     return app
 

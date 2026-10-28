@@ -6,6 +6,10 @@ graph, the tables and the inspector are single component instances shared by bot
 Workbench the tables sit in one resizable pane (`tables-area`); in Analysis Report mode that pane is
 `display: contents`, so its blocks take part in the page order.
 
+Every translated static prop is registered in `RELABEL` as (component id, prop, message) while the layout is built,
+in the Interface Language of the page (`steamstudy.i18n`); one callback (callbacks.py `relabel`) sets them all again
+when the language is switched, so a new static label needs no new wiring.
+
 The Workbench changes form with the window width (`assets/workbench.js` sets `body[data-form]`):
 wide (>= 1280 px) is three panes; medium (1024-1279 px) turns the Controls into a pill bar and floats
 the Inspector; narrow (< 1024 px, or "Graph only") also turns the tables into a bottom sheet.
@@ -13,6 +17,8 @@ the Inspector; narrow (< 1024 px, or "Graph only") also turns the tables into a 
 
 from __future__ import annotations
 
+import json
+from collections.abc import Callable
 from typing import Any
 
 import dash_ag_grid as dag
@@ -23,11 +29,44 @@ from steamstudy.app.loader import BuildContext
 from steamstudy.app.ps_view import mode_layout
 from steamstudy.app.renderer import graph_component, thickness_key
 from steamstudy.app.view import column_defs, metric_header
+from steamstudy.i18n import LANGS, Text, text
 
 WB_TABS = [("quality", "Cluster quality"), ("clusters", "Clusters"), ("rs", "Removal sensitivity"),
            ("nodes", "Nodes"), ("edges", "Edges"), ("nin", "Not in network")]
 SLIDERS = ("min-games", "min-shared", "min-months")
 PILLS = ("dataset", "min-months", "min-games", "min-shared", "hidden", "weight", "algorithm", "gamma", "seed")
+
+
+# A registered message: English text for `tx`, or a function of the translator (a tooltip, a store's words).
+Message = str | Callable[[Text], Any]
+# json([component id, prop]) -> (component id, prop, message), in the order first registered.
+RELABEL: dict[str, tuple[Any, str, Message]] = {}
+
+
+def message_value(message: Message, tx: Text) -> Any:
+    return tx(message) if isinstance(message, str) else message(tx)
+
+
+def _t(tx: Text, id_: Any, prop: str, message: Message) -> Any:
+    """Register a static prop for the relabel callback and return its value in the page's language."""
+    RELABEL.setdefault(json.dumps([id_, prop], sort_keys=True), (id_, prop, message))
+    return message_value(message, tx)
+
+
+def ui_words(tx: Text) -> dict[str, Any]:
+    """The words the browser code shows (the `ui-words` store): JS and CSS hold none of their own."""
+    return {"title": tx("Tag Network")}
+
+
+def _language(tx: Text, lang: str) -> html.Div:
+    """The EN | BG switch: writes the `lang` store and the cookie (workbench.js `language`). Its dotted label carries
+    both help layers, like an analytical control's; its tooltip is the registry's first entry."""
+    tip = _t(tx, "lang-term", "data-tip", lambda _tx: H.tip("header.lang"))
+    return html.Div([
+        html.Span(_t(tx, "lang-term", "children", "Language"), id="lang-term", className="term", tabIndex="0",
+                  **{**H.attrs("header.lang"), "data-tip": tip}),
+        _seg("lang-switch", [(code, code.upper()) for code in LANGS], lang),
+    ], id="lang-box", className="lang-box")
 
 
 def _data(**attrs: str) -> dict[str, Any]:
@@ -180,7 +219,10 @@ def _thickness_legend(ctx: BuildContext) -> html.Div:
     ], className="legend thickness-key")
 
 
-def build_layout(ctx: BuildContext) -> html.Div:
+def build_layout(ctx: BuildContext, lang: str = "en") -> html.Div:
+    """The page in the Interface Language `lang` (read from the cookie when it is served)."""
+    tx = text(lang)
+    language = _language(tx, lang)
     graph_block = html.Div([
         html.H3(["3 Network", _help("network")], className="section-heading"),
         html.Div(id="summary-row", className="sumrow"),
@@ -278,6 +320,8 @@ def build_layout(ctx: BuildContext) -> html.Div:
         # {"target": "<guide file>#<anchor>", "n": click time, "follow": a link inside the modal}, set by workbench.js
         dcc.Store(id="help-target"),
         dcc.Store(id="help-history", data=[]),  # the entries opened in the modal, for ← Back
+        dcc.Store(id="lang", data=lang),  # the Interface Language: a view choice, never part of the Network State
+        dcc.Store(id="ui-words", data=_t(tx, "ui-words", "data", ui_words)),
         dcc.Download(id="download"),
     ]
     header = html.Header([
@@ -285,6 +329,7 @@ def build_layout(ctx: BuildContext) -> html.Div:
                  className="brand"),
         _seg("mode", [("workbench", "Workbench"), ("report", "Analysis Report mode"),
                        ("selection", "Parameter Selection")], "workbench"),
+        language,
         html.Div(dcc.Dropdown(id="tag-search", options=[], placeholder="Find a tag…", searchable=True,
                               clearable=False, className="tag-search"), id="search-slot", className="search-slot"),
         html.Div([

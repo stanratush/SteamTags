@@ -38,6 +38,7 @@ HELP: dict[str, tuple[str, str]] = {
     "control.algorithm": (APP_CONTROLS, "clustering-algorithm"),
     "control.gamma": (APP_CONTROLS, "resolution-γ"),
     "control.seed": (APP_CONTROLS, "seed"),
+    "header.lang": (APP_CONTROLS, "interface-language"),
     "legend.key": (APP_CONTROLS, "reading-the-graph"),
     "legend.one_tag": (APP_CONTROLS, "grey-one-tag-clusters"),
     "legend.thickness": (APP_CONTROLS, "edge-thickness"),
