@@ -28,9 +28,25 @@ AREA_OF = {
     "app/help.py": "ui_words", "app/guide.py": "ui_words",
 }
 
+def _refusals() -> Iterable[str]:
+    from steamstudy.app.export import REFUSALS
+
+    return REFUSALS.values()
+
+
+def _schema_tips() -> Iterable[str]:
+    """The schema descriptions the grids show as header tooltips (identifier columns: `view.column_defs`)."""
+    from steamstudy.app.layout import GRIDS
+    from steamstudy.i18n import text
+
+    en = text("en")
+    return sorted({d["headerTooltip"] for grid in GRIDS.values() for d in grid(en)
+                   if "headerComponentParams" not in d})
+
+
 # Text that reaches `tx` as a variable, by area: the declared non-literal sources (schema descriptions shown as
-# header tooltips, the OpenRefused reasons, the In short label sets). Filled by the issues that add them.
-NON_LITERAL: dict[str, Callable[[], Iterable[str]]] = {}
+# header tooltips, the OpenRefused reasons). The In short label sets are the guide's (guide.LABELS), not catalogued.
+NON_LITERAL: dict[str, Callable[[], Iterable[str]]] = {"refusals": _refusals, "schema_tips": _schema_tips}
 
 
 @dataclass(frozen=True)
@@ -69,8 +85,9 @@ def scan(root: Path = SRC) -> list[Message]:
         tree = ast.parse(path.read_text(encoding="utf-8"))
         hits = sorted(_messages(tree, AREA_OF.get(rel, "?"), rel), key=lambda m: int(m.where.rsplit(":", 1)[1]))
         found += hits
-    for area, source in NON_LITERAL.items():
-        found += [Message(area, key, None, f"declared source {area}") for key in source()]
+    if root == SRC:  # the declared sources belong to the real source tree
+        for area, source in NON_LITERAL.items():
+            found += [Message(area, key, None, f"declared source {area}") for key in source()]
     return found
 
 

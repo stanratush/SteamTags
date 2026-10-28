@@ -287,10 +287,10 @@ def test_constraint_marks_and_confirm_state(ps_build):
     ctx = load_build(ps_build)
     active, cstore = _store(ctx)
     *marks, disabled, note = CB.ps_constraint_marks(0.5, 0.1, 0.9, 2, None, 0.05, cstore, "overall", active,
-                                                    str(ps_build))
+                                                    str(ps_build), "en")
     assert marks == [""] * 6 and disabled and note == ""
     *marks, disabled, note = CB.ps_constraint_marks(0.6, 0.1, 0.9, 2, None, 0.05, cstore, "overall", active,
-                                                    str(ps_build))
+                                                    str(ps_build), "en")
     assert marks[0] == "changed" and not disabled and note == "Unconfirmed changes"
 
 

@@ -14,6 +14,7 @@ from typing import Any
 
 from dash import ClientsideFunction, dcc, html
 
+from steamstudy.i18n import Text
 from steamstudy.network.layout import label_width
 
 GRAPH_ID = "cy"
@@ -70,10 +71,10 @@ def edge_thickness(weight: str, show_shared: bool) -> str:
     return "shared_games" if show_shared else weight
 
 
-def thickness_key(weight: str, show_shared: bool) -> tuple[str, dict[str, str]]:
+def thickness_key(weight: str, show_shared: bool, tx: Text) -> tuple[str, dict[str, str]]:
     """The legend's name for what edge width shows, and the switch's style: offered only under lift."""
-    return (f"Edge thickness: {THICKNESS[edge_thickness(weight, show_shared)][1]}",
-            {} if weight == "lift" else {"display": "none"})
+    measure = tx("shared games") if edge_thickness(weight, show_shared) == "shared_games" else tx("lift")
+    return tx("Edge thickness: {measure}", measure=measure), {} if weight == "lift" else {"display": "none"}
 
 
 def payload(nodes: list[dict[str, Any]], edges: list[dict[str, Any]], positions: dict[str, list[float]], *,

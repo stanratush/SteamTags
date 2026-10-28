@@ -307,7 +307,7 @@ body[data-form=narrow] #root.workbench .ov-bl{bottom:54px}
 .sumrow .m span,.sumrow .m small{color:var(--mute)}
 .state-line{padding:2px 14px 8px;font-size:12px;color:var(--mute);border-bottom:1px solid var(--line2)}
 .copy-id{cursor:pointer;color:var(--ink2);border-bottom:1px dashed var(--faint)}
-.copy-id.copied::after{content:" copied";color:var(--acc);font-family:var(--sans)}
+.copy-id.copied::after{content:" " attr(data-copied);color:var(--acc);font-family:var(--sans)}
 #root.report .sumrow,#root.report .state-line{display:none}
 .qboxes{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:6px}
 .qbox{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff;cursor:help}

@@ -95,7 +95,8 @@ def test_declared_dependencies_are_the_app_set_and_python_is_3_12_to_3_14():
 
 def test_the_app_import_closure_type_checks_for_python_3_12():
     files = [str(p) for p in [*(SRC / "app").glob("*.py"), *(SRC / "network").glob("*.py"),
-                               *(SRC / "export").glob("*.py"), SRC / "config.py", SRC / "versions.py",
+                               *(SRC / "export").glob("*.py"), *(SRC / "i18n").rglob("*.py"), SRC / "config.py",
+                               SRC / "versions.py",
                                SRC / "builds.py", SRC / "cli.py", SRC / "snapshot.py", SRC / "__init__.py"]]
     out = subprocess.run([sys.executable, "-m", "mypy", "--python-version", "3.12", "--follow-imports", "silent",
                           *files], capture_output=True, text=True, encoding="utf-8", cwd=REPO)

@@ -31,16 +31,39 @@ CLUSTER_LABEL_RULE = ("C1… by size descending, ties by smallest member tag_id;
                       "One-Tag Clusters by tag_id")
 
 
+# Why Open Network State… refuses an export: reason code -> English text with named parameters. The app shows it
+# through the Interface Language (callbacks.py `do_open`); the exception's own text, for the terminal, stays English.
+REFUSALS = {
+    "unreadable_zip": "not a readable zip: {error}",
+    "no_export_json": "the zip has no export.json",
+    "not_an_export": "neither an export zip nor an export.json",
+    "build_changed": "the Build {build_id} at {path} differs from the one this Network State was exported from (its "
+                     "build.json changed)",
+    "missing_field": "export.json lacks {field}",
+    "key_version": "key_version {found} differs from this software's {expected}: the methods changed, so the state "
+                   "cannot be reproduced exactly",
+    "unreadable_key": "the state key cannot be read: {error}",
+    "build_not_found": "this Network State needs Build {build_id} (Snapshot {snapshot_id}), which is not among the "
+                       "Builds in {root}; copy that Build folder there and open again",
+}
+
+
 class OpenRefused(ValueError):
-    """The export cannot be reopened (Build changed, key_version differs, unreadable file)."""
+    """The export cannot be reopened (Build changed, key_version differs, unreadable file): a `REFUSALS` reason and
+    its parameters."""
+
+    def __init__(self, reason: str, **params: Any):
+        super().__init__(REFUSALS[reason].format(**params))
+        self.reason, self.params = reason, params
 
 
 class BuildNotFound(FileNotFoundError):
     """No Build available to the app has the export's identity (its build_id)."""
 
     def __init__(self, build_id: str, snapshot_id: str, builds_root: Path):
-        super().__init__(f"this Network State needs Build {build_id} (Snapshot {snapshot_id}), which is not among the Builds "
-                         f"in {builds_root}; copy that Build folder there and open again")
+        self.reason = "build_not_found"
+        self.params = {"build_id": build_id, "snapshot_id": snapshot_id, "root": str(builds_root)}
+        super().__init__(REFUSALS[self.reason].format(**self.params))
         self.build_id, self.snapshot_id = build_id, snapshot_id
 
 
@@ -149,14 +172,14 @@ def read_export(data: bytes) -> tuple[dict[str, Any], dict[str, bytes]]:
             with zipfile.ZipFile(io.BytesIO(data)) as zf:
                 files = {name: zf.read(name) for name in zf.namelist()}
         except zipfile.BadZipFile as exc:
-            raise OpenRefused(f"not a readable zip: {exc}") from exc
+            raise OpenRefused("unreadable_zip", error=str(exc)) from exc
         if "export.json" not in files:
-            raise OpenRefused("the zip has no export.json")
+            raise OpenRefused("no_export_json")
         return json.loads(files.pop("export.json").decode("utf-8")), files
     try:
         return json.loads(data.decode("utf-8-sig")), {}
     except (UnicodeDecodeError, ValueError) as exc:
-        raise OpenRefused("neither an export zip nor an export.json") from exc
+        raise OpenRefused("not_an_export") from exc
 
 
 def find_build(builds_root: str | Path, build_json: dict[str, Any]) -> Path:
@@ -172,8 +195,7 @@ def find_build(builds_root: str | Path, build_json: dict[str, Any]) -> Path:
         if build_json_hash(json.loads((path / "datasets" / "build.json").read_text(encoding="utf-8"))) == wanted:
             return path
     if candidates:
-        raise OpenRefused(f"the Build {build_id} at {candidates[0]} differs from the one this Network State was "
-                          f"exported from (its build.json changed)")
+        raise OpenRefused("build_changed", build_id=build_id, path=str(candidates[0]))
     raise BuildNotFound(build_id, snapshot_id, root)
 
 
@@ -185,15 +207,14 @@ def open_export(data: bytes, *, builds_root: str | Path) -> OpenedState:
         key = export["state_key"]
         recorded = str(export["state_id"])
     except KeyError as exc:
-        raise OpenRefused(f"export.json lacks {exc}") from exc
+        raise OpenRefused("missing_field", field=str(exc)) from exc
     if int(key.get("key_version", -1)) != KEY_VERSION:
-        raise OpenRefused(f"key_version {key.get('key_version')} differs from this software's {KEY_VERSION}: "
-                          f"the methods changed, so the state cannot be reproduced exactly")
+        raise OpenRefused("key_version", found=key.get("key_version"), expected=KEY_VERSION)
     path = find_build(builds_root, export.get("build_json") or {})
     try:
         settings = Settings.from_key(key)
     except (KeyError, ValueError, TypeError) as exc:
-        raise OpenRefused(f"the state key cannot be read: {exc}") from exc
+        raise OpenRefused("unreadable_key", error=str(exc)) from exc
     opened = OpenedState(path, settings, recorded, str(export.get("layout_source", "default")),
                          int(export.get("schema_version", 0)), recorded_files=dict(export.get("files", {})))
     status = export.get("removal_sensitivity")

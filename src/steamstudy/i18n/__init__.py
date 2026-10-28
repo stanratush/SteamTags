@@ -30,6 +30,8 @@ Entry = str | dict[str, str]
 
 _WORDS = {"en": {"n/a": "n/a", "yes": "yes", "no": "no", "and": "and"},
           "bg": {"n/a": "н/д", "yes": "да", "no": "не", "and": "и"}}
+# The decimal mark on screen. Neither language has a thousands separator on screen (docs/i18n/bg-terms.md).
+DECIMAL = {"en": ".", "bg": ","}
 
 
 def lang_of(value: Any) -> str:
@@ -66,6 +68,7 @@ class Text:
             raise ValueError(f"unknown Interface Language {lang!r}; expected one of {LANGS}")
         self.lang = lang
         self._words = _WORDS[lang]
+        self.decimal = DECIMAL[lang]
 
     def _entry(self, key: str) -> Entry | None:
         return None if self.lang == "en" else catalogue(self.lang).get(key)
@@ -87,7 +90,15 @@ class Text:
         return f"{', '.join(items[:-1])} {self._words['and']} {items[-1]}"
 
     def _decimal(self, text: str) -> str:
-        return text.replace(".", ",") if self.lang == "bg" else text
+        return text.replace(".", self.decimal)
+
+    def d3_format(self, spec: str) -> str:
+        """A d3 number formatter in the language, as JavaScript for ag-grid's `valueFormatter` (no thousands
+        separator, the language's decimal mark)."""
+        if self.decimal == ".":
+            return f"d3.format('{spec}')"
+        return (f"d3.formatLocale({{decimal: '{self.decimal}', thousands: '', grouping: [3], currency: ['', '']}})"
+                f".format('{spec}')")
 
     def word(self, key: str) -> str:
         """n/a, yes or no in the language."""

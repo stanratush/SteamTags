@@ -28,9 +28,11 @@ from steamstudy.app import help as H
 from steamstudy.app import app_cache, ps_run, rs_cache
 from steamstudy.app import ps_view as PV
 from steamstudy.app import view as V
-from steamstudy.app.export import BuildNotFound, OpenRefused, export_zip, open_export
+from steamstudy.app.export import REFUSALS, BuildNotFound, OpenRefused, export_zip, open_export
 from steamstudy.app.guide import PANEL_SECTIONS, help_markdown_at
-from steamstudy.app.layout import PILLS, RELABEL, SLIDERS, block_styles, message_value, root_class
+from steamstudy.app.layout import (GRIDS, PILLS, RELABEL, SLIDERS, block_styles, grid_options, message_value,
+                                   root_class)
+from steamstudy.app.layout import defining_options as layout_defining_options
 from steamstudy.app.loader import BuildContext, load_build
 from steamstudy.app import renderer as R
 from steamstudy.app.renderer import cluster_color
@@ -49,7 +51,6 @@ from steamstudy.versions import version_mismatches
 
 BLOCKS = ["blk-dataset", "blk-filters", "blk-graph", "blk-tabs", "blk-quality", "blk-clusters", "blk-rs",
           "blk-nodes", "blk-edges", "blk-export"]
-WIRE = text("en")  # i18n: wire (issue 12 passes the page's translator instead)
 CONTROL_IDS = ["dataset", "min-games", "min-shared", "min-months", "genre-hidden", "defining-hidden", "weight",
                "algorithm", "gamma", "seed"]
 
@@ -95,12 +96,15 @@ def _valid_gamma(gamma: Any) -> bool:
 def on_dataset(dataset: str, build_path: str, pending: dict | None):
     c = load_build(build_path)
     defining = c.dataset(dataset).defining_tag
-    options = [{"label": f"hide defining tag ({defining.name})" if defining else "no defining tag", "value": 1,
-                "disabled": defining is None}]
     if pending and pending.get("dataset") == dataset:
-        return options, pending["defining-hidden"], pending["removed"]
+        return pending["defining-hidden"], pending["removed"]
     hidden = c.default_settings(dataset).hidden_tag_ids
-    return options, ([1] if defining is not None and defining.id in hidden else []), []
+    return ([1] if defining is not None and defining.id in hidden else []), []
+
+
+def defining_options(dataset: str, lang: str | None, build_path: str):
+    """The defining-tag checkbox's label, for the dataset and the Interface Language (never its value)."""
+    return layout_defining_options(load_build(build_path).dataset(dataset).defining_tag, text(lang_of(lang)))
 
 
 # ----------------------------------------------------------------------------- 2. recompute
@@ -142,7 +146,7 @@ def tables_of(meta: dict[str, Any], build_path: str) -> dict[str, Any]:
     return tables
 
 
-def applied_line(verify, key, cluster_of):
+def applied_line(verify, key, cluster_of, tx):
     """Apply to Workbench's provenance line: checked once, on the first recompute at the applied key, against the
     stored Selected Partition; kept while the key stays, gone as soon as a setting changes. Display only."""
     if verify.get("applied"):
@@ -154,20 +158,101 @@ def applied_line(verify, key, cluster_of):
         nodes = sorted(stored) if same_nodes else []
         value = ari(nodes, {t: str(stored[t]) for t in nodes}, cluster_of) if same_nodes else 0.0
         reproduced = same_nodes and value == 1.0
-        head = f"Applied from Parameter Selection: {applied['dataset']}, g={applied['g']}, s={applied['s']}"
-        text = (f"{head} — Selected Partition reproduced ✓" if reproduced else
-                f"{head} — shows a different partition from the Selected Partition: ARI {value:.2f}")
+        where = {"dataset": applied["dataset"], "g": applied["g"], "s": applied["s"]}
+        line = (tx("Applied from Parameter Selection: {dataset}, g={g}, s={s} — Selected Partition reproduced ✓",
+                   **where) if reproduced else
+                tx("Applied from Parameter Selection: {dataset}, g={g}, s={s} — shows a different partition from the "
+                   "Selected Partition: ARI {ari}", **where, ari=tx.fixed(value, ".2f")))
         record = {k: applied[k] for k in ("dataset", "g", "s", "grid_key_hash", "method_version", "workbench_gamma",
                                           "workbench_seed")}
         record.update({"reproduced": reproduced, "ari": None if reproduced else value})
-        return text, {"applied_key": applied["key"], "applied_from": record, "text": text}
+        return line, {"applied_key": applied["key"], "applied_from": record, "text": line}
     if key != verify["applied_key"]:
         return "", None
     return no_update, no_update
 
 
+def state_views(c: BuildContext, meta: dict[str, Any], tables: dict[str, Any], tx) -> dict[str, Any]:
+    """The text a Network State shows, by output id, from its meta and its browser tables: rendered by `recompute`,
+    and again by `state_text` when the Interface Language is switched (no recompute)."""
+    settings = Settings.from_key(meta["key"])
+    dataset, q, gamma_text = settings.dataset, tables["quality"], meta["gamma"]
+    names = {int(t): name for t, name in meta["names"].items()}
+    legend: list[Any] = [html.Span(tx("Key"), className="lkey term", tabIndex="0", **H.attrs("legend.key", tx))] + [
+        html.Button([html.Span(className="sw", style={"background": cluster_color(r["cluster"], r["kind"])}),
+                     f"{r['cluster']} · {r['size']}"], id={"type": "legend", "cluster": r["cluster"]}, className="lchip",
+                    title=tx("Select this cluster"))
+        for r in tables["clusters"] if r["kind"] == "multi_tag"]
+    n_one = sum(r["kind"] == "one_tag" for r in tables["clusters"])
+    if n_one:
+        legend.append(html.Span([html.Span(className="sw", style={"background": R.ONE_TAG_COLOR}),
+                                 tx.n(n_one, one="{n} one-tag", other="{n} one-tag")],
+                                className="lchip static term", tabIndex="0", **H.attrs("legend.one_tag", tx)))
+    banners = []
+    if c.mode == "test":
+        banners.append(html.Div(tx("mode: test — this Build comes from a test Snapshot; never publish it."),
+                                className="banner"))
+    mismatches = version_mismatches(c.build_json.get("software_versions") or {})
+    if mismatches:
+        drift = "; ".join(tx("{lib} {then} (Build) vs {now} (installed)", lib=lib, then=then, now=now)
+                          for lib, then, now in mismatches)
+        banners.append(html.Div(tx("Library versions differ from the ones this Build was made with, so numbers may "
+                                   "differ from the Build's: {drift}.", drift=drift), className="banner"))
+    if c.build_json.get("parse_errors_allowed"):
+        banners.append(html.Div(tx("parse_errors_allowed — this Build was made with --allow-parse-errors ({n} errors); "
+                                   "never publish it.", n=c.build_json.get("parse_error_count")), className="banner"))
+    rows_total = len(c.rows(dataset))
+    defining = c.dataset(dataset).defining_tag
+    n_missing = len(tables["nin"])
+    filters = html.P(tx("Minimum games per tag {g}, minimum shared games {s}, Minimum Months Filter {m}.",
+                        g=settings.min_games_per_tag, s=settings.min_shared_games, m=settings.min_months) + " " +
+                     tx.n(n_missing, one="{n} tag of the dataset is not in the network; it is listed below with all "
+                                         "its reasons.",
+                          other="{n} tags of the dataset are not in the network; every one is listed below with all "
+                                "its reasons."))
+    n_tags, seconds = meta["n_nodes"], meta["clustering_seconds"]
+    estimate = tx("Estimate: {n} tags × {ms} ms (one clustering) ≈ {s} s, plus about 4 s job start-up", n=n_tags,
+                  ms=tx.fixed(seconds * 1000, ".0f"), s=tx.fixed(n_tags * seconds, ".1f"))
+    export_summary = html.P([html.Span(tx("Export"), className="term", tabIndex="0", **H.attrs("export.zip", tx)),
+                             tx(": steamstudy_{dataset}_{state_id}_<UTC timestamp>.zip, with every table above, "
+                                "export.json with the full state key and provenance, and Removal Sensitivity results "
+                                "for this exact state if any.", dataset=dataset, state_id=meta["state_id"])])
+    return {
+        "legend": legend,
+        "summary-row": V.summary_row(q, rows_total, gamma_text, settings.null_replicates),
+        "state-sentence": V.state_sentence(c.dataset(dataset).label, rows_total, settings,
+                                           [str(names.get(t, t)) for t in settings.hidden_tag_ids],
+                                           defining.name if defining else None,
+                                           [str(names.get(t, t)) for t in settings.removed_tag_ids], meta["state_id"]),
+        "quality-detail": V.quality_boxes(q, gamma_text, meta["k"], settings.null_replicates),
+        "banners": banners,
+        "dataset-summary": V.state_table(meta["key"], meta["state_id"], c.dataset(dataset).label, meta["n_games"],
+                                         rows_total, names),
+        "filters-summary": filters,
+        "rs-estimate": estimate,
+        "export-summary": export_summary,
+        "tag-search": V.search_options(tables, settings.min_games_per_tag),
+    }
+
+
+# The outputs `state_views` fills, in the order `state_text` sends them.
+STATE_VIEWS = [("legend", "children"), ("summary-row", "children"), ("state-sentence", "children"),
+               ("quality-detail", "children"), ("banners", "children"), ("dataset-summary", "children"),
+               ("filters-summary", "children"), ("rs-estimate", "children"), ("export-summary", "children"),
+               ("tag-search", "options")]
+
+
+def state_text(lang, meta, build_path):
+    """A language switch: the Network State's text again, in the new language, from the tables already computed."""
+    if not meta:
+        raise PreventUpdate
+    views = state_views(load_build(build_path), meta, tables_of(meta, build_path), text(lang_of(lang)))
+    return [views[id_] for id_, _ in STATE_VIEWS]
+
+
 def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidden, defining_hidden, weight,
-              algorithm, gamma, seed, removed, verify):
+              algorithm, gamma, seed, removed, verify, lang=None):
+    tx = text(lang_of(lang))
     if not _valid_gamma(gamma) or seed is None or int(seed) < 0:
         raise PreventUpdate
     c = load_build(build_path)
@@ -179,9 +264,16 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
     q = tables["cluster_quality.csv"][0]
     gamma_text = resolution_text(settings.resolution)
     k = settings.noise_seeds
+    names = {**{t.id: t.name for t in c.genre_tags}, **state.network.tag_names}
+    defining_ref = c.dataset(dataset).defining_tag
+    named = {*settings.hidden_tag_ids, *settings.removed_tag_ids, *([defining_ref.id] if defining_ref else [])}
+    # meta["names"]: the hidden, removed and defining tags' names, which the state's text names (`state_views`)
     meta = {"state_id": state.state_id, "key": settings.key(), "n_nodes": len(state.nodes),
             "clustering_seconds": state.clustering_seconds, "k": k, "gamma": gamma_text, "dataset": dataset,
-            "weight": settings.clustering_weight}
+            "weight": settings.clustering_weight, "n_games": state.network.n_games,
+            "names": {str(t): names.get(t, str(t)) for t in sorted(named)}}
+    if defining_ref:
+        meta["names"][str(defining_ref.id)] = defining_ref.name
     store_tables = browser_tables(tables)
     edges_view = store_tables["edges"]
     remember_tables(state.state_id, store_tables)
@@ -196,63 +288,24 @@ def recompute(build_path, dataset, min_games, min_shared, min_months, genre_hidd
         "basis": [dataset, settings.min_months, settings.clustering_weight, settings.seed],
         "weight": settings.clustering_weight, "seed": settings.seed, "dataset": dataset,
     }
-    legend: list[Any] = [html.Span("Key", className="lkey term", tabIndex="0", **H.attrs("legend.key", WIRE))] + [
-        html.Button([html.Span(className="sw", style={"background": cluster_color(r["cluster"], r["kind"])}),
-                     f"{r['cluster']} · {r['size']}"], id={"type": "legend", "cluster": r["cluster"]}, className="lchip",
-                    title="Select this cluster")
-        for r in tables["clusters.csv"] if r["kind"] == "multi_tag"]
-    n_one = sum(r["kind"] == "one_tag" for r in tables["clusters.csv"])
-    if n_one:
-        legend.append(html.Span([html.Span(className="sw", style={"background": R.ONE_TAG_COLOR}), f"{n_one} one-tag"],
-                                className="lchip static term", tabIndex="0", **H.attrs("legend.one_tag", WIRE)))
-    banners = []
-    if c.mode == "test":
-        banners.append(html.Div("mode: test — this Build comes from a test Snapshot; never publish it.", className="banner"))
-    mismatches = version_mismatches(c.build_json.get("software_versions") or {})
-    if mismatches:
-        banners.append(html.Div("Library versions differ from the ones this Build was made with, so numbers may "
-                                "differ from the Build's: " + "; ".join(f"{lib} {then} (Build) vs {now} (installed)"
-                                                                        for lib, then, now in mismatches) + ".",
-                                className="banner"))
-    if c.build_json.get("parse_errors_allowed"):
-        banners.append(html.Div(f"parse_errors_allowed — this Build was made with --allow-parse-errors "
-                                f"({c.build_json.get('parse_error_count')} errors); never publish it.", className="banner"))
-    names = {**{t.id: t.name for t in c.genre_tags}, **state.network.tag_names}
     restore = [{"label": f"{names.get(t, t)} ({t})", "value": t} for t in settings.removed_tag_ids]
     verify_text: Any = no_update
     verify_out: Any = no_update
     if verify and verify.get("expected"):
         ok = state.state_id == verify["expected"]
-        verify_text = f"Opened state {verify['expected']}: recomputed state_id {state.state_id} {'✓' if ok else '✗'}"
+        verify_text = tx("Opened state {expected}: recomputed state_id {state_id} {mark}",
+                         expected=verify["expected"], state_id=state.state_id, mark="✓" if ok else "✗")
         verify_out = {"expected": None}
     elif verify and (verify.get("applied") or verify.get("applied_key")):
-        verify_text, verify_out = applied_line(verify, settings.key(), state.cluster_of)
-    rows_total = len(c.rows(dataset))
-    defining_ref = c.dataset(dataset).defining_tag
-    summary = V.state_table(settings.key(), state.state_id, c.dataset(dataset).label, state.network.n_games, rows_total,
-                            {**names, **({defining_ref.id: defining_ref.name} if defining_ref else {})})
-    filters = html.P(f"Minimum games per tag {settings.min_games_per_tag}, minimum shared games "
-                     f"{settings.min_shared_games}, Minimum Months Filter {settings.min_months}. "
-                     f"{len(tables['not_in_network.csv'])} tags of the dataset are not in the network; every one is "
-                     f"listed below with all its reasons.")
-    estimate = (f"Estimate: {len(state.nodes)} tags × {state.clustering_seconds * 1000:.0f} ms (one clustering) "
-                f"≈ {len(state.nodes) * state.clustering_seconds:.1f} s, plus about 4 s job start-up")
-    export_summary = html.P([html.Span("Export", className="term", tabIndex="0", **H.attrs("export.zip", WIRE)),
-                             f": steamstudy_{dataset}_{state.state_id}_<UTC timestamp>.zip, with every table above, "
-                             f"export.json with the full state key and provenance, and Removal Sensitivity results "
-                             f"for this exact state if any."])
-    defining = c.dataset(dataset).defining_tag
-    sentence = V.state_sentence(c.dataset(dataset).label, rows_total, settings,
-                                [str(names.get(t, t)) for t in settings.hidden_tag_ids],
-                                defining.name if defining else None,
-                                [str(names.get(t, t)) for t in settings.removed_tag_ids], state.state_id)
-    return (meta, store_tables, base, legend, V.summary_row(q, rows_total, gamma_text, settings.null_replicates), sentence,
-            V.quality_boxes(q, gamma_text, k, settings.null_replicates),
+        verify_text, verify_out = applied_line(verify, settings.key(), state.cluster_of, tx)
+    views = state_views(c, meta, store_tables, tx)
+    return (meta, store_tables, base, views["legend"], views["summary-row"], views["state-sentence"],
+            views["quality-detail"],
             V.grid_rows(tables["not_in_network.csv"]), V.grid_rows(tables["nodes.csv"]), V.grid_rows(edges_view),
             V.grid_rows(tables["clusters.csv"]), V.grid_rows(tables["cluster_connections.csv"]),
             V.grid_rows(tables["null_model.csv"]), V.grid_rows(tables["seed_noise.csv"]),
-            banners, restore, verify_text, verify_out, summary, filters, estimate, export_summary, "",
-            V.search_options(store_tables, settings.min_games_per_tag))
+            views["banners"], restore, verify_text, verify_out, views["dataset-summary"], views["filters-summary"],
+            views["rs-estimate"], views["export-summary"], "", views["tag-search"])
 
 
 # ----------------------------------------------------------------------------- 3. graph
@@ -354,11 +407,11 @@ def render_graph(base, layout_mode, relayout_store, selection, canvas=None, shar
                      thickness=R.edge_thickness(base["weight"], bool(shared_switch)), basis=base["basis"], zoom=zoom)
 
 
-def thickness_legend(base, shared_switch):
+def thickness_legend(base, shared_switch, lang=None):
     """The legend's thickness key for the state drawn now (never ahead of a recompute still running)."""
     if not base:
         raise PreventUpdate
-    return R.thickness_key(base["weight"], bool(shared_switch))
+    return R.thickness_key(base["weight"], bool(shared_switch), text(lang_of(lang)))
 
 
 def untick_thickness(_weight):
@@ -435,16 +488,17 @@ def select(event, _legend, cluster_rows, rs_rows, node_rows, panels, search=None
     return sel, True  # opens the floating Inspector wherever the Inspector is not docked
 
 
-def inspect(selection, meta, rs_view, build_path, dataset, min_months):
+def inspect(selection, meta, rs_view, build_path, dataset, min_months, lang=None):
     """The Inspector for a selection. The request carries only the state's id; its tables stay on the server."""
     tables = tables_of(meta, build_path) if meta else None
-    return inspector(selection, tables, rs_view, build_path, dataset, min_months, meta)
+    return inspector(selection, tables, rs_view, build_path, dataset, min_months, meta, lang)
 
 
-def inspector(selection, tables, rs_view, build_path, dataset, min_months, meta):
+def inspector(selection, tables, rs_view, build_path, dataset, min_months, meta, lang=None):
+    tx = text(lang_of(lang))
     hide = {"display": "none"}
     if not selection or not tables:
-        return [html.P("Click a node, an edge or a cluster (legend or Clusters table) to inspect it.")], hide, hide
+        return [html.P(tx("Click a node, an edge or a cluster (legend or Clusters table) to inspect it."))], hide, hide
     weight = (meta or {}).get("weight", "shared_games")
     if selection["kind"] == "nin":
         row = next((r for r in tables["nin"] if str(r["tag_id"]) == selection["id"]), None)
@@ -454,7 +508,7 @@ def inspector(selection, tables, rs_view, build_path, dataset, min_months, meta)
     if selection["kind"] == "node":
         node = next((r for r in tables["nodes"] if str(r["tag_id"]) == selection["id"]), None)
         if node is None:
-            return [html.P("This tag is not in the current network.")], hide, hide
+            return [html.P(tx("This tag is not in the current network."))], hide, hide
         size = next(r["size"] for r in tables["clusters"] if r["cluster"] == node["cluster"])
         rs_row, stale = None, False
         if rs_view and rs_view.get("rows"):
@@ -469,14 +523,14 @@ def inspector(selection, tables, rs_view, build_path, dataset, min_months, meta)
         u, v = int(selection["source"]), int(selection["target"])
         edge = next((r for r in tables["edges"] if r["source_tag_id"] == min(u, v) and r["target_tag_id"] == max(u, v)), None)
         if edge is None:
-            return [html.P("This edge is not in the current network.")], hide, hide
+            return [html.P(tx("This edge is not in the current network."))], hide, hide
         c = load_build(build_path)
         games = [{"appid": g.appid, "name": g.name, "rank": g.rank}
                  for g in filter_games(c.games(dataset), int(min_months)) if u in g.tag_ids and v in g.tag_ids]
         return V.edge_inspector(edge, games), hide, hide
     cluster = next((r for r in tables["clusters"] if r["cluster"] == selection["id"]), None)
     if cluster is None:
-        return [html.P("This cluster is not in the current partition.")], hide, hide
+        return [html.P(tx("This cluster is not in the current partition."))], hide, hide
     by_id = {r["tag_id"]: r for r in tables["nodes"]}
     members = [by_id[t] for t in cluster["member_tag_ids"] if t in by_id]
     return V.cluster_inspector(cluster, members, weight, cluster_color(cluster["cluster"], cluster["kind"])), hide, hide
@@ -572,20 +626,23 @@ def rs_job(set_progress, request, build_path):
     cached = rs_cache.load(c.app_cache, settings.key())
     skip = set(cached.rows) if cached else set()
     tags = [request["tag"]] if request["kind"] == "tag" else None
-    set_progress(({"done": 0, "total": total if tags is None else 1}, "starting…"))
+    set_progress({"done": 0, "total": total if tags is None else 1, "starting": True})
 
     def progress(done: int, todo: int) -> None:
-        set_progress(({"done": done, "total": todo}, f"{done} of {todo}"))
+        set_progress({"done": done, "total": todo})  # raw numbers: `progress_display` words them
 
     removal_sensitivity(state, tags, skip=skip, progress=progress,
                         on_row=lambda row: rs_cache.add_row(c.app_cache, settings.key(), total, row))
     return request["nonce"]
 
 
-def progress_display(data, _request, _cancel):
+def progress_display(data, _request, _cancel, lang=None):
+    """The progress bar and its label, in the Interface Language (a running job reports raw numbers only)."""
     if ctx.triggered_id in ("rs-request", "rs-cancel") or not data:
-        return "0", "1"
-    return str(data["done"]), str(max(data["total"], 1))
+        return "0", "1", no_update
+    tx = text(lang_of(lang))
+    label = tx("starting…") if data.get("starting") else tx("{done} of {total}", done=data["done"], total=data["total"])
+    return str(data["done"]), str(max(data["total"], 1)), label
 
 
 def refresh_rs_view(meta, _done, rs_view, build_path):
@@ -603,9 +660,10 @@ def refresh_rs_view(meta, _done, rs_view, build_path):
     return {"state_id": meta["state_id"], "rows": [], "done": 0, "total": meta["n_nodes"], "from_export": False}
 
 
-def show_rs(rs_view, beyond, cluster, tables, meta):
+def show_rs(rs_view, beyond, cluster, tables, meta, lang=None):
     if not meta or not tables:
         raise PreventUpdate
+    tx = text(lang_of(lang))
     rows = list((rs_view or {}).get("rows") or [])
     current = bool(rs_view) and rs_view.get("state_id") == meta["state_id"]
     stability = {r["tag_id"]: r["membership_stability"] for r in tables["nodes"]} if current else {}
@@ -617,23 +675,24 @@ def show_rs(rs_view, beyond, cluster, tables, meta):
     view_rows.sort(key=lambda r: (r["rc_ari"] if r["rc_ari"] is not None else 2.0,
                                   -abs(r["rc_delta_modularity"] or 0.0)))
     q = tables["quality"]
-    noise = (f"Compare each agreement after removal with the Seed-Noise Floor: ARI min {V.num(q['seed_ari_min'])} "
-             f"over K = {meta['k']} noise seeds (all its numbers are in Cluster quality).")
+    noise = tx("Compare each agreement after removal with the Seed-Noise Floor: ARI min {ari} over K = {k} noise "
+               "seeds (all its numbers are in Cluster quality).", ari=tx.num(q["seed_ari_min"]), k=meta["k"])
     banner, banner_style = "", {"display": "none"}
     total = (rs_view or {}).get("total") or meta["n_nodes"]
     done = len(rows)
     if rows and not current:
-        banner, banner_style = "Stale: these results belong to other settings. Run again for the current state.", {}
+        banner, banner_style = tx("Stale: these results belong to other settings. Run again for the current state."), {}
     elif rs_view and rs_view.get("from_export"):
-        banner, banner_style = "Loaded from export (not rerun).", {}
+        banner, banner_style = tx("Loaded from export (not rerun)."), {}
     elif rows and done < total:
-        banner, banner_style = f"Partial result: {done} of {total} tags.", {}
+        banner, banner_style = tx("Partial result: {done} of {total} tags.", done=done, total=total), {}
     flagged = sum(1 for r in rows if r["rc_ari_beyond_noise"])
-    footer = V.chance_footer(flagged, done, meta["k"]) if rows else "Not run for this state."
+    footer = V.chance_footer(flagged, done, meta["k"]) if rows else tx("Not run for this state.")
     continue_style = {"display": "inline-block"} if current and 0 < done < total else {"display": "none"}
     clusters = sorted({r["cluster"] for r in rows}, key=lambda s: int(s[1:]))
     return (V.grid_rows(view_rows), "" if current or not rows else "stale", banner, banner_style, footer, noise,
-            continue_style, f"Continue ({done} of {total} done)", [{"label": c, "value": c} for c in clusters])
+            continue_style, tx("Continue ({done} of {total} done)", done=done, total=total),
+            [{"label": c, "value": c} for c in clusters])
 
 
 # ----------------------------------------------------------------------------- 7. export, open, cache, help
@@ -654,18 +713,19 @@ def do_export(_a, _b, build_path, meta, relayout_store, base, rs_view, verify=No
     return dash.dcc.send_bytes(data, filename)
 
 
-def do_open(contents, filename, builds_root):
+def do_open(contents, filename, builds_root, lang=None):
     """Open Network State…: the export's Build is found by identity among the Builds this app can see."""
     if not contents:
         raise PreventUpdate
+    tx = text(lang_of(lang))
     data = base64.b64decode(contents.split(",", 1)[1])
     nothing = [no_update] * 16
     try:
         opened = open_export(data, builds_root=builds_root)
     except BuildNotFound as exc:
-        return [*nothing, f"Refused: {exc}."]
+        return [*nothing, tx("Refused: {reason}.", reason=tx(REFUSALS[exc.reason], **exc.params))]
     except OpenRefused as exc:
-        return [*nothing, f"Refused: {exc}"]
+        return [*nothing, tx("Refused: {reason}", reason=tx(REFUSALS[exc.reason], **exc.params))]
     c = load_build(opened.build_path)
     values = controls_from_settings(c, opened.settings)
     basis = [opened.settings.dataset, opened.settings.min_months, opened.settings.clustering_weight, opened.settings.seed]
@@ -675,16 +735,22 @@ def do_open(contents, filename, builds_root):
                 "total": opened.removal_total or len(opened.removal_rows), "from_export": True}
                if opened.removal_rows else None)
     pending = {"dataset": values["dataset"], "defining-hidden": values["defining-hidden"], "removed": values["removed"]}
-    message = (f"Opened {filename}: Build {c.build_id}, state {opened.recorded_state_id} "
-               f"(schema_version {opened.schema_version}).")
+    message = tx("Opened {filename}: Build {build_id}, state {state_id} (schema_version {version}).",
+                 filename=filename, build_id=c.build_id, state_id=opened.recorded_state_id,
+                 version=opened.schema_version)
     return [str(opened.build_path), *[values[k] for k in CONTROL_IDS], values["removed"], relayout_store, rs_view,
             pending, {"expected": opened.recorded_state_id}, message]
 
 
-def clear_cache(_n, build_path):
+def clear_cache(_n, build_path, lang=None):
     if not _n:
         raise PreventUpdate
-    return app_cache.cleared_text(app_cache.clear_all(load_build(build_path).app_cache)), None
+    tx = text(lang_of(lang))
+    counts = app_cache.clear_all(load_build(build_path).app_cache)
+    rs, ps = counts["removal_sensitivity"], counts["parameter_selection"]
+    return tx("Cleared {rs} and {ps}.",
+              rs=tx.n(rs, one="{n} cached Removal Sensitivity result", other="{n} cached Removal Sensitivity results"),
+              ps=tx.n(ps, one="{n} Parameter Selection result", other="{n} Parameter Selection results")), None
 
 
 def show_help(_clicks, _close, target=None, _back=None, history=None, lang=None):
@@ -726,6 +792,12 @@ def relabel(lang):
         set_props(id_, {prop: message_value(message, tx)})
 
 
+def grid_words(lang):
+    """A language switch: every grid's column definitions (header tooltips, the number format) and its own words."""
+    tx = text(lang_of(lang))
+    return [value for grid in GRIDS.values() for value in (grid(tx), grid_options(tx))]
+
+
 # ----------------------------------------------------------------------------- registration
 
 
@@ -744,12 +816,13 @@ def _ps_views(c, settings, cstore, default_constraints):
                             default_constraints) for d in c.datasets]
 
 
-def ps_render(mode, active, cstore, dataset, metric, pair, running, progress, build_path):
+def ps_render(mode, active, cstore, dataset, metric, pair, running, progress, build_path, lang=None):
     """Everything the mode shows, from the cache and the mode's stores (no job). It follows a job through
     `ps-running` and the progress store, never through the job's own output: Dash would hold it until the job ends."""
     if mode != "selection":
         raise PreventUpdate
     progress = progress if running else None
+    tx = text(lang_of(lang))
     c, settings, defaults, default_constraints = _ps_context(build_path, active)
     views = _ps_views(c, settings, cstore, default_constraints)
     view = next(v for v in views if v.dataset == dataset)
@@ -766,8 +839,8 @@ def ps_render(mode, active, cstore, dataset, metric, pair, running, progress, bu
     computed = next((v.computed_with for v in views if v.computed_with), None)
     line, banner = PV.provenance(computed)
     key_hash = SEL.key_hash(settings.settings_key())[:12]
-    cache_line = (f"Results from the app cache: Build {c.build_id}, settings key {key_hash}, method "
-                  f"v{SEL.METHOD_VERSION.rsplit('-', 1)[-1]}")
+    cache_line = tx("Results from the app cache: Build {build_id}, settings key {key}, method v{version}",
+                    build_id=c.build_id, key=key_hash, version=SEL.METHOD_VERSION.rsplit("-", 1)[-1])
     partial = [v for v in views if v.status == "partial"]
     continue_style = {"display": "inline-block"} if partial and not progress else {"display": "none"}
     done = sum(v.done for v in partial)
@@ -781,7 +854,7 @@ def ps_render(mode, active, cstore, dataset, metric, pair, running, progress, bu
     return (
         PV.run_rows(views, progress, validated), cache_line, line,
         banner or "", {} if banner else {"display": "none"},
-        continue_style, f"Continue ({done} of {total} pairs)",
+        continue_style, tx("Continue ({done} of {total} pairs)", done=done, total=total),
         not any(v.status == "complete" for v in views),
         PV.strip(views, dataset, {d: t for d, t in custom.items() if t}), loading,
         PV.heatmap(view, metric or "neighbour_agreement", inspected),
@@ -790,7 +863,7 @@ def ps_render(mode, active, cstore, dataset, metric, pair, running, progress, bu
         PV.inspector(view, inspected, inspected_validation, names),
         result is None or result.selected is None, apply_text, apply_class,
         {"display": "inline-block"} if can_validate and inspected_validation is None else {"display": "none"},
-        labels[dataset].text, settings_label.text, f"Run {c.dataset(dataset).label}",
+        labels[dataset].text, settings_label.text, tx("Run {dataset}", dataset=c.dataset(dataset).label),
         *PV.pill_values(views, running, labels[dataset].custom, settings_label.custom),
     )
 
@@ -907,13 +980,14 @@ def _constraints_from_inputs(values, minimum_k):
 
 def ps_constraint_marks(*args):
     """The "changed" markers against the defaults, and Confirm only once something differs from the active set."""
-    *values, cstore, dataset, active, build_path = args
+    *values, cstore, dataset, active, build_path, lang = args
+    tx = text(lang_of(lang))
     c, settings, _, default_constraints = _ps_context(build_path, active)
     current = PV.active_constraints(cstore, dataset, default_constraints)
     staged = _constraints_from_inputs(values, settings.min_multi_tag_clusters)
-    marks = ["changed" if getattr(staged, n) != getattr(default_constraints, n) else "" for n in CONSTRAINT_NAMES]
+    marks = [tx("changed") if getattr(staged, n) != getattr(default_constraints, n) else "" for n in CONSTRAINT_NAMES]
     differs = staged != current
-    return [*marks, not differs, "Unconfirmed changes" if differs else ""]
+    return [*marks, not differs, tx("Unconfirmed changes") if differs else ""]
 
 
 def ps_constraints_store(_confirm, _reset, *args):
@@ -1022,8 +1096,13 @@ def register(app: dash.Dash) -> None:
     app.clientside_callback(ClientsideFunction(namespace="workbench", function_name="uiWords"),
                             Input("ui-words", "data"))
     cb(Input("lang", "data"), prevent_initial_call=True)(relabel)
-    cb(Output("defining-hidden", "options"), Output("defining-hidden", "value", allow_duplicate=True),
-       Output("removed", "data", allow_duplicate=True),
+    cb(*[Output(i, p) for grid in GRIDS for i, p in ((grid, "columnDefs"), (grid, "dashGridOptions"))],
+       Input("lang", "data"), prevent_initial_call=True)(grid_words)
+    cb(*[Output(i, p, allow_duplicate=True) for i, p in STATE_VIEWS], Input("lang", "data"),
+       State("state-meta", "data"), State("build-path", "data"), prevent_initial_call=True)(state_text)
+    cb(Output("defining-hidden", "options"), Input("dataset", "value"), Input("lang", "data"),
+       State("build-path", "data"))(defining_options)
+    cb(Output("defining-hidden", "value", allow_duplicate=True), Output("removed", "data", allow_duplicate=True),
        Input("dataset", "value"), State("build-path", "data"), State("pending-open", "data"),
        prevent_initial_call=True)(on_dataset)
     cb(Output("state-meta", "data"), Output("state-tables", "data"), Output("elements-base", "data"),
@@ -1039,13 +1118,13 @@ def register(app: dash.Dash) -> None:
        Input("min-shared", "value"), Input("min-months", "value"), Input("genre-hidden", "value"),
        Input("defining-hidden", "value"), Input("weight", "value"), Input("algorithm", "value"),
        Input("gamma", "value"), Input("seed", "value"), Input("removed", "data"), State("verify", "data"),
-       running=[(Output("busy-clustering", "hidden"), False, True)],
+       State("lang", "data"), running=[(Output("busy-clustering", "hidden"), False, True)],
        prevent_initial_call="initial_duplicate")(recompute)
     cb(Output(R.DATA_ID, "data"), Input("elements-base", "data"), Input("layout-mode", "value"),
        Input("relayout", "data"), State("selection", "data"), Input(R.CANVAS_ID, "data"),
        Input("thickness-shared", "value"), running=[(Output("busy-layout", "hidden"), False, True)])(render_graph)
     cb(Output("thickness-label", "children"), Output("thickness-shared", "style"), Input("elements-base", "data"),
-       Input("thickness-shared", "value"))(thickness_legend)
+       Input("thickness-shared", "value"), Input("lang", "data"))(thickness_legend)
     cb(Output("thickness-shared", "value"), Input("weight", "value"), prevent_initial_call=True)(untick_thickness)
     cb(Output(R.DATA_ID, "data", allow_duplicate=True), Input("selection", "data"),
        prevent_initial_call=True)(show_selection)
@@ -1069,7 +1148,7 @@ def register(app: dash.Dash) -> None:
        State("build-path", "data"), State("dataset", "value"), prevent_initial_call=True)(on_nin_action)
     cb(Output("inspector-body", "children"), Output("remove-btn", "style"), Output("rs-run-tag", "style"),
        Input("selection", "data"), Input("state-meta", "data"), Input("rs-view", "data"),
-       State("build-path", "data"), State("dataset", "value"), State("min-months", "value"),
+       State("build-path", "data"), State("dataset", "value"), State("min-months", "value"), Input("lang", "data"),
        running=[(Output("busy-inspector", "hidden"), False, True)])(inspect)
     cb(Output("removed", "data", allow_duplicate=True), Input("remove-btn", "n_clicks"),
        Input("restore-btn", "n_clicks"), Input("reset-btn", "n_clicks"), State("selection", "data"),
@@ -1089,7 +1168,7 @@ def register(app: dash.Dash) -> None:
         Output("genre-count", "children"),
         Input("dataset", "value"), *[Input(s, prop) for s in SLIDERS for prop in ("value", "drag_value")],
         Input("genre-hidden", "value"), Input("defining-hidden", "value"), Input("weight", "value"),
-        Input("algorithm", "value"), Input("gamma", "value"), Input("seed", "value"),
+        Input("algorithm", "value"), Input("gamma", "value"), Input("seed", "value"), Input("ui-words", "data"),
         State("dataset", "options"), State("genre-hidden", "options"))
     cb(Output("floating-open", "data", allow_duplicate=True), Input("inspector-close", "n_clicks"),
        prevent_initial_call=True)(lambda _n: False)
@@ -1100,17 +1179,17 @@ def register(app: dash.Dash) -> None:
        running=[(Output("rs-run", "disabled"), True, False), (Output("rs-continue", "disabled"), True, False),
                 (Output("rs-run-tag", "disabled"), True, False), (Output("rs-cancel", "disabled"), False, True)],
        cancel=[Input("rs-cancel", "n_clicks")],
-       progress=[Output("rs-progress-store", "data"), Output("rs-progress-label", "children")],
-       prevent_initial_call=True)(rs_job)
-    cb(Output("rs-progress", "value"), Output("rs-progress", "max"), Input("rs-progress-store", "data"),
-       Input("rs-request", "data"), Input("rs-cancel", "n_clicks"))(progress_display)
+       progress=[Output("rs-progress-store", "data")], prevent_initial_call=True)(rs_job)
+    cb(Output("rs-progress", "value"), Output("rs-progress", "max"), Output("rs-progress-label", "children"),
+       Input("rs-progress-store", "data"), Input("rs-request", "data"), Input("rs-cancel", "n_clicks"),
+       Input("lang", "data"))(progress_display)
     cb(Output("rs-view", "data", allow_duplicate=True), Input("state-meta", "data"), Input("rs-done", "data"),
        State("rs-view", "data"), State("build-path", "data"), prevent_initial_call="initial_duplicate")(refresh_rs_view)
     cb(Output("rs-grid", "rowData"), Output("rs-grid-wrap", "className"), Output("rs-banner", "children"),
        Output("rs-banner", "style"), Output("rs-footer", "children"), Output("noise-line-rs", "children"),
        Output("rs-continue", "style"), Output("rs-continue", "children"), Output("rs-cluster", "options"),
        Input("rs-view", "data"), Input("rs-beyond", "value"), Input("rs-cluster", "value"),
-       Input("state-tables", "data"), Input("state-meta", "data"))(show_rs)
+       Input("state-tables", "data"), Input("state-meta", "data"), Input("lang", "data"))(show_rs)
     cb(Output("download", "data"), Input("export-btn", "n_clicks"), Input("export-btn-report", "n_clicks"),
        State("build-path", "data"), State("state-meta", "data"), State("relayout", "data"),
        State("elements-base", "data"), State("rs-view", "data"), State("verify", "data"),
@@ -1120,9 +1199,10 @@ def register(app: dash.Dash) -> None:
        Output("rs-view", "data", allow_duplicate=True), Output("pending-open", "data"),
        Output("verify", "data", allow_duplicate=True), Output("open-message", "children"),
        Input("open-upload", "contents"), State("open-upload", "filename"), State("builds-root", "data"),
-       prevent_initial_call=True)(do_open)
+       State("lang", "data"), prevent_initial_call=True)(do_open)
     cb(Output("cache-message", "children"), Output("rs-view", "data", allow_duplicate=True),
-       Input("clear-cache-btn", "n_clicks"), State("build-path", "data"), prevent_initial_call=True)(clear_cache)
+       Input("clear-cache-btn", "n_clicks"), State("build-path", "data"), State("lang", "data"),
+       prevent_initial_call=True)(clear_cache)
     cb(Output("help-modal", "style"), Output("help-body", "children"), Output("help-history", "data"),
        Output("help-back", "style"),
        Input({"type": "help", "panel": ALL}, "n_clicks"), Input("help-close", "n_clicks"),
@@ -1141,7 +1221,8 @@ def register(app: dash.Dash) -> None:
                   Output("ps-pill-constraints", "children"), Output("ps-pill-settings", "children")]
     cb(*ps_outputs, Input("mode", "value"), Input("ps-active", "data"), Input("ps-constraints", "data"),
        Input("ps-dataset", "data"), Input("ps-metric", "value"), Input("ps-pair", "data"),
-       Input("ps-running", "data"), Input("ps-progress", "data"), State("build-path", "data"))(ps_render)
+       Input("ps-running", "data"), Input("ps-progress", "data"), State("build-path", "data"),
+       Input("lang", "data"))(ps_render)
     cb(Output("ps-run-request", "data"), Input("ps-run-all", "n_clicks"), Input("ps-run-one", "n_clicks"),
        Input("ps-continue", "n_clicks"), State("ps-active", "data"), State("ps-dataset", "data"),
        State("build-path", "data"), prevent_initial_call=True)(ps_run_request)
@@ -1166,7 +1247,8 @@ def register(app: dash.Dash) -> None:
     c_inputs = [Input(f"ps-c-{n}", "value") for n in CONSTRAINT_NAMES]
     cb(*[Output(f"ps-c-{n}-changed", "children") for n in CONSTRAINT_NAMES], Output("ps-c-confirm", "disabled"),
        Output("ps-c-unconfirmed", "children"), *c_inputs, Input("ps-constraints", "data"),
-       Input("ps-dataset", "data"), Input("ps-active", "data"), State("build-path", "data"))(ps_constraint_marks)
+       Input("ps-dataset", "data"), Input("ps-active", "data"), State("build-path", "data"),
+       Input("lang", "data"))(ps_constraint_marks)
     cb(Output("ps-constraints", "data", allow_duplicate=True), Input("ps-c-confirm", "n_clicks"),
        Input("ps-c-reset", "n_clicks"), *[State(f"ps-c-{n}", "value") for n in CONSTRAINT_NAMES],
        State("ps-c-scope", "value"), State("ps-constraints", "data"), State("ps-dataset", "data"),

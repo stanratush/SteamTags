@@ -244,8 +244,15 @@
 
   // ------------------------------------------------------------------ live values (clientside callback)
 
-  function pills(dataset, mgV, mgD, msV, msD, mmV, mmD, genre, defining, weight, algorithm, gamma, seed,
+  // Fill "{n}"-style slots of a word from the ui-words store.
+  function fill(word, values) {
+    return Object.keys(values).reduce((s, k) => s.split(`{${k}}`).join(values[k]), word || "");
+  }
+
+  function pills(dataset, mgV, mgD, msV, msD, mmV, mmD, genre, defining, weight, algorithm, gamma, seed, uiWords,
                  datasetOptions, genreOptions) {
+    const w = (uiWords && uiWords.pills) || {genre: ["{n}", "{n}"], defining: "{hidden}", lift: "", shared: "",
+                                              of: "{n} / {total}"};
     const triggered = (window.dash_clientside.callback_context.triggered || []).map((t) => t.prop_id);
     // While a slider is dragged its label follows drag_value; the value is still sent on release.
     const live = (id, value, drag) => (triggered.includes(id + ".drag_value") && drag != null ? drag : value);
@@ -253,11 +260,13 @@
     const mm = String(live("min-months", mmV, mmD));
     const ds = (datasetOptions || []).find((o) => o.value === dataset);
     const n = (genre || []).length, total = (genreOptions || []).length;
-    const hidden = `${n} Genre Tag${n === 1 ? "" : "s"}${defining && defining.length ? " + defining" : ""}`;
-    const g = gamma === null || gamma === undefined || gamma === "" ? "—" : Number(gamma).toFixed(2);
+    const genreText = fill(w.genre[n === 1 ? 0 : 1], {n});
+    const hidden = defining && defining.length ? fill(w.defining, {hidden: genreText}) : genreText;
+    const decimal = (uiWords && uiWords.decimal) || ".";
+    const g = gamma === null || gamma === undefined || gamma === "" ? "—" : Number(gamma).toFixed(2).replace(".", decimal);
     return [mg, ms, mm, ds ? ds.label : String(dataset), mm, mg, ms, hidden,
-            weight === "lift" ? "Lift" : "Shared games", algorithm === "leiden" ? "Leiden" : "Louvain", g,
-            seed === null || seed === undefined ? "—" : String(seed), `${n} of ${total}`];
+            weight === "lift" ? w.lift : w.shared, algorithm === "leiden" ? "Leiden" : "Louvain", g,
+            seed === null || seed === undefined ? "—" : String(seed), fill(w.of, {n, total})];
   }
 
   // ------------------------------------------------------------------ Interface Language

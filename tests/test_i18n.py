@@ -195,3 +195,140 @@ def _walk(component):
     for child in children if isinstance(children, list) else [children] if children is not None else []:
         if hasattr(child, "to_plotly_json"):
             yield from _walk(child)
+
+
+# ----------------------------------------------------------------------------- the pseudo-language (issues 12-14)
+
+
+@pytest.fixture
+def pseudo(monkeypatch):
+    """Bulgarian as a pseudo-language that brackets every message, so text that bypasses `tx` shows up unbracketed."""
+    from steamstudy.i18n import Text
+
+    call, counted = Text.__call__, Text.n
+
+    def bracket(self, message, **values):
+        out = call(self, message, **values)
+        return f"⟦{out}⟧" if self.lang == "bg" else out
+
+    def bracket_n(self, count, *, one, other, **values):
+        out = counted(self, count, one=one, other=other, **values)
+        return f"⟦{out}⟧" if self.lang == "bg" else out
+
+    monkeypatch.setattr(Text, "__call__", bracket)
+    monkeypatch.setattr(Text, "n", bracket_n)
+
+
+def texts(tree, props=("children", "title", "placeholder", "label")) -> list[str]:
+    """Every visible string of a component tree (or of plain data): text nodes, titles, placeholders, option labels."""
+    out: list[str] = []
+
+    def walk(node):
+        if isinstance(node, str):
+            out.append(node)
+        elif isinstance(node, (list, tuple)):
+            for x in node:
+                walk(x)
+        elif isinstance(node, dict):
+            for k, v in node.items():
+                if k in props or k == "options":
+                    walk(v)
+        elif hasattr(node, "to_plotly_json"):
+            data = node.to_plotly_json()["props"]
+            for k in (*props, "options"):
+                if k in data:
+                    walk(data[k])
+    walk(tree)
+    return out
+
+
+# Words that stay English in every language: proper names and symbols (spec: "Never translated").
+KEPT = {"Louvain", "Leiden", "EN", "BG"}
+
+
+def unbracketed(strings: list[str], names: set[str] = frozenset()) -> list[str]:
+    """The strings with words that did not pass through `tx`: anything with two Latin letters in a row, outside
+    ⟦…⟧, that is not a name the spec keeps (tag names, dataset labels, C1…)."""
+    import re
+
+    bad = []
+    for s in strings:
+        rest = re.sub(r"⟦.*⟧", "", s, flags=re.S)
+        for name in sorted(names | KEPT, key=len, reverse=True):
+            rest = rest.replace(name, "")
+        if re.search(r"[A-Za-z]{2}", rest):
+            bad.append(s)
+    return bad
+
+
+def test_every_registered_static_prop_passes_through_the_translator(app, pseudo):
+    from steamstudy.app.layout import RELABEL, message_value
+    from steamstudy.i18n import text
+
+    tx = text("bg")
+    for id_, prop, message in RELABEL.values():
+        if prop == "data-tip":  # guide text: checked by the guide's own parity test
+            continue
+        value = message_value(message, tx)
+        if id_ == "ui-words":
+            value = {k: v for k, v in value.items() if k != "tip"}  # the tip labels are the guide's label set
+            strings = [v for v in value.values() if isinstance(v, str)] + [
+                v for p in value["pills"].values() for v in (p if isinstance(p, list) else [p])]
+        elif prop == "labels":
+            strings = list(value.values())
+        else:
+            strings = texts(value) if not isinstance(value, str) else [value]
+        assert not unbracketed(strings), (id_, prop, strings)
+
+
+def test_grids_take_the_languages_words_and_number_format(app):
+    from steamstudy.app.layout import GRIDS, grid_options
+    from steamstudy.i18n import text
+
+    en, bg = GRIDS["nodes-grid"](text("en")), GRIDS["nodes-grid"](text("bg"))
+    fmt = lambda defs: {d["field"]: d.get("valueFormatter", {}).get("function") for d in defs}  # noqa: E731
+    assert fmt(en)["strength_lift"] == "params.value == null ? '' : d3.format('.3~f')(params.value)"
+    assert "d3.formatLocale({decimal: ',', thousands: ''" in fmt(bg)["strength_lift"]
+    assert [d["headerName"] for d in en] == [d["headerName"] for d in bg]  # column names never translated
+    assert grid_options(text("en"))["localeText"]["noRowsToShow"] == "No Rows To Show"
+
+
+def test_the_workbench_callbacks_render_their_messages_through_the_translator(tagged_build, pseudo, tmp_path,
+                                                                             monkeypatch):
+    import base64
+    from types import SimpleNamespace
+
+    from steamstudy.app import callbacks as CB
+    from steamstudy.app.loader import load_build
+
+    ctx = load_build(tagged_build)
+    s = ctx.default_settings("overall")
+    values = [s.dataset, s.min_games_per_tag, s.min_shared_games, s.min_months, [], [], s.clustering_weight,
+              s.algorithm, s.resolution, s.seed, []]
+    meta, tables, base, legend, *rest = CB.recompute(str(tagged_build), *values, None, "bg")
+    names = {r["tag"] for r in tables["nodes"]} | {r["tag"] for r in tables["nin"]} | {"Overall", "Puzzle"}
+    views = CB.state_views(ctx, meta, tables, __import__("steamstudy.i18n", fromlist=["text"]).text("bg"))
+    for key in ("legend", "banners", "filters-summary", "rs-estimate", "export-summary"):
+        assert not unbracketed(texts(views[key]), names), key
+    assert not unbracketed(texts(CB.show_rs(None, [], None, tables, meta, "bg")), names)
+    for selection in (None, {"kind": "node", "id": "999999"}, {"kind": "edge", "id": "x", "source": "1", "target": "2"},
+                      {"kind": "cluster", "id": "C999"}):
+        body, *_ = CB.inspector(selection, tables, None, str(tagged_build), "overall", 0, meta, "bg")
+        assert not unbracketed(texts(body), names), selection
+    refused = CB.do_open("data:x;base64," + base64.b64encode(b"not an export").decode("ascii"), "y.json",
+                         str(tmp_path), "bg")[-1]
+    assert refused.startswith("⟦") and not unbracketed([refused])
+    assert not unbracketed([CB.thickness_legend({"weight": "lift"}, [1], "bg")[0]])
+    monkeypatch.setattr(CB, "ctx", SimpleNamespace(triggered_id="rs-progress-store"))
+    assert not unbracketed([CB.progress_display({"done": 2, "total": 5}, None, None, "bg")[2]])
+
+
+def test_a_language_switch_re_renders_the_state_text_without_recomputing(app):
+    deps = app.server.test_client().get("/_dash-dependencies").get_json()
+    on_lang = [d for d in deps if "lang" in [i["id"] for i in d["inputs"]]]
+    outputs = " ".join(d["output"] for d in on_lang)
+    assert "summary-row.children" in outputs and "inspector-body.children" in outputs and "nodes-grid.columnDefs" in outputs
+    assert "graph-data.data" not in outputs and "state-meta.data" not in outputs and "elements-base.data" not in outputs
+    for d in deps:  # every computing callback reads the language as State at most
+        if any(o in d["output"] for o in ("state-meta.data", "graph-data.data", "rs-done.data", "ps-run-done.data")):
+            assert "lang" not in [i["id"] for i in d["inputs"]], d["output"]

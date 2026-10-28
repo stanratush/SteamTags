@@ -68,20 +68,23 @@ def chance_footer(flagged: int, n: int, k: int) -> str:
 # ----------------------------------------------------------------------------- grids
 
 
-def column_defs(schema_key: str, columns: list[str] | None = None, *, extra: list[dict[str, Any]] | None = None) -> list[dict]:
+def column_defs(schema_key: str, columns: list[str] | None = None, *, tx: Text,
+                extra: list[dict[str, Any]] | None = None) -> list[dict]:
     """ag-grid columns for a declared file. A metric column's header shows its guide entry's In short as the tooltip
-    and an ⓘ that opens the entry; an identifier column's shows the schema description."""
+    and an ⓘ that opens the entry; an identifier column's shows the schema description (translated on screen only:
+    the schema and every export keep the English). Column names are never translated; numbers take the language's
+    decimal mark."""
     schema = S.file(schema_key)
     names = columns or list(schema.column_names)
     defs = []
     for name in names:
         col = schema.column(name)
-        d: dict[str, Any] = {"field": name, "headerName": name, "headerTooltip": col.description,
+        d: dict[str, Any] = {"field": name, "headerName": name, "headerTooltip": tx(col.description),
                              "sortable": True, "filter": True, "resizable": True}
         if H.column_has_help((schema_key, name)):
-            d.update(metric_header(schema_key, name))
+            d.update(metric_header(schema_key, name, tx=tx))
         if col.type in ("float", "float6"):
-            d["valueFormatter"] = {"function": "params.value == null ? '' : d3.format('.3~f')(params.value)"}
+            d["valueFormatter"] = {"function": f"params.value == null ? '' : {tx.d3_format('.3~f')}(params.value)"}
             d.update(filter="agNumberColumnFilter", type="rightAligned")
         elif col.type == "int":
             d.update(filter="agNumberColumnFilter", type="rightAligned")
@@ -91,11 +94,11 @@ def column_defs(schema_key: str, columns: list[str] | None = None, *, extra: lis
     return defs + list(extra or [])
 
 
-def metric_header(schema_key: str, name: str) -> dict[str, Any]:
+def metric_header(schema_key: str, name: str, *, tx: Text) -> dict[str, Any]:
     """A metric column's header help: ag-grid's tooltip shows the In short lines and the Column line on hover, and
     an ⓘ (workbench.js `MetricHeader`) shows them on keyboard focus and opens the entry."""
-    lines, target = H.column_help([(schema_key, name)], WIRE)
-    return {"headerTooltip": H.tip_text(lines, WIRE),
+    lines, target = H.column_help([(schema_key, name)], tx)
+    return {"headerTooltip": H.tip_text(lines, tx),
             "headerComponentParams": {"innerHeaderComponent": "MetricHeader",
                                       "innerHeaderComponentParams": {"help": target, "tip": H.tip_json(lines)}}}
 
@@ -486,6 +489,11 @@ def quality_boxes(q: dict[str, Any], gamma: str, k: int, r: int) -> list[Any]:
     ]
 
 
+def _copied(tx: Text) -> dict[str, Any]:
+    """The word app.css shows after a state_id is copied (`content: attr(data-copied)`)."""
+    return {"data-copied": tx("copied")}
+
+
 def state_sentence(dataset_label: str, n_rows: int, settings: Any, hidden: list[str], defining: str | None,
                    removed: list[str], state_id: str) -> list[Any]:
     """The Network State in one readable sentence, ending with its state_id (click to copy)."""
@@ -504,7 +512,8 @@ def state_sentence(dataset_label: str, n_rows: int, settings: Any, hidden: list[
             f"tags on ≥ {settings.min_games_per_tag} games, links of ≥ {settings.min_shared_games} shared games; "
             f"{hidden_text}; {removed_text}; {settings.algorithm.capitalize()} on {weight}, "
             f"γ {settings.resolution:.2f}, seed {settings.seed} · ")
-    return [text, html.Span(state_id, className="mono copy-id", title="Network State id: click to copy")]
+    return [text, html.Span(state_id, className="mono copy-id", title="Network State id: click to copy",
+                            **_copied(WIRE))]
 
 
 # ----------------------------------------------------------------------------- Analysis Report §1
@@ -559,7 +568,8 @@ def state_table(key: dict[str, Any], state_id: str, dataset_label: str, n_games:
     fields = {"dataset": "dataset, build_id", "n_games": "derived from dataset and min_months"}
     return [
         html.Div([html.Span("Network State ", className="mute"),
-                  html.Span(state_id, className="mono copy-id state-id", title="Click to copy"),
+                  html.Span(state_id, className="mono copy-id state-id", title="Click to copy",
+                            **_copied(WIRE)),
                   html.Span(" — quote it with every network number.", className="mute small")], className="state-head"),
         html.Table(html.Tbody([html.Tr([_state_th(field, label, fields.get(field, field)), html.Td(value)],
                                        id=f"state-row-{field}") for field, label, value in rows]),
