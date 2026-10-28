@@ -7,7 +7,7 @@ completeness is then checked everywhere. No App Bundle is released while this fi
 """
 
 # Catalogue areas (`steamstudy.i18n.AREAS`) whose Bulgarian is complete.
-CATALOGUE_DONE: set[str] = set()
+CATALOGUE_DONE: set[str] = {"layout", "callbacks", "refusals", "ui_words", "schema_tips"}
 
 # Bulgarian guide files (`03-metric-reference.md`) or `##` sections of a file (`03-metric-reference.md#feature-analysis`)
 # that are complete.

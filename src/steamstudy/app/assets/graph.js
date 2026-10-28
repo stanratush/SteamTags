@@ -565,10 +565,9 @@
     A.showShared = !!(switchValue && switchValue.length);
     if (words) A.ui = words;
     if (G.data) { adoptAppearance(G.data); restyle(); renderCard(); markHiddenLinks(); }
-    if (G.cy) {  // a language switch re-titles the pool's region
+    if (G.cy) {  // a language switch re-titles the regions
       G.cy.nodes(".region").forEach((n) => {
-        if (n.data("cluster") === "one_tag_pool") n.data("label", regionTitle({cluster: n.data("cluster"), count: n.data("count"),
-                                                                                label: n.data("label")}));
+        n.data("label", regionTitle({cluster: n.data("cluster"), count: n.data("count"), label: n.data("label")}));
       });
     }
     return keyText();
@@ -877,11 +876,13 @@
   });
 
 
-  // A region's title: a cluster's label as sent; the pool's in the Interface Language (ui-words `map.pool_region`).
+  // A region's title in the Interface Language: "C1 · 26 tags" (ui-words `map.tags`), the pool's from
+  // `map.pool_region`; the label as sent until the words arrive.
   function regionTitle(r) {
-    const words = A.ui && A.ui.map && A.ui.map.pool_region;
-    if (r.cluster !== "one_tag_pool" || !words || r.count === undefined) return r.label;
-    return words[r.count === 1 ? 0 : 1].split("{n}").join(String(r.count));
+    const map = A.ui && A.ui.map;
+    if (!map || !map.tags || !map.pool_region || r.count === undefined) return r.label;
+    const count = (forms) => fill(forms[r.count === 1 ? 0 : 1], {n: r.count});
+    return r.cluster === "one_tag_pool" ? count(map.pool_region) : r.cluster + " · " + count(map.tags);
   }
 
   // Region ids carry a sequence suffix so a fading old region and its replacement can coexist.

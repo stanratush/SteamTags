@@ -16,7 +16,7 @@ import hashlib
 import json
 import threading
 import time
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from typing import Any
 
 import dash
@@ -407,11 +407,10 @@ def render_graph(base, layout_mode, relayout_store, selection, canvas=None):
         zoom = layout.separated_zoom
         positions = layout.separated
         regions = [dict(r) for r in layout.regions]
-        n_pool = sum(n["kind"] == "one_tag" for n in base["nodes"])
+        counts = Counter(V.POOL if n["kind"] == "one_tag" else n["cluster"] for n in base["nodes"])
         for r in regions:
-            r["color"] = R.REGION_COLOR if r["cluster"] == "one_tag_pool" else cluster_color(r["cluster"], "multi_tag")
-            if r["cluster"] == "one_tag_pool":
-                r["count"] = n_pool  # graph.js titles it in the Interface Language (ui-words `map.pool_region`)
+            r["color"] = R.REGION_COLOR if r["cluster"] == V.POOL else cluster_color(r["cluster"], "multi_tag")
+            r["count"] = counts[r["cluster"]]  # graph.js titles it in the Interface Language (ui-words `map`)
     return R.payload(base["nodes"], base["edges"], {str(t): list(p) for t, p in positions.items()},
                      dataset=base["dataset"], layout=layout_mode, regions=regions, selection=selection,
                      weight=base["weight"], basis=base["basis"], zoom=zoom, min_shared=base.get("min_shared"))

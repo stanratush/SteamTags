@@ -113,6 +113,16 @@ def test_selection_reaches_the_canvas_as_a_patch():
     assert CB.show_selection(None).to_plotly_json()["operations"][0]["params"]["value"] is None
 
 
+def test_every_region_sends_its_tag_count_for_a_title_in_the_interface_language(build_folder):
+    """graph.js titles each region from its cluster and count (ui-words `map`), never from the English label."""
+    _, tables, base, *_ = _recompute(build_folder)
+    regions = CB.render_graph(base, "separated", None, None)["regions"]
+    sizes = {r["cluster"]: r["size"] for r in tables["clusters"] if r["kind"] == "multi_tag"}
+    n_pool = sum(r["kind"] == "one_tag" for r in tables["clusters"])
+    sizes.update({"one_tag_pool": n_pool} if n_pool else {})
+    assert regions and {r["cluster"]: r["count"] for r in regions} == sizes
+
+
 def test_layout_switch_keeps_the_partition_and_export_has_both_coordinate_sets(build_folder):
     meta, tables, base, *_ = _recompute(build_folder)
     global_els = CB.render_graph(base, "global", None, None)

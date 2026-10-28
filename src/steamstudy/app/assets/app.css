@@ -83,6 +83,7 @@ input[type=text],input:not([type]),.dash-input-element{border-radius:6px}
 .controls{grid-area:ctl;width:264px;overflow:auto;background:var(--panel);border-right:1px solid var(--line);
  padding:4px 16px 40px}
 #root:not(.controls-on) .controls{display:none}
+.controls .btn{white-space:normal;max-width:100%}  /* a longer label (Bulgarian) wraps within the column */
 .main{grid-area:main;display:flex;flex-direction:column;min-width:0;min-height:0}
 
 /* controls panel */

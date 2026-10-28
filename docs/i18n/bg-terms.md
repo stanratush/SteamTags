@@ -13,7 +13,7 @@ This file sits outside `docs/user-guide/`, so the guide parser and the guide's p
 - **Exports stay English**: column names and file names appear in English, in backticks (`cluster_connections.csv`, `edge_count`).
 - **Never translated**: Steam tag names, game titles, Steam Genre values, cluster labels `C1…` and the five dataset labels (`Overall`, `Puzzle`, `RPG`, `Strategy`, `Simulation`). Prose may say *наборът Overall*.
 - **English once at each guide entry heading**: every glossary entry heading in the Bulgarian guide gives the English term in parentheses, before its anchor, e.g. `### Лифт (Lift) {#lift}`.
-- **Register**: the guide addresses the reader with polite plural *вие*, in lowercase. Buttons and actions use the short imperative: *Отвори*, *Нулирай*, *Изтегли*.
+- **Register**: the guide addresses the reader with polite plural *вие*, in lowercase. Buttons and actions use the short imperative: *Отвори*, *Нулирай*, *Изтегли*. Proposed (issue 23): a tooltip that names a control's action uses the same short imperative (*Побери целия граф на екрана*); a tooltip that tells the reader what to do with the mouse uses *вие* (*Щракнете…*, *Плъзнете…*).
 
 ## Numbers on screen
 
@@ -83,6 +83,11 @@ This file sits outside `docs/user-guide/`, so the guide parser and the guide's p
 | Qualifying Pair | квалифицирана двойка | допустима двойка, валидна двойка |
 | Minimum Months Filter | филтър за минимум месеци | — |
 | Interface Language | език на интерфейса | локал, режим на превод |
+| User Guide · guide entry | ръководство за потребителя (short: ръководството) · статия (both proposed) | — |
+| defining tag (of a Tag-Specific Dataset) | определящ таг (proposed) | — |
+| replicate (null model, seed noise) | повторение (proposed) | реплика |
+| source / target tag (of an edge) | изходен / целеви таг (proposed) | — |
+| tag id | идентификатор на таг (proposed) | ID, номер |
 | App Bundle | пакет на приложението | самостоятелно приложение, преносима версия, офлайн пакет |
 | Free-to-Play Game | безплатна игра (Free-to-Play) | — |
 | Candidate Pool | пул от кандидати | топ-N игри, изтеглени игри |
@@ -123,6 +128,10 @@ This file sits outside `docs/user-guide/`, so the guide parser and the guide's p
 | Connections · Games (Inspector sections) | Връзки · Игри |
 | pair view | изглед на двойка (its heading: Двойка клъстери) |
 | Edges (the legend button and the Edges tab) | Ребра |
+| Dataset (control and block) | Набор от данни (proposed; prose keeps *набор*) |
+| Export (block, noun) · Export this state (button) | Експорт · Експортирай състоянието на мрежата (proposed) |
+| app cache | кеш на приложението (proposed) |
+| Key (the legend's first label) | Легенда (proposed) |
 | Ratio \| Share · Matrix \| Table | Отношение \| Дял · Матрица \| Таблица |
 
 ## Guide labels
@@ -157,6 +166,7 @@ The label set that `in_short()` reads for Bulgarian.
 | ag-grid: Contains · Not contains · Equals · Not equal · Starts with · Ends with | Съдържа · Не съдържа · Равно на · Различно от · Започва с · Завършва с |
 | ag-grid: Less than · Greater than · In range · Blank · Not blank | По-малко от · По-голямо от · В интервала · Празно · Непразно |
 | ag-grid: AND / OR · Filter... · No Rows To Show | И / ИЛИ · Филтър… · Няма редове |
+| ag-grid: Less than or equal to · Greater than or equal to | По-малко или равно на · По-голямо или равно на (proposed) |
 | Width (and the legend's edge thickness) | Дебелина, дебелина на ребрата (avoid *ширина*) |
 | Scaling: linear · √ · log | Мащаб: линеен · √ · log; in prose корен квадратен, логаритмичен (avoid *скалиране*) |
 | Colour: one colour · By Cluster · within vs between · by value | Цвят: един цвят · по клъстер · вътре / между · по стойност (avoid *оцветяване*) |
@@ -165,6 +175,12 @@ The label set that `in_short()` reads for Bulgarian.
 | Hide links below · Links between Clusters · Links between them | Скрий ребрата под (avoid *филтър*: that is Minimum shared games) · Ребра между клъстерите · Ребра между тях |
 | Matched · "of its tags" | Съвпадащи (avoid *съвпадения*, *мачнати*) · от таговете ѝ (the game, *играта*, is feminine) |
 | Show all {n} | Покажи всички {n} |
+| Run · Cancel · Restore · Reset · Reset all · Close | Изпълни · Отказ · Възстанови · Нулирай · Нулирай всичко · Затвори (proposed; *Отказ* is the usual Bulgarian Cancel, a noun, the one exception to the imperative) |
+| Language · Search · Clear search · Graph only | Език · Търсене · Изчисти търсенето · Само графът (proposed) |
+| Tidy (the graph's relayout) | Подреди (proposed) |
+| Min games · Min shared · Months ≥ (short labels) | Мин. игри · Мин. общи · Месеци ≥ (proposed) |
+| the drawing (what Edge appearance changes) | изображението (proposed) |
+| job (a background run) | задача (proposed) |
 
 ## Superseded words
 
