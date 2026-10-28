@@ -388,3 +388,37 @@ def test_the_workbench_views_render_every_word_through_the_translator(tagged_bui
                 strings += [markup.unescape(t) for t in re.findall(r">([^<>]+)<", html_text)]
                 strings += [markup.unescape(t) for t in re.findall(r'title="([^"]*)"', html_text)]
         assert not unbracketed([x for x in strings if x.strip()], names), selection["kind"]
+
+
+# ----------------------------------------------------------------------------- the superseded-word scan (issue 22)
+
+
+def test_the_superseded_table_starts_with_the_four_agreed_stems():
+    stems = {stem for stem, _ in P.superseded()}
+    assert {"Жакар", "Лайден", "сийд", "билд"} <= stems
+
+
+def test_no_bulgarian_text_uses_a_superseded_word():
+    assert P.superseded_hits(P.bulgarian_texts(), P.superseded()) == []
+
+
+def test_the_scan_names_the_place_and_the_word_of_a_hit():
+    table = [("сийд", ())]
+    hits = P.superseded_hits({"view: Seed": "Промени сийда на алгоритъма."}, table)
+    assert hits == ["view: Seed: сийда (superseded: сийд)"]
+    assert P.superseded_hits({"x": "СИЙД"}, table) and not P.superseded_hits({"x": "фарсийд"}, table)
+
+
+def test_the_scan_skips_a_stem_inside_an_allowed_phrase():
+    table = [("общност", ("откриване на общности",))]
+    assert P.superseded_hits({"x": "Методи за Откриване на общности."}, table) == []
+    assert P.superseded_hits({"x": "откриване на общности и общността"}, table) == [
+        "x: общността (superseded: общност)"]
+
+
+def test_the_superseded_table_parses_stems_and_allowed_phrases(tmp_path):
+    terms = tmp_path / "bg-terms.md"
+    terms.write_text("# T\n\n## Superseded words\n\nWhy.\n\n| Stem | Allowed phrases |\n|---|---|\n"
+                     "| сийд | — |\n| общност | *откриване на общности*; *общностна структура* |\n\n## Next\n\n"
+                     "| a | b |\n|---|---|\n| x | y |\n", encoding="utf-8")
+    assert P.superseded(terms) == [("сийд", ()), ("общност", ("откриване на общности", "общностна структура"))]

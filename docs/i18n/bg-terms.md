@@ -1,8 +1,10 @@
 # Bulgarian term table
 
-Every Bulgarian text in the Tag Network app and the Bulgarian User Guide (`docs/user-guide/bg/`) follows this table. The English domain terms are defined in [CONTEXT.md](../../CONTEXT.md). This file only says how each one is written in Bulgarian. Agreed with the researcher on 2026-10-27 ([Bulgarian terminology](../../.scratch/bilingual-cluster-views/issues/03-bulgarian-terminology.md)).
+Every Bulgarian text in the Tag Network app and the Bulgarian User Guide (`docs/user-guide/bg/`) follows this table. The English domain terms are defined in [CONTEXT.md](../../CONTEXT.md). This file only says how each one is written in Bulgarian. Agreed with the researcher on 2026-10-27 ([Bulgarian terminology](../../.scratch/bilingual-cluster-views/issues/03-bulgarian-terminology.md)); the terms of the Edge appearance card, the Connections views and the Games section on 2026-10-28 ([issue 22](../../.scratch/bilingual-cluster-views/issues/22-new-terms-and-superseded-scan.md)).
 
-This file sits outside `docs/user-guide/`, so the guide parser and the parity tests never read it.
+This file sits outside `docs/user-guide/`, so the guide parser and the guide's parity tests never read it. Only the superseded-word scan reads it, for the table at the end.
+
+**How a correction flows.** A term change, from a review or any other source, edits this file first: change the row, move the old word into its **Avoid** cell and into [Superseded words](#superseded-words), then sweep the Bulgarian text. A test (`tests/test_i18n.py`) fails on any superseded word left in `src/steamstudy/i18n/bg/` or `docs/user-guide/bg/`, so the sweep cannot be skipped.
 
 ## Policy
 
@@ -30,6 +32,10 @@ This file sits outside `docs/user-guide/`, so the guide parser and the parity te
 | Multi-Tag Cluster | многотагов клъстер | клъстер с няколко тага |
 | One-Tag Cluster | еднотагов клъстер | сингълтон, некластериран таг, шум |
 | Cluster Center | център на клъстера | хъб, ядро, представител |
+| Cluster pair | двойка клъстери (always qualified: *двойка* alone is the Threshold Pair) | — |
+| pool of One-Tag Clusters | пул на еднотаговите клъстери (short: пул, as in the Candidate and Eligible Pools) | група, остатък |
+| Connection Ratio | отношение на свързаност | коефициент на свързаност, сила на връзката, афинитет, плътност |
+| Connection Share | дял на свързаност (*дял* is avoided only as a word for partition) | процент, пропорция, вероятност |
 | Tag Network | мрежа от тагове | тагова мрежа, граф на таговете (in prose) |
 | Network State | състояние на мрежата | състояние (unqualified), изглед, сесия, конфигурация |
 | partition | разбиване | дял, разделяне, разпределение |
@@ -52,6 +58,8 @@ This file sits outside `docs/user-guide/`, so the guide parser and the parity te
 | Genre Tag | жанров таг | — |
 | edge / node | ребро / възел | — |
 | edge weight | тегло на реброто (= брой общи игри) | — |
+| link (the UI word for an edge) | ребро, as for edge: *Скрий ребрата под*, *Ребра между клъстерите* | връзка (that word is Connections, between Clusters) |
+| Edge Appearance | вид на ребрата | стил, изглед, тема |
 | Clustering Weight | тегло за клъстеризация | тегло на реброто (when meaning the Lift mode), нормализирано тегло |
 | minimum games per tag | минимум игри на таг | — |
 | minimum shared games | минимум общи игри | — |
@@ -111,6 +119,11 @@ This file sits outside `docs/user-guide/`, so the guide parser and the parity te
 | Parameter Selection | Избор на параметри |
 | Global / Cluster-separated | Общо / По клъстери |
 | Controls / Inspector / Tables | Настройки / Инспектор / Таблици |
+| Connections matrix · Cluster map | матрица на връзките · карта на клъстерите |
+| Connections · Games (Inspector sections) | Връзки · Игри |
+| pair view | изглед на двойка (its heading: Двойка клъстери) |
+| Edges (the legend button and the Edges tab) | Ребра |
+| Ratio \| Share · Matrix \| Table | Отношение \| Дял · Матрица \| Таблица |
 
 ## Guide labels
 
@@ -144,3 +157,24 @@ The label set that `in_short()` reads for Bulgarian.
 | ag-grid: Contains · Not contains · Equals · Not equal · Starts with · Ends with | Съдържа · Не съдържа · Равно на · Различно от · Започва с · Завършва с |
 | ag-grid: Less than · Greater than · In range · Blank · Not blank | По-малко от · По-голямо от · В интервала · Празно · Непразно |
 | ag-grid: AND / OR · Filter... · No Rows To Show | И / ИЛИ · Филтър… · Няма редове |
+| Width (and the legend's edge thickness) | Дебелина, дебелина на ребрата (avoid *ширина*) |
+| Scaling: linear · √ · log | Мащаб: линеен · √ · log; in prose корен квадратен, логаритмичен (avoid *скалиране*) |
+| Colour: one colour · By Cluster · within vs between · by value | Цвят: един цвят · по клъстер · вътре / между · по стойност (avoid *оцветяване*) |
+| Strength (link opacity) | Наситеност (avoid *сила*, the metric Strength (weighted degree); *плътност*, graph density; *непрозрачност*) |
+| Less · More | По-малко · Повече |
+| Hide links below · Links between Clusters · Links between them | Скрий ребрата под (avoid *филтър*: that is Minimum shared games) · Ребра между клъстерите · Ребра между тях |
+| Matched · "of its tags" | Съвпадащи (avoid *съвпадения*, *мачнати*) · от таговете ѝ (the game, *играта*, is feminine) |
+| Show all {n} | Покажи всички {n} |
+
+## Superseded words
+
+Words the Bulgarian text must never use. Each is a stem, matched case-insensitively at the start of a word, so *сийд* also catches *сийда* and *сийдове*. An occurrence inside one of the row's allowed phrases is not a hit. Separate allowed phrases with `;`.
+
+This list is short and deliberate, unlike the **Avoid** column: an Avoid word such as *филтър* or *мрежа* is correct in another term, so it cannot be scanned for. A word goes here when it is never right, or when a review replaces it.
+
+| Stem | Allowed phrases |
+|---|---|
+| Жакар | — |
+| Лайден | — |
+| сийд | — |
+| билд | — |

@@ -2,11 +2,15 @@
 
 Correctness is strict wherever an entry exists: placeholder names match, a counted message has both forms, no key
 is orphaned. Completeness (a missing entry) is checked only for the areas on the done-list (`i18n_done`).
+
+The superseded-word scan (issue 22) checks every Bulgarian text, catalogue and guide, against the Superseded words
+of the term table (`docs/i18n/bg-terms.md`).
 """
 
 from __future__ import annotations
 
 import ast
+import re
 import string
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -14,7 +18,10 @@ from pathlib import Path
 
 from steamstudy import i18n
 
-SRC = Path(__file__).resolve().parents[1] / "src" / "steamstudy"
+REPO = Path(__file__).resolve().parents[1]
+SRC = REPO / "src" / "steamstudy"
+TERMS = REPO / "docs" / "i18n" / "bg-terms.md"
+GUIDE_BG = REPO / "docs" / "user-guide" / "bg"
 
 # Source file (relative to src/steamstudy) -> the catalogue area its messages belong to.
 AREA_OF = {
@@ -145,4 +152,50 @@ def problems(found: list[Message], areas: dict[str, dict[str, i18n.Entry]], done
                 out.append(f"{m.where}: {m.key!r} placeholder names differ in other: {sorted(fields(entry['other']))}")
     used = {m.key for m in found}
     out += [f"{key!r}: orphaned (no tx literal or declared source uses it)" for key in merged if key not in used]
+    return out
+
+
+# ----------------------------------------------------------------------------- the superseded-word scan
+
+
+def superseded(terms: Path = TERMS) -> list[tuple[str, tuple[str, ...]]]:
+    """The term table's Superseded words: (stem, allowed phrases) per row. Phrases are `;`-separated, `*` and `—`
+    are decoration."""
+    section = re.search(r"^## Superseded words\n(.*?)(?=^## |\Z)", terms.read_text(encoding="utf-8"), re.M | re.S)
+    if section is None:
+        raise ValueError(f"{terms}: no Superseded words section")
+    rows = []
+    table = [line for line in section.group(1).splitlines() if line.startswith("|")]
+    for line in table[2:]:  # past the header and its separator
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) != 2 or not cells[0]:
+            continue
+        phrases = tuple(p.strip(" *") for p in cells[1].split(";") if p.strip(" *—"))
+        rows.append((cells[0].strip("*"), phrases))
+    return rows
+
+
+def bulgarian_texts() -> dict[str, str]:
+    """Every Bulgarian text, by where it is: each catalogue entry (each plural form) and each guide file."""
+    out = {}
+    for area, messages in i18n.areas("bg").items():
+        for key, entry in messages.items():
+            for form, text in (entry.items() if isinstance(entry, dict) else [("", entry)]):
+                out[f"{area}: {key}" + (f" [{form}]" if form else "")] = text
+    for path in sorted(GUIDE_BG.rglob("*")):
+        if path.is_file():
+            out[path.relative_to(REPO).as_posix()] = path.read_text(encoding="utf-8")
+    return out
+
+
+def superseded_hits(texts: dict[str, str], table: list[tuple[str, tuple[str, ...]]]) -> list[str]:
+    """Each word of `texts` that starts with a superseded stem (case-insensitive), outside the stem's allowed
+    phrases: `"<where>: <word> (superseded: <stem>)"`."""
+    out = []
+    for where, text in texts.items():
+        for stem, phrases in table:
+            allowed = [m.span() for p in phrases for m in re.finditer(re.escape(p), text, re.I)]
+            for m in re.finditer(rf"\b{re.escape(stem)}\w*", text, re.I):
+                if not any(a <= m.start() < b for a, b in allowed):
+                    out.append(f"{where}: {m.group()} (superseded: {stem})")
     return out
