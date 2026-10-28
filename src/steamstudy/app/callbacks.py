@@ -428,6 +428,9 @@ def show_selection(selection):
     patch["selected"] = R.selection_ref(selection)
     if selection and selection.get("kind") == "cluster":
         patch["view"] = {"cmd": "focus", "cluster": selection["id"], "nonce": time.time()}
+    elif selection and selection.get("kind") == "pair":
+        a, _, b = selection["id"].partition("|")
+        patch["view"] = {"cmd": "focus_pair", "a": a, "b": b, "nonce": time.time()}
     elif selection and selection.get("pan"):
         patch["view"] = {"cmd": "center", "id": selection["id"], "nonce": time.time()}
     return patch
@@ -476,6 +479,10 @@ def select(event, _legend, cluster_rows, rs_rows, node_rows, panels, search=None
             sel = {"kind": "edge", "id": str(event["id"]), "source": event["source"], "target": event["target"]}
             if event.get("pan"):
                 sel["pan"] = True
+            if event.get("from_pair"):  # a row of a pair's links: the link view offers the way back
+                sel["from_pair"] = str(event["from_pair"])
+        elif kind == "pair":  # a Cluster pair: a Connections row, a matrix cell, a map link, "show this pair"
+            sel = {"kind": "pair", "id": str(event["id"])}
     elif isinstance(trigger, dict) and trigger.get("type") == "legend":
         if not ctx.triggered[0]["value"]:
             raise PreventUpdate  # the legend was re-rendered, not clicked
@@ -530,7 +537,20 @@ def inspector(selection, tables, rs_view, build_path, dataset, min_months, meta,
         c = load_build(build_path)
         games = [{"appid": g.appid, "name": g.name, "rank": g.rank}
                  for g in filter_games(c.games(dataset), int(min_months)) if u in g.tag_ids and v in g.tag_ids]
-        return V.edge_inspector(edge, games, tx=tx), hide, hide
+        return V.edge_inspector(edge, games, tx=tx, pair=_edge_pair(edge, tables),
+                                from_pair=selection.get("from_pair")), hide, hide
+    if selection["kind"] == "pair":
+        row = next((r for r in tables["connections"] if V.pair_id(r["cluster_a"], r["cluster_b"]) == selection["id"]),
+                   None)
+        if row is None:
+            return [html.P(tx("This pair is not in the current partition."))], hide, hide
+        kinds = {r["cluster"]: r["kind"] for r in tables["clusters"]}
+        one_tag = {c for c, k in kinds.items() if k != "multi_tag"}
+        color = lambda g: R.ONE_TAG_COLOR if g == V.POOL else cluster_color(g, kinds.get(g, "multi_tag"))  # noqa: E731
+        links = V.pair_links(row["cluster_a"], row["cluster_b"], tables["edges"], one_tag)
+        empty = V.empty_ratio_case(row, tables["nodes"], tables["clusters"], tx)
+        return (V.pair_inspector(row, links, (color(row["cluster_a"]), color(row["cluster_b"])), weight,
+                                 float(meta["key"]["resolution"]), empty, tx=tx), hide, hide)
     cluster = next((r for r in tables["clusters"] if r["cluster"] == selection["id"]), None)
     if cluster is None:
         return [html.P(tx("This cluster is not in the current partition."))], hide, hide
@@ -540,8 +560,25 @@ def inspector(selection, tables, rs_view, build_path, dataset, min_months, meta,
     games = cluster_games(kept, list(cluster["member_tag_ids"]), set(by_id))
     names = {t: r["tag"] for t, r in by_id.items()}
     section = V.cluster_games_section(cluster, games, len(kept), names, tx=tx)
+    links = V.connections_section(cluster["cluster"], tables["connections"], weight, float(meta["key"]["resolution"]),
+                                  tx=tx)
     return (V.cluster_inspector(cluster, members, weight, cluster_color(cluster["cluster"], cluster["kind"]), tx=tx,
-                                games=section), hide, hide)
+                                games=section, connections=links), hide, hide)
+
+
+def _edge_pair(edge: dict[str, Any], tables: dict[str, Any]) -> str | None:
+    """The pair a link between two groups belongs to (the pool: every One-Tag Cluster), as its id; None inside one."""
+    one_tag = {r["cluster"] for r in tables["clusters"] if r["kind"] != "multi_tag"}
+    group = lambda c: V.POOL if c in one_tag else c  # noqa: E731
+    a, b = group(edge["source_cluster"]), group(edge["target_cluster"])
+    if a == b and a != V.POOL:
+        return None
+    if a == b == V.POOL and edge["source_cluster"] == edge["target_cluster"]:
+        return None
+    for r in tables["connections"]:
+        if {r["cluster_a"], r["cluster_b"]} == {a, b} and (a != b or r["cluster_a"] == r["cluster_b"]):
+            return V.pair_id(r["cluster_a"], r["cluster_b"])
+    return None
 
 
 def nin_act(_n, selection, action, removed, genre_hidden, defining_hidden, build_path, dataset):

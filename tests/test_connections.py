@@ -121,3 +121,77 @@ def test_the_ratio_never_exceeds_the_resolution_on_test_build_states(tagged_buil
         state = compute_state(ctx.games(dataset), s, ctx.context(dataset))
         ratios += [r.ratio for r in state.connections if r.ratio is not None]
     assert ratios and max(ratios) <= gamma + 1e-6, max(ratios)
+
+
+# ----------------------------------------------------------------------------- the views (issue 18)
+
+
+def _row(a, b, ratio, weight, share_a=0.2, share_b=0.3, n=1):
+    return {"cluster_a": a, "cluster_b": b, "edge_count": n, "weight": weight, "shared_weight": weight,
+            "ratio": ratio, "shared_ratio": ratio, "share_of_a": share_a, "share_of_b": share_b}
+
+
+def test_a_clusters_partners_rank_by_ratio_then_weight_with_zeros_then_empties_last():
+    from steamstudy.app import view as V
+
+    rows = [_row("C1", "C2", 0.5, 10.0), _row("C1", "C3", 0.0, 0.0, None, None, 0), _row("C1", "C4", 0.8, 3.0),
+            _row("C1", "C5", 0.5, 20.0), _row("C1", POOL, None, 0.0, None, None, 0), _row("C2", "C3", 0.9, 9.0),
+            _row(POOL, POOL, 0.4, 1.0)]
+    assert [p["partner"] for p in V.ranked_partners("C1", rows)] == ["C4", "C5", "C2", "C3", POOL]
+    assert [p["share"] for p in V.ranked_partners("C2", rows)] == [0.2, 0.3]  # C2 is cluster_b of C1-C2, a of C2-C3
+    assert [p["partner"] for p in V.ranked_partners(POOL, rows)] == [POOL, "C1"]
+
+
+def test_the_pair_view_shows_the_csv_rows_numbers_and_its_links_select_them(tagged_build):
+    import html as markup
+    import re
+
+    from steamstudy.app import callbacks as CB
+    from steamstudy.app.loader import load_build
+    from steamstudy.i18n import text
+
+    ctx = load_build(tagged_build)
+    s = ctx.default_settings("overall")
+    values = CB.controls_from_settings(ctx, s)
+    meta, tables, *_ = CB.recompute(str(tagged_build), *[values[k] for k in CB.CONTROL_IDS], values["removed"], None,
+                                    "en")
+    row = max((r for r in tables["connections"] if r["ratio"] is not None), key=lambda r: r["edge_count"])
+    pair = f"{row['cluster_a']}|{row['cluster_b']}"
+    body, *_ = CB.inspector({"kind": "pair", "id": pair}, tables, None, str(tagged_build), "overall", 0, meta, "en")
+    page = " ".join(markup.unescape(getattr(b, "data-html", "") or "") for b in body)
+    en = text("en")
+    assert en.num(row["ratio"]) in page and en.pct(row["share_of_a"], 0 if row["share_of_a"] >= 0.01 else 1) in page
+    edges = re.findall(r'data-edge="([^"]+)" data-from-pair="([^"]+)"', page)
+    assert len(edges) == row["edge_count"] and {p for _, p in edges} == {pair}
+    # a link of the list opens with the way back; "show this pair" on a link between the groups
+    edge_id = edges[0][0]
+    u, v = edge_id.split("-")
+    link, *_ = CB.inspector({"kind": "edge", "id": edge_id, "source": u, "target": v, "from_pair": pair}, tables, None,
+                            str(tagged_build), "overall", 0, meta, "en")
+    assert f'data-pair="{pair}"' in getattr(link[0], "data-html") and "←" in getattr(link[0], "data-html")
+    link, *_ = CB.inspector({"kind": "edge", "id": edge_id, "source": u, "target": v}, tables, None,
+                            str(tagged_build), "overall", 0, meta, "en")
+    assert f'data-pair="{pair}"' in getattr(link[0], "data-html") and "show this pair" in getattr(link[0], "data-html")
+    # the Cluster's Connections section selects the same pair
+    cluster, *_ = CB.inspector({"kind": "cluster", "id": row["cluster_a"]}, tables, None, str(tagged_build), "overall",
+                               0, meta, "en")
+    assert any(f'data-pair="{pair}"' in (getattr(b, "data-html", "") or "") for b in cluster)
+
+
+def test_a_pair_travels_the_event_path_and_the_canvas_is_told_to_fit_it():
+    from types import SimpleNamespace
+
+    from steamstudy.app import callbacks as CB
+    from steamstudy.app import renderer as R
+
+    CB.ctx = SimpleNamespace(triggered_id=R.EVENT_ID)  # as a tap's event arrives
+    try:
+        sel, opened = CB.select({"kind": "pair", "id": "C1|C2"}, None, None, None, None, [])
+    finally:
+        import dash
+
+        CB.ctx = dash.ctx
+    assert sel == {"kind": "pair", "id": "C1|C2"} and opened
+    patch = CB.show_selection(sel).to_plotly_json()["operations"]
+    assert {"operation": "Assign", "location": ["selected"], "params": {"value": {"kind": "pair", "id": "C1|C2"}}} in patch
+    assert any(op["location"] == ["view"] and op["params"]["value"]["cmd"] == "focus_pair" for op in patch)

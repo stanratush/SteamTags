@@ -344,9 +344,20 @@ def _transition(row: dict[str, Any], prefix: str, tx: Text) -> str:
     return f"→ {tx.num(after)}" if after is not None else f"→ {_na_status(status, tx)}"
 
 
-def edge_inspector(edge: dict[str, Any], games: list[dict[str, Any]], *, tx: Text) -> list[Any]:
+def edge_inspector(edge: dict[str, Any], games: list[dict[str, Any]], *, tx: Text, pair: str | None = None,
+                   from_pair: str | None = None) -> list[Any]:
+    """The link view. `pair` (a link between two groups) offers "show this pair"; `from_pair` (opened from a pair's
+    list of links) offers the way back to it."""
     same = edge["source_cluster"] == edge["target_cluster"]
+    nav = ""
+    if from_pair:
+        a, _, b = from_pair.partition("|")
+        nav = (f'<button class="btn small" data-pair="{_e(from_pair)}">'
+               f'{_e("← " + _group_name(a, tx) + " ↔ " + _group_name(b, tx))}</button>')
+    elif pair:
+        nav = f'<button class="btn small" data-pair="{_e(pair)}">{_e(tx("show this pair"))}</button>'
     return [
+        *([_html(nav)] if nav else []),
         html.H4([edge["source_tag"], html.Span(" — ", className="mute"), edge["target_tag"]], className="i-title"),
         html.P(tx("Inside {cluster}", cluster=edge["source_cluster"]) if same
                else tx("Between {a} and {b}", a=edge["source_cluster"], b=edge["target_cluster"]), className="i-sub"),
@@ -395,8 +406,9 @@ def cluster_games_section(cluster: dict[str, Any], games: list[dict[str, Any]], 
 
 
 def cluster_inspector(cluster: dict[str, Any], members: list[dict[str, Any]], weight: str, color: str = "#999", *,
-                      tx: Text, games: list[Any] | None = None) -> list[Any]:
-    """The Cluster view: its metrics, its Members, then its Games (`cluster_games_section`, built by the caller)."""
+                      tx: Text, games: list[Any] | None = None, connections: list[Any] | None = None) -> list[Any]:
+    """The Cluster view: its metrics, its Members, then its Games (`cluster_games_section`) and its Connections
+    (`connections_section`), both built by the caller."""
     out: list[Any] = [
         html.H4([_swatch(color), tx.n(cluster["size"], one="{cluster} · {n} tag", other="{cluster} · {n} tags",
                                       cluster=cluster["cluster"])], className="i-title"),
@@ -424,7 +436,168 @@ def cluster_inspector(cluster: dict[str, Any], members: list[dict[str, Any]], we
         [f'<tr>{_cell(("◆ " if m["is_center"] else "") + m["tag"])}{_cell(m["n_games"], "r")}'
          f'{_cell(tx.num(m["medoid_score"], 3), "r")}{_cell(tx.num(m["membership_stability"]), "r")}</tr>'
          for m in members])))
-    return out + list(games or [])
+    return out + list(games or []) + list(connections or [])
+
+
+# ----------------------------------------------------------------------------- Cluster connections (issue 18)
+
+POOL = "one_tag_pool"
+
+
+def pair_id(a: str, b: str) -> str:
+    """A pair selection's id: the two groups in the connections table's order."""
+    return f"{a}|{b}"
+
+
+def _group_name(label: str, tx: Text) -> str:
+    return tx("pool of one-tag clusters") if label == POOL else label
+
+
+def _share(value: float | None, tx: Text) -> str:
+    """A Connection Share: a whole percent, one decimal below 1 %."""
+    if value is None:
+        return tx.num(None)
+    return tx.pct(value, 0 if value >= 0.01 or value == 0 else 1)
+
+
+def _total(value: float, weight: str, tx: Text) -> str:
+    """A total in its weight's format: shared games whole, Lift to one decimal."""
+    return tx.fixed(value, ".0f") if weight == "shared_games" else tx.fixed(value, ".1f")
+
+
+def _ratio_bar(ratio: float | None, gamma: float, tx: Text) -> str:
+    """The ratio with a 0…γ bar marking 1 (a value a hair above γ fills the bar and keeps its number)."""
+    if ratio is None:
+        return _e(tx.num(None))
+    top = gamma if gamma > 0 else 1.0
+    fill_ = min(ratio / top, 1.0) * 100
+    one = min(1.0 / top, 1.0) * 100
+    return (f'<span class="rbar"><span class="rbar-fill" style="width:{fill_:.1f}%"></span>'
+            f'<span class="rbar-one" style="left:{one:.1f}%"></span></span> {_e(tx.num(ratio))}')
+
+
+def ranked_partners(cluster: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A group's partners from `cluster_connections.csv` rows, with its own share, ordered by Connection Ratio high
+    to low (ties by weight), zero-edge partners at 0, then the rows whose ratio is empty."""
+    out = []
+    for r in rows:
+        if r["cluster_a"] == r["cluster_b"]:
+            if r["cluster_a"] != cluster:
+                continue
+            partner, share = r["cluster_a"], r["share_of_a"]
+        elif cluster == r["cluster_a"]:
+            partner, share = r["cluster_b"], r["share_of_a"]
+        elif cluster == r["cluster_b"]:
+            partner, share = r["cluster_a"], r["share_of_b"]
+        else:
+            continue
+        out.append({**r, "partner": partner, "share": share})
+    return sorted(out, key=lambda r: (r["ratio"] is None, -(r["ratio"] or 0.0), -r["weight"]))
+
+
+def _reference(gamma: float, tx: Text) -> html.P:
+    return html.P(tx("Ratio: 1 = as their total link weight predicts; γ = {gamma} is the most it can reach.",
+                     gamma=tx.fixed(gamma, ".2f")), className="mute small")
+
+
+def connections_section(cluster: str, rows: list[dict[str, Any]], weight: str, gamma: float, *,
+                        tx: Text) -> list[Any]:
+    """The Cluster Inspector's Connections section: one row per partner (`ranked_partners`); a row selects the pair."""
+    partners = ranked_partners(cluster, rows)
+    lift = weight == "lift"
+    head = (_cell(tx("Partner"), tag="th") + _help_th(tx("Ratio"), "connections.ratio", tx)
+            + _help_th(tx("Share"), "connections.share", tx) + _cell(tx("Total"), "r", "th") + _cell(tx("Links"), "r", "th"))
+    if lift:
+        head += _help_th(tx("Shared games · ratio"), "connections.ratio", tx)
+    body = []
+    title = _e(tx("Select this pair"))
+    for p in partners:
+        a, b = p["cluster_a"], p["cluster_b"]
+        cells = (f'<td>{_e(_group_name(p["partner"], tx))}</td><td class="r">{_ratio_bar(p["ratio"], gamma, tx)}</td>'
+                 f'{_cell(_share(p["share"], tx), "r")}{_cell(_total(p["weight"], weight, tx), "r")}'
+                 f'{_cell(p["edge_count"], "r")}')
+        if lift:
+            cells += _cell(f'{_total(p["shared_weight"], "shared_games", tx)} · {tx.num(p["shared_ratio"])}', "r")
+        body.append(f'<tr class="click" data-pair="{_e(pair_id(a, b))}" tabindex="0" title="{title}">{cells}</tr>')
+    out: list[Any] = [html.Div([tx("Connections") + " ", html.Span(tx("by Connection Ratio"), className="cnt")],
+                               className="i-h"), _reference(gamma, tx)]
+    if lift:
+        out.append(html.P(tx("Shared games · ratio: not tied to the clustering; can exceed γ."), className="mute small"))
+    out.append(_html(_table(head, body)))
+    return out
+
+
+def _help_th(label: str, key: str, tx: Text) -> str:
+    """A right-aligned header with both help layers of a help key (`steamstudy.app.help`)."""
+    attrs = {"class": "term r", "tabindex": "0", **H.attrs(key, tx)}
+    return "<th " + " ".join(f'{k}="{_e(v)}"' for k, v in attrs.items()) + f">{_e(label)}</th>"
+
+
+def empty_ratio_case(row: dict[str, Any], nodes: list[dict[str, Any]], clusters: list[dict[str, Any]],
+                     tx: Text) -> str | None:
+    """Why a pair's ratio is empty: a pool of isolated tags only, a pool-pool row with fewer than two linked pool
+    tags, or (not expected in practice) no links in the network at all."""
+    if row["ratio"] is not None:
+        return None
+    one_tag = {c["cluster"] for c in clusters if c["kind"] != "multi_tag"}
+    linked = sum(1 for n in nodes if n["cluster"] in one_tag and n["degree"] > 0)
+    if POOL in (row["cluster_a"], row["cluster_b"]) and linked == 0:
+        return tx("Empty: the pool holds isolated tags only, so no link weight is expected.")
+    if row["cluster_a"] == row["cluster_b"] == POOL:
+        return tx("Empty: fewer than two pool tags have links, so no link weight is expected between them.")
+    return tx("Empty: no link weight is expected.")
+
+
+def pair_links(a: str, b: str, edges: list[dict[str, Any]], one_tag: set[str]) -> list[dict[str, Any]]:
+    """The links between two groups (the pool: every One-Tag Cluster), by shared games, the tag in `a` first."""
+    group = lambda c: POOL if c in one_tag else c  # noqa: E731
+    out = []
+    for e in edges:
+        ga, gb = group(e["source_cluster"]), group(e["target_cluster"])
+        if {ga, gb} != {a, b} or (a == b and (ga != a or e["source_cluster"] == e["target_cluster"])):
+            continue
+        first = ga == a
+        out.append({"edge": f"{e['source_tag_id']}-{e['target_tag_id']}",
+                    "tag_a": e["source_tag"] if first else e["target_tag"],
+                    "tag_b": e["target_tag"] if first else e["source_tag"],
+                    "shared": e["shared_games"], "lift": e["lift"]})
+    return sorted(out, key=lambda x: (-x["shared"], str(x["tag_a"]).lower(), str(x["tag_b"]).lower()))
+
+
+def pair_inspector(row: dict[str, Any], links: list[dict[str, Any]], colors: tuple[str, str], weight: str,
+                   gamma: float, empty_case: str | None, *, tx: Text) -> list[Any]:
+    """The pair view: both groups, the Connection Ratio with γ, both Connection Shares, the totals and the links
+    between them; a link's row selects it."""
+    a, b = row["cluster_a"], row["cluster_b"]
+    lift = weight == "lift"
+    rows = [(tx("Connection Ratio"), Markup(_ratio_bar(row["ratio"], gamma, tx) + " " + _e(tx("of γ = {gamma}",
+                                                                                              gamma=tx.fixed(gamma, ".2f"))))),
+            (tx("Connection Share of {group}", group=_group_name(a, tx)), _share(row["share_of_a"], tx)),
+            (tx("Connection Share of {group}", group=_group_name(b, tx)), _share(row["share_of_b"], tx)),
+            (tx("Total"), _total(row["weight"], weight, tx)), (tx("Links"), str(row["edge_count"]))]
+    if lift:
+        rows += [(tx("Shared-game total"), _total(row["shared_weight"], "shared_games", tx)),
+                 (tx("Shared-game ratio (not tied to the clustering; can exceed γ)"), tx.num(row["shared_ratio"]))]
+    kv = "".join(f"<dt>{_e(k)}</dt><dd>{v if isinstance(v, Markup) else _e(v)}</dd>" for k, v in rows)
+    head = (_cell(tx("Tag in {group}", group=_group_name(a, tx)), tag="th")
+            + _cell(tx("Tag in {group}", group=_group_name(b, tx)), tag="th")
+            + _label_th("Shared games", tx) + _label_th("Lift", tx))
+    title = _e(tx("Select this link"))
+    body = [f'<tr class="click" data-edge="{_e(x["edge"])}" data-from-pair="{_e(pair_id(a, b))}" tabindex="0" '
+            f'title="{title}"><td>{_e(x["tag_a"])}</td><td>{_e(x["tag_b"])}</td>{_cell(x["shared"], "r")}'
+            f'{_cell(tx.num(x["lift"]), "r")}</tr>' for x in links]
+    out: list[Any] = [
+        html.H4([_swatch(colors[0]), _group_name(a, tx), html.Span(" ↔ ", className="mute"), _swatch(colors[1]),
+                 _group_name(b, tx)], className="i-title"),
+        html.P(tx("Cluster pair"), className="i-sub"),
+        _html(f'<dl class="kv">{kv}</dl>'),
+        _reference(gamma, tx),
+    ]
+    if empty_case:
+        out.append(html.P(empty_case, className="mute small"))
+    out += [html.Div([tx("Links between them") + " ", html.Span(str(len(links)), className="cnt")], className="i-h"),
+            _html(_table(head, body))]
+    return out
 
 
 # ----------------------------------------------------------------------------- tag search and missing tags

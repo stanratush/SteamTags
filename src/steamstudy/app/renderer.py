@@ -50,7 +50,7 @@ def graph_component() -> list[Any]:
 
 def selection_ref(selection: dict[str, Any] | None) -> dict[str, str] | None:
     """What the canvas needs to know about the selection: its kind and element id."""
-    if not selection or selection.get("kind") not in ("node", "edge", "cluster"):
+    if not selection or selection.get("kind") not in ("node", "edge", "cluster", "pair"):
         return None
     return {"kind": selection["kind"], "id": str(selection["id"])}
 

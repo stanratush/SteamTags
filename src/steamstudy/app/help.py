@@ -49,6 +49,8 @@ HELP: dict[str, tuple[str, str]] = {
     "legend.key": (APP_CONTROLS, "reading-the-graph"),
     "legend.one_tag": (APP_CONTROLS, "grey-one-tag-clusters"),
     "legend.thickness": (APP_CONTROLS, "edge-appearance"),
+    "connections.ratio": (METRIC_REFERENCE, "connection-ratio"),
+    "connections.share": (METRIC_REFERENCE, "connection-share"),
     "edges.width": (APP_CONTROLS, "width"),
     "edges.scale": (APP_CONTROLS, "scaling"),
     "edges.color": (APP_CONTROLS, "colour"),

@@ -122,6 +122,12 @@ input[type=text],input:not([type]),.dash-input-element{border-radius:6px}
  font:inherit;font-size:11px;padding:1px 6px}
 .ea-choice button.on{border-color:var(--acc);color:var(--acc)}
 body[data-form=narrow] #root.workbench .edge-card{bottom:128px}
+/* Cluster connections: the ratio's 0…γ bar, with 1 marked */
+.rbar{position:relative;display:inline-block;width:46px;height:6px;background:#e5e7eb;border-radius:3px;
+ vertical-align:middle}
+.rbar-fill{position:absolute;left:0;top:0;bottom:0;background:#3b2f6b;border-radius:3px}
+.rbar-one{position:absolute;top:-2px;bottom:-2px;width:1px;background:#1b2130}
+tr.hidden-link td{color:var(--mute)}
 .lchip{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:12px;padding:1px 8px 1px 6px;
  font-size:12px;background:#fff;cursor:pointer;color:var(--ink)}
 .lchip:hover{border-color:#a9b1bf}

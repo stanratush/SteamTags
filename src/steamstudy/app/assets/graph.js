@@ -540,6 +540,7 @@
     if (G.selected) applySelection(JSON.parse(G.selected), false);
     renderCard();
     updateKey();
+    markHiddenLinks();
     return getAppearance();
   }
 
@@ -563,7 +564,7 @@
   function edgeKey(switchValue, base, words) {
     A.showShared = !!(switchValue && switchValue.length);
     if (words) A.ui = words;
-    if (G.data) { adoptAppearance(G.data); restyle(); renderCard(); }
+    if (G.data) { adoptAppearance(G.data); restyle(); renderCard(); markHiddenLinks(); }
     return keyText();
   }
 
@@ -743,7 +744,17 @@
   }
 
   function members(cluster) {
+    // "one_tag_pool" (a pair's group) is every One-Tag Cluster's tag
+    if (cluster === "one_tag_pool") return G.cy.nodes(".one_tag").not(".region, .leaving");
     return G.cy.nodes().not(".region, .leaving").filter((n) => n.data("cluster") === cluster);
+  }
+
+  // A pair's two groups and the drawn links between them (the pool with itself: links between two pool tags).
+  function pairParts(id) {
+    const [a, b] = String(id).split("|"), ma = members(a), mb = members(b);
+    const links = a === b ? ma.edgesWith(ma).filter((e) => e.source().data("cluster") !== e.target().data("cluster"))
+                          : ma.edgesWith(mb);
+    return {a, b, nodes: ma.union(mb), links: links.not(".hid, .leaving")};
   }
 
   // ------------------------------------------------------------------ selection and view
@@ -774,6 +785,12 @@
       } else if (sel.kind === "cluster") {
         keep = members(sel.id);
         keep = keep.union(keep.edgesWith(keep));
+      } else if (sel.kind === "pair") {
+        // Both groups and the links between them, opaque in their colour mode (darker under one colour), in both
+        // layouts; links hidden from the drawing stay hidden.
+        const p = pairParts(sel.id);
+        p.links.addClass(dark ? "nb nbdark" : "nb");
+        keep = p.nodes.union(p.links);
       }
       keep.nodes().addClass("hot");
       cy.elements().not(keep).not(".region, .leaving").addClass("dim");
@@ -810,12 +827,23 @@
     G.userMoved = true;  // a resize (e.g. the floating Inspector opening) keeps the focus
   }
 
+  // Fit to both groups of a pair (their regions in Cluster-separated mode), like a Cluster's focus.
+  function focusPair(a, b) {
+    let eles = G.cy.collection();
+    for (const g of [a, b]) { const r = region(g); eles = eles.union(r.nonempty() ? r : members(g)); }
+    if (eles.empty()) return;
+    const bb = eles.boundingBox({includeLabels: false, includeOverlays: false});
+    fitBox({x1: bb.x1, x2: bb.x2, y1: bb.y1 - TITLE_ROOM, y2: bb.y2 + LABEL_MARGIN + LABEL_H}, true);
+    G.userMoved = true;
+  }
+
   function runView(view) {
     if (!view || view.nonce === G.viewNonce) return;
     G.viewNonce = view.nonce;
     whenDashIdle(() => {
       if (view.cmd === "fit") { G.userMoved = false; fit(true); }
       else if (view.cmd === "focus") focusCluster(view.cluster);
+      else if (view.cmd === "focus_pair") focusPair(view.a, view.b);
       else if (view.cmd === "center") {
         const el = G.cy.getElementById(view.id);
         centerOn(el.nonempty() && el.isEdge() ? el.union(el.connectedNodes()) : el);
@@ -930,11 +958,50 @@
     if (!row || (ev.type === "keydown" && ev.key !== "Enter" && ev.key !== " ")) return;
     if (ev.type === "keydown") ev.preventDefault();
     const [source, target] = row.dataset.edge.split("-");
-    emit({kind: "edge", id: row.dataset.edge, source, target, pan: true});
+    const event = {kind: "edge", id: row.dataset.edge, source, target, pan: true};
+    if (row.dataset.fromPair) event.from_pair = row.dataset.fromPair;
+    emit(event);
     selectNow({kind: "edge", id: row.dataset.edge});
   }
   document.addEventListener("click", selectLink);
   document.addEventListener("keydown", selectLink);
+
+  // A pair from the Inspector (a Connections row, "show this pair", "← C1 ↔ C2"): drawn at once, like a tap.
+  function selectPair(ev) {
+    const el = ev.target.closest && ev.target.closest("#inspector-body [data-pair]");
+    if (!el || (ev.type === "keydown" && ev.key !== "Enter" && ev.key !== " ")) return;
+    if (ev.type === "keydown") ev.preventDefault();
+    emit({kind: "pair", id: el.dataset.pair});
+    selectNow({kind: "pair", id: el.dataset.pair});
+  }
+  document.addEventListener("click", selectPair);
+  document.addEventListener("keydown", selectPair);
+
+  // In a pair's list of links, mark the ones hidden from the drawing (Hide links below: a browser-only choice).
+  function markHiddenLinks() {
+    const body = document.getElementById("inspector-body");
+    if (!body || !G.cy) return;
+    const word = (A.ui && A.ui.edges && A.ui.edges.hidden_link) || "";
+    body.querySelectorAll("tr[data-from-pair][data-edge]").forEach((row) => {
+      const hidden = G.cy.getElementById(row.dataset.edge).hasClass("hid");
+      const cell = row.cells[0], mark = cell.querySelector(".hid-mark");
+      // Only real changes are written: the observer below would otherwise see its own writes.
+      if (hidden === row.classList.contains("hidden-link") && (!mark || mark.textContent === word)) return;
+      row.classList.toggle("hidden-link", hidden);
+      if (hidden && !mark) cell.insertAdjacentHTML("beforeend", ` <small class="hid-mark mute">${esc(word)}</small>`);
+      else if (hidden && mark.textContent !== word) mark.textContent = word;  // the words arrived (or changed language)
+      if (!hidden && mark) mark.remove();
+    });
+  }
+
+  // A pair's list arrives as an escaped HTML block (workbench.js fills it): mark it once it is in place.
+  function watchPairLinks() {
+    const body = document.getElementById("inspector-body");
+    if (!body) { setTimeout(watchPairLinks, 50); return; }
+    new MutationObserver(() => markHiddenLinks()).observe(body, {childList: true, subtree: true});
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", watchPairLinks);
+  else watchPairLinks();
 
   // A cluster's legend chip (Dash id {"type": "legend", "cluster": <label>}) is drawn at once too, like a tap on its
   // region title; Dash still sends the click, and the server's answer confirms it.

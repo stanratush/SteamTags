@@ -67,6 +67,7 @@ def edge_words(tx: Text) -> dict[str, Any]:
             "filter": tx("Minimum shared games ({n}) is the separate filter, part of the Network State.", n="{n}"),
             "axis": tx("{measure} per link · {n} links", measure="{measure}", n="{n}"),
             "drag": tx("Drag the handle to stop drawing the links below a value (view only)."),
+            "hidden_link": tx("hidden from the drawing"),
             "width": tx("Width"), "strength": tx("Strength"), "between": tx("Links between Clusters"),
             "scale": tx("Scaling"), "color": tx("Colour"), "hide": tx("Hide links below"),
             "less": tx("Less"), "more": tx("More"),
