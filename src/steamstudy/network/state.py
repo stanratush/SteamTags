@@ -63,7 +63,7 @@ class NetworkState:
     cluster_metrics: dict[str, M.ClusterMetrics]
     node_metrics: dict[int, M.NodeMetrics]
     centers: dict[str, M.Center]
-    connections: list[tuple[str, str, int, float]]
+    connections: list[M.Connection]
     null_replicates: list[NullReplicate]
     seed_runs: list[SeedRun]
     membership_stability: dict[int, float | None]

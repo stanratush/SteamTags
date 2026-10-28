@@ -168,6 +168,10 @@ One row for the whole Network State: network size, modularity against its null m
 
 One row is one pair of Multi-Tag Clusters (or a cluster and the pooled One-Tag Clusters), with the edges and weight between them. It joins to `clusters.csv` through the labels.
 
+### `cluster_games.csv`
+
+One row is one cluster and one game that has at least one of its tags (the cluster inspector's Games section): how many of the cluster's tags it has, its own tags in the network, that share, and the matched tags. It is in the export zip only, never in a Build. It joins to `clusters.csv` through `cluster` and to `top100_<dataset>.csv` through `appid`.
+
 ### `null_model.csv`
 
 One row is one null-model replicate: its seed, Q and edge count. It is the source of `q_null_mean`, `q_null_sd` and `null_n_edges_mean`.

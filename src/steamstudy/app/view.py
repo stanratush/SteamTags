@@ -356,8 +356,47 @@ def edge_inspector(edge: dict[str, Any], games: list[dict[str, Any]], *, tx: Tex
     ]
 
 
+def _cluster_games_table(games: list[dict[str, Any]], names: dict[int, str], one_tag: bool, tx: Text) -> str:
+    """Games within a Cluster: Rank · Name · Matched · of its tags · Tags (a One-Tag Cluster drops the two constant
+    columns). Rows are inert."""
+    head = _cell(tx("Rank"), "r", "th") + _cell(tx("Name"), tag="th")
+    if not one_tag:
+        head += _cell(tx("Matched"), "r", "th")
+    head += _cell(tx("of its tags"), "r", "th") + ("" if one_tag else _cell(tx("Tags"), tag="th"))
+    rows = []
+    for g in games:
+        row = _cell(g["rank"], "r mute") + _cell(g["name"], "name")
+        if not one_tag:
+            row += _cell(tx("{matched} / {size}", matched=g["matched"], size=g["cluster_size"]), "r")
+        row += _cell(tx.pct(g["share_of_game"], 0), "r")
+        if not one_tag:
+            row += _cell(", ".join(names.get(t, str(t)) for t in g["matched_tag_ids"]), "tags")
+        rows.append(f"<tr>{row}</tr>")
+    return _table(head, rows)
+
+
+def cluster_games_section(cluster: dict[str, Any], games: list[dict[str, Any]], n_games: int,
+                          names: dict[int, str], *, tx: Text) -> list[Any]:
+    """The Cluster Inspector's Games section: every game of the network with at least one of its tags, most matched
+    first, then by rank; the first `GAMES_SHOWN`, then "Show all N"."""
+    one_tag = cluster["kind"] != "multi_tag"
+    n = len(games)
+    if one_tag:
+        lead = tx.n(n, one="{n} game has its tag", other="{n} games have its tag", n="\0")
+    else:
+        lead = tx.n(n, one="{n} of {total} games has at least one of its {size} tags",
+                    other="{n} of {total} games have at least one of its {size} tags", n="\0", total=n_games,
+                    size=cluster["size"])
+    table = _cluster_games_table(games[:GAMES_SHOWN], names, one_tag, tx)
+    if n > GAMES_SHOWN:
+        table += (f'<details><summary class="more">{_e(tx("Show all {n}", n=n))}</summary>'
+                  f'{_cluster_games_table(games[GAMES_SHOWN:], names, one_tag, tx)}</details>')
+    return [html.Div(tx("Games"), className="i-h"), html.P(_bold_count(lead, n), className="lead"), _html(table)]
+
+
 def cluster_inspector(cluster: dict[str, Any], members: list[dict[str, Any]], weight: str, color: str = "#999", *,
-                      tx: Text) -> list[Any]:
+                      tx: Text, games: list[Any] | None = None) -> list[Any]:
+    """The Cluster view: its metrics, its Members, then its Games (`cluster_games_section`, built by the caller)."""
     out: list[Any] = [
         html.H4([_swatch(color), tx.n(cluster["size"], one="{cluster} · {n} tag", other="{cluster} · {n} tags",
                                       cluster=cluster["cluster"])], className="i-title"),
@@ -385,7 +424,7 @@ def cluster_inspector(cluster: dict[str, Any], members: list[dict[str, Any]], we
         [f'<tr>{_cell(("◆ " if m["is_center"] else "") + m["tag"])}{_cell(m["n_games"], "r")}'
          f'{_cell(tx.num(m["medoid_score"], 3), "r")}{_cell(tx.num(m["membership_stability"]), "r")}</tr>'
          for m in members])))
-    return out
+    return out + list(games or [])
 
 
 # ----------------------------------------------------------------------------- tag search and missing tags

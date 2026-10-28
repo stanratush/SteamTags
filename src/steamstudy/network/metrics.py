@@ -147,27 +147,86 @@ def cluster_metrics(graph: nx.Graph, cluster: Cluster) -> ClusterMetrics:
     )
 
 
-def connections(graph: nx.Graph, clusters: list[Cluster]) -> list[tuple[str, str, int, float]]:
-    """(cluster_a, cluster_b, edge_count, weight) for every unordered Multi-Tag pair, plus one_tag_pool pairs."""
+POOL = "one_tag_pool"
+
+
+@dataclass(frozen=True)
+class Connection:
+    """The links between two Clusters (or with the pooled One-Tag Clusters): their count and weight, the shared-game
+    total, the Connection Ratio in the Clustering Weight and in shared games, and both Connection Shares. A ratio or
+    share is None where its denominator is zero; values are never clamped (ADR 0004)."""
+
+    cluster_a: str
+    cluster_b: str
+    edge_count: int
+    weight: float
+    shared_weight: float
+    ratio: float | None
+    shared_ratio: float | None
+    share_of_a: float | None
+    share_of_b: float | None
+
+
+def _strengths(graph: nx.Graph, group: dict[int, str], attr: str) -> tuple[dict[str, float], dict[str, float], float]:
+    """Each group's strength k (summed tag strengths), the sum of its tags' squared strengths, and 2m."""
+    k: dict[str, float] = {}
+    squares: dict[str, float] = {}
+    for t, label in group.items():
+        kt = float(graph.degree(t, weight=attr)) if t in graph else 0.0
+        k[label] = k.get(label, 0.0) + kt
+        squares[label] = squares.get(label, 0.0) + kt * kt
+    return k, squares, math.fsum(k.values())
+
+
+def _ratio(w: float, a: str, b: str, k: dict[str, float], squares: dict[str, float], two_m: float) -> float | None:
+    """w over the weight the strengths alone predict: k_a·k_b/2m, or over distinct pool pairs (k_p² − Σk_i²)/4m."""
+    if two_m <= 0:
+        return None
+    expected = (k[a] ** 2 - squares[a]) / (2 * two_m) if a == b else k[a] * k[b] / two_m
+    return w / expected if expected > 0 else None
+
+
+def connections(graph: nx.Graph, clusters: list[Cluster]) -> list[Connection]:
+    """Every unordered Multi-Tag pair, plus one_tag_pool pairs (spec: "Connection Ratio and Connection Share").
+
+    k_a is a group's strength in the Clustering Weight (attribute `w`; 2·internal + cut for a Cluster) and 2m their
+    sum. A Cluster's cut is all its weight to other groups; the pool's is all weight touching its tags with pool-pool
+    links once (k_p − w_pp), so every group's shares add up to 1. The shared-game total and ratio use the same sums
+    over the `shared` attribute."""
     multi = [c.label for c in clusters if c.size >= 2]
     singles = [c for c in clusters if c.size == 1]
-    group = {t: (c.label if c.size >= 2 else "one_tag_pool") for c in clusters for t in c.members}
+    group = {t: (c.label if c.size >= 2 else POOL) for c in clusters for t in c.members}
     counts: dict[tuple[str, str], list[float]] = {}
-    order = {label: i for i, label in enumerate([*multi, "one_tag_pool"])}
+    order = {label: i for i, label in enumerate([*multi, POOL])}
+    cut: dict[str, float] = {}
     for u, v, d in graph.edges(data=True):
         a, b = group[u], group[v]
-        if a == b and a != "one_tag_pool":
+        if a != b:
+            cut[a] = cut.get(a, 0.0) + d["w"]
+            cut[b] = cut.get(b, 0.0) + d["w"]
+        elif a == POOL:
+            cut[a] = cut.get(a, 0.0) + d["w"]
+        if a == b and a != POOL:
             continue
         a, b = sorted((a, b), key=order.__getitem__)
-        entry = counts.setdefault((a, b), [0, 0.0])
+        entry = counts.setdefault((a, b), [0, 0.0, 0.0])
         entry[0] += 1
         entry[1] += d["w"]
+        entry[2] += d["shared"]
     pairs = [(a, b) for i, a in enumerate(multi) for b in multi[i + 1:]]
     if singles:
-        pairs += [(a, "one_tag_pool") for a in multi]
+        pairs += [(a, POOL) for a in multi]
         if len(singles) >= 2:
-            pairs.append(("one_tag_pool", "one_tag_pool"))
-    return [(a, b, int(counts.get((a, b), [0, 0.0])[0]), float(counts.get((a, b), [0, 0.0])[1])) for a, b in pairs]
+            pairs.append((POOL, POOL))
+    k, squares, two_m = _strengths(graph, group, "w")
+    ks, squares_s, two_m_s = _strengths(graph, group, "shared")
+    out = []
+    for a, b in pairs:
+        n, w, shared = counts.get((a, b), [0, 0.0, 0.0])
+        share = lambda label: w / cut[label] if cut.get(label) else None  # noqa: E731
+        out.append(Connection(a, b, int(n), float(w), float(shared), _ratio(w, a, b, k, squares, two_m),
+                              _ratio(shared, a, b, ks, squares_s, two_m_s), share(a), share(b)))
+    return out
 
 
 # ----------------------------------------------------------------------------- per-node and centers

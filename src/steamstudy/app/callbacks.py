@@ -45,7 +45,7 @@ from steamstudy.network.model import Settings, resolution_text
 from steamstudy.network.sensitivity import removal_sensitivity
 from steamstudy.network.stability import ari
 from steamstudy.network.state import compute_state
-from steamstudy.network.tables import state_tables
+from steamstudy.network.tables import cluster_games, state_tables
 from steamstudy.i18n import lang_of, text
 from steamstudy.versions import version_mismatches
 
@@ -534,8 +534,12 @@ def inspector(selection, tables, rs_view, build_path, dataset, min_months, meta,
         return [html.P(tx("This cluster is not in the current partition."))], hide, hide
     by_id = {r["tag_id"]: r for r in tables["nodes"]}
     members = [by_id[t] for t in cluster["member_tag_ids"] if t in by_id]
-    return (V.cluster_inspector(cluster, members, weight, cluster_color(cluster["cluster"], cluster["kind"]), tx=tx),
-            hide, hide)
+    kept = filter_games(load_build(build_path).games(dataset), int(min_months))
+    games = cluster_games(kept, list(cluster["member_tag_ids"]), set(by_id))
+    names = {t: r["tag"] for t, r in by_id.items()}
+    section = V.cluster_games_section(cluster, games, len(kept), names, tx=tx)
+    return (V.cluster_inspector(cluster, members, weight, cluster_color(cluster["cluster"], cluster["kind"]), tx=tx,
+                                games=section), hide, hide)
 
 
 def nin_act(_n, selection, action, removed, genre_hidden, defining_hidden, build_path, dataset):

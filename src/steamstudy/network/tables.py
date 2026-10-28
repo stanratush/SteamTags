@@ -7,6 +7,7 @@ Coordinates are an input, computed after the state by the layout (ADR 0002), nev
 
 from __future__ import annotations
 
+import dataclasses
 import math
 from collections.abc import Mapping
 from typing import Any, Protocol
@@ -39,8 +40,7 @@ def state_tables(state: NetworkState, layout: Coordinates | None = None) -> dict
         "edges.csv": edge_rows(state),
         "clusters.csv": cluster_rows(state),
         "cluster_quality.csv": [cluster_quality_row(state)],
-        "cluster_connections.csv": [
-            {"cluster_a": a, "cluster_b": b, "edge_count": n, "weight": w} for a, b, n, w in state.connections],
+        "cluster_connections.csv": [dataclasses.asdict(c) for c in state.connections],
         "null_model.csv": [{"replicate": r.replicate, "seed": r.seed, "modularity": r.modularity, "n_edges": r.n_edges}
                            for r in state.null_replicates],
         "seed_noise.csv": [
@@ -93,13 +93,46 @@ def edge_rows(state: NetworkState) -> Rows:
     } for e in state.network.edges]
 
 
+def _members(state: NetworkState, cluster: Any) -> list[int]:
+    """A Cluster's tags in the Members order: the Center first, then by game-set distance."""
+    return member_order(cluster.members, state.centers[cluster.label].medoid_scores, state.network.tag_games)
+
+
+def cluster_games(games: list[Any], members: list[int], network_tags: set[int]) -> Rows:
+    """The games that have at least one of a Cluster's tags (`members`, in the Members order), most matched first,
+    then by rank. `games` are the Network State's (after the Minimum Months Filter); `network_tags` are the tags in
+    the Tag Network, so hidden, removed and below-minimum tags never count toward a game's own tags. Shared by
+    `cluster_games.csv` and the Cluster Inspector's Games section."""
+    rows = []
+    for g in games:
+        tags = set(g.tag_ids)
+        matched = [t for t in members if t in tags]
+        if matched:
+            own = len(tags & network_tags)
+            rows.append({"appid": g.appid, "name": g.name, "rank": g.rank, "matched": len(matched),
+                         "cluster_size": len(members), "network_tags": own, "share_of_game": len(matched) / own,
+                         "matched_tag_ids": matched})
+    return sorted(rows, key=lambda r: (-r["matched"], r["rank"]))
+
+
+def cluster_game_rows(state: NetworkState) -> Rows:
+    """`cluster_games.csv`: every Cluster (never the pool) × matching game, by Cluster label, then the ranking."""
+    names = state.network.tag_names
+    nodes = set(state.network.nodes)
+    rows = []
+    for c in state.clusters:
+        for r in cluster_games(state.network.games, _members(state, c), nodes):
+            rows.append({"cluster": c.label, **r, "matched_tags": [names[t] for t in r["matched_tag_ids"]]})
+    return rows
+
+
 def cluster_rows(state: NetworkState) -> Rows:
     names = state.network.tag_names
     rows = []
     for c in state.clusters:
         center = state.centers[c.label]
         metrics = state.cluster_metrics[c.label]
-        order = member_order(c.members, center.medoid_scores, state.network.tag_games)
+        order = _members(state, c)
         stability = [state.membership_stability[t] for t in c.members]
         known = [s for s in stability if s is not None]
         rows.append({

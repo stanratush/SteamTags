@@ -23,7 +23,7 @@ from steamstudy.network.model import KEY_VERSION, Settings, state_id_of
 from steamstudy.network.sensitivity import METHOD_VERSION
 from steamstudy.network.stability import TRADES_PER_GAME
 from steamstudy.network.state import NetworkState, compute_state
-from steamstudy.network.tables import state_tables
+from steamstudy.network.tables import cluster_game_rows, state_tables
 from steamstudy.versions import software_versions
 
 CENTER_TIE_BREAK = "smallest medoid_score (rounded to 12 decimals), then more n_games, then lower tag_id"
@@ -93,7 +93,7 @@ def export_zip(
     now = now or dt.datetime.now(dt.UTC)
     state = state or compute_state(ctx.games(settings.dataset), settings, ctx.context(settings.dataset))
     layout = layout or layout_state(state, positions=relayout_positions or None)
-    tables = state_tables(state, layout)
+    tables = {**state_tables(state, layout), "cluster_games.csv": cluster_game_rows(state)}
     files: dict[str, bytes] = {}
     for schema in S.APP_TABLES:
         if schema.name == "removal_sensitivity.csv":
@@ -241,15 +241,24 @@ COORDINATE_COLUMNS = ("x_global", "y_global", "x_cluster_separated", "y_cluster_
 
 
 def recorded_table_hashes_match(opened: OpenedState, data: bytes) -> bool:
-    """Whether the recomputed state's tables equal the export's (beyond the state_id check), every column except
-    the four coordinate columns: positions come from the layout, which is not part of the state (ADR 0002)."""
+    """Whether the recomputed state's tables equal the export's (beyond the state_id check), on the columns the
+    export has, except the four coordinate columns: positions come from the layout, which is not part of the state
+    (ADR 0002). An older export (fewer columns, or without a table added since) still matches its recomputation."""
     ctx = load_build(opened.build_path)
     _, again = export_zip(ctx, opened.settings, removal_rows=opened.removal_rows or None)
     files = read_export(again)[1]
     original = read_export(data)[1]
-    return all(name in files and _coordinate_blind(files[name]) == _coordinate_blind(original[name])
+    return all(name in files and _coordinate_blind(files[name], _header(original[name]))
+               == _coordinate_blind(original[name], _header(original[name]))
                for name in original if name.endswith(".csv"))
 
 
-def _coordinate_blind(data: bytes) -> list[list[tuple[str, str]]]:
-    return [[(k, v) for k, v in row.items() if k not in COORDINATE_COLUMNS] for row in _raw_rows(data)]
+def _header(data: bytes) -> set[str]:
+    import csv
+
+    return set(next(csv.reader(io.StringIO(data.decode("utf-8-sig"))), []))
+
+
+def _coordinate_blind(data: bytes, columns: set[str]) -> list[list[tuple[str, str]]]:
+    return [[(k, v) for k, v in row.items() if k not in COORDINATE_COLUMNS and k in columns]
+            for row in _raw_rows(data)]

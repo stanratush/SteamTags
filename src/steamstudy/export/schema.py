@@ -14,7 +14,7 @@ from dataclasses import dataclass, field, replace
 
 # 1 + the one shared bump for the ticket 25, 27 and 28 overrides (spec); 3 adds the Parameter Selection
 # export zip (`parameter_selection` group) and `applied_from` in export.json.
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 # Column types and how the writer renders them:
 #   str        as is
@@ -522,6 +522,35 @@ CLUSTER_CONNECTIONS = declare(
         C("cluster_b", "str", "Second cluster (or one_tag_pool)."),
         C("edge_count", "int", "Edges between the two."),
         C("weight", "float", "Summed active weight of those edges."),
+        C("shared_weight", "float", "Summed shared-game counts of those edges (equals weight under shared games)."),
+        C("ratio", "float", "Connection Ratio: weight over the weight the two groups' total link weights alone predict, "
+                            "in the Clustering Weight; at most γ. Empty where undefined."),
+        C("shared_ratio", "float", "Connection Ratio from shared-game sums and strengths (equals ratio under shared "
+                                   "games; under Lift not tied to the clustering). Empty where undefined."),
+        C("share_of_a", "float", "Connection Share of cluster_a: weight over all of cluster_a's link weight to other "
+                                 "groups. Empty when that is 0."),
+        C("share_of_b", "float", "Connection Share of cluster_b: weight over all of cluster_b's link weight to other "
+                                 "groups. Empty when that is 0."),
+    ],
+    group="app_export",
+)
+
+CLUSTER_GAMES = declare(
+    "cluster_games.csv",
+    "Games within each Cluster: one row per Cluster (Multi-Tag and One-Tag, never the pool) and game of the network "
+    "that has at least one of its tags, by Cluster label, then most matched tags, then rank.",
+    [
+        C("cluster", "str", "The Cluster (C1…)."),
+        C("appid", "int", "Steam AppID of the game."),
+        C("name", "str", "The game's name."),
+        C("rank", "int", "The game's rank in the dataset (by Mean Monthly Players)."),
+        C("matched", "int", "How many of the Cluster's tags the game has."),
+        C("cluster_size", "int", "How many tags the Cluster has."),
+        C("network_tags", "int", "How many of the game's tags are in the Tag Network (hidden, removed and "
+                                 "below-minimum tags not counted)."),
+        C("share_of_game", "float", "matched / network_tags: the part of the game's network tags in this Cluster."),
+        C("matched_tag_ids", "int_list", "The matched tags' ids, in the Cluster's Members order."),
+        C("matched_tags", "str_list", "The matched tags' names, matching matched_tag_ids."),
     ],
     group="app_export",
 )
@@ -594,8 +623,10 @@ REMOVAL_SENSITIVITY = declare(
     group="app_export",
 )
 
-APP_TABLES = (NODES, EDGES, CLUSTERS, CLUSTER_QUALITY, CLUSTER_CONNECTIONS, NULL_MODEL, SEED_NOISE, NOT_IN_NETWORK,
-              REMOVAL_SENSITIVITY)
+APP_TABLES = (NODES, EDGES, CLUSTERS, CLUSTER_QUALITY, CLUSTER_CONNECTIONS, CLUSTER_GAMES, NULL_MODEL, SEED_NOISE,
+              NOT_IN_NETWORK, REMOVAL_SENSITIVITY)
+# In the Workbench export zip only, never stacked into a Build's analysis/ tables.
+EXPORT_ONLY = ("cluster_games.csv",)
 
 # ----------------------------------------------------------------------------- Build: analysis/ network tables
 
@@ -609,7 +640,7 @@ def _build_name(app_name: str) -> str:
 
 STACKED = {s.name: declare(_build_name(s.name), s.description + " Five datasets stacked.",
                            (*_STACK_PREFIX, *s.columns), group="analysis")
-           for s in APP_TABLES}
+           for s in APP_TABLES if s.name not in EXPORT_ONLY}
 
 
 def stacked(app_file: str) -> FileSchema:

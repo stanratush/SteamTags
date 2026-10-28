@@ -1372,19 +1372,103 @@ How much of a cluster's weight leaks to the rest of the network. The cut weight 
 >
 > **Caution:** on shared games, big clusters of common tags connect to everything; compare with cluster sizes.
 
-Columns: `cluster_a`, `cluster_b`, `edge_count`, `weight` in `cluster_connections.csv`.
+Columns: `cluster_a`, `cluster_b`, `edge_count`, `weight`, `shared_weight` in `cluster_connections.csv`; the same file's `ratio`, `shared_ratio`, `share_of_a` and `share_of_b` are the [Connection Ratio](#connection-ratio) and the [Connection Share](#connection-share).
 
-How many edges and how much weight join each pair of Multi-Tag Clusters, zero pairs included, plus each cluster's links to the pooled One-Tag Clusters (`one_tag_pool`). Large values mean the two clusters overlap a lot in their games. On shared games, big clusters of common tags are strongly connected to everything; compare with cluster sizes.
+How many edges and how much weight join each pair of Multi-Tag Clusters, zero pairs included, plus each cluster's links to the pooled One-Tag Clusters (`one_tag_pool`). `weight` is in the Clustering Weight in use; `shared_weight` is always the same links' shared-game total, so under shared games the two are equal and under Lift it is the second total. Large values mean the two clusters overlap a lot in their games. On shared games, big clusters of common tags are strongly connected to everything; compare with cluster sizes, or read the Connection Ratio, which allows for them.
 
 *Why it matters here.* Clusters are not sealed off from each other: a game often carries tags from several of them. A heavy connection between two clusters means many games combine the two groups of characteristics, so describe them as overlapping rather than as separate kinds of game. The `one_tag_pool` rows show how much the pooled One-Tag Clusters link to each cluster.
 
-*Example.* `C1, C2, 7, 58`: seven edges with a total weight of 58 shared games join C1 and C2.
+*Example.* `C1, C2, 7, 58`: seven links whose shared-game counts sum to 58 join C1 and C2.
+
+*Caution.* The total sums shared-game counts over tag pairs, so one game can count several times: a game with 3 tags in C1 and 2 in C2 adds 6 to the total, once per pair of its tags. The total is a sum of link weights, not a number of games.
 
 *Bounds.* Counts and weights ≥ 0.
 
-*Compare with.* The clusters' `cut_weight`.
+*Compare with.* The clusters' `cut_weight`; the Connection Ratio and the Connection Share.
 
-**Exact definition:** sums over the edges whose two ends lie in the two clusters (or in different One-Tag Clusters, for `one_tag_pool`).
+**Exact definition:** sums over the edges whose two ends lie in the two clusters (or in different One-Tag Clusters, for `one_tag_pool`); `shared_weight` sums the edges' shared-game counts.
+
+### Connection Ratio
+
+> **In short.** Link weight between two clusters, against what their total link weight alone predicts.
+>
+> **Higher →** more connected than their sizes explain; 1 = as predicted; at most γ, and near γ they almost merged.
+>
+> **Here:** groups of characteristics the most-played games combine more than cluster sizes suggest.
+>
+> **Caution:** low partly *because* the clustering split these tags; describes this split, not unrelated groups.
+
+Columns: `ratio`, `shared_ratio` in `cluster_connections.csv`. Shown in the app as “Ratio” in the Cluster quality tab's Connections matrix, the Cluster Inspector's Connections section and the pair view.
+
+The link weight between two clusters, divided by the weight that their total link weights alone would predict: two clusters whose tags carry a lot of link weight are expected to share more of it. 1 means exactly the predicted weight; above 1, more connected than their sizes explain; below 1, less. `ratio` is in the Clustering Weight in use; `shared_ratio` is the same ratio from shared-game sums.
+
+The ratio can never exceed the resolution γ. Louvain and Leiden merge two clusters whenever merging raises Q, and that happens exactly when their ratio is above γ, so every pair you see passed that test. A value near γ marks two clusters that almost became one.
+
+*Why it matters here.* A raw total grows with the size of the clusters: the clusters of common tags are linked to everything. The ratio allows for that, so it shows which groups of characteristics the most-played games combine more often, or less often, than their sizes alone would lead one to expect.
+
+*Caution.* The clustering put these tags in different clusters because their links were relatively weak, so low values are partly built in; the ratio describes how this partition split the tags, not separate evidence that two groups of characteristics are unrelated. Only links at or above the minimum shared games count. Under Lift, `shared_ratio` is not tied to the clustering and can exceed γ. To compare ratios across different resolutions, divide each by its γ. The ratio is neither a similarity of the games nor a cause of anything.
+
+*Example.* A ratio of 0.62 at γ = 1.00: the two clusters share 62% of the link weight their sizes predict.
+
+*Bounds.* 0 to γ for `ratio`, shown as computed: a value a hair above γ is Louvain's rounding tolerance (a gain of 1e-7), not an error. The cell is empty when the expected weight is zero: a pool of isolated tags only, or a pool–pool row with fewer than two linked pool tags. `shared_ratio` ≥ 0 under Lift, with no upper bound.
+
+*Compare with.* The Connection Share, which says where a cluster's outside links go; `weight`, the raw total.
+
+**Exact definition:** r_ab = w_ab / (k_a·k_b / 2m), where w_ab is the summed weight of the links between a and b, k_a the sum of a's tags' strengths (2·`internal_weight` + `cut_weight` for a cluster; the sum over its tags for `one_tag_pool`) and 2m the sum of all tags' strengths, all in the Clustering Weight (shared-game sums for `shared_ratio`); for the pool with itself the expectation is over distinct pairs of pool tags, (k_p² − Σ_i k_i²) / 4m (Newman 2006, eq. 3; Karrer & Newman 2011; ADR 0004).
+
+### Connection Share
+
+> **In short.** Of all the link weight leaving a cluster, the part that goes to one other cluster.
+>
+> **Higher →** more of this cluster's outside links go to that partner; a cluster's shares add up to 1.
+>
+> **Here:** shows where each group of characteristics' overlaps with the rest go.
+>
+> **Caution:** big clusters take large shares just by being big; use the Connection Ratio to judge strength.
+
+Columns: `share_of_a`, `share_of_b` in `cluster_connections.csv`. Shown in the app as “Share” in the Connections matrix (row → column), the Cluster Inspector's Connections section and the pair view.
+
+The weight between two clusters divided by all of one cluster's link weight to other clusters (its `cut_weight`), in the Clustering Weight in use. It is directional: `share_of_a` is the part of `cluster_a`'s outside weight that goes to `cluster_b`, and `share_of_b` the reverse, so each pair has two values. A cluster's shares over all its partners, the pool included, add up to 1.
+
+The pool of One-Tag Clusters is the one special case: its outside weight is all the weight touching its tags, with links between two pool tags counted once (k_p − w_pp), so the pool's shares also add up to 1, its share with itself included.
+
+*Why it matters here.* It shows, for one group of characteristics, which other groups the most-played games combine it with: a share of 0.40 means four tenths of that cluster's links to the rest of the network lead to one partner.
+
+*Caution.* A big cluster takes a large share of everyone's outside links just because it is big; read the Connection Ratio to judge whether a connection is more than size explains.
+
+*Example.* `share_of_a` 0.40 and `share_of_b` 0.15 for C1 and C2: 40% of C1's outside weight goes to C2, but only 15% of C2's goes to C1.
+
+*Bounds.* 0 to 1. Empty when the cluster has no links to other clusters (its outside weight is 0).
+
+*Compare with.* The Connection Ratio; the clusters' `cut_weight` and conductance.
+
+**Exact definition:** share_a(b) = w_ab / cut_a, with cut_a = `cut_weight` of a (the summed weight of the links with one end in a), and for `one_tag_pool` cut_p = k_p − w_pp.
+
+### Games within a Cluster
+
+> **In short.** The games with at least one of a cluster's tags, ranked by how many they have.
+>
+> **Higher →** more of the cluster's characteristics; "of its tags" near 100% means most of the game's network tags are here.
+>
+> **Here:** which of the most-played games combine a cluster's characteristics.
+>
+> **Caution:** a game is in every cluster whose tags it has, not assigned to one.
+
+Columns: `matched`, `cluster_size`, `network_tags`, `share_of_game`, `matched_tag_ids`, `matched_tags` in `cluster_games.csv` (with `cluster`, `appid`, `name`, `rank`). Shown in the app as the Games section of the cluster inspector (“Matched” and “of its tags”).
+
+For each cluster (Multi-Tag and One-Tag; never the pool), every game of the Network State, after the Minimum Months Filter, that has at least one of the cluster's tags, with how many it has (`matched`, out of `cluster_size`) and that count as a share of the game's own tags in the Tag Network (`share_of_game`, over `network_tags`). Rows are ordered by `matched`, most first, then by rank. There is no threshold: a large cluster of common tags matches nearly every game.
+
+*Why it matters here.* A cluster is a group of tags; this list connects it back to the most-played games that carry those tags, so you can read which games combine a cluster's characteristics, and which carry them alongside many others.
+
+*Caution.* A game can match several clusters, and a high `matched` in a big cluster of common tags says little; `share_of_game` says how much of the game the cluster accounts for. None of these numbers depends on the Clustering Weight.
+
+*Example.* `C1, 10001, Game 10001, 4, 7, 26, 12, 0.583`: the game ranked 4th has 7 of C1's 26 tags, which are 58% of its 12 tags in the network.
+
+*Bounds.* `matched` 1 to `cluster_size`; `share_of_game` above 0 up to 1.
+
+*Compare with.* The cluster's members (`clusters.csv`); a tag's games in the tag inspector.
+
+**Exact definition:** for cluster c with tags T_c and a game with tags G in the network's games, `matched` = |G ∩ T_c| (rows only where it is ≥ 1), `network_tags` = |G ∩ V| for the network's tags V, `share_of_game` = `matched` / `network_tags`; `matched_tag_ids` lists G ∩ T_c in the Members order (the Cluster Center first, then by mean game-set distance).
 
 ## Stability
 

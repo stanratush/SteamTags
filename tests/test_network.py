@@ -320,10 +320,14 @@ def test_table_sorting_and_edges(toy):
     assert edges[0] == {"source_tag_id": A, "source_tag": "A", "target_tag_id": B, "target_tag": "B",
                         "shared_games": 3, "lift": 2.25, "source_cluster": "C1", "target_cluster": "C1",
                         "is_intra_cluster": True, "appids": [1000, 1001, 1002]}
-    assert tables["cluster_connections.csv"] == [
+    connections = tables["cluster_connections.csv"]
+    assert [{k: r[k] for k in ("cluster_a", "cluster_b", "edge_count", "weight")} for r in connections] == [
         {"cluster_a": "C1", "cluster_b": "C2", "edge_count": 0, "weight": 0.0},
         {"cluster_a": "C1", "cluster_b": "one_tag_pool", "edge_count": 0, "weight": 0.0},
         {"cluster_a": "C2", "cluster_b": "one_tag_pool", "edge_count": 0, "weight": 0.0}]
+    # no link between the groups: a ratio of 0 where the strengths predict some, and no outside weight to share
+    assert connections[0]["ratio"] == 0.0 and connections[0]["shared_weight"] == 0.0
+    assert all(r["share_of_a"] is None and r["share_of_b"] is None for r in connections)
     assert all(r["x_cluster_separated"] is not None for r in nodes)
 
 

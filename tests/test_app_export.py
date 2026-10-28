@@ -231,3 +231,36 @@ def test_open_accepts_an_older_schema_version(build_folder):
     assert opened.schema_version == 0 and opened.state_id_matches
 
 
+
+
+def _rezip(export: dict, files: dict[str, bytes]) -> bytes:
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w") as zf:
+        for file, content in files.items():
+            zf.writestr(file, content)
+        zf.writestr("export.json", json.dumps(export))
+    return out.getvalue()
+
+
+def test_a_version_3_export_still_opens_and_matches_its_recomputation(build_folder):
+    """Schema 4 added five cluster_connections.csv columns: an export made before it has only the first four, and
+    still checks out on the columns it has (and a table it lacks is never asked for)."""
+    import csv
+
+    ctx = load_build(build_folder)
+    settings = ctx.default_settings("overall")
+    _, data = export_zip(ctx, settings)
+    export, files = read_export(data)
+    rows = list(csv.DictReader(io.StringIO(files["cluster_connections.csv"].decode("utf-8-sig"))))
+    assert rows and {"ratio", "share_of_a"} <= set(rows[0])
+    old = io.StringIO()
+    writer = csv.DictWriter(old, ["cluster_a", "cluster_b", "edge_count", "weight"], extrasaction="ignore",
+                            lineterminator="\n")
+    writer.writeheader()
+    writer.writerows(rows)
+    v3_files = {**files, "cluster_connections.csv": old.getvalue().encode("utf-8-sig")}
+    v3 = _rezip({**export, "schema_version": 3}, v3_files)
+    opened = open_export(v3, builds_root=_builds(build_folder))
+    assert opened.schema_version == 3 and recorded_table_hashes_match(opened, v3)
+    edited = old.getvalue().replace(rows[0]["weight"], rows[0]["weight"] + "1", 1).encode("utf-8-sig")
+    assert not recorded_table_hashes_match(opened, _rezip(export, {**v3_files, "cluster_connections.csv": edited}))
