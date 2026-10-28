@@ -273,7 +273,8 @@ def test_every_registered_static_prop_passes_through_the_translator(app, pseudo)
         if id_ == "ui-words":
             value = {k: v for k, v in value.items() if k != "tip"}  # the tip labels are the guide's label set
             strings = [v for v in value.values() if isinstance(v, str)] + [
-                v for p in value["pills"].values() for v in (p if isinstance(p, list) else [p])]
+                v for group in ("pills", "edges") for p in value[group].values()
+                for v in (p if isinstance(p, list) else [p])]
         elif prop == "labels":
             strings = list(value.values())
         else:
@@ -318,7 +319,9 @@ def test_the_workbench_callbacks_render_their_messages_through_the_translator(ta
     refused = CB.do_open("data:x;base64," + base64.b64encode(b"not an export").decode("ascii"), "y.json",
                          str(tmp_path), "bg")[-1]
     assert refused.startswith("⟦") and not unbracketed([refused])
-    assert not unbracketed([CB.thickness_legend({"weight": "lift"}, [1], "bg")[0]])
+    from steamstudy.app.renderer import thickness_key
+
+    assert not unbracketed([thickness_key("lift", True, text("bg"))[0]])
     monkeypatch.setattr(CB, "ctx", SimpleNamespace(triggered_id="rs-progress-store"))
     assert not unbracketed([CB.progress_display({"done": 2, "total": 5}, None, None, "bg")[2]])
 

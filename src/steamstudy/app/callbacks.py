@@ -388,10 +388,10 @@ def cached_layout(base: dict[str, Any], layout_mode: str, relayout_store: dict |
     return layout
 
 
-def render_graph(base, layout_mode, relayout_store, selection, canvas=None, shared_switch=None):
+def render_graph(base, layout_mode, relayout_store, selection, canvas=None):
     """The `graph-data` payload: every visible node and edge with its target position (no AppIDs), laid out for
-    the canvas the browser reports (exports use the reference canvas). Edge width follows the Clustering Weight
-    unless `shared_switch` (the legend's switch) asks for shared games."""
+    the canvas the browser reports (exports use the reference canvas). Each edge carries its raw values; graph.js
+    draws the Edge Appearance from them (the legend's show-shared switch never comes back here)."""
     if not base:
         raise PreventUpdate
     layout = cached_layout(base, layout_mode, relayout_store, canvas)
@@ -405,14 +405,15 @@ def render_graph(base, layout_mode, relayout_store, selection, canvas=None, shar
             r["color"] = R.REGION_COLOR if r["cluster"] == "one_tag_pool" else cluster_color(r["cluster"], "multi_tag")
     return R.payload(base["nodes"], base["edges"], {str(t): list(p) for t, p in positions.items()},
                      dataset=base["dataset"], layout=layout_mode, regions=regions, selection=selection,
-                     thickness=R.edge_thickness(base["weight"], bool(shared_switch)), basis=base["basis"], zoom=zoom)
+                     weight=base["weight"], basis=base["basis"], zoom=zoom)
 
 
-def thickness_legend(base, shared_switch, lang=None):
-    """The legend's thickness key for the state drawn now (never ahead of a recompute still running)."""
+def thickness_legend(base):
+    """The legend's show-shared switch, offered only under lift, for the state drawn now (never ahead of a recompute
+    still running). Its key's words are graph.js `edgeKey`'s, in the browser."""
     if not base:
         raise PreventUpdate
-    return R.thickness_key(base["weight"], bool(shared_switch), text(lang_of(lang)))
+    return {} if base["weight"] == "lift" else {"display": "none"}
 
 
 def untick_thickness(_weight):
@@ -1128,9 +1129,12 @@ def register(app: dash.Dash) -> None:
        prevent_initial_call="initial_duplicate")(recompute)
     cb(Output(R.DATA_ID, "data"), Input("elements-base", "data"), Input("layout-mode", "value"),
        Input("relayout", "data"), State("selection", "data"), Input(R.CANVAS_ID, "data"),
-       Input("thickness-shared", "value"), running=[(Output("busy-layout", "hidden"), False, True)])(render_graph)
-    cb(Output("thickness-label", "children"), Output("thickness-shared", "style"), Input("elements-base", "data"),
-       Input("thickness-shared", "value"), Input("lang", "data"))(thickness_legend)
+       running=[(Output("busy-layout", "hidden"), False, True)])(render_graph)
+    cb(Output("thickness-shared", "style"), Input("elements-base", "data"))(thickness_legend)
+    # The show-shared switch and the key's words: in the browser, no request (graph.js `edgeKey`).
+    app.clientside_callback(ClientsideFunction(namespace="tagGraph", function_name="edgeKey"),
+                            Output("thickness-label", "children"), Input("thickness-shared", "value"),
+                            Input("elements-base", "data"), Input("ui-words", "data"))
     cb(Output("thickness-shared", "value"), Input("weight", "value"), prevent_initial_call=True)(untick_thickness)
     cb(Output(R.DATA_ID, "data", allow_duplicate=True), Input("selection", "data"),
        prevent_initial_call=True)(show_selection)

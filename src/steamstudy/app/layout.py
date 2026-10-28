@@ -47,7 +47,9 @@ def ui_words(tx: Text) -> dict[str, Any]:
             "info": tx("User Guide entry for {name}", name="{name}"), "decimal": tx.decimal,
             "pills": {"genre": [genre(1), genre(2)], "defining": tx("{hidden} + defining", hidden="{hidden}"),
                       "lift": tx("Lift"), "shared": tx("Shared games"),
-                      "of": tx("{n} of {total}", n="{n}", total="{total}")}}
+                      "of": tx("{n} of {total}", n="{n}", total="{total}")},
+            "edges": {"key": tx("Edge thickness: {measure}", measure="{measure}"), "shared": tx("shared games"),
+                      "lift": tx("lift")}}
 
 
 def grid_locale(tx: Text) -> dict[str, str]:

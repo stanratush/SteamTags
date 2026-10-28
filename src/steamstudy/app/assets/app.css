@@ -106,6 +106,9 @@ input[type=text],input:not([type]),.dash-input-element{border-radius:6px}
 .ov-bl{left:10px;bottom:10px;right:10px;pointer-events:none}
 .legend{display:inline-flex;flex-wrap:wrap;gap:4px;align-items:center;background:#ffffffe6;padding:4px;border-radius:8px;
  pointer-events:auto}
+/* The thickness key always has a line of its own, so its words (they change with the show-shared switch and the
+   language) never re-wrap the overlay: its height, and so the canvas, stay put (Edge Appearance: no re-layout). */
+.legend.thickness-key{display:flex;width:fit-content;margin-top:4px}
 .lchip{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:12px;padding:1px 8px 1px 6px;
  font-size:12px;background:#fff;cursor:pointer;color:var(--ink)}
 .lchip:hover{border-color:#a9b1bf}

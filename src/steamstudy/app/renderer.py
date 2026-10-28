@@ -65,6 +65,18 @@ def priority(nodes: list[dict[str, Any]]) -> dict[str, int]:
 # What edge width can show, by Clustering Weight value: the payload's edge field and the legend's name for it.
 THICKNESS = {"shared_games": ("shared", "shared games"), "lift": ("lift", "lift")}
 
+# Edge Appearance (spec: "Edge Appearance"): graph.js owns the look and draws it from each edge's raw values; these
+# are its defaults, steps and bounds. The defaults draw exactly the links of before: 0.4 + 2.6 × value / largest px,
+# one colour, 18% strength, 6% between Clusters in the Cluster-separated layout. A view choice only: never part of
+# the Network State, an export or a cache key.
+APPEARANCE: dict[str, Any] = {
+    "defaults": {"width": [0.4, 3.0], "scale": "linear", "color": "one", "strength": 0.18, "between": 0.06},
+    "steps": {"width": 1.25, "strength": 1.35, "between": 1.5},
+    "limits": {"width_min": [0.1, 3.0], "width_max": [1.0, 12.0], "strength": [0.03, 1.0], "between": [0.0, 1.0]},
+    "colors": {"one": "#8d95a3", "neutral": "#b3b8c2", "within": "#5b6478", "between": "#e08a3c",
+               "ramp": ["#c9ced8", "#3b2f6b"], "dark": "#4a5262"},
+}
+
 
 def edge_thickness(weight: str, show_shared: bool) -> str:
     """What edge width shows: the Clustering Weight, unless the switch asks for shared games under lift."""
@@ -72,22 +84,24 @@ def edge_thickness(weight: str, show_shared: bool) -> str:
 
 
 def thickness_key(weight: str, show_shared: bool, tx: Text) -> tuple[str, dict[str, str]]:
-    """The legend's name for what edge width shows, and the switch's style: offered only under lift."""
+    """The legend's name for what edge width shows, and the switch's style: offered only under lift. The browser
+    renames it when the switch is toggled (graph.js `edgeKey`, with the same words from the ui-words store)."""
     measure = tx("shared games") if edge_thickness(weight, show_shared) == "shared_games" else tx("lift")
     return tx("Edge thickness: {measure}", measure=measure), {} if weight == "lift" else {"display": "none"}
 
 
 def payload(nodes: list[dict[str, Any]], edges: list[dict[str, Any]], positions: dict[str, list[float]], *,
             dataset: str, layout: str = "global", regions: list[dict[str, Any]] | None = None,
-            selection: dict[str, Any] | None = None, thickness: str = "shared_games",
+            selection: dict[str, Any] | None = None, weight: str = "shared_games",
             basis: list[Any] | None = None, zoom: float = 1.0) -> dict[str, Any]:
     """The `graph-data` store. nodes: {id, label, cluster, kind, size, center}; edges: {source, target, shared,
     lift, intra}; positions: node id -> [x, y]; regions: {label, cluster, color, x, y, width, height} (top-left corner).
     A node's size comes from the layout (fixed by its games, in the positions' units), never from what is visible;
     `lw` is its label's width on screen (`label_width`), for the fit. `basis` (dataset, Minimum Months Filter,
     Clustering Weight, seed) tells the canvas when to drop dragged positions. `zoom` is the zoom the labels are
-    spaced for: zoomed out further, the canvas hides labels that would overlap. `thickness` is what an edge's width
-    shows: "shared_games" or "lift", relative to the network's largest value of it."""
+    spaced for: zoomed out further, the canvas hides labels that would overlap. An edge carries its raw values
+    (shared games, lift, and whether it lies inside one Cluster); graph.js draws its width, colour and strength from
+    them, by the Clustering Weight `weight` (or shared games, when the legend's switch asks for them under lift)."""
     separated = layout == "separated"
     ranks = priority(nodes)
     out_nodes = []
@@ -97,16 +111,14 @@ def payload(nodes: list[dict[str, Any]], edges: list[dict[str, Any]], positions:
                           "color": cluster_color(n["cluster"], n["kind"]), "size": n["size"],
                           "lw": label_width(n["label"]),
                           "classes": " ".join(classes), "prio": ranks[n["id"]]})
-    measure = THICKNESS[thickness][0]
-    top = max([e[measure] for e in edges] + [0]) or 1
     out_edges = [{"id": f"{e['source']}-{e['target']}", "source": e["source"], "target": e["target"],
-                  "width": 0.4 + 2.6 * (e[measure] / top),
+                  "shared": e["shared"], "lift": e["lift"], "intra": bool(e["intra"]),
                   "classes": ("intra" if e["intra"] else "inter") + (" separated" if separated else "")}
                  for e in edges]
     out_regions = [{"id": f"region-{r.get('cluster') or i}", "label": r["label"], "cluster": r.get("cluster", ""),
                     "color": r.get("color", REGION_COLOR), "x": r["x"] + r["width"] / 2, "y": r["y"] + r["height"] / 2,
                     "w": r["width"], "h": r["height"]} for i, r in enumerate(regions or [])]
     return {"dataset": dataset, "layout": layout, "basis": list(basis or [dataset]), "nodes": out_nodes,
-            "edges": out_edges,
+            "edges": out_edges, "weight": weight, "appearance": APPEARANCE,
             "positions": {n["id"]: list(positions.get(n["id"], (0.0, 0.0))) for n in nodes},
             "regions": out_regions, "selected": selection_ref(selection), "view": None, "zoom": zoom}

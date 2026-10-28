@@ -310,16 +310,24 @@ def test_every_label_is_ranked_for_culling_centers_first_then_by_games(build_fol
     assert rest == sorted(rest, key=lambda i: (-by_id[i]["n_games"], int(i)))
 
 
+def _default_widths(payload, measure):
+    """The widths graph.js draws at the default Edge Appearance (linear scaling over the default range), from the
+    payload's raw values: the look of before the Edge Appearance, 0.4 + 2.6 × value / largest."""
+    lo, hi = payload["appearance"]["defaults"]["width"]
+    top = max(e[measure] for e in payload["edges"])
+    return {e["id"]: lo + (hi - lo) * e[measure] / top for e in payload["edges"]}
+
+
 def test_edges_are_thin_and_scale_with_shared_games(build_folder):
     meta, tables, base, *_ = _recompute(build_folder)
     payload = CB.render_graph(base, "global", None, None)
-    widths = {(e["source"], e["target"]): e["width"] for e in payload["edges"]}
-    shared = {(e["source"], e["target"]): e["shared"] for e in base["edges"]}
+    widths = _default_widths(payload, "shared")
+    shared = {e["id"]: e["shared"] for e in payload["edges"]}
     top = max(shared.values())
     assert all(0.4 <= w <= 3.0 for w in widths.values())
     assert max(widths.values()) == pytest.approx(3.0)
     assert all(widths[a] <= widths[b] for a in widths for b in widths if shared[a] <= shared[b])
-    assert widths[min(shared, key=shared.get)] == pytest.approx(0.4 + 2.6 * min(shared.values()) / top)
+    assert widths == {i: pytest.approx(0.4 + 2.6 * v / top) for i, v in shared.items()}  # exactly as before
 
 
 def test_selecting_a_cluster_focuses_it_and_other_selections_do_not():
@@ -846,28 +854,21 @@ def test_the_legend_has_a_key_and_the_one_tag_chip_explains_itself(build_folder)
     assert getattr(one_tag, "data-help") == "02-app-controls.md#grey-one-tag-clusters"
 
 
-def _widths(payload):
-    return {e["id"]: e["width"] for e in payload["edges"]}
-
-
-def _expected_widths(base, measure):
-    top = max(e[measure] for e in base["edges"])
-    return {f"{e['source']}-{e['target']}": pytest.approx(0.4 + 2.6 * e[measure] / top) for e in base["edges"]}
-
-
 @pytest.mark.parametrize("layout_mode", ["global", "separated"])
-@pytest.mark.parametrize("weight, switch, measure", [("shared_games", [], "shared"), ("lift", [], "lift"),
-                                                     ("lift", [1], "shared"), ("shared_games", [1], "shared")])
-def test_edge_thickness_follows_the_clustering_weight_unless_switched_to_shared_games(build_folder, layout_mode,
-                                                                                      weight, switch, measure):
+@pytest.mark.parametrize("weight", ["shared_games", "lift"])
+def test_every_edge_carries_its_raw_values_for_the_browser_to_draw(build_folder, layout_mode, weight):
+    """Edge Appearance (issue 15): no width leaves Python. graph.js draws the Clustering Weight's measure (or shared
+    games, when the legend's switch asks under lift) from these values, with renderer.py's defaults."""
+    from steamstudy.app.renderer import APPEARANCE
+
     base = _recompute(build_folder, weight=weight)[2]
-    assert len({e["lift"] for e in base["edges"]}) > 1 and len({e["shared"] for e in base["edges"]}) > 1
-    assert _widths(CB.render_graph(base, layout_mode, None, None, None, switch)) == _expected_widths(base, measure)
-
-
-def test_the_default_edge_thickness_is_the_clustering_weight(build_folder):
-    base = _recompute(build_folder, weight="lift")[2]
-    assert _widths(CB.render_graph(base, "global", None, None)) == _expected_widths(base, "lift")
+    payload = CB.render_graph(base, layout_mode, None, None)
+    assert payload["weight"] == weight and payload["appearance"] == APPEARANCE
+    raw = {f"{e['source']}-{e['target']}": (e["shared"], e["lift"], e["intra"]) for e in base["edges"]}
+    assert {e["id"]: (e["shared"], e["lift"], e["intra"]) for e in payload["edges"]} == raw
+    assert not any("width" in e for e in payload["edges"])
+    assert APPEARANCE["defaults"] == {"width": [0.4, 3.0], "scale": "linear", "color": "one", "strength": 0.18,
+                                      "between": 0.06}
 
 
 @pytest.mark.parametrize("weight, switch, label, switch_shown", [
@@ -876,10 +877,12 @@ def test_the_default_edge_thickness_is_the_clustering_weight(build_folder):
     ("lift", [], "Edge thickness: lift", True),
     ("lift", [1], "Edge thickness: shared games", True)])
 def test_the_legend_names_what_edge_thickness_shows(weight, switch, label, switch_shown):
-    """The switch to shared-game thickness is offered only while the clustering runs on lift."""
-    text, style = CB.thickness_legend({"weight": weight}, switch)
-    assert text == label
-    assert (style.get("display") != "none") == switch_shown
+    """The switch to shared-game thickness is offered only while the clustering runs on lift; the key's first words
+    (renderer.thickness_key) are the ones graph.js `edgeKey` writes when the switch is toggled."""
+    from steamstudy.app.renderer import thickness_key
+
+    assert thickness_key(weight, bool(switch), EN)[0] == label
+    assert (CB.thickness_legend({"weight": weight}).get("display") != "none") == switch_shown
 
 
 def test_the_edge_thickness_key_sits_in_the_legend_overlay_and_explains_itself(build_folder):
@@ -894,9 +897,10 @@ def test_the_edge_thickness_key_sits_in_the_legend_overlay_and_explains_itself(b
     assert getattr(label, "data-help") == "02-app-controls.md#edge-thickness"
     deps = create_app(build_folder).server.test_client().get("/_dash-dependencies").get_json()
     drawing = next(d for d in deps if d["output"] == "graph-data.data" and "elements-base" in [i["id"] for i in d["inputs"]])
-    assert "thickness-shared" in [i["id"] for i in drawing["inputs"]]
+    assert "thickness-shared" not in [i["id"] for i in drawing["inputs"]]  # the switch never re-sends the graph
     key = next(d for d in deps if "thickness-label.children" in d["output"])
-    assert "elements-base" in [i["id"] for i in key["inputs"]]  # named for the state drawn, not the control
+    assert key.get("clientside_function", {}).get("function_name") == "edgeKey"  # no request on a toggle
+    assert {"elements-base", "thickness-shared"} <= {i["id"] for i in key["inputs"]}  # named for the state drawn
     assert "weight" not in [i["id"] for i in key["inputs"]]
 
 

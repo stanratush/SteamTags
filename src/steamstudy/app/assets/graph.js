@@ -66,13 +66,16 @@
         "label": "data(label)", "text-valign": "top", "text-halign": "center", "font-size": 12.5,
         "min-zoomed-font-size": 0, "font-weight": 600, "color": "#3d4555", "text-outline-width": 0,
         "z-index": 0, "text-events": "yes"}},
+      // An edge's width, colour and strength are the Edge Appearance's (restyle); the classes below override them.
       {selector: "edge", style: {
-        "curve-style": "haystack", "haystack-radius": 0, "line-color": "#8d95a3", "opacity": 0.18,
-        "width": "data(width)", "z-index-compare": "manual", "z-index": 5}},
-      {selector: "edge.inter.separated", style: {"opacity": 0.06}},
+        "curve-style": "haystack", "haystack-radius": 0, "line-color": "data(ac)", "opacity": "data(ao)",
+        "width": "data(aw)", "z-index-compare": "manual", "z-index": 5}},
       {selector: "node.dim", style: {"opacity": 0.12}},
       {selector: "edge.dim", style: {"opacity": 0.04}},
-      {selector: "edge.nb", style: {"line-color": "#4a5262", "opacity": 0.9}},
+      // A tag's (or a pair's) links keep their colour and become opaque; under one colour they darken.
+      {selector: "edge.nb", style: {"opacity": 0.9}},
+      {selector: "edge.nbdark", style: {"line-color": "#4a5262"}},
+      {selector: "edge.hid", style: {"display": "none"}},
       {selector: "node.sel", style: {"border-width": 3, "border-color": "#2457d6", "z-index": 30}},
       {selector: "edge.sel", style: {"line-color": "#2457d6", "opacity": 0.95}},
       {selector: "node.lbl-off", style: {"text-opacity": 0, "text-background-opacity": 0}},
@@ -424,13 +427,143 @@
       }
       for (const e of data.edges) {
         const el = revive(cy.getElementById(e.id));
-        if (el.nonempty()) { el.data("width", e.width); el.classes(e.classes); }
+        const edgeData = {shared: e.shared, lift: e.lift, intra: e.intra};
+        if (el.nonempty()) { el.data(edgeData); el.classes(e.classes); }
         else {
-          fadeIn(cy.add({group: "edges", data: {id: e.id, source: e.source, target: e.target, width: e.width},
+          // A new link starts in the look of the others (restyle runs right after this batch).
+          fadeIn(cy.add({group: "edges", data: Object.assign({id: e.id, source: e.source, target: e.target,
+                                                              aw: 0.4, ac: "#8d95a3", ao: 0.18}, edgeData),
                          classes: e.classes}), ms);
         }
       }
     });
+  }
+
+  // ------------------------------------------------------------------ Edge Appearance
+
+  // The look of the links (spec: "Edge Appearance"): width, scaling, colour, strength, strength between Clusters
+  // and a view-only threshold below which links are not drawn. Drawn here from each edge's raw values (the
+  // payload's `shared`, `lift`, `intra`), so no control re-sends the graph; renderer.py `APPEARANCE` holds the
+  // defaults, steps and bounds. The look (not the threshold) is kept per browser in a cookie, which ignores the
+  // port. It is never part of the Network State, an export or a number.
+  const EDGE_COOKIE = "steamstudy_edges";
+  const LOOK = ["width", "scale", "color", "strength", "between"];
+  const A = {look: null, hideBelow: null, measureKey: null, showShared: false, hidden: 0, config: null};
+
+  function readLook() {
+    const m = document.cookie.match(new RegExp("(?:^|; )" + EDGE_COOKIE + "=([^;]*)"));
+    if (!m) return {};
+    try { return JSON.parse(decodeURIComponent(m[1])) || {}; } catch (e) { return {}; }
+  }
+
+  function writeLook() {
+    const look = {};
+    for (const k of LOOK) look[k] = A.look[k];
+    document.cookie = `${EDGE_COOKIE}=${encodeURIComponent(JSON.stringify(look))}; path=/; ` +
+                      `max-age=${400 * 24 * 3600}; SameSite=Lax`;
+  }
+
+  const clamp = (v, [lo, hi]) => Math.min(hi, Math.max(lo, v));
+
+  // A look within the bounds: an unknown or out-of-range value (an old cookie, a bad call) falls back or is clamped.
+  function bounded(look) {
+    const d = A.config.defaults, lim = A.config.limits, out = {};
+    const w = Array.isArray(look.width) && look.width.length === 2 ? look.width.map(Number) : d.width;
+    out.width = [clamp(w[0], lim.width_min), clamp(w[1], lim.width_max)];
+    if (out.width[1] < out.width[0]) out.width[1] = out.width[0];
+    out.scale = ["linear", "sqrt", "log"].includes(look.scale) ? look.scale : d.scale;
+    out.color = ["one", "cluster", "within", "value"].includes(look.color) ? look.color : d.color;
+    out.strength = clamp(Number.isFinite(look.strength) ? look.strength : d.strength, lim.strength);
+    out.between = clamp(Number.isFinite(look.between) ? look.between : d.between, lim.between);
+    return out;
+  }
+
+  // What width shows: the Clustering Weight, or shared games when the legend's switch asks for them under lift.
+  function measure() {
+    if (!G.data) return "shared";
+    return G.data.weight === "lift" && !A.showShared ? "lift" : "shared";
+  }
+
+  function hexRgb(h) { return [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)); }
+  function mix(a, b, t) {
+    const x = hexRgb(a), y = hexRgb(b);
+    return "#" + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, "0")).join("");
+  }
+
+  // Where a value sits on the drawn scale, 0..1 (also the "by value" colour's position).
+  function scaled(v, top, low) {
+    if (!(top > 0)) return 0;
+    if (A.look.scale === "sqrt") return Math.sqrt(Math.max(v, 0) / top);
+    if (A.look.scale === "log") {
+      if (!(low > 0) || top <= low) return 1;
+      return Math.max(0, Math.log(Math.max(v, low) / low) / Math.log(top / low));
+    }
+    return v / top;
+  }
+
+  // Every drawn link's width, colour, strength and visibility, from the look, in one batch (no layout, no request).
+  function restyle() {
+    if (!G.cy || !A.config) return;
+    const cy = G.cy, key = measure() === "lift" ? "lift" : "shared", c = A.config.colors;
+    const edges = cy.edges().not(".leaving");
+    const values = edges.map((e) => e.data(key));
+    const top = Math.max(0, ...values), low = Math.min(...values.filter((v) => v > 0), Infinity);
+    const [w0, w1] = A.look.width, separated = G.data && G.data.layout === "separated";
+    let hidden = 0;
+    cy.batch(() => {
+      edges.forEach((e) => {
+        const v = e.data(key), t = scaled(v, top, low), intra = e.data("intra");
+        let col = c.one;
+        if (A.look.color === "cluster") col = intra ? (e.source().data("color") || c.neutral) : c.neutral;
+        else if (A.look.color === "within") col = intra ? c.within : c.between;
+        else if (A.look.color === "value") col = mix(c.ramp[0], c.ramp[1], t);
+        const hide = A.hideBelow !== null && v < A.hideBelow;
+        if (hide) hidden += 1;
+        e.data({aw: w0 + (w1 - w0) * t, ac: col, ao: separated && !intra ? A.look.between : A.look.strength});
+        if (hide) e.addClass("hid"); else e.removeClass("hid");
+      });
+    });
+    A.hidden = hidden;
+  }
+
+  // The card and the tests drive the look through these. A change redraws at once and keeps the look in the cookie;
+  // the threshold (`hideBelow`, in the drawn measure's units, null for none) is never kept.
+  function setAppearance(partial) {
+    if (!A.config) return getAppearance();
+    const next = Object.assign({}, A.look);
+    for (const k of LOOK) if (partial && k in partial) next[k] = partial[k];
+    A.look = bounded(next);
+    if (partial && "hideBelow" in partial) A.hideBelow = partial.hideBelow === null ? null : Number(partial.hideBelow);
+    if (partial && "showShared" in partial) A.showShared = !!partial.showShared;
+    writeLook();
+    restyle();
+    if (G.selected) applySelection(JSON.parse(G.selected), false);
+    return getAppearance();
+  }
+
+  function getAppearance() {
+    return Object.assign({}, A.look, {hideBelow: A.hideBelow, showShared: A.showShared, measure: measure(),
+                                      hidden: A.hidden, defaults: A.config && A.config.defaults});
+  }
+
+  // A new payload: take renderer.py's defaults once, then the browser's own look; the threshold clears when what it
+  // is measured in changes (the dataset, or the measure through the Clustering Weight or the switch).
+  function adoptAppearance(data) {
+    if (!A.config) {
+      A.config = data.appearance;
+      A.look = bounded(Object.assign({}, A.config.defaults, readLook()));
+    }
+    const key = JSON.stringify([data.dataset, measure()]);
+    if (key !== A.measureKey) { A.hideBelow = null; A.measureKey = key; }
+  }
+
+  // The legend's show-shared switch (browser-only: no request) and the key's words, from the ui-words store.
+  function edgeKey(switchValue, base, words) {
+    A.showShared = !!(switchValue && switchValue.length);
+    if (G.data) { adoptAppearance(G.data); restyle(); }
+    const w = (words && words.edges) || {key: "{measure}", shared: "shared games", lift: "lift"};
+    const lift = base && base.weight === "lift" && !A.showShared;
+    return w.key.split("{measure}").join(lift ? w.lift : w.shared);
   }
 
   // Region ids carry a sequence suffix so a fading old region and its replacement can coexist.
@@ -449,8 +582,9 @@
   function applySelection(sel, changed) {
     const cy = G.cy;
     let ringed = null;
+    const dark = !A.look || A.look.color === "one";
     cy.batch(() => {
-      cy.elements().removeClass("sel hot dim nb");
+      cy.elements().removeClass("sel hot dim nb nbdark");
       if (!sel) return;
       let keep = cy.collection();
       if (sel.kind === "node" || sel.kind === "edge") {
@@ -458,8 +592,10 @@
         if (el.empty() || el.hasClass("leaving")) return;
         el.addClass("sel");
         if (el.isNode()) {
-          keep = el.closedNeighborhood();
-          el.connectedEdges().addClass("nb");
+          // Links hidden from the drawing are left out of the neighbourhood (they still count everywhere else).
+          const links = el.connectedEdges().not(".hid");
+          keep = el.union(links).union(links.connectedNodes());
+          links.addClass(dark ? "nb nbdark" : "nb");
           ringed = el;
         } else {
           keep = el.union(el.connectedNodes());
@@ -549,9 +685,11 @@
     const moveSig = JSON.stringify([data.layout, data.positions, data.regions]);
     const sig = JSON.stringify([data.dataset, data.nodes, data.edges, moveSig]);
     const elementsChanged = sig !== G.sig;
+    adoptAppearance(data);
     if (elementsChanged) {
       const fresh = !prev || prev.dataset !== data.dataset, moved = moveSig !== G.moveSig;
       sync(data, fresh);
+      restyle();
       if (fresh || moved) G.userMoved = false;
       if (!G.userMoved) fit(!!prev);  // the move and the fit run together; a new dataset only fits
       G.sig = sig; G.moveSig = moveSig;
@@ -636,6 +774,8 @@
   }
   document.addEventListener("click", selectLegendChip);
 
-  window.dash_clientside = Object.assign({}, window.dash_clientside, {tagGraph: {render}});
+  window.dash_clientside = Object.assign({}, window.dash_clientside, {tagGraph: {render, edgeKey}});
   window.tagGraph = G;  // for inspection in the browser console and browser checks
+  G.setAppearance = setAppearance;  // for the Edge appearance card and browser checks
+  G.getAppearance = getAppearance;
 })();
