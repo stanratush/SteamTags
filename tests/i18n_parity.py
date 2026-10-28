@@ -25,7 +25,8 @@ AREA_OF = {
     "app/ps_run.py": "ps_run",
     "network/selection_text.py": "selection_text",
     "app/export.py": "refusals",
-    "app/help.py": "ui_words", "app/guide.py": "ui_words",
+    "app/help.py": "ui_words", "app/guide.py": "ui_words", "app/relabel.py": "layout",
+    "network/selection.py": "selection_text", "app/ps_export.py": "selection_text",
 }
 
 def _refusals() -> Iterable[str]:
@@ -52,8 +53,15 @@ def _inspector_labels() -> Iterable[str]:
     return INSPECTOR_LABELS
 
 
+def _selection_sentences() -> Iterable[str]:
+    from steamstudy.network.selection_text import SENTENCES
+
+    return SENTENCES
+
+
 NON_LITERAL: dict[str, Callable[[], Iterable[str]]] = {"refusals": _refusals, "schema_tips": _schema_tips,
-                                                       "view": _inspector_labels}
+                                                       "view": _inspector_labels,
+                                                       "selection_text": _selection_sentences}
 
 
 @dataclass(frozen=True)
@@ -74,7 +82,7 @@ def _messages(tree: ast.AST, area: str, rel: str) -> Iterable[Message]:
             continue
         f = node.func
         where = f"{rel}:{node.lineno}"
-        if isinstance(f, ast.Name) and f.id == "tx" and node.args and _str(node.args[0]) is not None:
+        if isinstance(f, ast.Name) and f.id in ("tx", "msg") and node.args and _str(node.args[0]) is not None:
             yield Message(area, _str(node.args[0]), None, where)
         elif isinstance(f, ast.Attribute) and f.attr == "n" and isinstance(f.value, ast.Name) and f.value.id == "tx":
             kw = {k.arg: _str(k.value) for k in node.keywords}

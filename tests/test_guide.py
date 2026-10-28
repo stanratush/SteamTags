@@ -95,9 +95,10 @@ def test_hennigs_dissolution_is_the_only_jaccard_cut():
 
 
 def test_the_guides_methods_paragraph_is_the_report_template():
+    from steamstudy.i18n import text
     from steamstudy.network.selection_text import methods_paragraph
 
-    assert f"> {methods_paragraph()}\n" in _text("05-citing-and-reproducing.md")
+    assert f"> {methods_paragraph(text("en"))}\n" in _text("05-citing-and-reproducing.md")
 
 
 def test_unverified_sources_are_never_cited():

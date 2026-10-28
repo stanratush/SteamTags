@@ -4,14 +4,16 @@ Left, the Controls column (Run, Pair Constraints, Selection settings); in the mi
 picker, the g × s heatmap, "Why this pair" and the validation card; on the right the Pair Inspector. At medium and
 narrow widths the Workbench's forms apply: the Controls become a pill bar, and the Pair Inspector floats from a
 heatmap pick until its ×.
-Everything here is a pure function of the Build, the cache and the mode's stores; `callbacks.py` wires it.
+Everything here is a pure function of the Build, the cache and the mode's stores; `callbacks.py` wires it. The
+static layout registers its words for the relabel callback (`relabel.Labels`); everything `ps_render` sends takes
+the Interface Language's translator `tx`.
 """
 
 from __future__ import annotations
 
 import dataclasses
 import platform
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -23,31 +25,39 @@ from steamstudy.app import help as H
 from steamstudy.app import ps_cache, ps_run
 from steamstudy.app.ps_export import constraints_for, tag_names
 from steamstudy.app.loader import BuildContext
+from steamstudy.app.relabel import Labels, msg
 from steamstudy.network import selection as SEL
 from steamstudy.network import selection_text as T
 from steamstudy.network.cluster import label_clusters
-from steamstudy.i18n import text
+from steamstudy.i18n import Text
 from steamstudy.versions import APP_LIBRARIES, software_versions
 
-METRICS = [("neighbour_agreement", "Neighbour Agreement"), ("retention", "Information Retention"),
-           ("isolated_share", "isolated share"), ("multi_tag_clusters", "Multi-Tag Clusters"),
-           ("seed_noise", "Seed-Noise Floor"), ("q", "Q")]
+METRICS = [("neighbour_agreement", msg("Neighbour Agreement")), ("retention", msg("Information Retention")),
+           ("isolated_share", msg("isolated share")), ("multi_tag_clusters", msg("Multi-Tag Clusters")),
+           ("seed_noise", msg("Seed-Noise Floor")), ("q", "Q")]
 LETTERS = {"no_selected_partition": "P", "no_neighbour_agreement": "A", "too_few_comparable_neighbours": "N",
            "retention_below_min": "R", "isolated_share_above_max": "I", "lcc_share_below_min": "L",
            "too_many_clusters": "K"}
-REASON_WORDS = {"no_selected_partition": "no Selected Partition", "no_neighbour_agreement": "no Neighbour Agreement",
-                "too_few_comparable_neighbours": "too few comparable neighbours",
-                "retention_below_min": "Information Retention below the minimum",
-                "isolated_share_above_max": "isolated share above the maximum",
-                "lcc_share_below_min": "LCC share below the minimum", "too_many_clusters": "too many Multi-Tag Clusters"}
-CONSTRAINT_FIELDS = [("min_retention", "Minimum Information Retention", 0.0, 1.0, 0.01),
-                     ("max_isolated_share", "Maximum isolated share", 0.0, 1.0, 0.01),
-                     ("min_lcc_share", "Minimum LCC share", 0.0, 1.0, 0.01),
-                     ("min_comparable_neighbours", "Minimum comparable neighbours (different graph)", 0, 4, 1),
-                     ("max_multi_tag_clusters", "Maximum Multi-Tag Clusters (empty = off)", 1, None, 1),
-                     ("tolerance", "Tolerance (near-best)", 0.0, 1.0, 0.01)]
+# A reason letter's words (English, shown through `tx`: `reason_words`).
+REASON_WORDS = {"no_selected_partition": msg("no Selected Partition"),
+                "no_neighbour_agreement": msg("no Neighbour Agreement"),
+                "too_few_comparable_neighbours": msg("too few comparable neighbours"),
+                "retention_below_min": msg("Information Retention below the minimum"),
+                "isolated_share_above_max": msg("isolated share above the maximum"),
+                "lcc_share_below_min": msg("LCC share below the minimum"),
+                "too_many_clusters": msg("too many Multi-Tag Clusters")}
+CONSTRAINT_FIELDS = [("min_retention", msg("Minimum Information Retention"), 0.0, 1.0, 0.01),
+                     ("max_isolated_share", msg("Maximum isolated share"), 0.0, 1.0, 0.01),
+                     ("min_lcc_share", msg("Minimum LCC share"), 0.0, 1.0, 0.01),
+                     ("min_comparable_neighbours", msg("Minimum comparable neighbours (different graph)"), 0, 4, 1),
+                     ("max_multi_tag_clusters", msg("Maximum Multi-Tag Clusters (empty = off)"), 1, None, 1),
+                     ("tolerance", msg("Tolerance (near-best)"), 0.0, 1.0, 0.01)]
 CONSTRAINT_HELP = {"tolerance": "selection.constraint.tolerance"} | {
     name: f"selection.constraint.{name}" for name, *_ in CONSTRAINT_FIELDS if name != "tolerance"}
+
+
+def reason_words(tx: Text) -> dict[str, str]:
+    return {code: tx(words) for code, words in REASON_WORDS.items()}
 
 
 # ----------------------------------------------------------------------------- stores <-> objects
@@ -189,26 +199,20 @@ def validation_of(ctx: BuildContext, settings: SEL.SelectionSettings, dataset: s
 # ----------------------------------------------------------------------------- small helpers
 
 
-WIRE = text("en")  # i18n: wire (issues 12-14 pass the page's translator instead)
+def _help(key: str, tx: Text) -> html.Span:
+    return html.Span("?", className="ps-q term", tabIndex="0", **H.attrs(key, tx))
 
 
-def _help(key: str) -> html.Span:
-    return html.Span("?", className="ps-q term", tabIndex="0", **H.attrs(key, WIRE))
+def _static_help(L: Labels, key: str) -> html.Span:
+    """A `?` in the mode's static layout: its tooltip is relabelled on a language switch."""
+    return html.Span("?", className="ps-q term", tabIndex="0", **L.help(key))
 
 
-def _term(text: str, key: str) -> html.Span:
-    return html.Span(text, className="term", tabIndex="0", **H.attrs(key, WIRE))
+def _term(text_: str, key: str, tx: Text) -> html.Span:
+    return html.Span(text_, className="term", tabIndex="0", **H.attrs(key, tx))
 
 
-def _num(value: Any, digits: int = 2) -> str:
-    if value is None:
-        return "n/a"
-    if isinstance(value, float):
-        return f"{value:.{digits}f}"
-    return str(value)
-
-
-def provenance(computed_with: Mapping[str, Any] | None) -> tuple[str, str | None]:
+def provenance(computed_with: Mapping[str, Any] | None, *, tx: Text) -> tuple[str, str | None]:
     """The quiet provenance line when results were computed elsewhere, and the banner text for a library mismatch."""
     if not computed_with:
         return "", None
@@ -217,22 +221,23 @@ def provenance(computed_with: Mapping[str, Any] | None) -> tuple[str, str | None
     mismatched = [(lib, versions[lib], now[lib]) for lib in APP_LIBRARIES
                   if lib in versions and lib in now and versions[lib] != now[lib]]
     if mismatched:
-        names = ", ".join(f"{lib} {old} (installed {new})" for lib, old, new in mismatched)
-        return "", (f"These Parameter Selection results were computed with {names}; the numbers may differ here. "
-                    "Clear app cache and Run to recompute here.")
+        names = ", ".join(tx("{lib} {old} (installed {new})", lib=lib, old=old, new=new) for lib, old, new in mismatched)
+        return "", tx("These Parameter Selection results were computed with {names}; the numbers may differ here. "
+                      "Clear app cache and Run to recompute here.", names=names)
     same = (versions.get("python") == now.get("python") and computed_with.get("system") == platform.system()
             and computed_with.get("machine") == platform.machine())
     if same:
         return "", None
     day = str(computed_with.get("utc", ""))[:10]
-    return (f"Computed when this bundle was made: Python {versions.get('python', '?')}, "
-            f"{computed_with.get('system', '?')} {computed_with.get('machine', '?')}, {day}"), None
+    return tx("Computed when this bundle was made: Python {python}, {system} {machine}, {day}",
+              python=versions.get("python", "?"), system=computed_with.get("system", "?"),
+              machine=computed_with.get("machine", "?"), day=day), None
 
 
 # ----------------------------------------------------------------------------- Controls column
 
 
-def _constraint_inputs(defaults: SEL.Constraints) -> list[Any]:
+def _constraint_inputs(L: Labels, defaults: SEL.Constraints) -> list[Any]:
     rows = []
     for name, label, lo, hi, step in CONSTRAINT_FIELDS:
         default = getattr(defaults, name)
@@ -240,30 +245,39 @@ def _constraint_inputs(defaults: SEL.Constraints) -> list[Any]:
         if hi is not None:
             kw["max"] = hi
         rows.append(html.Div([
-            html.Label([_term(label, CONSTRAINT_HELP[name])], className="l", htmlFor=f"ps-c-{name}"),
+            html.Label([L.term(label, CONSTRAINT_HELP[name])], className="l", htmlFor=f"ps-c-{name}"),
             dcc.Input(id=f"ps-c-{name}", type="number", value=default, debounce=True, **kw),
-            html.Span(f"default {'off' if default is None else default}", className="mute small"),
+            L.span(_default_text(default), className="mute small"),
             html.Span("", id=f"ps-c-{name}-changed", className="ps-changed small"),
         ], className="ps-field"))
     return rows
 
 
-def _pill(pill: str, label: str, key: str, section: html.Div) -> html.Div:
+def _default_text(default: Any) -> Callable[[Text], str]:
+    """A Pair Constraint's default beside its field, as a function of the translator."""
+    return lambda tx: tx("default {value}", value=tx("off") if default is None else default)
+
+
+def _pill(L: Labels, pill: str, label: str, key: str, section: html.Div) -> html.Div:
     """One Controls section: inline in the column, or a pill with a popover in the pill bar (medium and narrow, as
     in the Workbench). The pill's value is filled by `ps_render`."""
-    attrs: dict[str, Any] = {"data-pill": pill, "data-tip": H.tip(key, WIRE)}
+    btn_id = f"ps-pill-btn-{pill}"
+    attrs: dict[str, Any] = {"data-pill": pill, "data-tip": L.prop(btn_id, "data-tip", lambda tx: H.tip(key, tx))}
     return html.Div([
-        html.Button([f"{label} ", html.B("", id=f"ps-pill-{pill}", className="num")], className="pill-btn", **attrs),
+        html.Button([L.span(label), " ", html.B("", id=f"ps-pill-{pill}", className="num")], id=btn_id,
+                    className="pill-btn", **attrs),
         html.Div(section, className="pill-pop"),
     ], className="ctl-item")
 
 
 def pill_values(views: list[DatasetView], running: bool, constraints_custom: bool,
-                settings_custom: bool) -> tuple[str, str, str]:
+                settings_custom: bool, *, tx: Text) -> tuple[str, str, str]:
     """The pills' values: Run's state over the datasets, then default or custom for the other two."""
     done = sum(v.status == "complete" for v in views)
-    run = "running" if running else f"{done} of {len(views)} done" if done else "not run"
-    return run, "custom" if constraints_custom else "default", "custom" if settings_custom else "default"
+    run = (tx("running") if running else tx("{n} of {total} done", n=done, total=len(views)) if done
+           else tx("not run"))
+    word = lambda custom: tx("custom") if custom else tx("default")  # noqa: E731
+    return run, word(constraints_custom), word(settings_custom)
 
 
 def inspector_form(open_: bool) -> str:
@@ -271,94 +285,113 @@ def inspector_form(open_: bool) -> str:
     return "inspector docked ps-inspector" + (" has-sel" if open_ else "")
 
 
-def controls(ctx: BuildContext, defaults: SEL.SelectionSettings, constraints: SEL.Constraints) -> html.Div:
+def controls(L: Labels, ctx: BuildContext, defaults: SEL.SelectionSettings, constraints: SEL.Constraints) -> html.Div:
     first = ctx.datasets[0].key
     defining = [d.defining_tag.name for d in ctx.datasets if d.defining_tag]
+    first_label = ctx.dataset(first).label
     run = html.Div([
-        html.H4(["Run ", _help("selection.run")], className="ctl-h"),
-        html.Div([html.Button("Run all datasets", id="ps-run-all", className="btn primary"),
-                  html.Button(f"Run {ctx.dataset(first).label}", id="ps-run-one", className="btn"),
-                  html.Button("Cancel", id="ps-cancel", className="btn")], className="row-inline"),
-        html.Button("Continue", id="ps-continue", className="btn", style={"display": "none"}),
+        html.H4([L.span(msg("Run")), " ", _static_help(L, "selection.run")], className="ctl-h"),
+        html.Div([html.Button(L.prop("ps-run-all", "children", msg("Run all datasets")), id="ps-run-all",
+                              className="btn primary"),
+                  html.Button(L.prop("ps-run-one", "children", lambda tx: tx("Run {dataset}", dataset=first_label)),
+                              id="ps-run-one", className="btn"),
+                  html.Button(L.prop("ps-cancel", "children", msg("Cancel")), id="ps-cancel", className="btn")],
+                 className="row-inline"),
+        html.Button(id="ps-continue", className="btn", style={"display": "none"}),
         html.Div(id="ps-rows", className="ps-rows"),
         html.Div(id="ps-cache-line", className="mute small"),
         html.Div(id="ps-provenance", className="mute small"),
         html.Div(id="ps-banner", className="warning", style={"display": "none"}),
-        html.Div([html.Button("Export tables", id="ps-export", className="btn", disabled=True),
-                  _help("selection.export")], className="row-inline"),
+        html.Div([html.Button(L.prop("ps-export", "children", msg("Export tables")), id="ps-export", className="btn",
+                              disabled=True),
+                  _static_help(L, "selection.export")], className="row-inline"),
     ], className="ctl-section")
     pc = html.Div([
-        html.H4(["Pair Constraints ", _help("selection.constraints")], className="ctl-h"),
-        *_constraint_inputs(constraints),
-        html.Label("Apply to", className="l"),
-        dcc.RadioItems(id="ps-c-scope", options=[{"label": "All five datasets", "value": "all"},
-                                                 {"label": "this dataset only", "value": "dataset"}],
+        html.H4([L.span(msg("Pair Constraints")), " ", _static_help(L, "selection.constraints")], className="ctl-h"),
+        *_constraint_inputs(L, constraints),
+        html.Label(L.span(msg("Apply to")), className="l"),
+        dcc.RadioItems(id="ps-c-scope", options=L.options("ps-c-scope", [("all", msg("All five datasets")),
+                                                                         ("dataset", msg("this dataset only"))]),
                        value="all", className="seg", inline=True),
-        html.Div([html.Button("Confirm", id="ps-c-confirm", className="btn primary", disabled=True),
-                  html.Button("Reset to defaults", id="ps-c-reset", className="btn")], className="row-inline"),
+        html.Div([html.Button(L.prop("ps-c-confirm", "children", msg("Confirm")), id="ps-c-confirm",
+                              className="btn primary", disabled=True),
+                  html.Button(L.prop("ps-c-reset", "children", msg("Reset to defaults")), id="ps-c-reset",
+                              className="btn")], className="row-inline"),
         html.Span("", id="ps-c-unconfirmed", className="ps-changed small"),
         html.Div(id="ps-c-label", className="mute small"),
     ], className="ctl-section")
     genre = [{"label": t.name, "value": t.id} for t in ctx.genre_tags]
     names = tag_names(ctx)
+    defining_label = (lambda tx: [{"label": tx("hide each dataset's defining tag ({tags})", tags=", ".join(defining))
+                                   if defining else tx("hide each dataset's defining tag"), "value": 1}])
     settings = html.Div([
-        html.H4(["Selection settings ", _help("selection.settings")], className="ctl-h"),
-        html.Label([_term("Hidden Genre Tags", "selection.setting.hidden")], className="l"),
+        html.H4([L.span(msg("Selection settings")), " ", _static_help(L, "selection.settings")], className="ctl-h"),
+        html.Label([L.term(msg("Hidden Genre Tags"), "selection.setting.hidden")], className="l"),
         dcc.Checklist(id="ps-s-genre", options=genre, value=list(defaults.genre_hidden), inline=True,
                       className="chips"),
-        dcc.Checklist(id="ps-s-defining", options=[{"label": "hide each dataset's defining tag"
-                                                    + (f" ({', '.join(defining)})" if defining else ""), "value": 1}],
+        dcc.Checklist(id="ps-s-defining", options=L.prop("ps-s-defining", "options", defining_label),
                       value=[1] if defaults.hide_defining_tag else [], className="check"),
-        html.Label([_term("Removed tags", "selection.setting.removed")], className="l"),
+        html.Label([L.term(msg("Removed tags"), "selection.setting.removed")], className="l"),
         dcc.Dropdown(id="ps-s-removed", options=[{"label": n, "value": t} for t, n in sorted(names.items(),
                                                                                             key=lambda x: x[1])],
-                     value=list(defaults.removed_tag_ids), multi=True, placeholder="no removed tags"),
-        html.Label([_term("Minimum Months Filter", "selection.setting.min_months")], className="l"),
+                     value=list(defaults.removed_tag_ids), multi=True,
+                     placeholder=L.prop("ps-s-removed", "placeholder", msg("no removed tags"))),
+        html.Label([L.term(msg("Minimum Months Filter"), "selection.setting.min_months")], className="l"),
         dcc.Slider(id="ps-s-min-months", min=0, max=60, step=1, value=defaults.min_months,
                    marks={0: "0", 60: "60"}, tooltip={"placement": "bottom"}),
-        html.Label([_term("Clustering weight", "selection.setting.weight")], className="l"),
-        dcc.RadioItems(id="ps-s-weight", options=[{"label": "Lift", "value": "lift"},
-                                                  {"label": "Shared games", "value": "shared_games"}],
+        html.Label([L.term(msg("Clustering weight"), "selection.setting.weight")], className="l"),
+        dcc.RadioItems(id="ps-s-weight", options=L.options("ps-s-weight", [("lift", msg("Lift")),
+                                                                           ("shared_games", msg("Shared games"))]),
                        value=defaults.clustering_weight, className="seg", inline=True),
-        html.Label([_term("Minimum Multi-Tag Clusters", "selection.setting.min_multi_tag_clusters")], className="l"),
+        html.Label([L.term(msg("Minimum Multi-Tag Clusters"), "selection.setting.min_multi_tag_clusters")],
+                   className="l"),
         dcc.Input(id="ps-s-min-multi", type="number", min=1, max=10, step=1, value=defaults.min_multi_tag_clusters),
-        html.Div([html.Button("Use these settings", id="ps-s-use", className="btn primary"),
-                  html.Button("Reset to defaults", id="ps-s-reset", className="btn"),
-                  html.Button("Copy from Workbench", id="ps-s-copy", className="btn")], className="stack"),
-        html.Div(read_only(defaults), className="mute small ps-readonly"),
+        html.Div([html.Button(L.prop("ps-s-use", "children", msg("Use these settings")), id="ps-s-use",
+                              className="btn primary"),
+                  html.Button(L.prop("ps-s-reset", "children", msg("Reset to defaults")), id="ps-s-reset",
+                              className="btn"),
+                  html.Button(L.prop("ps-s-copy", "children", msg("Copy from Workbench")), id="ps-s-copy",
+                              className="btn")], className="stack"),
+        html.Div([L.span(line, className="ps-line") for line in read_only(defaults)],
+                 className="mute small ps-readonly"),
         html.Div(id="ps-s-label", className="mute small"),
     ], className="ctl-section")
-    return html.Div([html.Div([html.B("Parameter Selection")], className="ctl-title"),
-                     _pill("run", "Run", "selection.run", run),
-                     _pill("constraints", "Pair Constraints", "selection.constraints", pc),
-                     _pill("settings", "Selection settings", "selection.settings", settings)],
+    return html.Div([html.Div([html.B(L.span(msg("Parameter Selection")))], className="ctl-title"),
+                     _pill(L, "run", msg("Run"), "selection.run", run),
+                     _pill(L, "constraints", msg("Pair Constraints"), "selection.constraints", pc),
+                     _pill(L, "settings", msg("Selection settings"), "selection.settings", settings)],
                     id="ps-controls", className="controls ps-controls")
 
 
-def read_only(s: SEL.SelectionSettings) -> list[Any]:
-    return [html.Div(T.LEIDEN_ONLY + "."),
-            html.Div(f"Parameter Grid: g {s.g_range[0]}–{s.g_range[1]}, s {s.s_range[0]}–{s.s_range[1]}, s ≤ g "
-                     f"({len(s.pairs())} pairs)"),
-            html.Div(f"γ from 0 to γ_max(n_e) in steps of {s.gamma_step:g}; {s.scan_seeds} scan seeds"),
-            html.Div(f"Null Comparison R = {s.replicates}; Subsample Stability S = {s.subsamples}")]
+def read_only(s: SEL.SelectionSettings) -> list[Callable[[Text], str]]:
+    """The settings the mode never changes, one line each, as functions of the translator."""
+    return [lambda tx: tx(T.LEIDEN_ONLY) + ".",
+            lambda tx: tx("Parameter Grid: g {g_lo}–{g_hi}, s {s_lo}–{s_hi}, s ≤ g ({n} pairs)", g_lo=s.g_range[0],
+                          g_hi=s.g_range[1], s_lo=s.s_range[0], s_hi=s.s_range[1], n=len(s.pairs())),
+            lambda tx: tx("γ from 0 to γ_max(n_e) in steps of {step}; {seeds} scan seeds",
+                          step=tx.fixed(s.gamma_step, "g"), seeds=s.scan_seeds),
+            lambda tx: tx("Null Comparison R = {r}; Subsample Stability S = {s}", r=s.replicates, s=s.subsamples)]
 
 
-def run_rows(views: list[DatasetView], progress: Mapping[str, Any] | None, validated: Mapping[str, bool]) -> list[Any]:
+def run_rows(views: list[DatasetView], progress: Mapping[str, Any] | None, validated: Mapping[str, bool], *,
+             tx: Text) -> list[Any]:
     rows = []
     for v in views:
         live = progress if progress and progress.get("dataset") == v.dataset else None
         if live and live["phase"] == "validation":
-            text, value, top = f"validation {live['done']} of {live['total']} replicates", live["done"], live["total"]
+            text_ = tx("validation {done} of {total} replicates", done=live["done"], total=live["total"])
+            value, top = live["done"], live["total"]
         elif live:
-            text, value, top = f"grid {live['done']} of {live['total']} pairs", live["done"], live["total"]
+            text_, value, top = (tx("grid {done} of {total} pairs", done=live["done"], total=live["total"]),
+                                 live["done"], live["total"])
         elif v.status == "complete":
-            text = "grid done, validated" if validated.get(v.dataset) else "grid done, not validated"
+            text_ = tx("grid done, validated") if validated.get(v.dataset) else tx("grid done, not validated")
             value, top = v.total, v.total
         elif v.status == "partial":
-            text, value, top = f"grid {v.done} of {v.total} pairs", v.done, v.total
+            text_, value, top = tx("grid {done} of {total} pairs", done=v.done, total=v.total), v.done, v.total
         else:
-            text, value, top = "not run", 0, v.total
-        rows.append(html.Div([html.Span(v.label, className="ps-row-name"), html.Span(text, className="mute small"),
+            text_, value, top = tx("not run"), 0, v.total
+        rows.append(html.Div([html.Span(v.label, className="ps-row-name"), html.Span(text_, className="mute small"),
                               html.Progress(value=str(value), max=str(max(top, 1)))], className="ps-row"))
     return rows
 
@@ -366,46 +399,49 @@ def run_rows(views: list[DatasetView], progress: Mapping[str, Any] | None, valid
 # ----------------------------------------------------------------------------- dataset strip and loading panel
 
 
-def strip(views: list[DatasetView], current: str, custom: Mapping[str, str]) -> list[Any]:
+def strip(views: list[DatasetView], current: str, custom: Mapping[str, str], *, tx: Text) -> list[Any]:
     buttons = []
     for v in views:
         if v.status == "complete" and v.choice is not None:
             if v.star is None:
-                text = "no qualifying pair"
+                text_ = tx("no qualifying pair")
             else:
                 g, s = v.star
-                text = f"★ {g}·{s} NA {_num(v.na[v.star].value)}"
+                text_ = tx("★ {g}·{s} NA {na}", g=g, s=s, na=tx.num(v.na[v.star].value))
         elif v.status == "partial":
-            text = f"grid {v.done} of {v.total}"
+            text_ = tx("grid {done} of {total}", done=v.done, total=v.total)
         else:
-            text = "not run"
+            text_ = tx("not run")
         marker = custom.get(v.dataset)
-        buttons.append(html.Button([html.B(v.label), html.Span(text, className="ps-strip-v"),
-                                    *([html.Span("custom", className="ps-custom", title=marker)] if marker else [])],
+        buttons.append(html.Button([html.B(v.label), html.Span(text_, className="ps-strip-v"),
+                                    *([html.Span(tx("custom"), className="ps-custom", title=marker)] if marker else [])],
                                    id={"type": "ps-strip", "dataset": v.dataset},
                                    className="ps-strip-btn" + (" on" if v.dataset == current else "")))
-    return [html.Div(buttons, className="ps-strip-row"), _help("selection.dataset_strip")]
+    return [html.Div(buttons, className="ps-strip-row"), _help("selection.dataset_strip", tx)]
 
 
 def loading_panel(progress: Mapping[str, Any] | None, views: list[DatasetView], settings: SEL.SelectionSettings,
-                  reason: str, compact: bool) -> list[Any]:
+                  reason: str, compact: bool, *, tx: Text) -> list[Any]:
     lengths = [r.scan_length for v in views for r in v.results.values() if r.scan_length]
-    scan = f"{min(lengths)}–{max(lengths)}" if lengths else "up to several hundred"
-    what = (f"Searching {len(settings.pairs())} Threshold Pairs × {scan} resolutions × {settings.scan_seeds} seeds "
-            f"for each dataset, then checking the chosen pair against {settings.replicates} shuffled networks and "
-            f"{settings.subsamples} subsamples.")
-    where, eta = "Starting…", "estimating…"
+    scan = f"{min(lengths)}–{max(lengths)}" if lengths else tx("up to several hundred")
+    what = tx("Searching {pairs} Threshold Pairs × {scan} resolutions × {seeds} seeds for each dataset, then checking "
+              "the chosen pair against {replicates} shuffled networks and {subsamples} subsamples.",
+              pairs=len(settings.pairs()), scan=scan, seeds=settings.scan_seeds, replicates=settings.replicates,
+              subsamples=settings.subsamples)
+    where, eta = tx("Starting…"), tx("estimating…")
     if progress:
-        unit = "pairs" if progress["phase"] == "grid" else "replicates"
-        where = (f"Dataset {progress['dataset_index']} of {progress['n_datasets']} ({progress['dataset']}): "
-                 f"{progress['phase']} {progress['done']} of {progress['total']} {unit}.")
-        eta = f"{ps_run.eta_text(progress)} · {ps_run.elapsed_text(progress['elapsed'])}"
-    once = ("A one-off: results are cached. Cancel keeps the finished pairs and Continue resumes; a cancelled "
-            "validation restarts from the beginning.")
-    body = [html.B("Computing Parameter Selection"), html.Div(what), html.Div(reason, className="mute"),
+        where_values = {"index": progress["dataset_index"], "n": progress["n_datasets"], "dataset": progress["dataset"],
+                        "done": progress["done"], "total": progress["total"]}
+        where = (tx("Dataset {index} of {n} ({dataset}): grid {done} of {total} pairs.", **where_values)
+                 if progress["phase"] == "grid" else
+                 tx("Dataset {index} of {n} ({dataset}): validation {done} of {total} replicates.", **where_values))
+        eta = f"{ps_run.eta_text(progress, tx)} · {ps_run.elapsed_text(progress['elapsed'], tx)}"
+    once = tx("A one-off: results are cached. Cancel keeps the finished pairs and Continue resumes; a cancelled "
+              "validation restarts from the beginning.")
+    body = [html.B(tx("Computing Parameter Selection")), html.Div(what), html.Div(reason, className="mute"),
             html.Div(where), html.Div(once, className="mute small"), html.Div(eta, className="ps-eta"),
-            html.A("How Automatic Parameter Selection works", href="#", className="term",
-                   **H.attrs("selection.run", WIRE))]
+            html.A(tx("How Automatic Parameter Selection works"), href="#", className="term",
+                   **H.attrs("selection.run", tx))]
     return [html.Div(body, className="ps-loading" + (" compact" if compact else ""))]
 
 
@@ -423,12 +459,20 @@ def metric_value(result: SEL.GraphResult | None, na: SEL.NeighbourAgreement | No
             "multi_tag_clusters": result.n_multi, "q": result.modularity}[metric]
 
 
-def heatmap(view: DatasetView, metric: str, inspected: tuple[int, int] | None) -> go.Figure:
+def plotly_separators(tx: Text) -> str:
+    """Plotly's decimal and thousands marks: the language's decimal mark, and no thousands separator in Bulgarian
+    (English keeps Plotly's own default)."""
+    return ".," if tx.decimal == "." else tx.decimal
+
+
+def heatmap(view: DatasetView, metric: str, inspected: tuple[int, int] | None, *, tx: Text) -> go.Figure:
     gs = sorted({g for g, _ in view.pairs})
     ss = sorted({s for _, s in view.pairs})
     complete = view.status == "complete" and view.choice is not None
+    metric_name = tx(dict(METRICS)[metric])
+    reasons_of = reason_words(tx)
     z: list[list[float | None]] = []
-    text: list[list[str]] = []
+    text_: list[list[str]] = []
     hover: list[list[str]] = []
     for g in gs:
         zr: list[float | None] = []
@@ -446,34 +490,36 @@ def heatmap(view: DatasetView, metric: str, inspected: tuple[int, int] | None) -
             zr.append(value)
             if r is None:
                 tr.append("")
-                hr.append(f"g={g}, s={s}: pending")
+                hr.append(tx("g={g}, s={s}: pending", g=g, s=s))
                 continue
             reasons = view.choice.reasons[(g, s)] if complete and view.choice else []
             mark = "★" if complete and view.star == (g, s) else ""
             tr.append(mark + "".join(LETTERS[x] for x in reasons))
-            verdict = ("✓ qualifies" if complete and not reasons else
-                       "; ".join(REASON_WORDS[x] for x in reasons) if complete else "selection after the whole grid")
-            hr.append(f"g={g}, s={s}<br>{dict(METRICS)[metric]}: {_num(value, 3)}<br>NA: "
-                      f"{_num(None if na is None else na.value, 3)}<br>tags: {r.n_tags}<br>Multi-Tag Clusters: "
-                      f"{_num(r.n_multi)}<br>{verdict}")
+            verdict = (tx("✓ qualifies") if complete and not reasons else
+                       "; ".join(reasons_of[x] for x in reasons) if complete else tx("selection after the whole grid"))
+            hr.append(tx("g={g}, s={s}<br>{metric}: {value}<br>NA: {na}<br>tags: {tags}<br>Multi-Tag Clusters: "
+                         "{clusters}<br>{verdict}", g=g, s=s, metric=metric_name, value=tx.num(value, 3),
+                         na=tx.num(None if na is None else na.value, 3), tags=r.n_tags, clusters=tx.num(r.n_multi),
+                         verdict=verdict))
         z.append(zr)
-        text.append(tr)
+        text_.append(tr)
         hover.append(hr)
     grey = metric in ("q",)
-    fig = go.Figure(go.Heatmap(z=z, x=ss, y=gs, text=text, texttemplate="%{text}", hovertext=hover,
+    fig = go.Figure(go.Heatmap(z=z, x=ss, y=gs, text=text_, texttemplate="%{text}", hovertext=hover,
                                hoverinfo="text", colorscale="Greys" if grey else "Viridis", showscale=True,
-                               colorbar={"title": dict(METRICS)[metric]}, xgap=1, ygap=1))
+                               colorbar={"title": metric_name}, xgap=1, ygap=1))
     shapes = []
     if complete and view.choice is not None:
         for g, s in view.choice.near_best:
             shapes.append(_cell_shape(g, s, "#f28e2b", 2))
     if inspected is not None:
         shapes.append(_cell_shape(*inspected, "#222", 3))
-    caption = T.DESCRIPTIVE_CAPTION if metric == "q" else ""
+    caption = tx(T.DESCRIPTIVE_CAPTION) if metric == "q" else ""
     fig.update_layout(shapes=shapes, margin={"l": 40, "r": 10, "t": 30 if caption else 10, "b": 40},
-                      xaxis={"title": "s (minimum shared games)", "dtick": 1},
-                      yaxis={"title": "g (minimum games per tag)", "dtick": 1}, plot_bgcolor="#e6e6e6",
-                      title={"text": caption, "font": {"size": 12}} if caption else None, height=460)
+                      xaxis={"title": tx("s (minimum shared games)"), "dtick": 1},
+                      yaxis={"title": tx("g (minimum games per tag)"), "dtick": 1}, plot_bgcolor="#e6e6e6",
+                      title={"text": caption, "font": {"size": 12}} if caption else None, height=460,
+                      separators=plotly_separators(tx))
     return fig
 
 
@@ -482,23 +528,23 @@ def _cell_shape(g: int, s: int, color: str, width: int) -> dict[str, Any]:
             "line": {"color": color, "width": width}, "fillcolor": "rgba(0,0,0,0)"}
 
 
-def heatmap_key() -> html.Div:
-    letters = [html.Span([html.B(letter), " ", _term(REASON_WORDS[code], f"selection.reason.{letter}")],
+def heatmap_key(L: Labels) -> html.Div:
+    letters = [html.Span([html.B(letter), " ", L.term(REASON_WORDS[code], f"selection.reason.{letter}")],
                          className="ps-key-item") for code, letter in LETTERS.items()]
-    return html.Div([html.Span("★ chosen · orange outline: near-best · dark outline: inspected · ",
-                               className="mute small"), *letters,
-                     _help("selection.heatmap")], className="ps-key")
+    return html.Div([L.span(msg("★ chosen · orange outline: near-best · dark outline: inspected · "),
+                            className="mute small"), *letters,
+                     _static_help(L, "selection.heatmap")], className="ps-key")
 
 
-def metric_picker() -> html.Div:
+def metric_picker(L: Labels) -> html.Div:
     keys = {"neighbour_agreement": "selection.metric.neighbour_agreement", "retention": "selection.metric.retention",
             "isolated_share": "selection.metric.isolated_share",
             "multi_tag_clusters": "selection.metric.multi_tag_clusters", "seed_noise": "selection.metric.seed_noise",
             "q": "selection.metric.q"}
     return html.Div([
-        dcc.RadioItems(id="ps-metric", options=[{"label": label, "value": key} for key, label in METRICS],
-                       value="neighbour_agreement", className="seg", inline=True),
-        html.Span([_term(label, keys[key]) for key, label in METRICS], className="ps-metric-help"),
+        dcc.RadioItems(id="ps-metric", options=L.options("ps-metric", METRICS), value="neighbour_agreement",
+                       className="seg", inline=True),
+        html.Span([L.term(label, keys[key]) for key, label in METRICS], className="ps-metric-help"),
     ], className="ps-picker")
 
 
@@ -513,63 +559,66 @@ def render(paragraphs: list[T.Paragraph]) -> list[Any]:
     return out
 
 
-def why(view: DatasetView, settings_label: str, constraints_label: str, minimum_k: int) -> list[Any]:
+def why(view: DatasetView, settings_label: str, constraints_label: str, minimum_k: int, *, tx: Text) -> list[Any]:
     if view.status == "not_run":
-        return [html.P(T.NOTHING_RUN)]
+        return [html.P(tx(T.NOTHING_RUN))]
     if view.status != "complete" or view.choice is None:
-        return [html.P(T.NO_SELECTION_YET.format(done=view.done, total=view.total))]
+        return [html.P(tx(T.NO_SELECTION_YET, done=view.done, total=view.total))]
     if view.star is None:
-        table = html.Table([html.Tr([html.Th("Constraint"), html.Th("alone"), html.Th("cumulative")])] + [
+        table = html.Table([html.Tr([html.Th(tx("Constraint")), html.Th(tx("alone")), html.Th(tx("cumulative"))])] + [
             html.Tr([html.Td(phrase), html.Td(str(e.alone)), html.Td(str(e.cumulative))])
-            for phrase, e in zip(T.constraint_phrases(view.choice.constraints), view.choice.exclusion)],
+            for phrase, e in zip(T.constraint_phrases(view.choice.constraints, tx), view.choice.exclusion)],
             className="ps-table")
-        return [html.H4("Why this pair"), *render(T.no_qualifying_message(view.choice, constraints_label)), table]
+        return [html.H4(tx("Why this pair")), *render(T.no_qualifying_message(view.choice, constraints_label, tx=tx)),
+                table]
     pair = view.result(view.star)
     assert pair is not None
-    return [html.H4("Why this pair"), *render(T.explanation(view.choice, pair, view.na[view.star], settings_label,
-                                                            constraints_label, minimum_k))]
+    return [html.H4(tx("Why this pair")), *render(T.explanation(view.choice, pair, view.na[view.star], settings_label,
+                                                                constraints_label, minimum_k, tx=tx))]
 
 
-def cluster_table(summary: Mapping[str, Any], names: Mapping[int, str]) -> html.Table:
-    head = html.Tr([html.Th(x) for x in ("Arm", "Cluster", "mean Jaccard", "≤ 0.5 in k of B*", "retention share",
-                                         "absent", "")])
+def cluster_table(summary: Mapping[str, Any], names: Mapping[int, str], *, tx: Text) -> html.Table:
+    head = html.Tr([html.Th(x) for x in (tx("Arm"), tx("Cluster"), tx("mean Jaccard"), tx("≤ 0.5 in k of B*"),
+                                         tx("retention share"), tx("absent"), "")])
     rows = [head]
-    for arm, label in (("reselected", "re-selected"), ("at_resolution", "at resolution")):
+    for arm, label in (("reselected", tx("re-selected")), ("at_resolution", tx("at resolution"))):
         for c in summary["subsample"][arm]["clusters"]:
-            rows.append(html.Tr([html.Td(label), html.Td(T.cluster_name(c, names)), html.Td(_num(c["mean_jaccard"])),
-                                 html.Td(f"{c['at_most_half']} of {c['present']}"), html.Td(_num(c["mean_retention"])),
-                                 html.Td(str(c["absent"])),
-                                 html.Td(_term("Dissolved", "selection.verdict.dissolved") if c["dissolved"] else "")]))
+            rows.append(html.Tr([html.Td(label), html.Td(T.cluster_name(c, names)), html.Td(tx.num(c["mean_jaccard"])),
+                                 html.Td(tx("{n} of {total}", n=c["at_most_half"], total=c["present"])),
+                                 html.Td(tx.num(c["mean_retention"])), html.Td(str(c["absent"])),
+                                 html.Td(_term(tx("Dissolved"), "selection.verdict.dissolved", tx)
+                                         if c["dissolved"] else "")]))
     return html.Table(rows, className="ps-table")
 
 
-def validation_card(view: DatasetView, validation: Mapping[str, Any] | None, names: Mapping[int, str]) -> list[Any]:
+def validation_card(view: DatasetView, validation: Mapping[str, Any] | None, names: Mapping[int, str], *,
+                    tx: Text) -> list[Any]:
     """The default-constraint pair's validation, with the custom-constraints note when another pair is chosen."""
     if view.status != "complete" or view.default_choice is None:
         return []
     pair = view.default_choice.chosen
     if pair is None:
-        return [html.P("No pair qualifies under the default constraints, so nothing was validated automatically. "
-                       "Validate this pair is offered on any inspected pair.")]
+        return [html.P(tx("No pair qualifies under the default constraints, so nothing was validated automatically. "
+                          "Validate this pair is offered on any inspected pair."))]
     summary = validation["summary"] if validation else None
-    paragraphs = T.validation_block(summary, pair, view.star, view.star == pair, names)
+    paragraphs = T.validation_block(summary, pair, view.star, view.star == pair, names, tx=tx)
     out = render(paragraphs)
     if summary is not None:
-        out.append(cluster_table(summary, names))
-    out.append(html.Div([_term("Three kinds of stability", "selection.stability"), " · ",
-                         _term("Null Comparison", "selection.null"), " · ",
-                         _term("Subsample Stability", "selection.subsample")], className="small"))
+        out.append(cluster_table(summary, names, tx=tx))
+    out.append(html.Div([_term(tx("Three kinds of stability"), "selection.stability", tx), " · ",
+                         _term(tx("Null Comparison"), "selection.null", tx), " · ",
+                         _term(tx("Subsample Stability"), "selection.subsample", tx)], className="small"))
     return out
 
 
 # ----------------------------------------------------------------------------- Pair Inspector
 
 
-def champ_figure(result: SEL.GraphResult) -> go.Figure:
+def champ_figure(result: SEL.GraphResult, *, tx: Text) -> go.Figure:
     fig = go.Figure()
     champ = result.champ
     if champ is None:
-        fig.update_layout(title={"text": "No edges: no scan"}, height=260)
+        fig.update_layout(title={"text": tx("No edges: no scan")}, height=260, separators=plotly_separators(tx))
         return fig
     end, two_m = champ["gamma_end"], champ["two_m"]
     parts = champ["admissible"]
@@ -583,7 +632,7 @@ def champ_figure(result: SEL.GraphResult) -> go.Figure:
         env_x += [p["a"], p["b"]]
         env_y += [(p["a_hat"] - p["a"] * p["p_hat"]) / two_m, (p["a_hat"] - p["b"] * p["p_hat"]) / two_m]
     fig.add_trace(go.Scatter(x=env_x, y=env_y, mode="lines", line={"width": 3, "color": "#4e79a7"},
-                             name="envelope", showlegend=False))
+                             name=tx("envelope"), showlegend=False))
     shapes, notes = [], []
     for i, p in enumerate(parts):
         if p["stable"]:
@@ -599,7 +648,7 @@ def champ_figure(result: SEL.GraphResult) -> go.Figure:
         shapes.append({"type": "line", "xref": "x", "yref": "paper", "x0": result.selected_resolution,
                        "x1": result.selected_resolution, "y0": 0, "y1": 1, "line": {"color": "#222", "dash": "dot"}})
     fig.update_layout(shapes=shapes, annotations=notes, height=280, margin={"l": 40, "r": 10, "t": 10, "b": 35},
-                      xaxis={"title": "γ", "range": [0, end]}, yaxis={"title": "Q"})
+                      xaxis={"title": "γ", "range": [0, end]}, yaxis={"title": "Q"}, separators=plotly_separators(tx))
     return fig
 
 
@@ -607,135 +656,153 @@ def _kv(rows: list[tuple[Any, str]]) -> html.Table:
     return html.Table([html.Tr([html.Th(k), html.Td(v)]) for k, v in rows], className="ps-kv")
 
 
-def links_table(view: DatasetView, pair: tuple[int, int]) -> html.Table:
+def links_table(view: DatasetView, pair: tuple[int, int], *, tx: Text) -> html.Table:
     if not view.links:
         return html.Table([], className="ps-table")
     directions = SEL.pair_links(view.links, *pair, view.pairs)
-    rows = [html.Tr([html.Th(x) for x in ("", "status", "ARI", "tag overlap")]
-                    + [html.Th(_term("Edge Overlap", "selection.edge_overlap")), html.Th("")])]
+    rows = [html.Tr([html.Th(x) for x in ("", tx("status"), "ARI", tx("tag overlap"))]
+                    + [html.Th(_term(tx("Edge Overlap"), "selection.edge_overlap", tx)), html.Th("")])]
     for name, link in directions.items():
         if link is None:
             continue
-        rows.append(html.Tr([html.Td(name), html.Td(link.status), html.Td(_num(link.ari)),
-                             html.Td(_num(link.shared_jaccard)), html.Td(_num(link.edge_overlap)),
-                             html.Td("identical graph" if link.identical_graph else "")]))
+        rows.append(html.Tr([html.Td(name), html.Td(link.status), html.Td(tx.num(link.ari)),
+                             html.Td(tx.num(link.shared_jaccard)), html.Td(tx.num(link.edge_overlap)),
+                             html.Td(tx("identical graph") if link.identical_graph else "")]))
     return html.Table(rows, className="ps-table ps-links")
 
 
-def workbench_line(result: SEL.GraphResult) -> tuple[str, str]:
+def workbench_line(result: SEL.GraphResult, *, tx: Text) -> tuple[str, str]:
     wb = result.workbench
     if wb is None:
-        return f"No Selected Partition: {result.reason}", "warning small"
-    seed = "main seed" if wb["seed_kind"] == "main" else f"scan seed {wb['seed']}"
+        return tx("No Selected Partition: {reason}", reason=result.reason), "warning small"
+    seed = tx("main seed") if wb["seed_kind"] == "main" else tx("scan seed {seed}", seed=wb["seed"])
+    gamma = tx.fixed(wb["gamma"], ".2f")
     if wb["flag"] is None:
-        return f"Workbench γ {wb['gamma']:.2f}, {seed}: reproduces the Selected Partition ✓", "small"
-    return (f"Workbench γ {wb['gamma']:.2f}, main seed: {wb['flag']}, shows a different partition "
-            f"(ARI {wb['ari']:.2f})"), "warning small"
+        return tx("Workbench γ {gamma}, {seed}: reproduces the Selected Partition ✓", gamma=gamma, seed=seed), "small"
+    return (tx("Workbench γ {gamma}, main seed: {flag}, shows a different partition (ARI {ari})", gamma=gamma,
+               flag=wb["flag"], ari=tx.fixed(wb["ari"], ".2f")), "warning small")
 
 
 def inspector(view: DatasetView, pair: tuple[int, int] | None, validation: Mapping[str, Any] | None,
-              names: Mapping[int, str]) -> list[Any]:
+              names: Mapping[int, str], *, tx: Text) -> list[Any]:
     if pair is None or view.result(pair) is None:
-        return [html.P("Click a computed cell to inspect its pair.", className="mute")]
+        return [html.P(tx("Click a computed cell to inspect its pair."), className="mute")]
     r = view.result(pair)
     assert r is not None
     g, s = pair
     complete = view.choice is not None
     reasons = view.choice.reasons[pair] if complete and view.choice else []
-    badges = ([html.Span("✓ qualifies", className="ps-badge ok")] if complete and not reasons else
-              [html.Span(REASON_WORDS[x], className="ps-badge") for x in reasons])
+    reasons_of = reason_words(tx)
+    badges = ([html.Span(tx("✓ qualifies"), className="ps-badge ok")] if complete and not reasons else
+              [html.Span(reasons_of[x], className="ps-badge") for x in reasons])
     p = r.selected_partition
     if p is not None and p["clipped_high"]:
         badges.append(html.Span("clipped_high", className="ps-badge"))
     if r.workbench and r.workbench["flag"]:
         badges.append(html.Span(r.workbench["flag"], className="ps-badge"))
     na = view.na.get(pair)
-    na_text = ("n/a" if na is None or na.value is None else
-               f"{na.value:.3f} over {na.n_different} different-graph neighbour(s); {na.n_identical} identical, "
-               f"{na.n_missing} missing")
+    na_text = (tx.num(None) if na is None or na.value is None else
+               tx.n(na.n_different, one="{value} over {n} different-graph neighbour; {identical} identical, {missing} "
+                                        "missing",
+                    other="{value} over {n} different-graph neighbours; {identical} identical, {missing} missing",
+                    value=tx.fixed(na.value, ".3f"), identical=na.n_identical, missing=na.n_missing))
     noise = r.seed_noise
+    na_ = tx.num(None)
+    interval = ", " if tx.decimal == "." else "; "  # a decimal comma needs another mark between the two ends
     metrics = _kv([
-        (_term("Neighbour Agreement", "selection.inspector.neighbour_agreement"), na_text),
-        (_term("Information Retention", "selection.inspector.retention"), _num(r.retention, 3)),
-        (_term("isolated share", "selection.inspector.isolated_share"), _num(r.isolated_share, 3)),
-        (_term("LCC share", "selection.inspector.lcc_share"), _num(r.lcc_share, 3)),
-        (_term("Multi-Tag / One-Tag Clusters", "selection.inspector.clusters"),
-         "n/a" if r.n_multi is None else f"{r.n_multi} / {r.n_one_isolated} isolated + {r.n_one_connected} connected"),
-        (_term("Seed-Noise Floor", "selection.inspector.seed_noise"),
-         "n/a" if noise is None else f"min {noise['floor']:.2f}, mean {noise['mean']:.2f}, "
-                                     f"exact {noise['exact']} of {noise['runs']}"),
-        (_term("hits", "selection.inspector.hits"), "n/a" if p is None else f"{p['hits']} of {r.scan_runs} runs"),
-        (_term("domain", "selection.inspector.domain"), "n/a" if p is None else f"[{p['a']:.3f}, {p['b']:.3f}]"),
-        (_term("γ̂", "selection.inspector.gamma_hat"), "n/a" if p is None else _num(p["gamma_hat"], 3)),
-        (_term("Selected Resolution", "selection.inspector.resolution"), _num(r.selected_resolution, 3)),
-        (_term("scan range", "selection.inspector.scan_range"),
-         "no scan" if r.gamma_end is None else f"0 to {r.gamma_end:.2f} (n_e = {r.n_e}, {r.scan_length} values)"),
+        (_term(tx("Neighbour Agreement"), "selection.inspector.neighbour_agreement", tx), na_text),
+        (_term(tx("Information Retention"), "selection.inspector.retention", tx), tx.num(r.retention, 3)),
+        (_term(tx("isolated share"), "selection.inspector.isolated_share", tx), tx.num(r.isolated_share, 3)),
+        (_term(tx("LCC share"), "selection.inspector.lcc_share", tx), tx.num(r.lcc_share, 3)),
+        (_term(tx("Multi-Tag / One-Tag Clusters"), "selection.inspector.clusters", tx),
+         na_ if r.n_multi is None else tx("{multi} / {isolated} isolated + {connected} connected", multi=r.n_multi,
+                                          isolated=r.n_one_isolated, connected=r.n_one_connected)),
+        (_term(tx("Seed-Noise Floor"), "selection.inspector.seed_noise", tx),
+         na_ if noise is None else tx("min {floor}, mean {mean}, exact {exact} of {runs}",
+                                      floor=tx.fixed(noise["floor"], ".2f"), mean=tx.fixed(noise["mean"], ".2f"),
+                                      exact=noise["exact"], runs=noise["runs"])),
+        (_term(tx("hits"), "selection.inspector.hits", tx),
+         na_ if p is None else tx("{hits} of {runs} runs", hits=p["hits"], runs=r.scan_runs)),
+        (_term(tx("domain"), "selection.inspector.domain", tx),
+         na_ if p is None else f"[{tx.fixed(p['a'], '.3f')}{interval}{tx.fixed(p['b'], '.3f')}]"),
+        (_term("γ̂", "selection.inspector.gamma_hat", tx), na_ if p is None else tx.num(p["gamma_hat"], 3)),
+        (_term(tx("Selected Resolution"), "selection.inspector.resolution", tx), tx.num(r.selected_resolution, 3)),
+        (_term(tx("scan range"), "selection.inspector.scan_range", tx),
+         tx("no scan") if r.gamma_end is None else
+         tx("0 to {end} (n_e = {n_e}, {n} values)", end=tx.fixed(r.gamma_end, ".2f"), n_e=r.n_e, n=r.scan_length)),
     ])
     descriptive = html.Div([
-        html.Div(_term(T.DESCRIPTIVE_CAPTION, "selection.inspector.descriptive"), className="small mute"),
-        _kv([(_term("Q", "selection.inspector.q"), _num(r.modularity, 3)),
-             (_term("Coverage", "selection.inspector.coverage"), _num(r.coverage, 3)),
-             (_term("Silhouette", "selection.inspector.silhouette"), _num(r.silhouette, 3))]),
+        html.Div(_term(tx(T.DESCRIPTIVE_CAPTION), "selection.inspector.descriptive", tx), className="small mute"),
+        _kv([(_term("Q", "selection.inspector.q", tx), tx.num(r.modularity, 3)),
+             (_term(tx("Coverage"), "selection.inspector.coverage", tx), tx.num(r.coverage, 3)),
+             (_term(tx("Silhouette"), "selection.inspector.silhouette", tx), tx.num(r.silhouette, 3))]),
     ], className="ps-descriptive")
     clusters: list[Any] = []
     if p is not None:
         groups: dict[int, set[int]] = {}
         for t, label in zip(r.nodes, p["membership"]):
             groups.setdefault(label, set()).add(t)
+        remove = tx("Remove (stage in Selection settings)")
         for c in label_clusters([frozenset(x) for x in groups.values()]):
             if c.size < 2:
                 continue
             clusters.append(html.Div([html.B(c.label + " "), *[
                 html.Span([names.get(t, str(t)), html.Button("×", id={"type": "ps-remove", "tag": t},
-                                                              className="x small", title="Remove (stage in Selection "
-                                                                                         "settings)")],
+                                                              className="x small", title=remove)],
                           className="ps-member") for t in sorted(c.members, key=lambda t: names.get(t, ""))]],
                 className="ps-cluster"))
-    compact = [html.Span("Not validated", className="mute")]
+    compact = [html.Span(tx("Not validated"), className="mute")]
     if validation:
         v = validation["summary"]
         reselected = v["subsample"]["reselected"]["ari"]["median"]
-        compact = [html.Span(_term("Q not above the null", "selection.verdict.q_not_above_null")
-                             if v["verdicts"]["q_not_above_null"] else "Q above all null replicates",
+        compact = [html.Span(_term(tx("Q not above the null"), "selection.verdict.q_not_above_null", tx)
+                             if v["verdicts"]["q_not_above_null"] else tx("Q above all null replicates"),
                              className="ps-badge"),
-                   html.Span(f"Dissolved: {len(v['verdicts']['dissolved']['reselected'])}", className="ps-badge"),
-                   html.Span(f" median ARI re-selected {_num(reselected)}, at resolution "
-                             f"{_num(v['subsample']['at_resolution']['ari']['median'])}", className="small")]
+                   html.Span(tx("Dissolved: {n}", n=len(v["verdicts"]["dissolved"]["reselected"])),
+                             className="ps-badge"),
+                   html.Span(" " + tx("median ARI re-selected {reselected}, at resolution {at}",
+                                      reselected=tx.num(reselected),
+                                      at=tx.num(v["subsample"]["at_resolution"]["ari"]["median"])),
+                             className="small")]
     return [
-        html.H4([f"{view.label}: g = {g}, s = {s}", _help("selection.inspector")]),
+        html.H4([tx("{dataset}: g = {g}, s = {s}", dataset=view.label, g=g, s=s), _help("selection.inspector", tx)]),
         html.Div(badges, className="ps-badges"),
-        html.H5(["Metrics"]), metrics, descriptive,
-        html.H5([_term("Neighbour links", "selection.inspector.links")]), links_table(view, pair),
-        html.H5([_term("CHAMP", "selection.inspector.champ")]),
-        dcc.Graph(figure=champ_figure(r), config={"displayModeBar": False}, id="ps-champ"),
-        html.H5("Clusters"), *clusters,
-        html.H5(["Validation ", _help("selection.validate")]), html.Div(compact, className="ps-badges"),
+        html.H5([tx("Metrics")]), metrics, descriptive,
+        html.H5([_term(tx("Neighbour links"), "selection.inspector.links", tx)]), links_table(view, pair, tx=tx),
+        html.H5([_term("CHAMP", "selection.inspector.champ", tx)]),
+        dcc.Graph(figure=champ_figure(r, tx=tx), config={"displayModeBar": False}, id="ps-champ"),
+        html.H5(tx("Clusters")), *clusters,
+        html.H5([tx("Validation") + " ", _help("selection.validate", tx)]), html.Div(compact, className="ps-badges"),
     ]
 
 
 # ----------------------------------------------------------------------------- the whole mode
 
 
-def mode_layout(ctx: BuildContext) -> html.Div:
+def mode_layout(ctx: BuildContext, L: Labels) -> html.Div:
     defaults, constraints = defaults_of(ctx)
     first = ctx.datasets[0].key
     main = html.Div([
         html.Div(id="ps-strip", className="ps-strip"),
         html.Div(id="ps-loading"),
-        metric_picker(),
+        metric_picker(L),
         dcc.Graph(id="ps-heatmap", config={"displayModeBar": False}),
-        heatmap_key(),
+        heatmap_key(L),
         html.Div(id="ps-why", className="panel ps-why"),
         html.Div(id="ps-validation", className="panel ps-validation"),
     ], id="ps-main", className="main ps-main")
     inspector_panel = html.Div([
-        html.Div([html.B("Pair Inspector"), html.Button("×", id="ps-inspector-close", className="x", title="Close")],
+        html.Div([html.B(L.span(msg("Pair Inspector"))),
+                  html.Button("×", id="ps-inspector-close", className="x",
+                              title=L.prop("ps-inspector-close", "title", msg("Close")))],
                  className="insp-title"),
-        html.Div([html.Button("Apply to Workbench", id="ps-apply", className="btn primary"),
-                  _help("selection.apply")], className="row-inline"),
+        html.Div([html.Button(L.prop("ps-apply", "children", msg("Apply to Workbench")), id="ps-apply",
+                              className="btn primary"),
+                  _static_help(L, "selection.apply")], className="row-inline"),
         html.Div(id="ps-apply-line", className="small"),
-        html.Div([html.Button("Validate this pair", id="ps-validate", className="btn", style={"display": "none"}),
-                  _help("selection.validate")], className="row-inline"),
+        html.Div([html.Button(L.prop("ps-validate", "children", msg("Validate this pair")), id="ps-validate",
+                              className="btn", style={"display": "none"}),
+                  _static_help(L, "selection.validate")], className="row-inline"),
         html.Div(id="ps-inspector-body"),
     ], id="ps-inspector", className=inspector_form(False))
     stores = [dcc.Store(id="ps-active", data=settings_data(defaults)),
@@ -745,5 +812,5 @@ def mode_layout(ctx: BuildContext) -> html.Div:
               dcc.Store(id="ps-running", data=False),
               dcc.Store(id="ps-validate-request"), dcc.Store(id="ps-validate-done"), dcc.Store(id="ps-applied"),
               dcc.Download(id="ps-download")]
-    return html.Div([*stores, controls(ctx, defaults, constraints), main, inspector_panel], id="ps-body",
+    return html.Div([*stores, controls(L, ctx, defaults, constraints), main, inspector_panel], id="ps-body",
                     className="app-body ps-body")

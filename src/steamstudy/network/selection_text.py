@@ -2,6 +2,9 @@
 
 The app, `selection_report.md` and the guide test all read these. Text is structured: a list of paragraphs, each a
 list of (text, style) spans with style None, "bold" or "italic", so Dash and Markdown render the same words.
+
+Every function takes the Interface Language's translator `tx` (`steamstudy.i18n`): the app passes the page's, and
+`selection_report.md`, the CLI and the guide test pass `text("en")`, so the report stays English.
 """
 
 from __future__ import annotations
@@ -9,9 +12,12 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
+from steamstudy.i18n import Text
+
 Span = tuple[str, str | None]
 Paragraph = list[Span]
 
+# The English sentences other modules and tests quote; shown through `tx` (a declared parity source).
 NA_CAVEAT = ("Neighbour Agreement measures how little the clustering changes when g or s moves by one. "
              "It does not show that the Clusters are real.")
 HIGH_G_CAVEAT = ("Neighbour Agreement tends to be higher at large g because a one-step change in the thresholds, "
@@ -27,94 +33,102 @@ DATASET_STRIP_SENTENCE = ("Each dataset is selected on its own, from its own gam
 LEIDEN_ONLY = "Leiden only: the scan and Apply's reproduction search are built on it"
 NO_SELECTION_YET = "No selection yet. {done} of {total} pairs are computed; the selection needs the whole grid."
 NOTHING_RUN = "No results for these settings yet. Run computes them."
-
-# The Pair Constraints' wording in the explanation, in the constraint table's order.
-CONSTRAINT_NAMES = {
-    "min_retention": "retention", "max_isolated_share": "isolated-share", "min_lcc_share": "LCC",
-    "min_comparable_neighbours": "neighbour", "max_multi_tag_clusters": "Multi-Tag Cluster",
-}
-
-
-def _n(count: int, one: str, many: str) -> str:
-    return f"{count} {one if count == 1 else many}"
+NULL_CAVEAT = "This shows only that the network is not random, not that its Clusters are real."
+SUBSAMPLE_CAVEAT = ("This measures how much the clustering depends on which games are in the dataset. It does not "
+                    "show that the Clusters are real either.")
+SENTENCES = (NA_CAVEAT, HIGH_G_CAVEAT, DESCRIPTIVE_CAPTION, DESCRIPTIVE_HELP, DATASET_STRIP_SENTENCE, LEIDEN_ONLY,
+             NO_SELECTION_YET, NOTHING_RUN, NULL_CAVEAT, SUBSAMPLE_CAVEAT)
 
 
-def _pct(value: float) -> str:
-    return f"{value * 100:g}%"
+def constraint_names(tx: Text) -> dict[str, str]:
+    """The Pair Constraints' wording in the explanation, in the constraint table's order."""
+    return {"min_retention": tx("retention"), "max_isolated_share": tx("isolated-share"), "min_lcc_share": tx("LCC"),
+            "min_comparable_neighbours": tx("neighbour"), "max_multi_tag_clusters": tx("Multi-Tag Cluster")}
 
 
-def constraint_phrases(c: Any) -> list[str]:
+def _pct(value: float, tx: Text) -> str:
+    return tx.pct(value)
+
+
+def constraint_phrases(c: Any, tx: Text) -> list[str]:
     """The active Pair Constraints as words, in the table's order."""
-    out = [f"Information Retention ≥ {c.min_retention:.2f}", f"isolated tags ≤ {_pct(c.max_isolated_share)}",
-           f"largest component ≥ {_pct(c.min_lcc_share)} of the tags with an edge",
-           f"≥ {c.min_comparable_neighbours} neighbours with a different graph"]
+    out = [tx("Information Retention ≥ {value}", value=tx.fixed(c.min_retention, ".2f")),
+           tx("isolated tags ≤ {value}", value=_pct(c.max_isolated_share, tx)),
+           tx("largest component ≥ {value} of the tags with an edge", value=_pct(c.min_lcc_share, tx)),
+           tx("≥ {n} neighbours with a different graph", n=c.min_comparable_neighbours)]
     if c.max_multi_tag_clusters is not None:
-        out.append(f"at most {c.max_multi_tag_clusters} Multi-Tag Clusters")
+        out.append(tx("at most {n} Multi-Tag Clusters", n=c.max_multi_tag_clusters))
     return out
 
 
-def _and_list(items: Sequence[str]) -> str:
-    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + ", and " + items[-1]
+def _under(constraints_label: str, tx: Text) -> str:
+    return tx("the default constraints") if constraints_label == tx("Default constraints") else tx("the custom constraints")
 
 
-def _under(constraints_label: str) -> str:
-    return "the default constraints" if constraints_label == "Default constraints" else "the custom constraints"
-
-
-def caveats() -> list[Paragraph]:
-    return [[(NA_CAVEAT, "italic")], [(HIGH_G_CAVEAT, "italic")]]
+def caveats(tx: Text) -> list[Paragraph]:
+    return [[(tx(NA_CAVEAT), "italic")], [(tx(HIGH_G_CAVEAT), "italic")]]
 
 
 def explanation(choice: Any, pair: Any, na: Any, settings_label: str, constraints_label: str,
-                minimum_k: int) -> list[Paragraph]:
+                minimum_k: int, *, tx: Text) -> list[Paragraph]:
     """"Why this pair": the template, built only from NA, the constraints and counts (never Q, Coverage or
     Silhouette). `pair` is the chosen pair's GraphResult and `na` its NeighbourAgreement."""
     g, s = choice.chosen
     wb = pair.workbench
     if wb["flag"] == "not_representable":
-        where = "(cannot be entered as a two-decimal value)"
+        where = tx("(cannot be entered as a two-decimal value)")
     else:
-        where = f"(Workbench {wb['gamma']:.2f})"
-    first: Paragraph = [(f"Selected: g = {g}, s = {s}", "bold"), (f", resolution {pair.selected_resolution:.3f} "
-                                                                  f"{where}.", None)]
+        where = tx("(Workbench {gamma})", gamma=tx.fixed(wb["gamma"], ".2f"))
+    first: Paragraph = [(tx("Selected: g = {g}, s = {s}", g=g, s=s), "bold"),
+                        (tx(", resolution {resolution} {where}.", resolution=tx.fixed(pair.selected_resolution, ".3f"),
+                            where=where), None)]
     if wb["flag"] == "not_reproduced":
-        first.append((f" Workbench {wb['gamma']:.2f} with the main seed shows a different partition.", None))
+        first.append((" " + tx("Workbench {gamma} with the main seed shows a different partition.",
+                               gamma=tx.fixed(wb["gamma"], ".2f")), None))
     c = choice.constraints
-    unexcluding = [CONSTRAINT_NAMES[x] for x in choice.excluded_none]
-    qualify = (f"{choice.n_selected} of {choice.n_pairs} pairs have a Selected Partition. "
-               f"{len(choice.qualifying)} qualify under {_under(constraints_label)}: "
-               f"{_and_list(constraint_phrases(c))}.")
+    names_of = constraint_names(tx)
+    unexcluding = [names_of[x] for x in choice.excluded_none]
+    qualify = (tx("{selected} of {pairs} pairs have a Selected Partition.", selected=choice.n_selected,
+                  pairs=choice.n_pairs) + " " +
+               tx("{n} qualify under {under}: {constraints}.", n=len(choice.qualifying),
+                  under=_under(constraints_label, tx), constraints=tx.join(constraint_phrases(c, tx), serial=True)))
     if unexcluding:
-        names = unexcluding[0] if len(unexcluding) == 1 else ", ".join(unexcluding[:-1]) + " and " + unexcluding[-1]
-        qualify += f" The {names} constraint{'' if len(unexcluding) == 1 else 's'} excluded no pair."
+        qualify += " " + tx.n(len(unexcluding), one="The {names} constraint excluded no pair.",
+                              other="The {names} constraints excluded no pair.", names=tx.join(unexcluding))
     bg, bs = choice.best
     near = len(choice.near_best)
-    pick = (f"The highest Neighbour Agreement among them is {choice.max_na:.2f} (g = {bg}, s = {bs}). "
-            f"{_n(near, 'pair is', 'pairs are')} within {c.tolerance:.2f} of it, and of these the one with the "
-            f"smallest g, then the smallest s, is selected.")
-    own = f"Its Neighbour Agreement is {na.value:.2f} over {_n(na.n_different, 'neighbour', 'neighbours')} with a different graph."
+    pick = (tx("The highest Neighbour Agreement among them is {na} (g = {g}, s = {s}).",
+               na=tx.fixed(choice.max_na, ".2f"), g=bg, s=bs) + " " +
+            tx.n(near, one="{n} pair is within {tolerance} of it, and of these the one with the smallest g, then the "
+                           "smallest s, is selected.",
+                 other="{n} pairs are within {tolerance} of it, and of these the one with the smallest g, then the "
+                       "smallest s, is selected.", tolerance=tx.fixed(c.tolerance, ".2f")))
+    own = tx.n(na.n_different, one="Its Neighbour Agreement is {na} over {n} neighbour with a different graph.",
+               other="Its Neighbour Agreement is {na} over {n} neighbours with a different graph.",
+               na=tx.fixed(na.value, ".2f"))
     if na.n_identical:
-        own += (f" {na.n_identical} more {'neighbour has' if na.n_identical == 1 else 'neighbours have'} an identical "
-                f"graph and {'is' if na.n_identical == 1 else 'are'} not counted.")
+        own += " " + tx.n(na.n_identical, one="{n} more neighbour has an identical graph and is not counted.",
+                          other="{n} more neighbours have an identical graph and are not counted.")
     out: list[Paragraph] = [first, [(f"{constraints_label} · {settings_label}.", None)], [(qualify, None)],
                             [(pick, None)], [(own, None)]]
     if pair.n_multi == minimum_k:
-        out.append([(f"Its Selected Partition has the minimum {minimum_k} Multi-Tag Clusters; a coarser split was "
-                     "not allowed.", None)])
+        out.append([(tx("Its Selected Partition has the minimum {k} Multi-Tag Clusters; a coarser split was not "
+                        "allowed.", k=minimum_k), None)])
     floor = pair.seed_noise["floor"]
     if floor < 0.5:
-        out.append([(f"The Seed-Noise Floor at this resolution is {floor:.2f}: the clustering also depends "
-                     "noticeably on the seed.", None)])
-    return out + caveats()
+        out.append([(tx("The Seed-Noise Floor at this resolution is {floor}: the clustering also depends noticeably on "
+                        "the seed.", floor=tx.fixed(floor, ".2f")), None)])
+    return out + caveats(tx)
 
 
-def no_qualifying_message(choice: Any, constraints_label: str) -> list[Paragraph]:
-    excluded = ", ".join(f"{phrase}: {e.alone} ({e.cumulative})"
-                         for phrase, e in zip(constraint_phrases(choice.constraints), choice.exclusion))
-    return [[("No pair qualifies", "bold"),
-             (f" under {_under(constraints_label)}. {choice.n_selected} of {choice.n_pairs} pairs have a Selected "
-              f"Partition. Excluded by each constraint, alone (cumulative): {excluded}. Loosen a constraint, or "
-              "inspect any pair in the grid and apply it by hand.", None)]]
+def no_qualifying_message(choice: Any, constraints_label: str, *, tx: Text) -> list[Paragraph]:
+    excluded = ", ".join(tx("{phrase}: {alone} ({cumulative})", phrase=phrase, alone=e.alone, cumulative=e.cumulative)
+                         for phrase, e in zip(constraint_phrases(choice.constraints, tx), choice.exclusion))
+    return [[(tx("No pair qualifies"), "bold"),
+             (" " + tx("under {under}. {selected} of {pairs} pairs have a Selected Partition. Excluded by each "
+                       "constraint, alone (cumulative): {excluded}. Loosen a constraint, or inspect any pair in the "
+                       "grid and apply it by hand.", under=_under(constraints_label, tx), selected=choice.n_selected,
+                       pairs=choice.n_pairs, excluded=excluded), None)]]
 
 
 def to_markdown(paragraphs: Sequence[Paragraph]) -> str:
@@ -129,27 +143,28 @@ def to_text(paragraphs: Sequence[Paragraph]) -> str:
 # ----------------------------------------------------------------------------- validation
 
 
-NULL_CAVEAT = "This shows only that the network is not random, not that its Clusters are real."
-SUBSAMPLE_CAVEAT = ("This measures how much the clustering depends on which games are in the dataset. It does not "
-                    "show that the Clusters are real either.")
-DEGENERATE_WORDS = {"no_edges": "had no edges", "no_stable_partition": "had no Selected Partition",
-                    "too_few_multi_tag_clusters": "had no Selected Partition"}
+def _degenerate(reason: str, count: int, tx: Text) -> str:
+    if reason == "no_edges":
+        return tx.n(count, one="{n} had no edges", other="{n} had no edges")
+    if reason in ("no_stable_partition", "too_few_multi_tag_clusters"):
+        return tx.n(count, one="{n} had no Selected Partition", other="{n} had no Selected Partition")
+    return f"{count} {reason}"
 
 
-def _range(spread: Any, digits: int = 3) -> str:
-    return f"{spread['min']:.{digits}f} to {spread['max']:.{digits}f}".replace("-", "−")
+def _range(spread: Any, tx: Text, digits: int = 3) -> str:
+    return tx("{lo} to {hi}", lo=_signed(spread["min"], tx, digits), hi=_signed(spread["max"], tx, digits))
 
 
-def _signed(value: float, digits: int = 3) -> str:
-    return f"{value:.{digits}f}".replace("-", "−")
+def _signed(value: float, tx: Text, digits: int = 3) -> str:
+    return tx.fixed(value, f".{digits}f").replace("-", "−")
 
 
-def _degenerate_words(reasons: dict[str, int]) -> str:
-    words: dict[str, int] = {}
+def _degenerate_words(reasons: dict[str, int], tx: Text) -> str:
+    groups: dict[str, int] = {}
     for reason, count in reasons.items():
-        text = DEGENERATE_WORDS.get(reason, reason)
-        words[text] = words.get(text, 0) + count
-    return "; ".join(f"{count} {text}" for text, count in words.items())
+        key = "no_stable_partition" if reason == "too_few_multi_tag_clusters" else reason
+        groups[key] = groups.get(key, 0) + count
+    return "; ".join(_degenerate(reason, count, tx) for reason, count in groups.items())
 
 
 def cluster_name(cluster: dict[str, Any], names: Any) -> str:
@@ -159,127 +174,146 @@ def cluster_name(cluster: dict[str, Any], names: Any) -> str:
     return f"{cluster['label']} ({shown})"
 
 
-def null_sentences(summary: Any) -> list[Paragraph]:
+def null_sentences(summary: Any, *, tx: Text) -> list[Paragraph]:
     n = summary["null"]
     r, q = n["replicates"], n["q"]
     reach = q["reach"]
-    head = f"Q at resolution {summary['resolution']:.3f} is {_signed(q['observed'])}; "
+    head = tx("Q at resolution {resolution} is {q};", resolution=tx.fixed(summary["resolution"], ".3f"),
+              q=_signed(q["observed"], tx)) + " "
     if reach:
-        head += f"{reach} of {r} shuffled networks reach it: Q not above the null."
+        head += tx("{reach} of {r} shuffled networks reach it: Q not above the null.", reach=reach, r=r)
     else:
-        head += f"no shuffled network reaches it ({_range(q)})."
+        head += tx("no shuffled network reaches it ({range}).", range=_range(q, tx))
     k, w = n["selected"], n["width"]
     if k:
-        side = "narrower" if w["median"] < w["observed"] else "wider"
-        rank = "all" if w["narrower"] == k else f"{w['narrower']} of"
-        head += (f" {k} of {r} also have a Selected Partition, with {side} domains (median {w['median']:.3g} against "
-                 f"{w['observed']:.3g}; wider than {rank} {k}).")
+        side = tx("narrower") if w["median"] < w["observed"] else tx("wider")
+        message = ("{k} of {r} also have a Selected Partition, with {side} domains (median {median} against "
+                   "{observed}; wider than all {k}).") if w["narrower"] == k else (
+                   "{k} of {r} also have a Selected Partition, with {side} domains (median {median} against "
+                   "{observed}; wider than {narrower} of {k}).")
+        head += " " + tx(message, k=k, r=r, side=side, median=tx.fixed(w["median"], ".3g"),
+                         observed=tx.fixed(w["observed"], ".3g"), narrower=w["narrower"])
     else:
-        head += f" None of the {r} has a Selected Partition."
-    return [[("Null Comparison", "bold"), (f" ({r} shuffled networks, same g and s). " + head, None)],
-            [(NULL_CAVEAT, "italic")]]
+        head += " " + tx("None of the {r} has a Selected Partition.", r=r)
+    return [[(tx("Null Comparison"), "bold"), (" " + tx("({r} shuffled networks, same g and s).", r=r) + " " + head,
+                                               None)],
+            [(tx(NULL_CAVEAT), "italic")]]
 
 
-def subsample_sentences(summary: Any, names: Any) -> list[Paragraph]:
+def _ari_spread(ari: dict[str, Any], tx: Text) -> str:
+    return tx("median ARI {median} ({p10}–{p90})", median=tx.fixed(ari["median"], ".2f"),
+              p10=tx.fixed(ari["p10"], ".2f"), p90=tx.fixed(ari["p90"], ".2f"))
+
+
+def subsample_sentences(summary: Any, names: Any, *, tx: Text) -> list[Paragraph]:
     sub = summary["subsample"]
     total = sub["subsamples"]
     re_, at = sub["reselected"], sub["at_resolution"]
-    text = f" ({total} random 80% subsets of the games, g′ = {sub['g']}, s′ = {sub['s']}). "
+    text = " " + tx("({total} random 80% subsets of the games, g′ = {g}, s′ = {s}).", total=total, g=sub["g"],
+                    s=sub["s"]) + " "
     if re_["ari"]["median"] is None:
-        text += f"Re-selected: no subsample has a Selected Partition ({_degenerate_words(re_['reasons'])})."
+        text += tx("Re-selected: no subsample has a Selected Partition ({reasons}).",
+                   reasons=_degenerate_words(re_["reasons"], tx))
     else:
-        text += (f"Re-selected: median ARI {re_['ari']['median']:.2f} ({re_['ari']['p10']:.2f}–{re_['ari']['p90']:.2f})"
-                 f" over {total - re_['degenerate']} of {total} subsamples")
-        text += f"; {_degenerate_words(re_['reasons'])}." if re_["degenerate"] else "."
-    gamma = f"{summary['resolution']:.3f}"
+        text += tx("Re-selected: {ari} over {n} of {total} subsamples", ari=_ari_spread(re_["ari"], tx),
+                   n=total - re_["degenerate"], total=total)
+        text += f"; {_degenerate_words(re_['reasons'], tx)}." if re_["degenerate"] else "."
+    gamma = tx.fixed(summary["resolution"], ".3f")
     if at["ari"]["median"] is not None:
-        text += (f" At resolution {gamma}: median ARI {at['ari']['median']:.2f} "
-                 f"({at['ari']['p10']:.2f}–{at['ari']['p90']:.2f})")
-        text += f"; {_degenerate_words(at['reasons'])}." if at["degenerate"] else "."
+        text += " " + tx("At resolution {gamma}: {ari}", gamma=gamma, ari=_ari_spread(at["ari"], tx))
+        text += f"; {_degenerate_words(at['reasons'], tx)}." if at["degenerate"] else "."
     n_clusters = len(re_["clusters"])
-    spans: Paragraph = [("Subsample Stability", "bold"), (text, None)]
+    spans: Paragraph = [(tx("Subsample Stability"), "bold"), (text, None)]
     any_dissolved = False
-    for arm, where in (("reselected", "when re-selected"), ("at_resolution", f"at resolution {gamma}")):
+    for arm in ("reselected", "at_resolution"):
         gone = [c for c in sub[arm]["clusters"] if c["dissolved"]]
         if gone:
             any_dissolved = True
-            verb = "is" if len(gone) == 1 else "are"
-            spans.append((f" {len(gone)} of {n_clusters} Multi-Tag Clusters {verb} dissolved {where} (mean Jaccard "
-                          "≤ 0.5): ", None))
+            if arm == "reselected":
+                lead = tx.n(len(gone), one="{n} of {total} Multi-Tag Clusters is dissolved when re-selected (mean "
+                                           "Jaccard ≤ 0.5):",
+                            other="{n} of {total} Multi-Tag Clusters are dissolved when re-selected (mean Jaccard "
+                                  "≤ 0.5):", total=n_clusters)
+            else:
+                lead = tx.n(len(gone), one="{n} of {total} Multi-Tag Clusters is dissolved at resolution {gamma} "
+                                           "(mean Jaccard ≤ 0.5):",
+                            other="{n} of {total} Multi-Tag Clusters are dissolved at resolution {gamma} (mean "
+                                  "Jaccard ≤ 0.5):", total=n_clusters, gamma=gamma)
+            spans.append((f" {lead} ", None))
             for i, c in enumerate(gone):
                 spans.append((cluster_name(c, names), "italic"))
                 spans.append((", " if i < len(gone) - 1 else ".", None))
     if not any_dissolved:
-        spans.append((" No Multi-Tag Cluster is dissolved (mean Jaccard ≤ 0.5) in either arm.", None))
-    return [spans, [(SUBSAMPLE_CAVEAT, "italic")]]
+        spans.append((" " + tx("No Multi-Tag Cluster is dissolved (mean Jaccard ≤ 0.5) in either arm."), None))
+    return [spans, [(tx(SUBSAMPLE_CAVEAT), "italic")]]
 
 
-def validation_title(pair: tuple[int, int]) -> str:
-    return f"Validation of g = {pair[0]}, s = {pair[1]}"
+def validation_title(pair: tuple[int, int], *, tx: Text) -> str:
+    return tx("Validation of g = {g}, s = {s}", g=pair[0], s=pair[1])
 
 
 def validation_block(summary: Any, pair: tuple[int, int], chosen_pair: tuple[int, int] | None, ran_for_default: bool,
-                     names: Any = None) -> list[Paragraph]:
+                     names: Any = None, *, tx: Text) -> list[Paragraph]:
     """The validation card. `summary` None: "Not validated". `ran_for_default` False when custom constraints chose
     `chosen_pair` and the shown validation is the default-constraint pair's."""
     names = names or {}
-    out: list[Paragraph] = [[(validation_title(pair), "bold")]]
+    out: list[Paragraph] = [[(validation_title(pair, tx=tx), "bold")]]
     if not ran_for_default and chosen_pair is not None and chosen_pair != pair:
-        out.append([(f"Validation ran for g = {pair[0]}, s = {pair[1]}, the pair chosen under the default "
-                     "constraints.", None)])
+        out.append([(tx("Validation ran for g = {g}, s = {s}, the pair chosen under the default constraints.",
+                        g=pair[0], s=pair[1]), None)])
     if summary is None:
-        return out + [[("Not validated.", None)]]
-    return out + null_sentences(summary) + subsample_sentences(summary, names)
+        return out + [[(tx("Not validated."), None)]]
+    return out + null_sentences(summary, tx=tx) + subsample_sentences(summary, names, tx=tx)
 
 
 # ----------------------------------------------------------------------------- the methods paragraph
 
 
-# One template for `selection_report.md` and the User Guide (ch. 5, shown with placeholders; a test keeps them equal).
-METHODS_TEMPLATE = (
-    "For each Top-100 Dataset we built the Tag Network at every Threshold Pair (g, s) of the Parameter Grid, "
-    "{g_range} games per tag and {s_range} shared games with s ≤ g ({n_pairs} pairs), with {weight} as the "
-    "Clustering Weight, a Minimum Months Filter of {min_months} and {hidden} hidden. On each distinct graph we ran "
-    "Leiden (RBConfiguration, at most 1,000 passes) with {scan_seeds} seeds at every γ from 0 to Gibson and Mucha's "
-    "γ_max(K), K being the number of tags with an edge, in steps of {gamma_step} (Gibson & Mucha 2022, SI §J); the "
-    "derivation in SI §J.2 uses only the Cauchy–Schwarz inequality and assortativity, so the bound also holds for "
-    "Clusters of unequal size and for weighted graphs. The unique partitions found were reduced to the upper envelope "
-    "of their lines Q(γ) = Â − γP̂, giving the Admissible Partitions and their Optimality Domains (CHAMP; Weir et al. "
-    "2017, §2, eqs. 1–4). For each we evaluated once the self-consistent resolution γ̂ = (ω_in − ω_out)/(ln ω_in − "
-    "ln ω_out) (Newman 2016, §III.A, eqs. 15–18) and called the partition stable when γ̂ lies in its own domain "
-    "(Gibson & Mucha 2022, Fig. 1(d), SI §C.2–C.3). Among the Stable Partitions with at least {min_multi} Multi-Tag "
-    "Clusters, the Selected Partition has the widest domain in plain γ units, and the Selected Resolution is the "
-    "domain's midpoint; the sources give no rule for choosing among Stable Partitions, and we did not rescale the "
-    "width to log γ or to Gibson and Mucha's γ-scaled area (SI §A.7), whose usefulness the authors leave open. "
-    "Neighbour Agreement is the mean adjusted Rand index between a pair's Selected Partition and those of its grid "
-    "neighbours (g ± 1, s ± 1) with a different graph, on the shared tags with an edge in either graph. The chosen "
-    "pair is the one with the smallest g, then the smallest s, among the pairs whose Neighbour Agreement is within "
-    "{tolerance} of the highest, among pairs with {constraints}. We compared the chosen pair with {replicates} "
-    "networks whose game–tag table was shuffled by curveball trades (every tag and game keeps its count), each "
-    "analysed by the identical procedure (Karrer, Levina & Newman 2008, abstract, §III and §VI), and with "
-    "{subsamples} random subsets of m = ⌊0.8·n⌋ of the n games, with the thresholds scaled by floor (g′ = ⌊g·m/n⌋, "
-    "s′ = max(2, ⌊s·m/n⌋)). For each Multi-Tag Cluster we report Hennig's (2007, §2) mean best-match Jaccard on "
-    "the tags present in both networks, over the B* subsamples in which the Cluster has a tag, and call it "
-    "dissolved at a mean of 0.5 or less; the 0.6, 0.75 and 0.85 bands of the fpc package refer to the bootstrap and "
-    "are not applied."
-)
 METHODS_FIELDS = ("g_range", "s_range", "n_pairs", "weight", "min_months", "hidden", "scan_seeds", "gamma_step",
                   "min_multi", "tolerance", "constraints", "replicates", "subsamples")
 
 
-def methods_paragraph(values: dict[str, Any] | None = None) -> str:
-    """The template filled with a run's values, or with ‹placeholders› (as in the User Guide)."""
+def methods_paragraph(tx: Text, values: dict[str, Any] | None = None) -> str:
+    """One template for `selection_report.md` and the User Guide (ch. 5, shown with placeholders; a test keeps them
+    equal), filled with a run's values, or with ‹placeholders›."""
     values = values or {name: f"‹{name}›" for name in METHODS_FIELDS}
-    return METHODS_TEMPLATE.format(**values)
+    return tx(
+        "For each Top-100 Dataset we built the Tag Network at every Threshold Pair (g, s) of the Parameter Grid, "
+        "{g_range} games per tag and {s_range} shared games with s ≤ g ({n_pairs} pairs), with {weight} as the "
+        "Clustering Weight, a Minimum Months Filter of {min_months} and {hidden} hidden. On each distinct graph we ran "
+        "Leiden (RBConfiguration, at most 1,000 passes) with {scan_seeds} seeds at every γ from 0 to Gibson and "
+        "Mucha's γ_max(K), K being the number of tags with an edge, in steps of {gamma_step} (Gibson & Mucha 2022, "
+        "SI §J); the derivation in SI §J.2 uses only the Cauchy–Schwarz inequality and assortativity, so the bound "
+        "also holds for Clusters of unequal size and for weighted graphs. The unique partitions found were reduced to "
+        "the upper envelope of their lines Q(γ) = Â − γP̂, giving the Admissible Partitions and their Optimality "
+        "Domains (CHAMP; Weir et al. 2017, §2, eqs. 1–4). For each we evaluated once the self-consistent resolution "
+        "γ̂ = (ω_in − ω_out)/(ln ω_in − ln ω_out) (Newman 2016, §III.A, eqs. 15–18) and called the partition stable "
+        "when γ̂ lies in its own domain (Gibson & Mucha 2022, Fig. 1(d), SI §C.2–C.3). Among the Stable Partitions "
+        "with at least {min_multi} Multi-Tag Clusters, the Selected Partition has the widest domain in plain γ "
+        "units, and the Selected Resolution is the domain's midpoint; the sources give no rule for choosing among "
+        "Stable Partitions, and we did not rescale the width to log γ or to Gibson and Mucha's γ-scaled area "
+        "(SI §A.7), whose usefulness the authors leave open. Neighbour Agreement is the mean adjusted Rand index "
+        "between a pair's Selected Partition and those of its grid neighbours (g ± 1, s ± 1) with a different graph, "
+        "on the shared tags with an edge in either graph. The chosen pair is the one with the smallest g, then the "
+        "smallest s, among the pairs whose Neighbour Agreement is within {tolerance} of the highest, among pairs with "
+        "{constraints}. We compared the chosen pair with {replicates} networks whose game–tag table was shuffled by "
+        "curveball trades (every tag and game keeps its count), each analysed by the identical procedure (Karrer, "
+        "Levina & Newman 2008, abstract, §III and §VI), and with {subsamples} random subsets of m = ⌊0.8·n⌋ of the n "
+        "games, with the thresholds scaled by floor (g′ = ⌊g·m/n⌋, s′ = max(2, ⌊s·m/n⌋)). For each Multi-Tag Cluster "
+        "we report Hennig's (2007, §2) mean best-match Jaccard on the tags present in both networks, over the B* "
+        "subsamples in which the Cluster has a tag, and call it dissolved at a mean of 0.5 or less; the 0.6, 0.75 "
+        "and 0.85 bands of the fpc package refer to the bootstrap and are not applied.", **values)
 
 
-def methods_values(settings: Any, constraints: Any) -> dict[str, Any]:
-    weight = {"lift": "Lift", "shared_games": "shared games"}[settings.clustering_weight]
+def methods_values(settings: Any, constraints: Any, *, tx: Text) -> dict[str, Any]:
+    weight = tx("Lift") if settings.clustering_weight == "lift" else tx("shared games")
     n_hidden = len(settings.genre_hidden)
-    hidden = f"{n_hidden} Genre Tags" + (" and each dataset's defining tag" if settings.hide_defining_tag else "")
+    hidden = (tx("{n} Genre Tags and each dataset's defining tag", n=n_hidden) if settings.hide_defining_tag
+              else tx("{n} Genre Tags", n=n_hidden))
     return {"g_range": f"{settings.g_range[0]}–{settings.g_range[1]}",
             "s_range": f"{settings.s_range[0]}–{settings.s_range[1]}", "n_pairs": len(settings.pairs()),
             "weight": weight, "min_months": settings.min_months, "hidden": hidden, "scan_seeds": settings.scan_seeds,
-            "gamma_step": f"{settings.gamma_step:g}", "min_multi": settings.min_multi_tag_clusters,
-            "tolerance": f"{constraints.tolerance:.2f}", "constraints": _and_list(constraint_phrases(constraints)),
+            "gamma_step": tx.fixed(settings.gamma_step, "g"), "min_multi": settings.min_multi_tag_clusters,
+            "tolerance": tx.fixed(constraints.tolerance, ".2f"),
+            "constraints": tx.join(constraint_phrases(constraints, tx), serial=True),
             "replicates": settings.replicates, "subsamples": settings.subsamples}

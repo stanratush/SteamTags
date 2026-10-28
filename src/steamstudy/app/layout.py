@@ -18,7 +18,6 @@ the Inspector; narrow (< 1024 px, or "Graph only") also turns the tables into a 
 
 from __future__ import annotations
 
-import json
 from collections.abc import Callable
 from typing import Any
 
@@ -28,62 +27,16 @@ from dash import dcc, html
 from steamstudy.app import help as H
 from steamstudy.app.guide import LABELS
 from steamstudy.app.loader import BuildContext
+from steamstudy.app.relabel import RELABEL, Labels, Message, message_value, msg  # noqa: F401
 from steamstudy.app.ps_view import mode_layout
 from steamstudy.app.renderer import graph_component, thickness_key
 from steamstudy.app.view import column_defs, metric_header
 from steamstudy.i18n import LANGS, Text, text
 
-WB_TABS = [("quality", "Cluster quality"), ("clusters", "Clusters"), ("rs", "Removal sensitivity"),
-           ("nodes", "Nodes"), ("edges", "Edges"), ("nin", "Not in network")]
+WB_TABS = [("quality", msg("Cluster quality")), ("clusters", msg("Clusters")), ("rs", msg("Removal sensitivity")),
+           ("nodes", msg("Nodes")), ("edges", msg("Edges")), ("nin", msg("Not in network"))]
 SLIDERS = ("min-games", "min-shared", "min-months")
 PILLS = ("dataset", "min-months", "min-games", "min-shared", "hidden", "weight", "algorithm", "gamma", "seed")
-
-# A registered message: English text for `tx`, or a function of the translator (a tooltip, a store's words).
-Message = str | Callable[[Text], Any]
-# json([component id, prop]) -> (component id, prop, message), in the order first registered.
-RELABEL: dict[str, tuple[Any, str, Message]] = {}
-
-
-def message_value(message: Message, tx: Text) -> Any:
-    return tx(message) if isinstance(message, str) else message(tx)
-
-
-def _t(tx: Text, id_: Any, prop: str, message: Message) -> Any:
-    """Register a static prop for the relabel callback and return its value in the page's language."""
-    RELABEL.setdefault(json.dumps([id_, prop], sort_keys=True), (id_, prop, message))
-    return message_value(message, tx)
-
-
-class Labels:
-    """The page's translator and the relabel registry, for one build of the layout."""
-
-    def __init__(self, tx: Text) -> None:
-        self.tx = tx
-        self._n = 0
-
-    def new_id(self) -> str:
-        self._n += 1
-        return f"i18n-{self._n}"
-
-    def prop(self, id_: Any, prop: str, message: Message) -> Any:
-        """A static prop of a component with an id: registered, in the page's language."""
-        return _t(self.tx, id_, prop, message)
-
-    def span(self, message: Message, **kw: Any) -> html.Span:
-        """A static text as a Span of its own, registered so that a language switch relabels it."""
-        id_ = self.new_id()
-        return html.Span(self.prop(id_, "children", message), id=id_, **kw)
-
-    def help(self, key: str) -> dict[str, Any]:
-        """Both help layers for an element of its own id (`id` is in the result): the tooltip is registered."""
-        id_ = self.new_id()
-        return {"id": id_, "data-tip": self.prop(id_, "data-tip", lambda tx: H.tip(key, tx)),
-                "data-help": H.target(key)}
-
-    def options(self, id_: str, options: list[tuple[Any, str]]) -> list[dict[str, Any]]:
-        """A RadioItems or Checklist's options, with registered labels."""
-        return self.prop(id_, "options", lambda tx: [{"label": tx(label), "value": v} for v, label in options])
-
 
 def ui_words(tx: Text) -> dict[str, Any]:
     """The words the browser code shows (the `ui-words` store): JS and CSS hold none of their own. `tip` labels each
@@ -143,7 +96,7 @@ def _language(L: Labels, lang: str) -> html.Div:
     both help layers, like an analytical control's; its tooltip is the registry's first entry."""
     tip = L.prop("lang-term", "data-tip", lambda tx: H.tip("header.lang", tx))
     return html.Div([
-        html.Span(L.prop("lang-term", "children", "Language"), id="lang-term", className="term", tabIndex="0",
+        html.Span(L.prop("lang-term", "children", msg("Language")), id="lang-term", className="term", tabIndex="0",
                   **{"data-tip": tip, "data-help": H.target("header.lang")}),
         _seg("lang-switch", [{"label": code.upper(), "value": code} for code in LANGS], lang),
     ], id="lang-box", className="lang-box")
@@ -206,7 +159,7 @@ def _seg(id_: str, options: list[dict[str, Any]], value: Any, **kw: Any) -> dcc.
 
 def _help(L: Labels, panel: str) -> html.Button:
     id_ = {"type": "help", "panel": panel}
-    return html.Button("?", id=id_, className="help", title=L.prop(id_, "title", "Open the User Guide section"))
+    return html.Button("?", id=id_, className="help", title=L.prop(id_, "title", msg("Open the User Guide section")))
 
 
 def _grid(L: Labels, id_: str, height: str = "320px", **kw: Any) -> dag.AgGrid:
@@ -245,21 +198,21 @@ def _controls(L: Labels, ctx: BuildContext) -> html.Div:
     hidden = [t for t in genre_ids if t in s.hidden_tag_ids]
     hides_defining = bool(defining and defining.id in s.hidden_tag_ids)
     hidden_pill = tx.n(len(hidden), one="{n} Genre Tag", other="{n} Genre Tags")
-    data = _section(L, "Data", [
+    data = _section(L, msg("Data"), [
         _item(L, "dataset", "", ctx.dataset(first).label, [
-            html.Label(L.span("Dataset"), htmlFor="dataset", className="l"),
+            html.Label(L.span(msg("Dataset")), htmlFor="dataset", className="l"),
             dcc.Dropdown(id="dataset", options=[{"label": d.label, "value": d.key} for d in ctx.datasets],
                          value=first, clearable=False, searchable=False)]),
-        _item(L, "min-months", "Months ≥", str(s.min_months),
-              _slider(L, "min-months", "Minimum Months Filter", 0, 60, s.min_months)),
+        _item(L, "min-months", msg("Months ≥"), str(s.min_months),
+              _slider(L, "min-months", msg("Minimum Months Filter"), 0, 60, s.min_months)),
     ])
-    filters = _section(L, "Filters", [
-        _item(L, "min-games", "Min games", str(s.min_games_per_tag),
-              _slider(L, "min-games", "Minimum games per tag", 1, 40, s.min_games_per_tag)),
-        _item(L, "min-shared", "Min shared", str(s.min_shared_games),
-              _slider(L, "min-shared", "Minimum shared games", 1, 30, s.min_shared_games)),
-        _item(L, "hidden", "Hidden", tx("{hidden} + defining", hidden=hidden_pill) if hides_defining else hidden_pill, [
-            html.Label([L.span("Hidden Genre Tags"), " ",
+    filters = _section(L, msg("Filters"), [
+        _item(L, "min-games", msg("Min games"), str(s.min_games_per_tag),
+              _slider(L, "min-games", msg("Minimum games per tag"), 1, 40, s.min_games_per_tag)),
+        _item(L, "min-shared", msg("Min shared"), str(s.min_shared_games),
+              _slider(L, "min-shared", msg("Minimum shared games"), 1, 30, s.min_shared_games)),
+        _item(L, "hidden", msg("Hidden"), tx("{hidden} + defining", hidden=hidden_pill) if hides_defining else hidden_pill, [
+            html.Label([L.span(msg("Hidden Genre Tags")), " ",
                         html.Span(tx("{n} of {total}", n=len(hidden), total=len(genre_ids)), id="genre-count",
                                   className="mute num")], className="l"),
             dcc.Checklist(id="genre-hidden", options=[{"label": t.name, "value": t.id} for t in ctx.genre_tags],
@@ -268,41 +221,41 @@ def _controls(L: Labels, ctx: BuildContext) -> html.Div:
                           value=[1] if hides_defining else [], className="check"),
         ]),
     ])
-    clustering = _section(L, "Clustering", [
-        _item(L, "weight", "Weight", tx("Shared games") if s.clustering_weight == "shared_games" else tx("Lift"), [
-            _label(L, "Clustering weight", "control.weight"),
-            _seg("weight", L.options("weight", [("shared_games", "Shared games"), ("lift", "Lift")]),
+    clustering = _section(L, msg("Clustering"), [
+        _item(L, "weight", msg("Weight"), tx("Shared games") if s.clustering_weight == "shared_games" else tx("Lift"), [
+            _label(L, msg("Clustering weight"), "control.weight"),
+            _seg("weight", L.options("weight", [("shared_games", msg("Shared games")), ("lift", msg("Lift"))]),
                  s.clustering_weight)]),
         _item(L, "algorithm", "", s.algorithm.capitalize(), [
-            _label(L, "Clustering algorithm", "control.algorithm"),
+            _label(L, msg("Clustering algorithm"), "control.algorithm"),
             _seg("algorithm", [{"label": "Louvain", "value": "louvain"}, {"label": "Leiden", "value": "leiden"}],
                  s.algorithm)]),
         html.Div([
-            _item(L, "gamma", "γ", tx.fixed(s.resolution, ".2f"), [
-                _label(L, "Resolution γ", "control.gamma", htmlFor="gamma"),
+            _item(L, "gamma", msg("γ"), tx.fixed(s.resolution, ".2f"), [
+                _label(L, msg("Resolution γ"), "control.gamma", htmlFor="gamma"),
                 dcc.Input(id="gamma", type="number", min=0.01, step=0.01, value=s.resolution, debounce=True)]),
-            _item(L, "seed", "Seed", str(s.seed), [
-                _label(L, "Seed", "control.seed", htmlFor="seed"),
+            _item(L, "seed", msg("Seed"), str(s.seed), [
+                _label(L, msg("Seed"), "control.seed", htmlFor="seed"),
                 dcc.Input(id="seed", type="number", min=0, step=1, value=s.seed, debounce=True)]),
         ], className="two"),
     ])
-    state = _section(L, "State", [
-        _item(L, "state", "State", "…", [
-            html.Label(L.span("Removed tags"), className="l"),
+    state = _section(L, msg("State"), [
+        _item(L, "state", msg("State"), "…", [
+            html.Label(L.span(msg("Removed tags")), className="l"),
             html.Div([dcc.Dropdown(id="restore-pick", options=[],
-                                   placeholder=L.prop("restore-pick", "placeholder", "pick a removed tag")),
-                      _button(L, "restore-btn", "Restore")], className="row-inline"),
-            html.Div([_button(L, "reset-btn", "Reset all"),
-                      _button(L, "export-btn", "Export this state", "btn primary")], className="stack"),
-            dcc.Upload(_button(L, "open-btn", "Open Network State…", "btn wide"), id="open-upload", accept=".zip,.json",
+                                   placeholder=L.prop("restore-pick", "placeholder", msg("pick a removed tag"))),
+                      _button(L, "restore-btn", msg("Restore"))], className="row-inline"),
+            html.Div([_button(L, "reset-btn", msg("Reset all")),
+                      _button(L, "export-btn", msg("Export this state"), "btn primary")], className="stack"),
+            dcc.Upload(_button(L, "open-btn", msg("Open Network State…"), "btn wide"), id="open-upload", accept=".zip,.json",
                        multiple=False),
             html.Div(id="open-message", className="msg"),
-            _button(L, "clear-cache-btn", "Clear app cache", "btn quiet"),
+            _button(L, "clear-cache-btn", msg("Clear app cache"), "btn quiet"),
             html.Div(id="cache-message", className="msg"),
         ]),
     ])
     return html.Div([
-        html.Div([html.B(L.span("Controls")), _help(L, "controls")], className="ctl-title"),
+        html.Div([html.B(L.span(msg("Controls"))), _help(L, "controls")], className="ctl-title"),
         data, filters, clustering, state,
     ], id="controls-panel", className="controls")
 
@@ -315,7 +268,7 @@ def _thickness_legend(L: Labels, ctx: BuildContext) -> html.Div:
         html.Span(label, id="thickness-label", className="lkey term", tabIndex="0",
                   **{"data-tip": L.prop("thickness-label", "data-tip", lambda tx: H.tip("legend.thickness", tx)),
                      "data-help": H.target("legend.thickness")}),
-        dcc.Checklist(id="thickness-shared", options=L.options("thickness-shared", [(1, "show shared games")]),
+        dcc.Checklist(id="thickness-shared", options=L.options("thickness-shared", [(1, msg("show shared games"))]),
                       value=[], className="check", style=style),
     ], className="legend thickness-key")
 
@@ -325,42 +278,42 @@ def build_layout(ctx: BuildContext, lang: str = "en") -> html.Div:
     L = Labels(text(lang))
     language = _language(L, lang)
     graph_block = html.Div([
-        html.H3([L.span("3 Network"), _help(L, "network")], className="section-heading"),
+        html.H3([L.span(msg("3 Network")), _help(L, "network")], className="section-heading"),
         html.Div(id="summary-row", className="sumrow"),
         html.Div(id="state-sentence", className="state-line"),
         html.Div([
             *graph_component(),
-            html.Div([_seg("layout-mode", L.options("layout-mode", [("global", "Global"),
-                                                                    ("separated", "Cluster-separated")]), "global"),
-                      _button(L, "relayout-btn", "Tidy",
-                              title="Settle the graph around the nodes you dragged; positions only"),
+            html.Div([_seg("layout-mode", L.options("layout-mode", [("global", msg("Global")),
+                                                                    ("separated", msg("Cluster-separated"))]), "global"),
+                      _button(L, "relayout-btn", msg("Tidy"),
+                              title=msg("Settle the graph around the nodes you dragged; positions only")),
                       html.Button("⤢", id="fit-btn", className="btn",
-                                  title=L.prop("fit-btn", "title", "Fit the graph to the view"))],
+                                  title=L.prop("fit-btn", "title", msg("Fit the graph to the view")))],
                      className="ov ov-tr", **_data(graph_overlay="top")),
             html.Div([html.Div(id="legend", className="legend"), _thickness_legend(L, ctx)], className="ov ov-bl",
                      **_data(graph_overlay="bottom")),
             # Shown while a callback runs (callbacks.py: `running`); never a graph overlay, so it never resizes the
             # canvas the layout is made for. role="status" is a polite live region: screen readers announce the label.
-            html.Div([html.Span(L.prop("busy-clustering", "children", "Clustering…"), id="busy-clustering",
+            html.Div([html.Span(L.prop("busy-clustering", "children", msg("Clustering…")), id="busy-clustering",
                                 hidden=True),
-                      html.Span(L.prop("busy-layout", "children", "Laying out…"), id="busy-layout", hidden=True)],
+                      html.Span(L.prop("busy-layout", "children", msg("Laying out…")), id="busy-layout", hidden=True)],
                      className="busy graph-busy", role="status"),
         ], className="graph-stage"),
     ], id="blk-graph", className="panel graph-block")
 
-    rs_block = _block(L, "blk-rs", "5 Removal sensitivity", [
-        html.Div([_button(L, "rs-run", "Run", "btn primary"),
+    rs_block = _block(L, "blk-rs", msg("5 Removal sensitivity"), [
+        html.Div([_button(L, "rs-run", msg("Run"), "btn primary"),
                   html.Button(id="rs-continue", className="btn", style={"display": "none"}),
-                  _button(L, "rs-cancel", "Cancel"),
+                  _button(L, "rs-cancel", msg("Cancel")),
                   html.Span(id="rs-estimate", className="mute")], className="row-inline"),
         html.Progress(id="rs-progress", value="0", max="1", style={"width": "100%"}),
         html.Span(id="rs-progress-label", className="mute small"), dcc.Store(id="rs-progress-store"),
         html.Div(id="rs-banner", className="warning", style={"display": "none"}),
         html.Div(id="noise-line-rs", className="qline"),
-        html.Div([dcc.Checklist(id="rs-beyond", options=L.options("rs-beyond", [(1, "beyond noise only")]), value=[],
+        html.Div([dcc.Checklist(id="rs-beyond", options=L.options("rs-beyond", [(1, msg("beyond noise only"))]), value=[],
                                 inline=True, className="check"),
                   dcc.Dropdown(id="rs-cluster", options=[], style={"width": "200px"},
-                               placeholder=L.prop("rs-cluster", "placeholder", "all clusters"))],
+                               placeholder=L.prop("rs-cluster", "placeholder", msg("all clusters")))],
                  className="row-inline"),
         html.Div(_grid(L, "rs-grid", height="300px"), id="rs-grid-wrap"),
         html.Div(id="rs-footer", className="qline"),
@@ -368,48 +321,48 @@ def build_layout(ctx: BuildContext, lang: str = "en") -> html.Div:
 
     tables = html.Div([
         html.Div([html.Span(id="sheet-grip", className="grip",
-                            title=L.prop("sheet-grip", "title", "Open or close the tables")),
+                            title=L.prop("sheet-grip", "title", msg("Open or close the tables"))),
                   dcc.RadioItems(id="wb-tab", options=L.options("wb-tab", WB_TABS), value="quality", inline=True,
                                  className="tabs-nav")],
                  id="blk-tabs", className="panel"),
-        _block(L, "blk-filters", "2 Filters", [html.Div(id="filters-summary"), _grid(L, "nin-grid")],
+        _block(L, "blk-filters", msg("2 Filters"), [html.Div(id="filters-summary"), _grid(L, "nin-grid")],
                help_panel="filters"),
-        _block(L, "blk-quality", "4 Cluster quality", [
+        _block(L, "blk-quality", msg("4 Cluster quality"), [
             html.Div(id="quality-detail", className="qline"),
             _grid(L, "connections-grid", height="200px"),
-            html.Details([html.Summary(L.span("Null model and seed-noise replicates")),
+            html.Details([html.Summary(L.span(msg("Null model and seed-noise replicates"))),
                           _grid(L, "null-grid", height="200px"),
                           _grid(L, "seed-grid", height="200px")]),
         ], help_panel="quality"),
-        _block(L, "blk-clusters", "Clusters", [_grid(L, "clusters-grid")], help_panel="clusters"),
+        _block(L, "blk-clusters", msg("Clusters"), [_grid(L, "clusters-grid")], help_panel="clusters"),
         rs_block,
-        _block(L, "blk-nodes", "6 All nodes and edges", [_grid(L, "nodes-grid")], help_panel="nodes"),
-        _block(L, "blk-edges", "Edges", [_grid(L, "edges-grid")], help_panel="edges"),
+        _block(L, "blk-nodes", msg("6 All nodes and edges"), [_grid(L, "nodes-grid")], help_panel="nodes"),
+        _block(L, "blk-edges", msg("Edges"), [_grid(L, "edges-grid")], help_panel="edges"),
     ], id="tables-area", className="tables-area", **_data(graph_overlay="bottom"))
 
     main = html.Div([
-        _block(L, "blk-dataset", "1 Dataset", [html.Div(id="dataset-summary")], help_panel="dataset"),
+        _block(L, "blk-dataset", msg("1 Dataset"), [html.Div(id="dataset-summary")], help_panel="dataset"),
         graph_block,
         html.Div(id="tables-handle", className="tables-handle",
-                 title=L.prop("tables-handle", "title", "Drag to resize the tables")),
+                 title=L.prop("tables-handle", "title", msg("Drag to resize the tables"))),
         tables,
-        _block(L, "blk-export", "7 Export", [_button(L, "export-btn-report", "Export this state", "btn primary"),
+        _block(L, "blk-export", msg("7 Export"), [_button(L, "export-btn-report", msg("Export this state"), "btn primary"),
                                             html.Div(id="export-summary")], help_panel="export"),
     ], id="main", className="main")
 
     inspector = html.Div([
-        html.Div([html.B(L.span("Inspector")), _help(L, "inspector"),
+        html.Div([html.B(L.span(msg("Inspector"))), _help(L, "inspector"),
                   # Shown while a selection, then the Inspector's content for it, is on its way (callbacks.py:
                   # `running`).
-                  html.Div([html.Span(L.prop("busy-selecting", "children", "Selecting…"), id="busy-selecting",
+                  html.Div([html.Span(L.prop("busy-selecting", "children", msg("Selecting…")), id="busy-selecting",
                                       hidden=True),
-                            html.Span(L.prop("busy-inspector", "children", "Loading…"), id="busy-inspector",
+                            html.Span(L.prop("busy-inspector", "children", msg("Loading…")), id="busy-inspector",
                                       hidden=True)], className="busy insp-busy", role="status"),
                   html.Button("×", id="inspector-close", className="x",
-                              title=L.prop("inspector-close", "title", "Close"))], className="insp-title"),
+                              title=L.prop("inspector-close", "title", msg("Close")))], className="insp-title"),
         html.Div(id="inspector-body"),
-        html.Div([_button(L, "remove-btn", "Remove this tag", style={"display": "none"}),
-                  _button(L, "rs-run-tag", "Run for this tag", style={"display": "none"})],
+        html.Div([_button(L, "remove-btn", msg("Remove this tag"), style={"display": "none"}),
+                  _button(L, "rs-run-tag", msg("Run for this tag"), style={"display": "none"})],
                  className="row-inline"),
     ], id="inspector-panel", className="inspector docked", **_data(graph_overlay="right", graph_transient="yes"))
 
@@ -429,36 +382,36 @@ def build_layout(ctx: BuildContext, lang: str = "en") -> html.Div:
         dcc.Download(id="download"),
     ]
     header = html.Header([
-        html.Div([html.B(L.prop("brand-title", "children", "Tag Network"), id="brand-title", className="title"),
+        html.Div([html.B(L.prop("brand-title", "children", msg("Tag Network")), id="brand-title", className="title"),
                   html.Span(L.prop("brand-build", "children", lambda tx: tx("Build {build_id}", build_id=ctx.build_id)),
                             id="brand-build", className="mute")],
                  className="brand"),
-        _seg("mode", L.options("mode", [("workbench", "Workbench"), ("report", "Analysis Report mode"),
-                                        ("selection", "Parameter Selection")]), "workbench"),
+        _seg("mode", L.options("mode", [("workbench", msg("Workbench")), ("report", msg("Analysis Report mode")),
+                                        ("selection", msg("Parameter Selection"))]), "workbench"),
         language,
         html.Div(dcc.Dropdown(id="tag-search", options=[], searchable=True, clearable=False, className="tag-search",
-                              placeholder=L.prop("tag-search", "placeholder", "Find a tag…"),
+                              placeholder=L.prop("tag-search", "placeholder", msg("Find a tag…")),
                               labels=L.prop("tag-search", "labels", dropdown_labels)),
                  id="search-slot", className="search-slot"),
         html.Div([
             html.Span(id="verify-result", className="small"),
             html.Span(id="error-message", className="error small"),
-            dcc.Checklist(id="panels", options=L.options("panels", [("controls", "Controls"),
-                                                                   ("inspector", "Inspector"), ("tables", "Tables")]),
+            dcc.Checklist(id="panels", options=L.options("panels", [("controls", msg("Controls")),
+                                                                   ("inspector", msg("Inspector")), ("tables", msg("Tables"))]),
                           value=["controls", "inspector", "tables"], inline=True, className="seg toggles"),
-            _button(L, "graph-only", "Graph only", title="The narrowest form at any width"),
+            _button(L, "graph-only", msg("Graph only"), title=msg("The narrowest form at any width")),
         ], className="hdr-right"),
     ], className="app-header")
     # ← Back and × sit in a header that never scrolls; only the entry below it does.
-    help_modal = html.Div([html.Div([_button(L, "help-back", "← Back", "btn back", style={"display": "none"}),
+    help_modal = html.Div([html.Div([_button(L, "help-back", msg("← Back"), "btn back", style={"display": "none"}),
                                      html.Button("×", id="help-close", className="x",
-                                                 title=L.prop("help-close", "title", "Close"))], className="help-head"),
+                                                 title=L.prop("help-close", "title", msg("Close")))], className="help-head"),
                            html.Div(dcc.Markdown(id="help-body", link_target="_blank"), className="help-scroll")],
                           id="help-modal", className="help-modal", style={"display": "none"})
     return html.Div([
         *stores, html.Div(id="banners"), header,
         html.Div([_controls(L, ctx), main, inspector], id="app-body", className="app-body"),
-        mode_layout(ctx),
+        mode_layout(ctx, L),
         help_modal,
     ], id="root", className="workbench controls-on inspector-on tables-on")
 

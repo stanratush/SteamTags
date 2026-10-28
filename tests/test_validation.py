@@ -6,11 +6,14 @@ from collections import Counter
 
 import pytest
 
+from steamstudy.i18n import text
 from steamstudy.app.loader import load_build
 from steamstudy.network import selection as SEL
 from steamstudy.network import selection_text as T
 from steamstudy.network import validation as V
 from steamstudy.network.graph import filter_games
+
+EN = text("en")
 
 
 @pytest.fixture(scope="module")
@@ -152,7 +155,7 @@ def _summary(reach=0, dissolved=False, degenerate=1):
 
 def test_validation_block_golden_text():
     names = {1: "Strategy", 2: "Tactical", 3: "Turn-Based", 4: "Wargame"}
-    text = T.to_markdown(T.validation_block(_summary(dissolved=True), (17, 2), (17, 2), True, names))
+    text = T.to_markdown(T.validation_block(_summary(dissolved=True), (17, 2), (17, 2), True, names, tx=EN))
     assert text == (
         "**Validation of g = 17, s = 2**\n\n"
         "**Null Comparison** (100 shuffled networks, same g and s). Q at resolution 1.151 is 0.067; no shuffled "
@@ -168,10 +171,10 @@ def test_validation_block_golden_text():
 
 
 def test_validation_block_variants():
-    reached = T.to_markdown(T.validation_block(_summary(reach=3), (17, 2), (17, 2), True))
+    reached = T.to_markdown(T.validation_block(_summary(reach=3), (17, 2), (17, 2), True, tx=EN))
     assert "Q at resolution 1.151 is 0.067; 3 of 100 shuffled networks reach it: Q not above the null." in reached
     assert "No Multi-Tag Cluster is dissolved (mean Jaccard ≤ 0.5) in either arm." in reached
-    assert T.to_markdown(T.validation_block(None, (14, 2), (14, 2), True)) == (
+    assert T.to_markdown(T.validation_block(None, (14, 2), (14, 2), True, tx=EN)) == (
         "**Validation of g = 14, s = 2**\n\nNot validated.")
-    custom = T.to_markdown(T.validation_block(_summary(), (17, 2), (15, 3), False))
+    custom = T.to_markdown(T.validation_block(_summary(), (17, 2), (15, 3), False, tx=EN))
     assert custom.split("\n\n")[1] == "Validation ran for g = 17, s = 2, the pair chosen under the default constraints."

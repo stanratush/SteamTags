@@ -22,6 +22,7 @@ from steamstudy.export import schema as S
 from steamstudy.export.writer import csv_bytes
 from steamstudy.network import selection as SEL
 from steamstudy.network import selection_text as T
+from steamstudy.i18n import text
 from steamstudy.network.cluster import PASS_CAP, label_clusters
 from steamstudy.network.stability import TRADES_PER_GAME, noise_seeds, replicate_seeds
 from steamstudy.versions import software_versions
@@ -188,7 +189,8 @@ def export_tables(ctx: BuildContext, settings: SEL.SelectionSettings, constraint
     defaults_settings = SEL.load_selection_settings(ctx.network, (t.id for t in ctx.genre_tags), ctx.build_id)
     default_constraints = SEL.default_constraints(ctx.network)
     names = tag_names(ctx)
-    settings_label = SEL.settings_label(settings, defaults_settings, names)
+    en = text("en")  # the export is English in every Interface Language (ADR 0003)
+    settings_label = SEL.settings_label(settings, defaults_settings, names, tx=en)
     tables: dict[str, list[dict[str, Any]]] = {s.name: [] for s in S.PS_TABLES}
     datasets: dict[str, Any] = {}
     report: list[str] = [f"# Parameter Selection report\n\nBuild {ctx.build_id} · {settings_label.text}."]
@@ -204,7 +206,7 @@ def export_tables(ctx: BuildContext, settings: SEL.SelectionSettings, constraint
             continue
         grid, links, na = loaded
         constraints = constraints_for(constraints_store, d.key, default_constraints)
-        label = SEL.constraints_label(constraints, default_constraints)
+        label = SEL.constraints_label(constraints, default_constraints, tx=en)
         choice = SEL.choose(grid, na, constraints)
         default_choice = SEL.choose(grid, na, default_constraints)
         tables["pairs.csv"] += _pair_rows(d.key, grid, na, choice)
@@ -216,11 +218,11 @@ def export_tables(ctx: BuildContext, settings: SEL.SelectionSettings, constraint
                      "computed_with": {"grid": state.computed_with}, "validation": {}})
         report.append(f"## {d.label}")
         if choice.chosen is None:
-            report.append(T.to_markdown(T.no_qualifying_message(choice, label.text)))
+            report.append(T.to_markdown(T.no_qualifying_message(choice, label.text, tx=en)))
         else:
             report.append(T.to_markdown(T.explanation(choice, grid.at(*choice.chosen), na[choice.chosen],
                                                       settings_label.text, label.text,
-                                                      settings.min_multi_tag_clusters)))
+                                                      settings.min_multi_tag_clusters, tx=en)))
         shown = {p for p in (choice.chosen, default_choice.chosen) if p is not None}
         for pair in grid.pairs:  # the chosen pairs, and every pair validated by hand
             vkey = settings.validation_key(d.key, ctx.context(d.key), *pair)
@@ -240,11 +242,12 @@ def export_tables(ctx: BuildContext, settings: SEL.SelectionSettings, constraint
                                          "m": summary["subsample"]["m"], "computed_with": validation["computed_with"]}
             if pair in shown:
                 report.append(T.to_markdown(T.validation_block(summary, pair, choice.chosen, pair == choice.chosen
-                                                               or label.text == "Default constraints", names)))
+                                                               or label.text == "Default constraints", names,
+                                                               tx=en)))
         datasets[d.key] = info
     files = {schema.name: csv_bytes(schema, tables[schema.name]) for schema in S.PS_TABLES}
     shared = constraints_for(constraints_store, "", default_constraints)
-    report.append("## Methods\n\n" + T.methods_paragraph(T.methods_values(settings, shared)))
+    report.append("## Methods\n\n" + T.methods_paragraph(en, T.methods_values(settings, shared, tx=en)))
     report_bytes = ("\n\n".join(report) + "\n").encode("utf-8")
     meta = {
         "schema_version": S.SCHEMA_VERSION, "settings_key": settings.settings_key(),

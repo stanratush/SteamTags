@@ -829,9 +829,9 @@ def ps_render(mode, active, cstore, dataset, metric, pair, running, progress, bu
     views = _ps_views(c, settings, cstore, default_constraints)
     view = next(v for v in views if v.dataset == dataset)
     names = PV.tag_names(c)
-    settings_label = SEL.settings_label(settings, defaults, names)
+    settings_label = SEL.settings_label(settings, defaults, names, tx=tx)
     labels = {v.dataset: SEL.constraints_label(PV.active_constraints(cstore, v.dataset, default_constraints),
-                                               default_constraints) for v in views}
+                                               default_constraints, tx=tx) for v in views}
     custom = {d: "; ".join(x.text for x in (settings_label, labels[d]) if x.custom) for d in labels}
     validated = {v.dataset: PV.is_validated(c, settings, v.dataset, v.default_choice.chosen if v.default_choice
                                             else None) for v in views}
@@ -839,7 +839,7 @@ def ps_render(mode, active, cstore, dataset, metric, pair, running, progress, bu
     inspected = tuple(pair) if pair else view.star
     inspected_validation = PV.validation_of(c, settings, dataset, inspected) if inspected else None
     computed = next((v.computed_with for v in views if v.computed_with), None)
-    line, banner = PV.provenance(computed)
+    line, banner = PV.provenance(computed, tx=tx)
     key_hash = SEL.key_hash(settings.settings_key())[:12]
     cache_line = tx("Results from the app cache: Build {build_id}, settings key {key}, method v{version}",
                     build_id=c.build_id, key=key_hash, version=SEL.METHOD_VERSION.rsplit("-", 1)[-1])
@@ -848,25 +848,25 @@ def ps_render(mode, active, cstore, dataset, metric, pair, running, progress, bu
     done = sum(v.done for v in partial)
     total = sum(v.total for v in partial)
     running = bool(progress)
-    reason = settings_label.text if settings_label.custom else "No results for these settings on this computer yet."
-    loading = PV.loading_panel(progress, views, settings, reason, compact=view.done > 0) if running else []
+    reason = settings_label.text if settings_label.custom else tx("No results for these settings on this computer yet.")
+    loading = PV.loading_panel(progress, views, settings, reason, compact=view.done > 0, tx=tx) if running else []
     result = view.result(inspected) if inspected else None
-    apply_text, apply_class = PV.workbench_line(result) if result else ("", "small")
+    apply_text, apply_class = PV.workbench_line(result, tx=tx) if result else ("", "small")
     can_validate = view.status == "complete" and result is not None and result.selected is not None
     return (
-        PV.run_rows(views, progress, validated), cache_line, line,
+        PV.run_rows(views, progress, validated, tx=tx), cache_line, line,
         banner or "", {} if banner else {"display": "none"},
         continue_style, tx("Continue ({done} of {total} pairs)", done=done, total=total),
         not any(v.status == "complete" for v in views),
-        PV.strip(views, dataset, {d: t for d, t in custom.items() if t}), loading,
-        PV.heatmap(view, metric or "neighbour_agreement", inspected),
-        PV.why(view, settings_label.text, labels[dataset].text, settings.min_multi_tag_clusters),
-        PV.validation_card(view, shown, names),
-        PV.inspector(view, inspected, inspected_validation, names),
+        PV.strip(views, dataset, {d: t for d, t in custom.items() if t}, tx=tx), loading,
+        PV.heatmap(view, metric or "neighbour_agreement", inspected, tx=tx),
+        PV.why(view, settings_label.text, labels[dataset].text, settings.min_multi_tag_clusters, tx=tx),
+        PV.validation_card(view, shown, names, tx=tx),
+        PV.inspector(view, inspected, inspected_validation, names, tx=tx),
         result is None or result.selected is None, apply_text, apply_class,
         {"display": "inline-block"} if can_validate and inspected_validation is None else {"display": "none"},
         labels[dataset].text, settings_label.text, tx("Run {dataset}", dataset=c.dataset(dataset).label),
-        *PV.pill_values(views, running, labels[dataset].custom, settings_label.custom),
+        *PV.pill_values(views, running, labels[dataset].custom, settings_label.custom, tx=tx),
     )
 
 

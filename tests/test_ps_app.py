@@ -12,7 +12,9 @@ import zipfile
 import pytest
 from dash.exceptions import PreventUpdate
 
-from conftest import CONFIG_DIR
+from conftest import CONFIG_DIR, REPO
+from steamstudy.i18n import text
+from steamstudy.app.relabel import Labels
 from steamstudy.app import callbacks as CB
 from steamstudy.app import ps_cache, ps_run
 from steamstudy.app import ps_view as PV
@@ -20,6 +22,9 @@ from steamstudy.app.loader import load_build
 from steamstudy.network import selection as SEL
 from steamstudy.network import selection_text as T
 from test_app import _help_targets, _walk, triggered
+
+EN = text("en")
+from test_i18n import pseudo  # noqa: E402,F401  (the bracketing pseudo-language fixture)
 
 SMALL = {"g_range": [15, 17], "s_range": [2, 4], "null_replicates": 2, "subsamples": 2}
 OUTPUTS = ["rows", "cache_line", "provenance", "banner", "banner_style", "continue_style", "continue_text",
@@ -170,8 +175,9 @@ def test_a_strip_click_switches_the_dataset_and_resets_the_pair():
 
 def test_each_controls_section_is_a_pill_with_its_section_in_the_popover(ps_build):
     ctx = load_build(ps_build)
-    items = [c for c in _walk(PV.controls(ctx, *PV.defaults_of(ctx))) if getattr(c, "className", None) == "ctl-item"]
-    assert [i.children[0].children[0] for i in items] == ["Run ", "Pair Constraints ", "Selection settings "]
+    items = [c for c in _walk(PV.controls(Labels(EN), ctx, *PV.defaults_of(ctx)))
+             if getattr(c, "className", None) == "ctl-item"]
+    assert [i.children[0].children[0].children for i in items] == ["Run", "Pair Constraints", "Selection settings"]
     pops = [i.children[1] for i in items]
     assert all(p.className == "pill-pop" and p.children.className == "ctl-section" for p in pops)
     assert "ps-run-all" in {getattr(c, "id", None) for c in _walk(pops[0])}
@@ -190,7 +196,7 @@ def test_the_run_pill_says_not_run_on_an_empty_cache(empty_build):
 
 
 def test_the_floating_inspector_starts_closed_opens_on_a_heatmap_pick_and_closes_with_its_x(ps_build):
-    layout = PV.mode_layout(load_build(ps_build))
+    layout = PV.mode_layout(load_build(ps_build), Labels(EN))
     inspector = next(c for c in _walk(layout) if getattr(c, "id", None) == "ps-inspector")
     assert "has-sel" not in inspector.className.split()  # docked at wide; hidden at medium and narrow
     triggered("ps-heatmap.clickData")
@@ -221,7 +227,7 @@ def test_the_provenance_line_and_the_library_banner(ps_build):
 
 def test_the_heatmap_has_one_cell_per_pair_with_letters_star_and_outlines(ps_build):
     view = _views(ps_build)["overall"]
-    fig = PV.heatmap(view, "neighbour_agreement", (16, 3))
+    fig = PV.heatmap(view, "neighbour_agreement", (16, 3), tx=EN)
     trace = fig.data[0]
     cells = [(g, s) for gi, g in enumerate(trace.y) for si, s in enumerate(trace.x) if trace.z[gi][si] is not None
              or trace.text[gi][si]]
@@ -232,7 +238,7 @@ def test_the_heatmap_has_one_cell_per_pair_with_letters_star_and_outlines(ps_bui
             assert trace.text[gi][si] == ("★" if view.star == (g, s) else "") + letters
     colors = [shape.line.color for shape in fig.layout.shapes]
     assert colors.count("#f28e2b") == len(view.choice.near_best) and colors.count("#222") == 1
-    grey = PV.heatmap(view, "q", None)
+    grey = PV.heatmap(view, "q", None, tx=EN)
     assert grey.data[0].colorscale[0][1] != trace.colorscale[0][1] and grey.layout.title.text == T.DESCRIPTIVE_CAPTION
 
 
@@ -314,11 +320,11 @@ def test_the_inspector_for_chosen_non_qualifying_and_unselected_pairs(ps_build):
 def test_the_champ_figure_and_the_links_table(ps_build):
     view = _views(ps_build)["overall"]
     result = view.result(view.star)
-    fig = PV.champ_figure(result)
+    fig = PV.champ_figure(result, tx=EN)
     lines = [t for t in fig.data if t.name and t.name.startswith("P")]
     assert len(lines) == len(result.champ["admissible"])
     assert tuple(fig.layout.xaxis.range) == (0, result.gamma_end)
-    table = PV.links_table(view, (15, 2))  # a corner: g− and s− lie outside the grid
+    table = PV.links_table(view, (15, 2), tx=EN)  # a corner: g− and s− lie outside the grid
     assert [r.children[0].children for r in table.children[1:]] == ["g+", "s+"]
 
 
@@ -327,14 +333,14 @@ def test_the_validation_card_renders_the_block_and_dissolved_only_at_half_or_les
     view = _views(ps_build)["overall"]
     validation = PV.validation_of(ctx, PV.defaults_of(ctx)[0], "overall", view.default_choice.chosen)
     assert validation is not None
-    card = PV.validation_card(view, validation, {})
+    card = PV.validation_card(view, validation, {}, tx=EN)
     text = _text(card)
     assert "Null Comparison" in text and "Subsample Stability" in text
     summary = validation["summary"]
     for arm in ("reselected", "at_resolution"):
         for c in summary["subsample"][arm]["clusters"]:
             assert c["dissolved"] == (c["mean_jaccard"] is not None and c["mean_jaccard"] <= 0.5)
-    table = PV.cluster_table(summary, {})
+    table = PV.cluster_table(summary, {}, tx=EN)
     dissolved = sum(c["dissolved"] for arm in ("reselected", "at_resolution")
                     for c in summary["subsample"][arm]["clusters"])
     assert _text(table).count("Dissolved") == dissolved
@@ -403,7 +409,7 @@ def test_a_run_under_custom_settings_removes_the_tag_from_every_network(ps_build
     files = list(folder.glob("*.json"))
     assert files and all(5001 not in json.loads(f.read_text(encoding="utf-8"))["nodes"] for f in files)
     names = PV.tag_names(ctx)
-    assert SEL.settings_label(custom, defaults, names).text == f"Custom settings: 1 removed tag ({names[5001]})"
+    assert SEL.settings_label(custom, defaults, names, tx=EN).text == f"Custom settings: 1 removed tag ({names[5001]})"
 
 
 # ----------------------------------------------------------------------------- issue 30: Apply to Workbench
@@ -590,3 +596,70 @@ def test_a_pair_validated_by_hand_is_exported(ps_build):
     assert (str(other[0]), str(other[1])) in exported
     meta = json.loads(files["parameter_selection.json"])
     assert meta["datasets"]["overall"]["validation"][f"{other[0]},{other[1]}"]["status"] == "complete"
+
+
+# ----------------------------------------------------------------------------- the English report (bilingual issue 14)
+
+
+@pytest.mark.parametrize("variant", ["default", "none_qualifies"])
+def test_selection_report_stays_byte_identical(ps_build, variant):
+    """`selection_report.md` is English in every Interface Language: byte-identical to the report written before the
+    Parameter Selection text went through the translator (tests/fixtures/selection_report_<variant>.md)."""
+    import os
+
+    ctx = load_build(ps_build)
+    _, constraints = PV.defaults_of(ctx)
+    cstore = None
+    if variant == "none_qualifies":
+        cstore = {"shared": {**PV.constraints_data(constraints), "min_retention": 1.0}, "datasets": {}}
+    _, files = _export(ps_build, cstore)
+    golden = REPO / "tests" / "fixtures" / f"selection_report_{variant}.md"
+    if os.environ.get("STEAMSTUDY_WRITE_GOLDEN"):
+        golden.write_bytes(files["selection_report.md"])
+    assert files["selection_report.md"] == golden.read_bytes()
+
+
+# ----------------------------------------------------------------------------- the Interface Language (bilingual issue 14)
+
+
+def test_the_modes_text_goes_through_the_translator(ps_build, pseudo):
+    """With Bulgarian as a bracketing pseudo-language, the loading panel, run rows, dataset strip, "Why this pair", the
+    validation card, the Pair Inspector, the pills and the heatmap's own words are all bracketed; dataset labels, tag
+    names, cluster labels and export codes are not."""
+    import re
+
+    from test_i18n import texts, unbracketed
+
+    ctx = load_build(ps_build)
+    a, c = _store(ctx)
+    progress = {"dataset": "overall", "dataset_index": 1, "n_datasets": 5, "phase": "grid", "done": 3, "total": 9,
+                "weight_done": 3.0, "weight_total": 9.0, "elapsed": 75.0}
+    out = dict(zip(OUTPUTS, CB.ps_render("selection", a, c, "overall", "neighbour_agreement", [15, 3], True, progress,
+                                         str(ps_build), "bg")))
+    names = ({d.label for d in ctx.datasets} | {d.key for d in ctx.datasets} | set(PV.tag_names(ctx).values())
+             | {ctx.build_id, "Leiden", "CHAMP", "ARI", "LCC"})
+    shown = []
+    for key, value in out.items():
+        if key == "heatmap":
+            continue
+        shown += texts(value) if not isinstance(value, str) else [value]
+    shown = [x for x in shown if x.strip() and not re.fullmatch(r"[a-z]+(_[a-z]+)*", x)]  # export codes stay
+    assert not unbracketed(shown, names)
+    fig = out["heatmap"]
+    hover = [h for row in fig.data[0].hovertext for h in row if h]
+    assert hover and not unbracketed(hover, names)
+    assert not unbracketed([fig.layout.xaxis.title.text, fig.layout.yaxis.title.text], names)
+    assert fig.layout.separators == "," and PV.plotly_separators(EN) == ".,"  # English keeps Plotly's default
+    # the elapsed time, worded from the job's raw numbers
+    assert any("⟦1 min 15 s elapsed⟧" in x for x in texts(out["loading"]))
+
+
+def test_a_language_switch_re_renders_the_mode_and_never_touches_a_running_job(ps_build):
+    from steamstudy.app.server import create_app
+
+    deps = create_app(ps_build).server.test_client().get("/_dash-dependencies").get_json()
+    render_ = next(d for d in deps if "ps-rows.children" in d["output"])
+    assert "lang" in [i["id"] for i in render_["inputs"]]
+    for job in ("ps-run-done.data", "ps-validate-done.data", "ps-run-request.data"):
+        d = next(d for d in deps if job in d["output"])
+        assert "lang" not in [i["id"] for i in d["inputs"] + d["state"]], job

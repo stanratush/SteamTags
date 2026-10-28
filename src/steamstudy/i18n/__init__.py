@@ -83,11 +83,14 @@ class Text:
         chosen = entry.get(form) if isinstance(entry, dict) else None
         return _format(chosen or (one if count == 1 else other), {"n": count, **values})
 
-    def join(self, items: list[Any]) -> str:
+    def join(self, items: list[Any], serial: bool = False) -> str:
+        """"a, b and c"; with `serial`, English keeps the serial comma ("a, b, and c", "a, and b") that the
+        Parameter Selection report has always written. Bulgarian never writes one."""
         items = [str(i) for i in items]
         if len(items) < 2:
             return "".join(items)
-        return f"{', '.join(items[:-1])} {self._words['and']} {items[-1]}"
+        comma = "," if serial and self.lang == "en" else ""
+        return f"{', '.join(items[:-1])}{comma} {self._words['and']} {items[-1]}"
 
     def _decimal(self, text: str) -> str:
         return text.replace(".", self.decimal)

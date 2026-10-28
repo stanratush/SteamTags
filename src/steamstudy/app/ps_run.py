@@ -18,6 +18,7 @@ from typing import Any
 
 from steamstudy.app import ps_cache
 from steamstudy.app.loader import BuildContext
+from steamstudy.i18n import Text
 from steamstudy.network import selection as SEL
 from steamstudy.network import validation as V
 from steamstudy.versions import software_versions
@@ -37,17 +38,20 @@ def worker_count(configured: int) -> int:
     return configured if configured > 0 else max(1, (os.cpu_count() or 2) - 1)
 
 
-def eta_text(record: Mapping[str, Any]) -> str:
+def eta_text(record: Mapping[str, Any], tx: Text) -> str:
+    """The time left, from a progress record's raw numbers (a running job reports only numbers, so a language
+    switch re-words them)."""
     done, total, elapsed = record["weight_done"], record["weight_total"], record["elapsed"]
     if done <= 0 or (done < ESTIMATE_SHARE * total and elapsed < ESTIMATE_SECONDS):
-        return "estimating…"
+        return tx("estimating…")
     left = elapsed * max(0.0, total - done) / done
-    return "less than a minute left" if left < 60 else f"about {round(left / 60)} min left"
+    return tx("less than a minute left") if left < 60 else tx("about {n} min left", n=round(left / 60))
 
 
-def elapsed_text(seconds: float) -> str:
+def elapsed_text(seconds: float, tx: Text) -> str:
     minutes, secs = divmod(int(seconds), 60)
-    return f"{minutes} min {secs:02d} s elapsed" if minutes else f"{secs} s elapsed"
+    return (tx("{minutes} min {seconds} s elapsed", minutes=minutes, seconds=f"{secs:02d}") if minutes
+            else tx("{seconds} s elapsed", seconds=secs))
 
 
 @dataclass

@@ -4,7 +4,7 @@
 
 **Blocked by:** 11
 
-**Status:** ready-for-agent
+**Status:** done
 
 Spec: [Bilingual Interface and Cluster Views spec](../spec.md): "Catalogue and translator", "Plurals and numbers", "JS, CSS and third-party widgets". Inventory: [research 01](../research/01-string-inventory.md) (the `layout.py`, `callbacks.py`, `workbench.js`, `app.css` and `export.py` rows).
 
@@ -21,7 +21,7 @@ Spec: [Bilingual Interface and Cluster Views spec](../spec.md): "Catalogue and t
   - ag-grid `localeText` carries only the strings our grids show, from the term table's Short UI words.
   - A `d3.formatLocale({decimal, thousands})` per language, with the column definitions re-sent on a switch.
   - Schema `description` header tooltips (identifier columns) pass through `tx`. They are declared as a non-literal source for the parity test (`schema_tips`).
-- [ ] **Plotly**: our own titles and hover text go through `tx`, and `layout.separators` follows the language. The modebar stays English.
+- [x] **Plotly**: our own titles and hover text go through `tx`, and `layout.separators` follows the language. The modebar stays English.
 - [x] **Dropdowns**: the placeholder and search props go through `tx`.
 - [x] Declare the `OpenRefused` reasons as a non-literal source for the parity test (`refusals`).
 - [x] Tests:
@@ -42,3 +42,4 @@ Spec: [Bilingual Interface and Cluster Views spec](../spec.md): "Catalogue and t
 - **Grids**: `layout.GRIDS` is the column-definition factory per grid. `grid_words` sends every grid's `columnDefs` and `dashGridOptions` (`localeText`) again on a switch. Floats use `tx.d3_format`.
 - **Exports**: no export code reads the language (the export zip's tables and `export.json` were compared for the same Network State before and after this work).
 - Status stays `ready-for-agent` until issue 14 wires the Plotly heatmap; then this ticket is `done`.
+- **2026-10-28**: Plotly done in issue 14; ticket `done`. Issue 14 also marked this issue's registered layout words `msg("…")` so the parity scan sees them.

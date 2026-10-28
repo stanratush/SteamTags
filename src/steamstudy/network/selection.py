@@ -20,6 +20,7 @@ import numpy as np
 from sklearn.metrics import adjusted_rand_score
 
 from steamstudy.config import NetworkDefaults
+from steamstudy.i18n import Text
 from steamstudy.network import champ as C
 from steamstudy.network import metrics as M
 from steamstudy.network.cluster import Cluster, _leiden_graph, _leiden_passes, label_clusters, leiden_scan, membership
@@ -182,9 +183,11 @@ def _names(ids: Iterable[int], names: Mapping[int, str]) -> str:
 
 
 def settings_label(settings: SelectionSettings, defaults: SelectionSettings,
-                   names: Mapping[int, str] | None = None) -> Label:
-    """"Default settings", or "Custom settings: …" with each changed editable setting next to its default."""
+                   names: Mapping[int, str] | None = None, *, tx: Text) -> Label:
+    """"Default settings", or "Custom settings: …" with each changed editable setting next to its default. In the
+    translator's language: the app passes the page's, the export `text("en")`."""
     names = names or {}
+    weight_name = {"shared_games": tx("Shared games"), "lift": tx("Lift")}
     changes, parts = [], []
 
     def changed(setting: str, value: Any, default: Any, text: str) -> None:
@@ -193,54 +196,66 @@ def settings_label(settings: SelectionSettings, defaults: SelectionSettings,
 
     if settings.genre_hidden != defaults.genre_hidden:
         changed("genre_hidden", list(settings.genre_hidden), list(defaults.genre_hidden),
-                f"hidden Genre Tags {len(settings.genre_hidden)} (default {len(defaults.genre_hidden)})")
+                tx("hidden Genre Tags {n} (default {default})", n=len(settings.genre_hidden),
+                   default=len(defaults.genre_hidden)))
     if settings.hide_defining_tag != defaults.hide_defining_tag:
-        word = lambda hidden: "hidden" if hidden else "shown"  # noqa: E731
+        word = lambda hidden: tx("hidden") if hidden else tx("shown")  # noqa: E731
         changed("hide_defining_tag", settings.hide_defining_tag, defaults.hide_defining_tag,
-                f"defining tag {word(settings.hide_defining_tag)} (default {word(defaults.hide_defining_tag)})")
+                tx("defining tag {now} (default {default})", now=word(settings.hide_defining_tag),
+                   default=word(defaults.hide_defining_tag)))
     if settings.min_months != defaults.min_months:
         changed("min_months", settings.min_months, defaults.min_months,
-                f"Minimum Months {settings.min_months} (default {defaults.min_months})")
+                tx("Minimum Months {n} (default {default})", n=settings.min_months, default=defaults.min_months))
     if settings.clustering_weight != defaults.clustering_weight:
         changed("clustering_weight", settings.clustering_weight, defaults.clustering_weight,
-                f"Clustering Weight {WEIGHT_NAMES[settings.clustering_weight]} "
-                f"(default {WEIGHT_NAMES[defaults.clustering_weight]})")
+                tx("Clustering Weight {now} (default {default})", now=weight_name[settings.clustering_weight],
+                   default=weight_name[defaults.clustering_weight]))
     if settings.min_multi_tag_clusters != defaults.min_multi_tag_clusters:
         changed("min_multi_tag_clusters", settings.min_multi_tag_clusters, defaults.min_multi_tag_clusters,
-                f"minimum Multi-Tag Clusters {settings.min_multi_tag_clusters} "
-                f"(default {defaults.min_multi_tag_clusters})")
+                tx("minimum Multi-Tag Clusters {n} (default {default})", n=settings.min_multi_tag_clusters,
+                   default=defaults.min_multi_tag_clusters))
     if settings.removed_tag_ids != defaults.removed_tag_ids:
         n = len(settings.removed_tag_ids)
         changed("removed_tag_ids", list(settings.removed_tag_ids), list(defaults.removed_tag_ids),
-                f"{n} removed tag{'' if n == 1 else 's'} ({_names(settings.removed_tag_ids, names)})"
-                if n else "no removed tags")
-    return Label("Custom settings: " + ", ".join(parts) if parts else "Default settings", changes)
+                tx.n(n, one="{n} removed tag ({tags})", other="{n} removed tags ({tags})",
+                     tags=_names(settings.removed_tag_ids, names)) if n else tx("no removed tags"))
+    return Label(tx("Custom settings: {changes}", changes=", ".join(parts)) if parts else tx("Default settings"),
+                 changes)
 
 
-CONSTRAINT_TEXT = {
-    "tolerance": "tolerance {}",
-    "min_retention": "Information Retention ≥ {}",
-    "max_isolated_share": "isolated share ≤ {}",
-    "min_lcc_share": "LCC share ≥ {}",
-    "min_comparable_neighbours": "comparable neighbours ≥ {}",
-    "max_multi_tag_clusters": "Multi-Tag Clusters ≤ {}",
-}
+def _constraint_text(name: str, value: str, default: str, tx: Text) -> str:
+    """One changed Pair Constraint next to its default, in the constraint table's order."""
+    texts = {
+        "tolerance": tx("tolerance {value} (default {default})", value=value, default=default),
+        "min_retention": tx("Information Retention ≥ {value} (default {default})", value=value, default=default),
+        "max_isolated_share": tx("isolated share ≤ {value} (default {default})", value=value, default=default),
+        "min_lcc_share": tx("LCC share ≥ {value} (default {default})", value=value, default=default),
+        "min_comparable_neighbours": tx("comparable neighbours ≥ {value} (default {default})", value=value,
+                                        default=default),
+        "max_multi_tag_clusters": tx("Multi-Tag Clusters ≤ {value} (default {default})", value=value, default=default),
+    }
+    return texts[name]
 
 
-def _constraint_value(value: Any) -> str:
+LABEL_ORDER = ("tolerance", "min_retention", "max_isolated_share", "min_lcc_share", "min_comparable_neighbours",
+                    "max_multi_tag_clusters")
+
+
+def _constraint_value(value: Any, tx: Text) -> str:
     if value is None:
-        return "off"
-    return f"{value:.2f}" if isinstance(value, float) else str(value)
+        return tx("off")
+    return tx.fixed(value, ".2f") if isinstance(value, float) else str(value)
 
 
-def constraints_label(constraints: Constraints, defaults: Constraints) -> Label:
+def constraints_label(constraints: Constraints, defaults: Constraints, *, tx: Text) -> Label:
     changes, parts = [], []
-    for name, template in CONSTRAINT_TEXT.items():
+    for name in LABEL_ORDER:
         value, default = getattr(constraints, name), getattr(defaults, name)
         if value != default:
             changes.append({"constraint": name, "value": value, "default": default})
-            parts.append(f"{template.format(_constraint_value(value))} (default {_constraint_value(default)})")
-    return Label("Custom constraints: " + ", ".join(parts) if parts else "Default constraints", changes)
+            parts.append(_constraint_text(name, _constraint_value(value, tx), _constraint_value(default, tx), tx))
+    return Label(tx("Custom constraints: {changes}", changes=", ".join(parts)) if parts
+                 else tx("Default constraints"), changes)
 
 
 # ----------------------------------------------------------------------------- pair networks

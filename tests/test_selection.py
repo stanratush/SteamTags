@@ -6,9 +6,12 @@ import dataclasses
 
 import pytest
 
+from steamstudy.i18n import text
 from steamstudy.app.loader import load_build
 from steamstudy.network import selection as SEL
 from steamstudy.network.stability import noise_seeds, replicate_seeds
+
+EN = text("en")
 
 
 @pytest.fixture(scope="module")
@@ -75,16 +78,16 @@ def test_constraints_enter_no_key(defaults, ctx):
 
 def test_labels(defaults, ctx):
     names = {5001: "Puzzle-ish", 5002: "Casual-ish"}
-    assert SEL.settings_label(defaults, defaults, names).text == "Default settings"
+    assert SEL.settings_label(defaults, defaults, names, tx=EN).text == "Default settings"
     custom = dataclasses.replace(defaults, min_months=12, removed_tag_ids=(5001, 5002))
-    label = SEL.settings_label(custom, defaults, names)
+    label = SEL.settings_label(custom, defaults, names, tx=EN)
     assert label.text == "Custom settings: Minimum Months 12 (default 0), 2 removed tags (Puzzle-ish, Casual-ish)"
     assert label.changes == [{"setting": "min_months", "value": 12, "default": 0},
                              {"setting": "removed_tag_ids", "value": [5001, 5002], "default": []}]
     base = SEL.default_constraints(ctx.network)
-    assert SEL.constraints_label(base, base).text == "Default constraints"
+    assert SEL.constraints_label(base, base, tx=EN).text == "Default constraints"
     tighter = dataclasses.replace(base, tolerance=0.1, max_multi_tag_clusters=8)
-    assert SEL.constraints_label(tighter, base).text == (
+    assert SEL.constraints_label(tighter, base, tx=EN).text == (
         "Custom constraints: tolerance 0.10 (default 0.05), Multi-Tag Clusters ≤ 8 (default off)")
 
 
@@ -356,7 +359,7 @@ def test_no_qualifying_pair_with_alone_and_cumulative_counts():
     assert [(e.constraint, e.alone, e.cumulative) for e in choice.exclusion] == [
         ("min_retention", 2, 2), ("max_isolated_share", 2, 3), ("min_lcc_share", 1, 3),
         ("min_comparable_neighbours", 0, 3)]
-    assert T.to_markdown(T.no_qualifying_message(choice, "Default constraints")) == (
+    assert T.to_markdown(T.no_qualifying_message(choice, "Default constraints", tx=EN)) == (
         "**No pair qualifies** under the default constraints. 3 of 3 pairs have a Selected Partition. Excluded by "
         "each constraint, alone (cumulative): Information Retention ≥ 0.50: 2 (2), isolated tags ≤ 10%: 2 (3), "
         "largest component ≥ 90% of the tags with an edge: 1 (3), ≥ 2 neighbours with a different graph: 0 (3). "
@@ -370,7 +373,7 @@ def _explained(pair=None, different=3, identical=0, minimum_k=3):
     choice = SEL.choose(grid, na, C0)
     own = dataclasses.replace(na[(4, 2)], n_different=different, n_identical=identical)
     return T.to_markdown(T.explanation(choice, grid.at(4, 2), own, "Default settings", "Default constraints",
-                                       minimum_k))
+                                       minimum_k, tx=EN))
 
 
 CAVEATS = ("*Neighbour Agreement measures how little the clustering changes when g or s moves by one. It does not "

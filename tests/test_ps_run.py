@@ -6,9 +6,12 @@ import shutil
 
 import pytest
 
+from steamstudy.i18n import text
 from steamstudy.app import app_cache, ps_cache, ps_run
 from steamstudy.app.loader import load_build
 from steamstudy.network import selection as SEL
+
+EN = text("en")
 
 DATASETS = ["overall", "puzzle"]
 
@@ -118,10 +121,10 @@ def test_serial_and_a_pool_of_two_write_identical_caches(build, tmp_path):
 
 def test_eta_text_thresholds():
     record = {"weight_done": 1.0, "weight_total": 100.0, "elapsed": 5.0}
-    assert ps_run.eta_text(record) == "estimating…"
-    assert ps_run.eta_text({**record, "elapsed": 12.0}) == "about 20 min left"
-    assert ps_run.eta_text({**record, "weight_done": 50.0, "elapsed": 30.0}) == "less than a minute left"
-    assert ps_run.eta_text({**record, "weight_done": 0.0, "elapsed": 60.0}) == "estimating…"
+    assert ps_run.eta_text(record, EN) == "estimating…"
+    assert ps_run.eta_text({**record, "elapsed": 12.0}, EN) == "about 20 min left"
+    assert ps_run.eta_text({**record, "weight_done": 50.0, "elapsed": 30.0}, EN) == "less than a minute left"
+    assert ps_run.eta_text({**record, "weight_done": 0.0, "elapsed": 60.0}, EN) == "estimating…"
 
 
 def test_clear_all_removes_both_kinds_and_the_cli_reports_them(build, caplog):

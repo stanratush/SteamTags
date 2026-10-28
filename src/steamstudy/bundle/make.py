@@ -29,6 +29,7 @@ from typing import Any
 
 from steamstudy import __version__
 from steamstudy.builds import resolve_build
+from steamstudy.i18n import text
 from steamstudy.bundle import start_tag_network as launcher
 from steamstudy.bundle.wheels import PYTHONS, TARGETS, Wheel, plan, read_lock, requirements
 
@@ -87,7 +88,7 @@ def ship_parameter_selection(source: Path, staged: Path, map_fn: Callable[..., I
             reported.add(key)
             unit = "pairs" if record["phase"] == "grid" else "replicates"
             log.info("Build %s, %s: %s %d of %d %s, %s", staged.name, record["dataset"], record["phase"],
-                     record["done"], record["total"], unit, ps_run.eta_text(record))
+                     record["done"], record["total"], unit, ps_run.eta_text(record, text("en")))
 
     datasets = [d.key for d in ctx.datasets]
     outcomes = ps_run.run(ctx, settings, datasets, map_fn=map_fn, on_progress=progress,
