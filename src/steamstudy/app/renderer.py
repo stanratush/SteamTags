@@ -62,9 +62,6 @@ def priority(nodes: list[dict[str, Any]]) -> dict[str, int]:
     return {n["id"]: rank for rank, n in enumerate(ranked)}
 
 
-# What edge width can show, by Clustering Weight value: the payload's edge field and the legend's name for it.
-THICKNESS = {"shared_games": ("shared", "shared games"), "lift": ("lift", "lift")}
-
 # Edge Appearance (spec: "Edge Appearance"): graph.js owns the look and draws it from each edge's raw values; these
 # are its defaults, steps and bounds. The defaults draw exactly the links of before: 0.4 + 2.6 × value / largest px,
 # one colour, 18% strength, 6% between Clusters in the Cluster-separated layout. A view choice only: never part of
@@ -117,7 +114,8 @@ def payload(nodes: list[dict[str, Any]], edges: list[dict[str, Any]], positions:
                  for e in edges]
     out_regions = [{"id": f"region-{r.get('cluster') or i}", "label": r["label"], "cluster": r.get("cluster", ""),
                     "color": r.get("color", REGION_COLOR), "x": r["x"] + r["width"] / 2, "y": r["y"] + r["height"] / 2,
-                    "w": r["width"], "h": r["height"]} for i, r in enumerate(regions or [])]
+                    "w": r["width"], "h": r["height"], **({"count": r["count"]} if "count" in r else {})}
+                   for i, r in enumerate(regions or [])]
     return {"dataset": dataset, "layout": layout, "basis": list(basis or [dataset]), "nodes": out_nodes,
             "edges": out_edges, "weight": weight, "appearance": APPEARANCE, "min_shared": min_shared,
             "positions": {n["id"]: list(positions.get(n["id"], (0.0, 0.0))) for n in nodes},

@@ -98,7 +98,9 @@ def test_each_csv_row_is_its_on_screen_row(tagged_build):
     for cluster in tables["clusters"]:
         body, *_ = CB.inspector({"kind": "cluster", "id": cluster["cluster"]}, tables, None, str(tagged_build),
                                 "overall", s.min_months, meta, "en")
-        block = getattr(body[-1], "data-html")  # the Games section's table comes last
+        # the Games section's table: the block after its "Games" heading (Connections follows it)
+        heading = next(i for i, b in enumerate(body) if getattr(b, "children", None) == "Games")
+        block = getattr(body[heading + 2], "data-html")
         cells = [[markup.unescape(c) for c in re.findall(r"<td[^>]*>([^<]*)</td>", row)]
                  for row in re.findall(r"<tr>(.*?)</tr>", block)]
         cells = [c for c in cells if c]  # the header rows (one per table: the first ten, then "Show all")

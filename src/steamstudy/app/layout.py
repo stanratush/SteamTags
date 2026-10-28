@@ -53,6 +53,10 @@ def ui_words(tx: Text) -> dict[str, Any]:
                     "tags": [tx.n(1, one="{n} tag", other="{n} tags", n="{n}"),
                              tx.n(2, one="{n} tag", other="{n} tags", n="{n}")],
                     "ratio": tx("ratio {value}", value="{value}"),
+                    "pool_region": [tx.n(1, one="one-tag clusters · {n} tag", other="one-tag clusters · {n} tags",
+                                         n="{n}"),
+                                    tx.n(2, one="one-tag clusters · {n} tag", other="one-tag clusters · {n} tags",
+                                         n="{n}")],
                     "empty": tx("No links between clusters."),
                     "help": {"tip": H.tip("graph.cluster_map", tx), "help": H.target("graph.cluster_map")}}}
 
@@ -68,8 +72,9 @@ EDGE_HELP = {"width": "edges.width", "scale": "edges.scale", "color": "edges.col
 def edge_words(tx: Text) -> dict[str, Any]:
     """The legend key's and the Edge appearance card's words (graph.js `edgeKey`, `renderCard`), `{…}` filled in the
     browser, and each control's two help layers."""
-    hidden = lambda n: tx.n(n, one="{n} link hidden from the drawing", other="{n} links hidden from the drawing",  # noqa: E731
-                            n="{n}")
+    def hidden(n: int) -> str:
+        return tx.n(n, one="{n} link hidden from the drawing", other="{n} links hidden from the drawing", n="{n}")
+
     return {"key": tx("Edge thickness: {measure}", measure="{measure}"), "shared": tx("shared games"),
             "lift": tx("lift"), "hidden_short": tx("{n} hidden", n="{n}"), "hidden": [hidden(1), hidden(2)],
             "px": tx("{lo}–{hi} px", lo="{lo}", hi="{hi}"),
@@ -466,8 +471,8 @@ def build_layout(ctx: BuildContext, lang: str = "en") -> html.Div:
         html.Div([
             html.Span(id="verify-result", className="small"),
             html.Span(id="error-message", className="error small"),
-            dcc.Checklist(id="panels", options=L.options("panels", [("controls", msg("Controls")),
-                                                                   ("inspector", msg("Inspector")), ("tables", msg("Tables"))]),
+            dcc.Checklist(id="panels", options=L.options("panels", [
+                ("controls", msg("Controls")), ("inspector", msg("Inspector")), ("tables", msg("Tables"))]),
                           value=["controls", "inspector", "tables"], inline=True, className="seg toggles"),
             _button(L, "graph-only", msg("Graph only"), title=msg("The narrowest form at any width")),
         ], className="hdr-right"),

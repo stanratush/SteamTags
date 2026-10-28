@@ -405,8 +405,8 @@
       fadeOut(cy.nodes(".region").not(".leaving"), ms);
       G.regionSeq = (G.regionSeq || 0) + 1;
       for (const r of data.regions) {
-        const added = cy.add({group: "nodes", data: {id: r.id + "~" + G.regionSeq, label: r.label, cluster: r.cluster,
-                                                     color: r.color, w: r.w, h: r.h},
+        const added = cy.add({group: "nodes", data: {id: r.id + "~" + G.regionSeq, label: regionTitle(r),
+                                                     cluster: r.cluster, count: r.count, color: r.color, w: r.w, h: r.h},
                               position: {x: r.x, y: r.y}, classes: "region", grabbable: false,
                               selectable: false, locked: true, pannable: true});
         fadeIn(added, ms);
@@ -565,6 +565,12 @@
     A.showShared = !!(switchValue && switchValue.length);
     if (words) A.ui = words;
     if (G.data) { adoptAppearance(G.data); restyle(); renderCard(); markHiddenLinks(); }
+    if (G.cy) {  // a language switch re-titles the pool's region
+      G.cy.nodes(".region").forEach((n) => {
+        if (n.data("cluster") === "one_tag_pool") n.data("label", regionTitle({cluster: n.data("cluster"), count: n.data("count"),
+                                                                                label: n.data("label")}));
+      });
+    }
     return keyText();
   }
 
@@ -638,8 +644,9 @@
     const w = A.ui.map, gamma = M.data.gamma || 1;
     const multi = M.data.clusters.filter((c) => c.kind === "multi_tag");
     const poolSize = M.data.clusters.filter((c) => c.kind !== "multi_tag").length;
-    const groups = multi.map((c) => ({cluster: c.cluster, size: c.size, r: 4 + 2.2 * Math.sqrt(c.size)}));
-    if (poolSize) groups.push({cluster: "one_tag_pool", size: poolSize, r: 4 + 2.2 * Math.sqrt(poolSize)});
+    const radius = (n) => 3.4 * Math.sqrt(n);  // area by tag count
+    const groups = multi.map((c) => ({cluster: c.cluster, size: c.size, r: radius(c.size)}));
+    if (poolSize) groups.push({cluster: "one_tag_pool", size: poolSize, r: radius(poolSize)});
     const at = mapPlaces(groups);
     const sel = current !== undefined ? current : (G.selected ? JSON.parse(G.selected) : null);
     const selPair = sel && sel.kind === "pair" ? sel.id : null, selCluster = sel && sel.kind === "cluster" ? sel.id : null;
@@ -869,6 +876,13 @@
     }
   });
 
+
+  // A region's title: a cluster's label as sent; the pool's in the Interface Language (ui-words `map.pool_region`).
+  function regionTitle(r) {
+    const words = A.ui && A.ui.map && A.ui.map.pool_region;
+    if (r.cluster !== "one_tag_pool" || !words || r.count === undefined) return r.label;
+    return words[r.count === 1 ? 0 : 1].split("{n}").join(String(r.count));
+  }
 
   // Region ids carry a sequence suffix so a fading old region and its replacement can coexist.
   function region(cluster) {

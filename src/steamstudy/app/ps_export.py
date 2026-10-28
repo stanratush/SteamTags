@@ -20,9 +20,9 @@ from steamstudy.app import ps_cache
 from steamstudy.app.loader import BuildContext
 from steamstudy.export import schema as S
 from steamstudy.export.writer import csv_bytes
+from steamstudy.i18n import text
 from steamstudy.network import selection as SEL
 from steamstudy.network import selection_text as T
-from steamstudy.i18n import text
 from steamstudy.network.cluster import PASS_CAP, label_clusters
 from steamstudy.network.stability import TRADES_PER_GAME, noise_seeds, replicate_seeds
 from steamstudy.versions import software_versions

@@ -388,7 +388,7 @@ The card always says how many links are hidden from the drawing. A hidden link i
 >
 > **Higher →** a thicker line: a higher [Connection Ratio](03-metric-reference.md#connection-ratio), up to γ.
 >
-> **Here:** which clusters of the most-played games' tags connect, and how strongly for their sizes.
+> **Here:** which clusters of the most-played games' tags connect, and how much for their sizes.
 >
 > **Caution:** where a bubble sits follows the drawing; distance on the map is not a metric.
 

@@ -18,6 +18,7 @@ from dash import html
 from steamstudy.app import help as H
 from steamstudy.export import schema as S
 from steamstudy.i18n import Text
+from steamstudy.network.metrics import POOL as M_POOL
 from steamstudy.network.metrics import within_z_cap
 
 
@@ -441,7 +442,7 @@ def cluster_inspector(cluster: dict[str, Any], members: list[dict[str, Any]], we
 
 # ----------------------------------------------------------------------------- Cluster connections (issue 18)
 
-POOL = "one_tag_pool"
+POOL = M_POOL  # the pooled One-Tag Clusters' group, as in cluster_connections.csv
 
 
 def pair_id(a: str, b: str) -> str:
@@ -504,6 +505,8 @@ def connections_section(cluster: str, rows: list[dict[str, Any]], weight: str, g
                         tx: Text) -> list[Any]:
     """The Cluster Inspector's Connections section: one row per partner (`ranked_partners`); a row selects the pair."""
     partners = ranked_partners(cluster, rows)
+    if not partners:  # a One-Tag Cluster: its links belong to the pool's rows
+        return []
     lift = weight == "lift"
     head = (_cell(tx("Partner"), tag="th") + _help_th(tx("Ratio"), "connections.ratio", tx)
             + _help_th(tx("Share"), "connections.share", tx) + _cell(tx("Total"), "r", "th") + _cell(tx("Links"), "r", "th"))
@@ -570,15 +573,22 @@ def pair_inspector(row: dict[str, Any], links: list[dict[str, Any]], colors: tup
     between them; a link's row selects it."""
     a, b = row["cluster_a"], row["cluster_b"]
     lift = weight == "lift"
-    rows = [(tx("Connection Ratio"), Markup(_ratio_bar(row["ratio"], gamma, tx) + " " + _e(tx("of γ = {gamma}",
-                                                                                              gamma=tx.fixed(gamma, ".2f"))))),
+    of_gamma = _e(tx("of γ = {gamma}", gamma=tx.fixed(gamma, ".2f")))
+    rows = [(tx("Connection Ratio"), Markup(_ratio_bar(row["ratio"], gamma, tx) + " " + of_gamma)),
             (tx("Connection Share of {group}", group=_group_name(a, tx)), _share(row["share_of_a"], tx)),
             (tx("Connection Share of {group}", group=_group_name(b, tx)), _share(row["share_of_b"], tx)),
             (tx("Total"), _total(row["weight"], weight, tx)), (tx("Links"), str(row["edge_count"]))]
     if lift:
         rows += [(tx("Shared-game total"), _total(row["shared_weight"], "shared_games", tx)),
                  (tx("Shared-game ratio (not tied to the clustering; can exceed γ)"), tx.num(row["shared_ratio"]))]
-    kv = "".join(f"<dt>{_e(k)}</dt><dd>{v if isinstance(v, Markup) else _e(v)}</dd>" for k, v in rows)
+    help_of = {0: "connections.ratio", 1: "connections.share", 2: "connections.share"}
+
+    def dt(i: int, label: str) -> str:
+        if i not in help_of:
+            return f"<dt>{_e(label)}</dt>"
+        attrs = {"class": "term", "tabindex": "0", **H.attrs(help_of[i], tx)}
+        return "<dt " + " ".join(f'{k}="{_e(v)}"' for k, v in attrs.items()) + f">{_e(label)}</dt>"
+    kv = "".join(f"{dt(i, k)}<dd>{v if isinstance(v, Markup) else _e(v)}</dd>" for i, (k, v) in enumerate(rows))
     head = (_cell(tx("Tag in {group}", group=_group_name(a, tx)), tag="th")
             + _cell(tx("Tag in {group}", group=_group_name(b, tx)), tag="th")
             + _label_th("Shared games", tx) + _label_th("Lift", tx))
@@ -638,7 +648,10 @@ def connections_matrix(clusters: list[dict[str, Any]], rows: list[dict[str, Any]
     def tip(r: dict[str, Any], row: str, col: str, share: Any) -> str:
         lines = [f"{_group_name(row, tx)} ↔ {_group_name(col, tx)}",
                  tx("Connection Ratio {ratio} (γ = {gamma})", ratio=tx.num(r["ratio"]), gamma=tx.fixed(gamma, ".2f")),
-                 tx("Share {row} → {col}: {share}", row=name(row), col=name(col), share=_share(share, tx)),
+                 tx("Share {a} → {b}: {share}", a=name(r["cluster_a"]), b=name(r["cluster_b"]),
+                    share=_share(r["share_of_a"], tx)),
+                 tx("Share {a} → {b}: {share}", a=name(r["cluster_b"]), b=name(r["cluster_a"]),
+                    share=_share(r["share_of_b"], tx)),
                  tx("Total {total} · {n} links", total=_total(r["weight"], weight, tx), n=r["edge_count"])]
         if lift:
             lines.append(tx("Shared games {total} · ratio {ratio} (not tied to the clustering; can exceed γ)",
@@ -659,8 +672,8 @@ def connections_matrix(clusters: list[dict[str, Any]], rows: list[dict[str, Any]
             for col in labels:
                 attrs = f'data-row="{_e(row)}" data-col="{_e(col)}"'
                 if row == col and row != POOL:
-                    tds.append(f'<td class="cm-diag" {attrs} title="{_e(tx.n(sizes.get(row, 0), one="{n} tag", other="{n} tags"))}">'
-                               f'{_e(sizes.get(row, ""))}</td>')
+                    tags = tx.n(sizes.get(row, 0), one="{n} tag", other="{n} tags")
+                    tds.append(f'<td class="cm-diag" {attrs} title="{_e(tags)}">{_e(sizes.get(row, ""))}</td>')
                     continue
                 found = cells.get((row, col))
                 if found is None:
@@ -677,10 +690,11 @@ def connections_matrix(clusters: list[dict[str, Any]], rows: list[dict[str, Any]
         return f'<table class="cm-table cm-{mode}"><thead><tr>{head}</tr></thead><tbody>{"".join(body)}</tbody></table>'
 
     one = min(1.0 / gamma, 1.0) * 100 if gamma > 0 else 100.0
+    reference = tx("1 = as their total link weight predicts; γ is the most a ratio can reach.")
     key = (f'<div class="cm-key cm-key-ratio"><span>0</span><span class="cm-strip">'
            f'<span class="cm-mark" style="left:{one:.1f}%" title="1"></span></span>'
            f'<span>{_e(tx("γ = {gamma}", gamma=tx.fixed(gamma, ".2f")))}</span>'
-           f'<span class="mute">{_e(tx("1 = as their total link weight predicts; γ is the most a ratio can reach."))}</span></div>'
+           f'<span class="mute">{_e(reference)}</span></div>'
            f'<div class="cm-key cm-key-share"><span>0%</span><span class="cm-strip"></span><span>100%</span>'
            f'<span class="mute">{_e(tx("Share: each row adds up to 100%."))}</span></div>')
     bar = (f'<div class="cm-bar"><span class="seg cm-modes"><button data-cm-mode="ratio">{_e(tx("Ratio"))}</button>'
