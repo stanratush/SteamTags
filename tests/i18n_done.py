@@ -20,4 +20,5 @@ GUIDE_DONE: set[str] = {"00-three-rules.md", "01-getting-started.md", "README.md
                          "03-metric-reference.md#ranking-and-data",
                          "03-metric-reference.md#feature-analysis",
                          "03-metric-reference.md#the-tag-network",
-                         "03-metric-reference.md#clusters-and-partition-quality"}
+                         "03-metric-reference.md#clusters-and-partition-quality",
+                         "03-metric-reference.md#stability", "03-metric-reference.md#removal-sensitivity"}

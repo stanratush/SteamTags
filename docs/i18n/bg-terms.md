@@ -191,6 +191,10 @@ This file sits outside `docs/user-guide/`, so the guide parser never reads it. T
 | resolution limit · objective (Q) · finding · pass mark | граница на резолюцията · целева функция · находка · праг за преминаване (proposed) |
 | cut weight · volume · edge density · weighted density · induced subgraph | тегло на среза · обем · плътност на ребрата · претеглена плътност · индуциран подграф (proposed) |
 | permutation test · sample SD | пермутационен тест · SD на извадката (proposed) |
+| Stability and Removal Sensitivity entries: Stability · Three kinds of stability · Adjusted Rand index · Seed spread of modularity and silhouette · Seed range of cluster counts · Run order and identity · Reclustered change in modularity · Reclustered silhouette · Reclustered change in cluster counts · Reclustered ARI · Centers lost · Fixed-partition change in modularity · Fixed-partition silhouette · Beyond-noise flag | Стабилност · Три вида стабилност · Коригиран индекс на Rand · Разброс на модулярността и силуета по начални числа · Обхват на броя клъстери по начални числа · Ред на изпълнение и идентичност · Промяна в модулярността при нова клъстеризация · Силует при нова клъстеризация · Промяна в броя клъстери при нова клъстеризация · ARI при нова клъстеризация · Изгубени центрове · Промяна в модулярността при фиксирано разбиване · Силует при фиксирано разбиване · Отметка „над шума“ (proposed) |
+| algorithmic · parameter · data (the three kinds of stability) | алгоритмична · по параметрите · по данните (proposed) |
+| noise seed · main seed · yardstick · companion (in a cluster) | начално число за шума · главно начално число · мерило · спътник (proposed) |
+| fixed partition (`fp_`) · reorganisation · mechanical (change) · bridge tag · run order · active strength | фиксирано разбиване · преподреждане · механична · свързващ таг · ред на изпълнение · активна сила (proposed) |
 
 ## Guide labels
 
