@@ -160,6 +160,10 @@ This file sits outside `docs/user-guide/`, so the guide parser never reads it. T
 | Ratio \| Share · Matrix \| Table | Отношение \| Дял · Матрица \| Таблица |
 | summary row · dotted label · pill bar · floating card · bottom sheet | ред с обобщението · пунктиран етикет · лента с бутони · плаваща карта · долен панел |
 | the chapter titles (the guide's Contents) | Три правила · Първи стъпки · Настройки на приложението · Справочник на метриките · Какво има във всеки файл · Цитиране и възпроизвеждане на състояние на мрежата · Известни ограничения · Приложения A–C |
+| the section titles of chapter 2 · Control reference · Analytical controls explained | Справочник на настройките · Аналитичните настройки, обяснени (proposed) |
+| toggle · chip (a Genre Tag's button) · slider · Fit (⤢) | превключвател · бутон (not *етикет*, which is a label) · плъзгач · Побиране (proposed) |
+| what-if · cookie · private window | хипотетичен сценарий · бисквитка · поверителен прозорец (proposed) |
+| the layout's clamp · label spacing | ограничаването · разреждането на етикетите (proposed) |
 
 ## Guide labels
 

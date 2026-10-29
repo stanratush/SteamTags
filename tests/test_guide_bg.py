@@ -70,6 +70,7 @@ def problems(en_dir: Path, bg_dir: Path, done: set[str]) -> list[str]:
             if target is None:
                 continue
             file, _, anchor = target.partition("#")
+            anchor = G.ALIASES.get(anchor, anchor)  # a renamed heading's old anchor resolves, as in the app
             if file not in english or (anchor and anchor not in {a for _, a in en_anchors[file]}):
                 out.append(f"bg/{name}: link {href} resolves to no English heading")
     for entry in sorted(done):
@@ -241,6 +242,13 @@ def test_the_parity_check_fails_on_labels_markers_ids_and_links(guide):
     assert any("resolves to no English heading" in p for p in problems(en, bg, set()))
 
 
+def test_a_link_to_a_renamed_headings_alias_resolves(guide, monkeypatch):
+    en, bg = guide
+    monkeypatch.setitem(G.ALIASES, "lift-old", "lift")
+    (bg / "03-metric-reference.md").write_text(BULGARIAN.replace("(#modularity-q)", "(#lift-old)"), encoding="utf-8")
+    assert problems(en, bg, set()) == []
+
+
 def test_the_english_guide_is_unchanged_by_the_bulgarian_lookups():
     """English anchors are the computed slugs, so every code-referenced anchor still resolves."""
     from steamstudy.app.help import HELP
@@ -301,3 +309,14 @@ def test_the_bulgarian_in_short_labels_and_markers_are_the_term_tables_guide_lab
             # a marker is written without the label's colon ("Caution" is the table's "Caution:")
             bulgarian = table.get(english) or table[english + ":"].removesuffix(":")
             assert words["bg"][kind] == bulgarian, (kind, english)
+
+
+def test_the_bulgarian_in_short_blocks_on_the_done_list_keep_the_form_and_the_word_cap():
+    for entry in sorted(i18n_done.GUIDE_DONE):
+        file, _, h2 = entry.partition("#")
+        text = (BG / file).read_text(encoding="utf-8")
+        text = G.section(text, h2) if h2 else text
+        for _, _, anchor in G.headings(text):
+            lines = G.in_short(_own(text, anchor), "bg")
+            if lines:
+                assert G.in_short_problems(lines, "bg") == [], (entry, anchor)
