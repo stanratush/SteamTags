@@ -169,6 +169,12 @@ This file sits outside `docs/user-guide/`, so the guide parser never reads it. T
 | bubble (Cluster map) · histogram · handle | мехур · хистограма · дръжка (proposed) |
 | badge · verdict (Pair Inspector) · provenance line · loading panel | значка · извод · ред за произхода · панел за зареждане (proposed) |
 | hub (in the Position entry, a tag linked to almost every other) | хъб, only there: never for the Cluster Center (proposed) |
+| chapter 3's opening sections · Ranking and data | Как да четете тази глава · Настройки, които променят числата · Ранжиране и данни (proposed) |
+| would-be rank · near miss · impact report · completeness counts · depth check | хипотетичен ранг · близък пропуск · доклад за въздействието · бройки за пълнота · проверка на дълбочината (proposed) |
+| listing pass · listing rank · declined (a game) | преминаване през списъка · позиция в списъка · отслабнала (proposed) |
+| concurrent players · idle game · Peak Players | едновременни играчи · игра с изчакване · Peak Players, the Steam Charts column name (proposed) |
+| tie · tie-break | равенство · разрешаване на равенството (proposed) |
+| tag vocabulary · parse errors' parsers · SteamDB batch · reviewer | речник на таговете · програми за разбор · партида от SteamDB · рецензент (proposed) |
 
 ## Guide labels
 

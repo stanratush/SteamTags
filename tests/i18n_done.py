@@ -14,4 +14,7 @@ CATALOGUE_DONE: set[str] = {"layout", "callbacks", "refusals", "ui_words", "sche
 # that are complete.
 GUIDE_DONE: set[str] = {"00-three-rules.md", "01-getting-started.md", "README.md", "06-known-limitations.md",
                          "appendix-a-rules-of-thumb.md", "appendix-c-references.md",
-                         "02-app-controls.md"}
+                         "02-app-controls.md",
+                         "03-metric-reference.md#how-to-read-this-chapter",
+                         "03-metric-reference.md#settings-that-change-the-numbers",
+                         "03-metric-reference.md#ranking-and-data"}
