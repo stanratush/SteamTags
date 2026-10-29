@@ -231,7 +231,7 @@ def test_a_link_to_a_renamed_headings_alias_resolves(guide, monkeypatch):
     en, bg = guide
     monkeypatch.setitem(G.ALIASES, "lift-old", "lift")
     (bg / "03-metric-reference.md").write_text(BULGARIAN.replace("(#modularity-q)", "(#lift-old)"), encoding="utf-8")
-    assert not any("link" in p for p in problems(en, bg))
+    assert not any("resolves to no English heading" in p for p in problems(en, bg))
 
 
 def test_the_english_guide_is_unchanged_by_the_bulgarian_lookups():

@@ -8,7 +8,7 @@ import pytest
 
 from conftest import REPO
 from steamstudy.app.guide import PANEL_SECTIONS, headings, help_markdown, slug
-from steamstudy.export.column_index import INDEX_FILE, render
+from steamstudy.export.column_index import FIXED, INDEX_FILE, render
 from steamstudy.export.schema import REGISTRY
 
 GUIDE = REPO / "docs" / "user-guide"
@@ -28,13 +28,10 @@ def _anchors(name: str) -> set[str]:
 
 def test_committed_column_index_is_not_stale():
     assert _text(INDEX_FILE) == render(), "run: python -m steamstudy.export.column_index"
-    bg = (GUIDE / "bg" / INDEX_FILE).read_text(encoding="utf-8")
-    assert bg == render("bg"), "run: python -m steamstudy.export.column_index"
+    assert _text(f"bg/{INDEX_FILE}") == render("bg"), "run: python -m steamstudy.export.column_index"
 
 
 def test_every_app_panel_of_the_column_index_has_a_bulgarian_label():
-    from steamstudy.export.column_index import FIXED
-
     panels = {c.app_panel for s in REGISTRY for c in s.columns if c.app_panel}
     assert sorted(panels - set(FIXED["bg"]["panels"])) == []
 

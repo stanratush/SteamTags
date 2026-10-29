@@ -28,7 +28,8 @@ GROUP_LABEL = {
     "parameter_selection": "Parameter Selection export zip",
 }
 
-# The appendix's fixed text per language: its title, introduction, table header and the file groups' labels.
+# The appendix's fixed text per language: its title, introduction, table header and the file groups' labels, and
+# for Bulgarian the schema's app panels and report sections (English shows the schema's own words).
 FIXED: dict[str, dict[str, Any]] = {
     "en": {
         "title": "# Appendix B. Column index",

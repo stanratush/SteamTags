@@ -35,7 +35,7 @@ Spec: [Bilingual Interface and Cluster Views spec](../spec.md): "Bulk translatio
 
 **Choices for R2:**
 - **Quoted export text stays English:** the attribution line *"Player data: Steam Charts; tags/metadata: Steam store"*, the `parameter_selection.json` statuses *"partial, k of 153"* and *"not run"*, and *Avg. 0.00 and Peak 0*.
-- **App labels are the catalogue's:** *„Експортирай състоянието на мрежата“*, *„Експортирай таблиците“*, *„Отвори състояние на мрежата…“*, *„Подреди“*, *„Заредени от експорт (не са изпълнени отново).“*, *„Настройки по подразбиране“ / „Персонализирани настройки: …“*. *The Cluster-quality row* is *редът от „Качество на клъстерите“*, as chapter 2 writes it.
+- **App labels are the catalogue's:** *„Експортирай състоянието на мрежата“*, *„Експортирай таблиците“*, *„Отвори състояние на мрежата…“*, *„Подреди“*, *„Заредени от експорт (не са изпълнени отново).“*, *The Cluster-quality row* is *редът от „Качество на клъстерите“*, as chapter 2 writes it.
 - **Appendix B's file groups** are lowercase in their parentheses (*компилация: datasets/*), since they follow a file name.
 
 **Terms coined in this slice**, added to `bg-terms.md` as "proposed" for R2:
@@ -52,3 +52,9 @@ HELP 91 keys, PANEL_SECTIONS 11, ENTRY_BY_COLUMN 194, ENTRY_BY_FILE 42: 119 dist
 ```
 
 **Checked in the app in BG** (after a restart): the Edges table's help popover shows the Bulgarian `edges.csv` entry; the modal shows *Отчетете избор на параметри (Report a Parameter Selection)* and *Приложение B. Индекс на колоните* in Bulgarian.
+
+**2026-10-29, agent: review follow-up.** The code review of G6–G10 led to these fixes:
+- **Chapter 5:** the settings labels to quote are the exported values, which stay English (*"Default settings"* or *"Custom settings: …"*), with the app's Bulgarian names given beside them.
+- **The edge inspector** is *инспектор на реброто* everywhere, like *инспектор на клъстера*. The term row and G6's two uses changed; Appendix B already used it.
+- **Wording:** the Connection Share Caution no longer says *сила на връзката*, an Avoid word for the Connection Ratio. *пасват по-добре* in the Fixed-partition silhouette In short is now *съответстват повече*.
+- **Code:** a corrected comment in `column_index.py`; `test_guide.py` reads both appendices through `_text`; the alias test checks the exact link problem.
