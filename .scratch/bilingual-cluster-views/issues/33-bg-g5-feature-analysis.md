@@ -22,17 +22,18 @@ Spec: [Bilingual Interface and Cluster Views spec](../spec.md): "Bulk translatio
 - **Avoid words:** *връзка* is never used for a relation between tags (it is Connections): *каквато и да е зависимостта между двата тага*, *рядък таг, който винаги идва с чест*. *Общност* is avoided too: community-voted is *поставят с гласуване от потребителите на Steam*. *Сила на асоциацията* appears only in the van Eck & Waltman citation, as the table allows.
 
 **Choices for R2:**
+- ***етикет* for labels other than `C1…`**: `kind` is *етикет от конфигурацията*, and Free To Play is a *търговски етикет*, following the chip row ("*етикет*, which is a label"). R2 should say whether a Genre value next to *етикет* reads too much like a tag.
 - **Numbers:** prose decimals are Bulgarian (*Дял 0,63*, *0,17 за тагове на 10 и 60 игри*). Arithmetic and formulas keep the English form (*0.63 / 0.21 = 3.0*, *30 / 70 = 0.43*, *q ≤ 0.05*, *phi = 0.27*, *p = 0.002*, and the BH example *q = 0.004, 0.02, 0.04, 0.04*), as in G4. A value written right after a column name in backticks is a quoted column value and keeps it too (*`share` 0.63*, *`baseline_share` 0.21*).
-- **Tag pairs** are always *двойка тагове* at a heading and at first mention, because *двойка* alone is the Threshold Pair. Inside a combination's own sentences (*тройка отпада, когато подкрепата ѝ е равна на тази на някоя от нейните двойки*) the bare word is kept, as the context is a combination.
+- **Tag pairs** are *двойка тагове*, because *двойка* alone is the Threshold Pair. The bare word is kept only for the pairs inside a combination (*тройка отпада, когато подкрепата ѝ е равна на тази на някоя от нейните двойки*) and in the sentence right after a qualified mention. The term table's row says the same.
 - **Tag names stay English** inside examples: *„23 от 100-те игри носят едновременно Roguelike, Action и Pixel Graphics“* replaces the English *pixel-art action roguelikes*, which would need translated tag names. Steam's archived category names (Genres, Themes & Moods, …) and Genre values (Indie, Free To Play, Early Access) stay English.
 - **Quotations** are translated in „…“: Brin et al.'s *„клетките с висок интерес имат ниски бройки“*.
 
 **Terms coined in this slice**, added to `bg-terms.md` as "proposed" for R2:
-- the entry titles: *Брой и дял на тага*, *Медианна позиция на тага*, *Базово ниво в пула на годните игри*, *Отношение на дяловете* (as Appendix A already wrote), *Архивна категория на тага*, *Честота на жанровете*;
-- support *подкрепа*, confidence *достоверност*, association rule *асоциативно правило*, *двойки и тройки тагове*;
+- the entry titles: *Брой и дял на тага*, *Медианна позиция на тага*, *Базово ниво в пула на годните игри*, *Отношение на дяловете* (as Appendix A already wrote), *Архивна категория на тага*, *Честота на жанровете*, *Подкрепа на комбинацията*, *Лифт на комбинацията*, *Достоверност*, *Бройки за двойка тагове*, *Лифт на двойка тагове*;
+- combination *комбинация*, support *подкрепа*, confidence *достоверност*, association rule *асоциативно правило*, *двойки и тройки тагове*;
 - co-occurrence *съвместно срещане*, independence *независимост*, interest *интерес*, association table *таблица на асоциациите*;
 - *коефициент phi*, *стойност p от точния тест на Fisher* (short *p на Fisher*), *q на Benjamini-Hochberg*, *H на Loevinger*, false discovery rate *очакван дял на фалшивите открития*;
-- screen *отсяване*, chance finding *случайна находка*, over-represented *свръхпредставен*;
+- screen *отсяване*, chance finding *случайна находка*, over- / under-represented *свръхпредставен* / *недостатъчно представен*;
 - generic tag *широк таг* (not *общ*, which means shared), medoid score *оценка на медоида*, business label *търговски етикет*, gameplay genre *жанр на геймплея*.
 
 **Checked in the app in BG:**
