@@ -282,7 +282,7 @@ def test_every_registered_static_prop_passes_through_the_translator(app, pseudo)
                     for k, x in node.items():
                         if k != "help":
                             yield from leaves(x)
-            strings = list(leaves({k: v for k, v in value.items() if k != "decimal"}))
+            strings = list(leaves({k: v for k, v in value.items() if k not in ("decimal", "lang")}))
         elif prop == "labels":
             strings = list(value.values())
         else:
@@ -422,3 +422,10 @@ def test_the_superseded_table_parses_stems_and_allowed_phrases(tmp_path):
                      "| сийд | — |\n| общност | *откриване на общности*; *общностна структура* |\n\n## Next\n\n"
                      "| a | b |\n|---|---|\n| x | y |\n", encoding="utf-8")
     assert P.superseded(terms) == [("сийд", ()), ("общност", ("откриване на общности", "общностна структура"))]
+
+
+def test_the_ui_words_carry_the_language_for_the_pages_lang_attribute():
+    """workbench.js `uiWords` sets <html lang> from it, so screen readers and `:lang(bg)` CSS follow the switch."""
+    from steamstudy.app.layout import ui_words
+
+    assert ui_words(text("bg"))["lang"] == "bg" and ui_words(text("en"))["lang"] == "en"

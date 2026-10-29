@@ -41,9 +41,11 @@ PILLS = ("dataset", "min-months", "min-games", "min-shared", "hidden", "weight",
 def ui_words(tx: Text) -> dict[str, Any]:
     """The words the browser code shows (the `ui-words` store): JS and CSS hold none of their own. `tip` labels each
     kind of tooltip line (help.py), `more` is the tooltip's footer and `info` the ⓘ's aria-label; `pills` are the
-    pill bar's words (workbench.js `pills`), `{…}` filled in the browser; `decimal` is the language's decimal mark."""
+    pill bar's words (workbench.js `pills`), `{…}` filled in the browser; `decimal` is the language's decimal mark
+    and `lang` its code, for the page's lang attribute."""
     genre = lambda n: tx.n(n, one="{n} Genre Tag", other="{n} Genre Tags", n="{n}")  # noqa: E731
-    return {"title": tx("Tag Network"), "tip": LABELS[tx.lang], "more": tx("Click for the full User Guide entry"),
+    return {"title": tx("Tag Network"), "lang": tx.lang, "tip": LABELS[tx.lang],
+            "more": tx("Click for the full User Guide entry"),
             "info": tx("User Guide entry for {name}", name="{name}"), "decimal": tx.decimal,
             "pills": {"genre": [genre(1), genre(2)], "defining": tx("{hidden} + defining", hidden="{hidden}"),
                       "lift": tx("Lift"), "shared": tx("Shared games"),

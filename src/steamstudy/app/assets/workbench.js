@@ -306,11 +306,13 @@
     return lang;
   }
 
-  // The ui-words store (layout.py `ui_words`): the words of this file and the browser tab title.
+  // The ui-words store (layout.py `ui_words`): the words of this file, the browser tab title and the page's lang
+  // (screen readers; app.css `:lang(bg)` rules for longer Bulgarian labels).
   function uiWords(data) {
     if (!data) return;
     words = data;
     if (data.title) document.title = data.title;
+    if (data.lang) document.documentElement.lang = data.lang;
   }
 
   window.dash_clientside = Object.assign({}, window.dash_clientside, {workbench: {pills, language, uiWords}});

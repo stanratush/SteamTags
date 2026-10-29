@@ -88,6 +88,12 @@ This file sits outside `docs/user-guide/`, so the guide parser and the guide's p
 | replicate (null model, seed noise) | повторение (proposed) | реплика |
 | source / target tag (of an edge) | изходен / целеви таг (proposed) | — |
 | tag id | идентификатор на таг (proposed) | ID, номер |
+| null-model excess · null mean · shuffled networks | превишение над нулевия модел · средно за нулевия модел · разбъркани мрежи (proposed) | излишък |
+| game-set distance (Jaccard distance between game sets) | разстояние по игри; in full разстояние на Jaccard между множествата игри (proposed) | — |
+| reclustered · clusters kept (Removal Sensitivity) | при нова клъстеризация · запазени клъстери (proposed) | — |
+| screening flag · flagged | отметка за проверка · отбелязан (proposed) | флаг (that word is the Content Flag) |
+| member (of a Cluster) · partner (in Connections) | член · партньор (proposed) | — |
+| SD | SD, in Latin script like ARI (proposed) | СО |
 | App Bundle | пакет на приложението | самостоятелно приложение, преносима версия, офлайн пакет |
 | Free-to-Play Game | безплатна игра (Free-to-Play) | — |
 | Candidate Pool | пул от кандидати | топ-N игри, изтеглени игри |
@@ -113,6 +119,7 @@ This file sits outside `docs/user-guide/`, so the guide parser and the guide's p
 | ARI, NMI | unchanged |
 | Jaccard | индекс на Jaccard, разстояние на Jaccard |
 | Leiden, Louvain, CHAMP, Hennig | unchanged, in Latin script |
+| Inspector plain names (proposed) | Сума на общите игри · Сума на лифта · Изпъкване в своя клъстер (z) · Разпръснатост между клъстерите · Съответствие със своя клъстер (силует) · Пресичане на границата (проводимост) · Най-свързан член |
 
 ## The app's modes, layouts and panels
 
@@ -176,6 +183,7 @@ The label set that `in_short()` reads for Bulgarian.
 | Matched · "of its tags" | Съвпадащи (avoid *съвпадения*, *мачнати*) · от таговете ѝ (the game, *играта*, is feminine) |
 | Show all {n} | Покажи всички {n} |
 | Run · Cancel · Restore · Reset · Reset all · Close | Изпълни · Отказ · Възстанови · Нулирай · Нулирай всичко · Затвори (proposed; *Отказ* is the usual Bulgarian Cancel, a noun, the one exception to the imperative) |
+| Unhide · Show JSON · copied | Покажи отново · Покажи JSON · копирано (proposed) |
 | Language · Search · Clear search · Graph only | Език · Търсене · Изчисти търсенето · Само графът (proposed) |
 | Tidy (the graph's relayout) | Подреди (proposed) |
 | Min games · Min shared · Months ≥ (short labels) | Мин. игри · Мин. общи · Месеци ≥ (proposed) |
