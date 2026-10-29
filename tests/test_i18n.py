@@ -10,7 +10,6 @@ import pytest
 from steamstudy import i18n
 from steamstudy.i18n import text
 
-import i18n_done
 import i18n_parity as P
 
 
@@ -97,28 +96,27 @@ def test_only_english_and_bulgarian_exist():
 
 
 def test_the_catalogue_parity_holds_for_the_source_tree():
-    assert P.problems(P.scan(), i18n.areas("bg"), i18n_done.CATALOGUE_DONE) == []
+    assert P.problems(P.scan(), i18n.areas("bg")) == []
 
 
-def test_parity_fails_for_a_done_module_with_a_missing_entry():
+def test_parity_fails_on_a_missing_entry():
     found = [P.Message("layout", "Seed", None, "app/layout.py:1")]
-    assert P.problems(found, {"layout": {}}, set()) == []  # not done yet: English at runtime
-    assert any("missing" in p for p in P.problems(found, {"layout": {}}, {"layout"}))
+    assert any("missing" in p for p in P.problems(found, {"layout": {}}))
 
 
-def test_parity_fails_on_a_placeholder_mismatch_even_before_the_module_is_done():
+def test_parity_fails_on_a_placeholder_mismatch():
     found = [P.Message("view", "{n} of {total}", None, "app/view.py:1")]
-    assert any("placeholder" in p for p in P.problems(found, {"view": {"{n} of {total}": "{n} от {all}"}}, set()))
+    assert any("placeholder" in p for p in P.problems(found, {"view": {"{n} of {total}": "{n} от {all}"}}))
 
 
 def test_parity_fails_on_a_counted_message_without_both_forms():
     found = [P.Message("view", "{n} tag", "{n} tags", "app/view.py:1")]
-    assert any("forms" in p for p in P.problems(found, {"view": {"{n} tag": {"one": "{n} таг"}}}, set()))
-    assert any("forms" in p for p in P.problems(found, {"view": {"{n} tag": "{n} тага"}}, set()))
+    assert any("forms" in p for p in P.problems(found, {"view": {"{n} tag": {"one": "{n} таг"}}}))
+    assert any("forms" in p for p in P.problems(found, {"view": {"{n} tag": "{n} тага"}}))
 
 
 def test_parity_fails_on_an_orphaned_key():
-    assert any("orphan" in p for p in P.problems([], {"view": {"Gone": "Няма"}}, set()))
+    assert any("orphan" in p for p in P.problems([], {"view": {"Gone": "Няма"}}))
 
 
 def test_the_scan_finds_literals_and_counted_messages(tmp_path):

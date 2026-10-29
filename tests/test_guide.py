@@ -28,13 +28,15 @@ def _anchors(name: str) -> set[str]:
 
 def test_committed_column_index_is_not_stale():
     assert _text(INDEX_FILE) == render(), "run: python -m steamstudy.export.column_index"
+    bg = (GUIDE / "bg" / INDEX_FILE).read_text(encoding="utf-8")
+    assert bg == render("bg"), "run: python -m steamstudy.export.column_index"
+
+
+def test_every_app_panel_of_the_column_index_has_a_bulgarian_label():
     from steamstudy.export.column_index import FIXED
 
-    bg = GUIDE / "bg" / INDEX_FILE
-    if bg.is_file():  # written by issue 38, with FIXED["bg"]
-        assert bg.read_text(encoding="utf-8") == render("bg"), "run: python -m steamstudy.export.column_index"
-    else:
-        assert "bg" not in FIXED, "run: python -m steamstudy.export.column_index"
+    panels = {c.app_panel for s in REGISTRY for c in s.columns if c.app_panel}
+    assert sorted(panels - set(FIXED["bg"]["panels"])) == []
 
 
 def test_every_column_has_a_guide_entry_with_a_heading():

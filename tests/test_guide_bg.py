@@ -1,9 +1,9 @@
 """The Bulgarian User Guide (`docs/user-guide/bg/`): structure parity with the English guide, and the lookups that
 fall back to English (spec: .scratch/bilingual-cluster-views/spec.md, "The Bulgarian User Guide", "Tests").
 
-Correctness is checked wherever Bulgarian exists: every heading carries an English `{#id}` at the English level, and
-every in-guide link resolves. Completeness (every English heading has a twin; the same In short labels and markers)
-is checked for the files and `##` sections on `i18n_done.GUIDE_DONE`.
+Every English file has a Bulgarian twin, every English heading has a twin at the same level with the same In short
+labels and entry markers, every Bulgarian heading carries an English `{#id}`, and every in-guide link resolves. (The app
+still splices English into any gap at runtime; the tests leave none.)
 """
 
 from __future__ import annotations
@@ -13,7 +13,6 @@ from pathlib import Path
 
 import pytest
 
-import i18n_done
 from conftest import REPO
 from steamstudy.app import guide as G
 
@@ -47,7 +46,7 @@ def _shape(markdown: str, lang: str) -> list[tuple[int, str, tuple[str, ...], di
     return out
 
 
-def problems(en_dir: Path, bg_dir: Path, done: set[str]) -> list[str]:
+def problems(en_dir: Path, bg_dir: Path) -> list[str]:
     """What breaks the Bulgarian guide's structure against the English one."""
     out = []
     english = {p.name: p.read_text(encoding="utf-8") for p in en_dir.glob("*.md")}
@@ -73,41 +72,26 @@ def problems(en_dir: Path, bg_dir: Path, done: set[str]) -> list[str]:
             anchor = G.ALIASES.get(anchor, anchor)  # a renamed heading's old anchor resolves, as in the app
             if file not in english or (anchor and anchor not in {a for _, a in en_anchors[file]}):
                 out.append(f"bg/{name}: link {href} resolves to no English heading")
-    for entry in sorted(done):
-        file, _, h2 = entry.partition("#")
+    for file, en_text in sorted(english.items()):
         if file not in translated:
-            out.append(f"{entry}: on the done-list but bg/{file} does not exist")
+            out.append(f"{file}: no Bulgarian file bg/{file}")
             continue
-        en_text, bg_text = english[file], translated[file]
-        if h2:
-            en_text = G.section(en_text, h2) or ""
-            bg_text = G.section(bg_text, h2)
-            if bg_text is None:
-                out.append(f"{entry}: on the done-list but bg/{file} has no section {{#{h2}}}")
-                continue
         en_shape = {(level, anchor): rest for level, anchor, *rest in _shape(en_text, "en")}
-        bg_shape = {(level, anchor): rest for level, anchor, *rest in _shape(bg_text, "bg")}
+        bg_shape = {(level, anchor): rest for level, anchor, *rest in _shape(translated[file], "bg")}
         for key, (kinds, markers) in en_shape.items():
             if key not in bg_shape:
-                out.append(f"{entry}: no Bulgarian twin of {{#{key[1]}}} at level {key[0]}")
+                out.append(f"{file}: no Bulgarian twin of {{#{key[1]}}} at level {key[0]}")
                 continue
             bg_kinds, bg_markers = bg_shape[key]
             if bg_kinds != kinds:
-                out.append(f"{entry}: {{#{key[1]}}} In short labels {bg_kinds}, English has {kinds}")
+                out.append(f"{file}: {{#{key[1]}}} In short labels {bg_kinds}, English has {kinds}")
             if bg_markers != markers:
-                out.append(f"{entry}: {{#{key[1]}}} markers {bg_markers}, English has {markers}")
+                out.append(f"{file}: {{#{key[1]}}} markers {bg_markers}, English has {markers}")
     return out
 
 
 def test_the_bulgarian_guide_keeps_the_english_structure():
-    assert problems(EN, BG, i18n_done.GUIDE_DONE) == []
-
-
-def test_every_guide_done_entry_names_an_english_file_or_section():
-    for entry in i18n_done.GUIDE_DONE:
-        file, _, h2 = entry.partition("#")
-        assert (EN / file).is_file(), entry
-        assert not h2 or (2, h2) in {(lv, a) for lv, _, a in G.headings((EN / file).read_text(encoding="utf-8"))}
+    assert problems(EN, BG) == []
 
 
 # ----------------------------------------------------------------------------- fixtures
@@ -219,34 +203,35 @@ def test_a_bulgarian_stub_without_a_title_keeps_the_english_opening(guide):
     assert G.chapter("bg", "README.md") == G.chapter("en", "README.md")
 
 
-def test_the_parity_check_fails_on_a_done_section_missing_a_heading(guide):
+def test_the_parity_check_fails_on_a_missing_heading_or_file(guide):
     en, bg = guide
-    assert problems(en, bg, set()) == []
-    assert problems(en, bg, {"03-metric-reference.md#size"}) == [
-        "03-metric-reference.md#size: no Bulgarian twin of {#modularity-q} at level 3"]
-    assert any("no section {#other}" in p for p in problems(en, bg, {"03-metric-reference.md#other"}))
+    assert problems(en, bg) == ["03-metric-reference.md: no Bulgarian twin of {#modularity-q} at level 3",
+                                "03-metric-reference.md: no Bulgarian twin of {#other} at level 2",
+                                "03-metric-reference.md: no Bulgarian twin of {#seed} at level 3"]
+    (en / "06-known-limitations.md").write_text("# Known limitations\n", encoding="utf-8")
+    assert "06-known-limitations.md: no Bulgarian file bg/06-known-limitations.md" in problems(en, bg)
 
 
 def test_the_parity_check_fails_on_labels_markers_ids_and_links(guide):
     en, bg = guide
     path = bg / "03-metric-reference.md"
     path.write_text(BULGARIAN.replace("> **Внимание:** редки тагове.", "> **Тук:** редки тагове."), encoding="utf-8")
-    assert any("In short labels" in p for p in problems(en, bg, {"03-metric-reference.md#size"}))
+    assert any("In short labels" in p for p in problems(en, bg))
     path.write_text(BULGARIAN.replace("*Защо има значение тук.* ", ""), encoding="utf-8")
-    assert any("markers" in p for p in problems(en, bg, {"03-metric-reference.md#size"}))
+    assert any("markers" in p for p in problems(en, bg))
     path.write_text(BULGARIAN.replace(" {#lift}", ""), encoding="utf-8")
-    assert any("without an {#id}" in p for p in problems(en, bg, set()))
+    assert any("without an {#id}" in p for p in problems(en, bg))
     path.write_text(BULGARIAN.replace("{#lift}", "{#lyft}"), encoding="utf-8")
-    assert any("is no English heading" in p for p in problems(en, bg, set()))
+    assert any("is no English heading" in p for p in problems(en, bg))
     path.write_text(BULGARIAN.replace("(#modularity-q)", "(#modularity)"), encoding="utf-8")
-    assert any("resolves to no English heading" in p for p in problems(en, bg, set()))
+    assert any("resolves to no English heading" in p for p in problems(en, bg))
 
 
 def test_a_link_to_a_renamed_headings_alias_resolves(guide, monkeypatch):
     en, bg = guide
     monkeypatch.setitem(G.ALIASES, "lift-old", "lift")
     (bg / "03-metric-reference.md").write_text(BULGARIAN.replace("(#modularity-q)", "(#lift-old)"), encoding="utf-8")
-    assert problems(en, bg, set()) == []
+    assert not any("link" in p for p in problems(en, bg))
 
 
 def test_the_english_guide_is_unchanged_by_the_bulgarian_lookups():
@@ -259,9 +244,6 @@ def test_the_english_guide_is_unchanged_by_the_bulgarian_lookups():
     assert G.chapter("en", "appendix-b-column-index.md") == render()
 
 
-@pytest.mark.skipif(not ({"selection_text"} <= i18n_done.CATALOGUE_DONE
-                         and "05-citing-and-reproducing.md" in i18n_done.GUIDE_DONE),
-                    reason="waits for the A4 and G10 slices: selection_text and chapter 5 on the done-lists")
 def test_the_bulgarian_methods_paragraph_is_the_report_template_in_bulgarian():
     from steamstudy.i18n import text
     from steamstudy.network.selection_text import methods_paragraph
@@ -311,12 +293,10 @@ def test_the_bulgarian_in_short_labels_and_markers_are_the_term_tables_guide_lab
             assert words["bg"][kind] == bulgarian, (kind, english)
 
 
-def test_the_bulgarian_in_short_blocks_on_the_done_list_keep_the_form_and_the_word_cap():
-    for entry in sorted(i18n_done.GUIDE_DONE):
-        file, _, h2 = entry.partition("#")
-        text = (BG / file).read_text(encoding="utf-8")
-        text = G.section(text, h2) if h2 else text
+def test_the_bulgarian_in_short_blocks_keep_the_form_and_the_word_cap():
+    for path in sorted(BG.glob("*.md")):
+        text = path.read_text(encoding="utf-8")
         for _, _, anchor in G.headings(text):
             lines = G.in_short(_own(text, anchor), "bg")
             if lines:
-                assert G.in_short_problems(lines, "bg") == [], (entry, anchor)
+                assert G.in_short_problems(lines, "bg") == [], (path.name, anchor)

@@ -1,7 +1,7 @@
 """Catalogue parity: every `tx("…")` / `tx.n(…)` literal in the source against the Bulgarian catalogue.
 
-Correctness is strict wherever an entry exists: placeholder names match, a counted message has both forms, no key
-is orphaned. Completeness (a missing entry) is checked only for the areas on the done-list (`i18n_done`).
+Every literal needs an entry, placeholder names match, a counted message has both forms, and no key is orphaned.
+The app still falls back to English at runtime for a missing entry; the tests leave no room for one.
 
 The superseded-word scan (issue 22) checks every Bulgarian text, catalogue and guide, against the Superseded words
 of the term table (`docs/i18n/bg-terms.md`).
@@ -117,7 +117,7 @@ def fields(message: str) -> set[str]:
     return {name for _, name, _, _ in string.Formatter().parse(message) if name}
 
 
-def problems(found: list[Message], areas: dict[str, dict[str, i18n.Entry]], done: set[str]) -> list[str]:
+def problems(found: list[Message], areas: dict[str, dict[str, i18n.Entry]]) -> list[str]:
     """What breaks parity between the English literals and the Bulgarian catalogues."""
     out = []
     merged: dict[str, i18n.Entry] = {}
@@ -132,8 +132,7 @@ def problems(found: list[Message], areas: dict[str, dict[str, i18n.Entry]], done
             continue
         entry = merged.get(m.key)
         if entry is None:
-            if m.area in done:
-                out.append(f"{m.where}: {m.key!r} missing from the Bulgarian {m.area} catalogue")
+            out.append(f"{m.where}: {m.key!r} missing from the Bulgarian {m.area} catalogue")
             continue
         if m.other is None:
             if not isinstance(entry, str):

@@ -2,9 +2,9 @@
 
     uv run python -m steamstudy.export.column_index      # rewrites docs/user-guide/appendix-b-column-index.md
 
-It is generated once per language whose fixed labels are in `FIXED`: the Bulgarian copy goes to
-`docs/user-guide/bg/` (issue 38 adds its labels). Column names, file names and anchors stay English in both. A test
-fails when a committed file differs from what this module generates.
+It is generated once per language in `FIXED`: the Bulgarian copy goes to `docs/user-guide/bg/`, with its fixed
+text, file-group labels and app panels in Bulgarian. Column names, file names, anchors and a report's own section names
+stay English in both. A test fails when a committed file differs from what this module generates.
 """
 
 from __future__ import annotations
@@ -39,6 +39,50 @@ FIXED: dict[str, dict[str, Any]] = {
         "header": "| Column | File(s) | App panel | Report section | Explained in |",
         "groups": GROUP_LABEL,
     },
+    "bg": {
+        "title": "# Приложение B. Индекс на колоните {#appendix-b-column-index}",
+        "intro": "Всяка експортирана колона по азбучен ред, с файловете, в които се появява, мястото, където я "
+                 "показва приложението, мястото, където я използва генериран доклад, и статията ѝ в "
+                 "[глава 3](03-metric-reference.md). Имената на колоните и файловете, както и разделите на "
+                 "докладите, които остават на английски, са както в експорта. Този файл се генерира от "
+                 "`steamstudy.export.schema` с `python -m steamstudy.export.column_index`; не го редактирайте "
+                 "ръчно.",
+        "header": "| Колона | Файл(ове) | Панел в приложението | Раздел на доклада | Обяснена в |",
+        "groups": {
+            "build_datasets": "компилация: datasets/",
+            "build_reports": "компилация: reports/",
+            "analysis": "компилация: analysis/",
+            "app_export": "експортиран zip на приложението",
+            "snapshot": "папка на моментната снимка",
+            "parameter_selection": "zip от избора на параметри",
+        },
+        # The schema's app panels and report sections; a report's own section names stay English, as the report does.
+        "panels": {
+            "Cluster quality tab": "раздел „Качество на клъстерите“",
+            "Cluster quality tab (replicates)": "раздел „Качество на клъстерите“ (повторения)",
+            "Cluster-quality row; Cluster quality tab":
+                "редът от „Качество на клъстерите“; раздел „Качество на клъстерите“",
+            "Clusters table; cluster inspector": "таблица „Клъстери“; инспектор на клъстера",
+            "Edges table; edge inspector": "таблица „Ребра“; инспектор на реброто",
+            "Nodes table; node inspector": "таблица „Възли“; инспектор на възела",
+            "Not in network tab (Analysis Report section 2)":
+                "раздел „Извън мрежата“ (раздел 2 на режима „Аналитичен доклад“)",
+            "Parameter Selection: Pair Constraints": "Избор на параметри: ограничения за двойката",
+            "Parameter Selection: Pair Inspector": "Избор на параметри: Инспектор на двойката",
+            "Parameter Selection: Selection settings": "Избор на параметри: настройки на избора",
+            "Parameter Selection: Why this pair": "Избор на параметри: „Защо тази двойка“",
+            "Parameter Selection: dataset strip": "Избор на параметри: лента с наборите",
+            "Parameter Selection: heatmap and Pair Inspector":
+                "Избор на параметри: топлинна карта и Инспектор на двойката",
+            "Parameter Selection: validation card": "Избор на параметри: карта на валидирането",
+            "Removal sensitivity tab": "раздел „Чувствителност към премахване“",
+            "cluster inspector (Games)": "инспектор на клъстера (Игри)",
+            "loaded dataset (edge inspector lists its games)":
+                "зареденият набор (инспекторът на реброто изброява игрите му)",
+            "none (Build only)": "няма (само в компилацията)",
+        },
+        "reports": {"none": "няма"},
+    },
 }
 
 
@@ -50,8 +94,8 @@ def render(lang: str = "en") -> str:
         for column in schema.columns:
             entry = rows[(column.name, column.guide_entry or "")]
             entry["files"].add(f"`{schema.name}` ({fixed['groups'].get(schema.group, schema.group)})")
-            entry["panels"].add(column.app_panel or "")
-            entry["reports"].add(column.report_section or "")
+            entry["panels"].add(fixed.get("panels", {}).get(column.app_panel, column.app_panel or ""))
+            entry["reports"].add(fixed.get("reports", {}).get(column.report_section, column.report_section or ""))
     lines = [fixed["title"], "", fixed["intro"], "", fixed["header"], "|---|---|---|---|---|"]
     for (name, anchor), info in sorted(rows.items(), key=lambda kv: (kv[0][0].lower(), kv[0][1])):
         lines.append(
