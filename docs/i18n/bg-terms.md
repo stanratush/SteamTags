@@ -94,6 +94,15 @@ This file sits outside `docs/user-guide/`, so the guide parser and the guide's p
 | screening flag · flagged | отметка за проверка · отбелязан (proposed) | флаг (that word is the Content Flag) |
 | member (of a Cluster) · partner (in Connections) | член · партньор (proposed) | — |
 | SD | SD, in Latin script like ARI (proposed) | СО |
+| isolated share · LCC share (Pair Constraints) | дял на изолираните тагове · дял на LCC, LCC in Latin script (proposed) | — |
+| comparable neighbours · near-best · tolerance | сравними съседи · почти най-добри · допуск (proposed) | — |
+| NA (the heatmap's short Neighbour Agreement) | NA, in Latin script (proposed) | — |
+| scan · scan seed · scan range · hits · envelope (CHAMP) | сканиране · начално число от сканирането · обхват на сканирането · попадения · обвивка (proposed) | — |
+| Validation · Validate this pair | валидиране · Валидирай тази двойка (proposed; Null Comparison keeps its own name) | — |
+| arm · re-selected · at resolution (Subsample Stability) | вариант · при нов избор · при резолюцията (proposed) | рамо |
+| dissolved (a Cluster under subsampling) | разпаднат (proposed) | разтворен |
+| Neighbour links (the Pair Inspector section) | сравнения със съседите (proposed) | връзки, ребра (those are Connections and edges) |
+| qualifies (a Threshold Pair) | квалифицира се (proposed) | — |
 | App Bundle | пакет на приложението | самостоятелно приложение, преносима версия, офлайн пакет |
 | Free-to-Play Game | безплатна игра (Free-to-Play) | — |
 | Candidate Pool | пул от кандидати | топ-N игри, изтеглени игри |
@@ -189,6 +198,9 @@ The label set that `in_short()` reads for Bulgarian.
 | Min games · Min shared · Months ≥ (short labels) | Мин. игри · Мин. общи · Месеци ≥ (proposed) |
 | the drawing (what Edge appearance changes) | изображението (proposed) |
 | job (a background run) | задача (proposed) |
+| Pair Inspector · Apply to Workbench · Copy from Workbench | Инспектор на двойката · Приложи в работното място · Копирай от работното място (proposed) |
+| Reset to defaults · Confirm · Use these settings | Върни стойностите по подразбиране · Потвърди · Използвай тези настройки (proposed) |
+| default · custom (the pills' values) | по подразбиране · персонализирано (proposed) |
 
 ## Superseded words
 

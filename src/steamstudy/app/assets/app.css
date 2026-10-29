@@ -409,6 +409,8 @@ body[data-form=narrow] #root.workbench .ov-bl{bottom:54px}
 .ps-eta{font-weight:600}
 .ps-picker{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .ps-metric-help{display:none}
+:lang(bg) #ps-metric{flex-wrap:wrap}  /* the longer Bulgarian metric names wrap onto a second row, none is cut */
+:lang(bg) #ps-metric .dash-options-list-option{border-bottom:1px solid var(--line);margin-bottom:-1px}
 .ps-key{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px}
 .ps-table{border-collapse:collapse;font-size:12px;margin:6px 0}
 .ps-table th,.ps-table td{padding:2px 6px;border-bottom:1px solid var(--line);text-align:left}

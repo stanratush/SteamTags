@@ -255,7 +255,8 @@ def _constraint_inputs(L: Labels, defaults: SEL.Constraints) -> list[Any]:
 
 def _default_text(default: Any) -> Callable[[Text], str]:
     """A Pair Constraint's default beside its field, as a function of the translator."""
-    return lambda tx: tx("default {value}", value=tx("off") if default is None else default)
+    return lambda tx: tx("default {value}", value=tx("off") if default is None else
+                         tx.fixed(default, "g") if isinstance(default, float) else default)
 
 
 def _pill(L: Labels, pill: str, label: str, key: str, section: html.Div) -> html.Div:
