@@ -4,7 +4,7 @@
 
 **Blocked by:** 27
 
-**Status:** ready-for-human
+**Status:** done
 
 Spec: [Bilingual Interface and Cluster Views spec](../spec.md): "Review (HITL)", "Corrections flow through the term table". Term table: [docs/i18n/bg-terms.md](../../../docs/i18n/bg-terms.md).
 
@@ -27,4 +27,9 @@ Checklist for the researcher. The agent prepares the session: it starts the app 
 
 ## Resolution
 
-<!-- The researcher's corrections, term decisions and any new slice instruction. -->
+**2026-10-29, the researcher (recorded by the agent):** "Accept all proposed and continue with the next issue."
+
+- **Term decisions:** every row marked "proposed" in `bg-terms.md` is accepted as written, from A1–A4 (issues 23–26) and G1 (issue 27). No term changes, so nothing goes to Superseded words.
+- **Wording corrections:** none.
+- **The "Choices for R1" listed in issues 24–27** stand as the slices made them, the shared "Multi-Tag Cluster" key included.
+- **Guide slices G2–G10** start after issue 29 with the spec's Guide slice conventions unchanged.

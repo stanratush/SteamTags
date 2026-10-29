@@ -1,6 +1,6 @@
 # Bulgarian term table
 
-Every Bulgarian text in the Tag Network app and the Bulgarian User Guide (`docs/user-guide/bg/`) follows this table. The English domain terms are defined in [CONTEXT.md](../../CONTEXT.md). This file only says how each one is written in Bulgarian. Agreed with the researcher on 2026-10-27 ([Bulgarian terminology](../../.scratch/bilingual-cluster-views/issues/03-bulgarian-terminology.md)); the terms of the Edge appearance card, the Connections views and the Games section on 2026-10-28 ([issue 22](../../.scratch/bilingual-cluster-views/issues/22-new-terms-and-superseded-scan.md)).
+Every Bulgarian text in the Tag Network app and the Bulgarian User Guide (`docs/user-guide/bg/`) follows this table. The English domain terms are defined in [CONTEXT.md](../../CONTEXT.md). This file only says how each one is written in Bulgarian. Agreed with the researcher on 2026-10-27 ([Bulgarian terminology](../../.scratch/bilingual-cluster-views/issues/03-bulgarian-terminology.md)); the terms of the Edge appearance card, the Connections views and the Games section on 2026-10-28 ([issue 22](../../.scratch/bilingual-cluster-views/issues/22-new-terms-and-superseded-scan.md)); every term proposed by the slices A1–A4 and G1 accepted in the calibration review on 2026-10-29 ([issue 28](../../.scratch/bilingual-cluster-views/issues/28-r1-calibration-review.md)).
 
 This file sits outside `docs/user-guide/`, so the guide parser never reads it. Two tests do: the superseded-word scan reads the table at the end, and a guide test checks `guide.LABELS` and `guide.MARKERS` against the Guide labels.
 
@@ -13,7 +13,7 @@ This file sits outside `docs/user-guide/`, so the guide parser never reads it. T
 - **Exports stay English**: column names and file names appear in English, in backticks (`cluster_connections.csv`, `edge_count`).
 - **Never translated**: Steam tag names, game titles, Steam Genre values, cluster labels `C1…` and the five dataset labels (`Overall`, `Puzzle`, `RPG`, `Strategy`, `Simulation`). Prose may say *наборът Overall*.
 - **English once at each guide entry heading**: every glossary entry heading in the Bulgarian guide gives the English term in parentheses, before its anchor, e.g. `### Лифт (Lift) {#lift}`.
-- **Register**: the guide addresses the reader with polite plural *вие*, in lowercase. Buttons and actions use the short imperative: *Отвори*, *Нулирай*, *Изтегли*. Proposed (issue 23): a tooltip that names a control's action uses the same short imperative (*Побери целия граф на екрана*); a tooltip that tells the reader what to do with the mouse uses *вие* (*Щракнете…*, *Плъзнете…*).
+- **Register**: the guide addresses the reader with polite plural *вие*, in lowercase. Buttons and actions use the short imperative: *Отвори*, *Нулирай*, *Изтегли*. A tooltip that names a control's action uses the same short imperative (*Побери целия граф на екрана*); a tooltip that tells the reader what to do with the mouse uses *вие* (*Щракнете…*, *Плъзнете…*).
 
 ## Numbers on screen
 
@@ -83,35 +83,35 @@ This file sits outside `docs/user-guide/`, so the guide parser never reads it. T
 | Qualifying Pair | квалифицирана двойка | допустима двойка, валидна двойка |
 | Minimum Months Filter | филтър за минимум месеци | — |
 | Interface Language | език на интерфейса | локал, режим на превод |
-| User Guide · guide entry | ръководство за потребителя (short: ръководството) · статия (both proposed) | — |
-| defining tag (of a Tag-Specific Dataset) | определящ таг (proposed) | — |
-| replicate (null model, seed noise) | повторение (proposed) | реплика |
-| source / target tag (of an edge) | изходен / целеви таг (proposed) | — |
-| tag id | идентификатор на таг (proposed) | ID, номер |
-| null-model excess · null mean · shuffled networks | превишение над нулевия модел · средно за нулевия модел · разбъркани мрежи (proposed) | излишък |
-| game-set distance (Jaccard distance between game sets) | разстояние по игри; in full разстояние на Jaccard между множествата игри (proposed) | — |
-| reclustered · clusters kept (Removal Sensitivity) | при нова клъстеризация · запазени клъстери (proposed) | — |
-| screening flag · flagged | отметка за проверка · отбелязан (proposed) | флаг (that word is the Content Flag) |
-| member (of a Cluster) · partner (in Connections) | член · партньор (proposed) | — |
-| SD | SD, in Latin script like ARI (proposed) | СО |
-| isolated share · LCC share (Pair Constraints) | дял на изолираните тагове · дял на LCC, LCC in Latin script (proposed) | — |
-| comparable neighbours · near-best · tolerance | сравними съседи · почти най-добри · допуск (proposed) | — |
-| NA (the heatmap's short Neighbour Agreement) | NA, in Latin script (proposed) | — |
-| scan · scan seed · scan range · hits · envelope (CHAMP) | сканиране · начално число от сканирането · обхват на сканирането · попадения · обвивка (proposed) | — |
-| Validation · Validate this pair | валидиране · Валидирай тази двойка (proposed; Null Comparison keeps its own name) | — |
-| arm · re-selected · at resolution (Subsample Stability) | вариант · при нов избор · при резолюцията (proposed) | рамо |
-| dissolved (a Cluster under subsampling) | разпаднат (proposed) | разтворен |
-| Neighbour links (the Pair Inspector section) | сравнения със съседите (proposed) | връзки, ребра (those are Connections and edges) |
-| qualifies (a Threshold Pair) | квалифицира се (proposed) | — |
-| Default / Custom constraints · Default / Custom settings | Ограничения по подразбиране / Персонализирани ограничения · Настройки по подразбиране / Персонализирани настройки (proposed) | — |
-| robustness (of the Clusters) · a coarser split | робастност · по-едро разбиване (proposed) | устойчивост, разделяне |
-| subset · random 80% subsets of the games | подмножество · случайни подмножества от 80% от игрите (proposed) | — |
-| methods paragraph: adjusted Rand index · self-consistent resolution · upper envelope · curveball trades · scaled by floor · mean best-match Jaccard | коригиран индекс на Rand · самосъгласувана резолюция · горна обвивка · размени curveball · мащабирани със закръгляне надолу · среден индекс на Jaccard за най-добро съвпадение (proposed) | — |
-| rule of thumb · band · cut-off · reference point (Appendix A) | емпирично правило · гранична зона · гранична стойност · отправна точка (proposed) | праг (that word is the thresholds g and s) |
-| pipeline · repository · parse errors | конвейер · хранилище · грешки при разбора (proposed) | — |
-| feature analysis (the Build's report) | анализ на характеристиките (proposed) | — |
-| consensus partition (what the study does not compute) | консенсусно разбиване, only in that literal sense (proposed) | — |
-| delisted · region-locked | премахнат от магазина · с регионални ограничения (proposed) | — |
+| User Guide · guide entry | ръководство за потребителя (short: ръководството) · статия | — |
+| defining tag (of a Tag-Specific Dataset) | определящ таг | — |
+| replicate (null model, seed noise) | повторение | реплика |
+| source / target tag (of an edge) | изходен / целеви таг | — |
+| tag id | идентификатор на таг | ID, номер |
+| null-model excess · null mean · shuffled networks | превишение над нулевия модел · средно за нулевия модел · разбъркани мрежи | излишък |
+| game-set distance (Jaccard distance between game sets) | разстояние по игри; in full разстояние на Jaccard между множествата игри | — |
+| reclustered · clusters kept (Removal Sensitivity) | при нова клъстеризация · запазени клъстери | — |
+| screening flag · flagged | отметка за проверка · отбелязан | флаг (that word is the Content Flag) |
+| member (of a Cluster) · partner (in Connections) | член · партньор | — |
+| SD | SD, in Latin script like ARI | СО |
+| isolated share · LCC share (Pair Constraints) | дял на изолираните тагове · дял на LCC, LCC in Latin script | — |
+| comparable neighbours · near-best · tolerance | сравними съседи · почти най-добри · допуск | — |
+| NA (the heatmap's short Neighbour Agreement) | NA, in Latin script | — |
+| scan · scan seed · scan range · hits · envelope (CHAMP) | сканиране · начално число от сканирането · обхват на сканирането · попадения · обвивка | — |
+| Validation · Validate this pair | валидиране · Валидирай тази двойка (Null Comparison keeps its own name) | — |
+| arm · re-selected · at resolution (Subsample Stability) | вариант · при нов избор · при резолюцията | рамо |
+| dissolved (a Cluster under subsampling) | разпаднат | разтворен |
+| Neighbour links (the Pair Inspector section) | сравнения със съседите | връзки, ребра (those are Connections and edges) |
+| qualifies (a Threshold Pair) | квалифицира се | — |
+| Default / Custom constraints · Default / Custom settings | Ограничения по подразбиране / Персонализирани ограничения · Настройки по подразбиране / Персонализирани настройки | — |
+| robustness (of the Clusters) · a coarser split | робастност · по-едро разбиване | устойчивост, разделяне |
+| subset · random 80% subsets of the games | подмножество · случайни подмножества от 80% от игрите | — |
+| methods paragraph: adjusted Rand index · self-consistent resolution · upper envelope · curveball trades · scaled by floor · mean best-match Jaccard | коригиран индекс на Rand · самосъгласувана резолюция · горна обвивка · размени curveball · мащабирани със закръгляне надолу · среден индекс на Jaccard за най-добро съвпадение | — |
+| rule of thumb · band · cut-off · reference point (Appendix A) | емпирично правило · гранична зона · гранична стойност · отправна точка | праг (that word is the thresholds g and s) |
+| pipeline · repository · parse errors | конвейер · хранилище · грешки при разбора | — |
+| feature analysis (the Build's report) | анализ на характеристиките | — |
+| consensus partition (what the study does not compute) | консенсусно разбиване, only in that literal sense | — |
+| delisted · region-locked | премахнат от магазина · с регионални ограничения | — |
 | App Bundle | пакет на приложението | самостоятелно приложение, преносима версия, офлайн пакет |
 | Free-to-Play Game | безплатна игра (Free-to-Play) | — |
 | Candidate Pool | пул от кандидати | топ-N игри, изтеглени игри |
@@ -137,7 +137,7 @@ This file sits outside `docs/user-guide/`, so the guide parser never reads it. T
 | ARI, NMI | unchanged |
 | Jaccard | индекс на Jaccard, разстояние на Jaccard |
 | Leiden, Louvain, CHAMP, Hennig | unchanged, in Latin script |
-| Inspector plain names (proposed) | Сума на общите игри · Сума на лифта · Изпъкване в своя клъстер (z) · Разпръснатост между клъстерите · Съответствие със своя клъстер (силует) · Пресичане на границата (проводимост) · Най-свързан член |
+| Inspector plain names | Сума на общите игри · Сума на лифта · Изпъкване в своя клъстер (z) · Разпръснатост между клъстерите · Съответствие със своя клъстер (силует) · Пресичане на границата (проводимост) · Най-свързан член |
 
 ## The app's modes, layouts and panels
 
@@ -153,13 +153,13 @@ This file sits outside `docs/user-guide/`, so the guide parser never reads it. T
 | Connections · Games (Inspector sections) | Връзки · Игри |
 | pair view | изглед на двойка (its heading: Двойка клъстери) |
 | Edges (the legend button and the Edges tab) | Ребра |
-| Dataset (control and block) | Набор от данни (proposed; prose keeps *набор*) |
-| Export (block, noun) · Export this state (button) | Експорт · Експортирай състоянието на мрежата (proposed) |
-| app cache | кеш на приложението (proposed) |
-| Key (the legend's first label) | Легенда (proposed) |
+| Dataset (control and block) | Набор от данни (prose keeps *набор*) |
+| Export (block, noun) · Export this state (button) | Експорт · Експортирай състоянието на мрежата |
+| app cache | кеш на приложението |
+| Key (the legend's first label) | Легенда |
 | Ratio \| Share · Matrix \| Table | Отношение \| Дял · Матрица \| Таблица |
-| summary row · dotted label · pill bar · floating card · bottom sheet | ред с обобщението · пунктиран етикет · лента с бутони · плаваща карта · долен панел (proposed) |
-| the chapter titles (the guide's Contents) | Три правила · Първи стъпки · Настройки на приложението · Справочник на метриките · Какво има във всеки файл · Цитиране и възпроизвеждане на състояние на мрежата · Известни ограничения · Приложения A–C (proposed) |
+| summary row · dotted label · pill bar · floating card · bottom sheet | ред с обобщението · пунктиран етикет · лента с бутони · плаваща карта · долен панел |
+| the chapter titles (the guide's Contents) | Три правила · Първи стъпки · Настройки на приложението · Справочник на метриките · Какво има във всеки файл · Цитиране и възпроизвеждане на състояние на мрежата · Известни ограничения · Приложения A–C |
 
 ## Guide labels
 
@@ -175,7 +175,7 @@ The label set that `in_short()` reads for Bulgarian.
 | Caution: | Внимание: |
 | Now: | Сега: |
 | Column: / Columns: | Колона: / Колони: |
-| Field: (the Network State table's tooltip) | Поле: (proposed) |
+| Field: (the Network State table's tooltip) | Поле: |
 | Why it matters here | Защо има значение тук |
 | Exact definition | Точна дефиниция |
 | Example | Пример |
@@ -183,7 +183,7 @@ The label set that `in_short()` reads for Bulgarian.
 | Compare with | Сравнете с |
 | Shown in the app as | В приложението се показва като |
 
-**References (Appendix C).** Proposed: the bibliographic entries stay as published. Only the guide's own locators are Bulgarian: резюме, табл., ур., фиг., с., теорема, лема, следствие, твърдение, деф. The methods paragraph uses the same locators. Quotations from the literature (Appendix A) are translated, in „…“, with the Bulgarian number format.
+**References (Appendix C).** The bibliographic entries stay as published. Only the guide's own locators are Bulgarian: резюме, табл., ур., фиг., с., теорема, лема, следствие, твърдение, деф. The methods paragraph uses the same locators. Quotations from the literature (Appendix A) are translated, in „…“, with the Bulgarian number format.
 
 **Quality words to avoid in Bulgarian In short blocks.** This is guidance for translating and reviewing; it has no test. Avoid: добър, лош, силен/силно, слаб, стабилен, устойчив, важен, значим/значителен, надежден, отличен. Glossary terms such as *стабилно разбиване* are exempt.
 
@@ -195,7 +195,7 @@ The label set that `in_short()` reads for Bulgarian.
 | ag-grid: Contains · Not contains · Equals · Not equal · Starts with · Ends with | Съдържа · Не съдържа · Равно на · Различно от · Започва с · Завършва с |
 | ag-grid: Less than · Greater than · In range · Blank · Not blank | По-малко от · По-голямо от · В интервала · Празно · Непразно |
 | ag-grid: AND / OR · Filter... · No Rows To Show | И / ИЛИ · Филтър… · Няма редове |
-| ag-grid: Less than or equal to · Greater than or equal to | По-малко или равно на · По-голямо или равно на (proposed) |
+| ag-grid: Less than or equal to · Greater than or equal to | По-малко или равно на · По-голямо или равно на |
 | Width (and the legend's edge thickness) | Дебелина, дебелина на ребрата (avoid *ширина*) |
 | Scaling: linear · √ · log | Мащаб: линеен · √ · log; in prose корен квадратен, логаритмичен (avoid *скалиране*) |
 | Colour: one colour · By Cluster · within vs between · by value | Цвят: един цвят · по клъстер · вътре / между · по стойност (avoid *оцветяване*) |
@@ -204,17 +204,17 @@ The label set that `in_short()` reads for Bulgarian.
 | Hide links below · Links between Clusters · Links between them | Скрий ребрата под (avoid *филтър*: that is Minimum shared games) · Ребра между клъстерите · Ребра между тях |
 | Matched · "of its tags" | Съвпадащи (avoid *съвпадения*, *мачнати*) · от таговете ѝ (the game, *играта*, is feminine) |
 | Show all {n} | Покажи всички {n} |
-| Run · Cancel · Restore · Reset · Reset all · Close | Изпълни · Отказ · Възстанови · Нулирай · Нулирай всичко · Затвори (proposed; *Отказ* is the usual Bulgarian Cancel, a noun, the one exception to the imperative) |
-| Unhide · Show JSON · copied | Покажи отново · Покажи JSON · копирано (proposed) |
-| Language · Search · Clear search · Graph only | Език · Търсене · Изчисти търсенето · Само графът (proposed) |
-| Tidy (the graph's relayout) | Подреди (proposed) |
-| Min games · Min shared · Months ≥ (short labels) | Мин. игри · Мин. общи · Месеци ≥ (proposed) |
-| the drawing (what Edge appearance changes) | изображението (proposed) |
-| job (a background run) | задача (proposed) |
-| min · s (the ETA and elapsed time) | min · s, SI symbols in Latin script, as `ms` and `s` in the estimate (proposed) |
-| Pair Inspector · Apply to Workbench · Copy from Workbench | Инспектор на двойката · Приложи в работното място · Копирай от работното място (proposed) |
-| Reset to defaults · Confirm · Use these settings | Върни стойностите по подразбиране · Потвърди · Използвай тези настройки (proposed) |
-| default · custom (the pills' values, and the strip's marker) | по подразбиране · персонализирани, agreeing with *ограничения* and *настройки* (proposed) |
+| Run · Cancel · Restore · Reset · Reset all · Close | Изпълни · Отказ · Възстанови · Нулирай · Нулирай всичко · Затвори (*Отказ* is the usual Bulgarian Cancel, a noun, the one exception to the imperative) |
+| Unhide · Show JSON · copied | Покажи отново · Покажи JSON · копирано |
+| Language · Search · Clear search · Graph only | Език · Търсене · Изчисти търсенето · Само графът |
+| Tidy (the graph's relayout) | Подреди |
+| Min games · Min shared · Months ≥ (short labels) | Мин. игри · Мин. общи · Месеци ≥ |
+| the drawing (what Edge appearance changes) | изображението |
+| job (a background run) | задача |
+| min · s (the ETA and elapsed time) | min · s, SI symbols in Latin script, as `ms` and `s` in the estimate |
+| Pair Inspector · Apply to Workbench · Copy from Workbench | Инспектор на двойката · Приложи в работното място · Копирай от работното място |
+| Reset to defaults · Confirm · Use these settings | Върни стойностите по подразбиране · Потвърди · Използвай тези настройки |
+| default · custom (the pills' values, and the strip's marker) | по подразбиране · персонализирани, agreeing with *ограничения* and *настройки* |
 
 ## Superseded words
 
