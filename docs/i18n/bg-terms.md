@@ -107,6 +107,11 @@ This file sits outside `docs/user-guide/`, so the guide parser and the guide's p
 | robustness (of the Clusters) · a coarser split | робастност · по-едро разбиване (proposed) | устойчивост, разделяне |
 | subset · random 80% subsets of the games | подмножество · случайни подмножества от 80% от игрите (proposed) | — |
 | methods paragraph: adjusted Rand index · self-consistent resolution · upper envelope · curveball trades · scaled by floor · mean best-match Jaccard | коригиран индекс на Rand · самосъгласувана резолюция · горна обвивка · размени curveball · мащабирани със закръгляне надолу · среден индекс на Jaccard за най-добро съвпадение (proposed) | — |
+| rule of thumb · band · cut-off · reference point (Appendix A) | емпирично правило · гранична зона · гранична стойност · отправна точка (proposed) | праг (that word is the thresholds g and s) |
+| pipeline · repository · parse errors | конвейер · хранилище · грешки при разбора (proposed) | — |
+| feature analysis (the Build's report) | анализ на характеристиките (proposed) | — |
+| consensus partition (what the study does not compute) | консенсусно разбиване, only in that literal sense (proposed) | — |
+| delisted · region-locked | премахнат от магазина · с регионални ограничения (proposed) | — |
 | App Bundle | пакет на приложението | самостоятелно приложение, преносима версия, офлайн пакет |
 | Free-to-Play Game | безплатна игра (Free-to-Play) | — |
 | Candidate Pool | пул от кандидати | топ-N игри, изтеглени игри |
@@ -153,6 +158,8 @@ This file sits outside `docs/user-guide/`, so the guide parser and the guide's p
 | app cache | кеш на приложението (proposed) |
 | Key (the legend's first label) | Легенда (proposed) |
 | Ratio \| Share · Matrix \| Table | Отношение \| Дял · Матрица \| Таблица |
+| summary row · dotted label · pill bar · floating card · bottom sheet | ред с обобщението · пунктиран етикет · лента с бутони · плаваща карта · долен панел (proposed) |
+| the chapter titles (the guide's Contents) | Три правила · Първи стъпки · Настройки на приложението · Справочник на метриките · Какво има във всеки файл · Цитиране и възпроизвеждане на състояние на мрежата · Известни ограничения · Приложения A–C (proposed) |
 
 ## Guide labels
 
@@ -175,6 +182,8 @@ The label set that `in_short()` reads for Bulgarian.
 | Bounds | Граници |
 | Compare with | Сравнете с |
 | Shown in the app as | В приложението се показва като |
+
+**References (Appendix C).** Proposed: the bibliographic entries stay as published. Only the guide's own locators are Bulgarian: резюме, табл., ур., фиг., с., теорема, лема, следствие, твърдение, деф. The methods paragraph uses the same locators. Quotations from the literature (Appendix A) are translated, in „…“, with the Bulgarian number format.
 
 **Quality words to avoid in Bulgarian In short blocks.** This is guidance for translating and reviewing; it has no test. Avoid: добър, лош, силен/силно, слаб, стабилен, устойчив, важен, значим/значителен, надежден, отличен. Glossary terms such as *стабилно разбиване* are exempt.
 

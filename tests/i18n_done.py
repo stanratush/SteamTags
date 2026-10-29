@@ -12,4 +12,5 @@ CATALOGUE_DONE: set[str] = {"layout", "callbacks", "refusals", "ui_words", "sche
 
 # Bulgarian guide files (`03-metric-reference.md`) or `##` sections of a file (`03-metric-reference.md#feature-analysis`)
 # that are complete.
-GUIDE_DONE: set[str] = set()
+GUIDE_DONE: set[str] = {"00-three-rules.md", "01-getting-started.md", "README.md", "06-known-limitations.md",
+                         "appendix-a-rules-of-thumb.md", "appendix-c-references.md"}
