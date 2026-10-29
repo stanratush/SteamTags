@@ -164,6 +164,11 @@ This file sits outside `docs/user-guide/`, so the guide parser never reads it. T
 | toggle · chip (a Genre Tag's button) · slider · Fit (⤢) | превключвател · бутон (not *етикет*, which is a label) · плъзгач · Побиране (proposed) |
 | what-if · cookie · private window | хипотетичен сценарий · бисквитка · поверителен прозорец (proposed) |
 | the layout's clamp · label spacing | ограничаването · разреждането на етикетите (proposed) |
+| Reading the graph · Find a tag · Window width and the three forms · Task recipes | Как се чете графът · Намерете таг · Ширина на прозореца и трите форми · Рецепти за задачи (proposed) |
+| heatmap · reason letters · dataset strip · near-best set | топлинна карта · букви за причини · лента с наборите · множеството на почти най-добрите (proposed) |
+| bubble (Cluster map) · histogram · handle | мехур · хистограма · дръжка (proposed) |
+| badge · verdict (Pair Inspector) · provenance line · loading panel | значка · извод · ред за произхода · панел за зареждане (proposed) |
+| hub (in the Position entry, a tag linked to almost every other) | хъб, only there: never for the Cluster Center (proposed) |
 
 ## Guide labels
 
