@@ -279,3 +279,25 @@ def test_tooltip_lines_round_trip_and_take_the_languages_labels():
         "columns", "degree, degree_intra (nodes.csv)")
     for tx in (en, bg):  # the browser labels every kind it can be sent
         assert set(ui_words(tx)["tip"]) >= {*G.IN_SHORT_KINDS, "now", "column", "columns", "field"}
+
+
+def _guide_labels_table() -> dict[str, str]:
+    """The term table's Guide labels, English -> Bulgarian, with `A / B` rows split and notes in parentheses dropped."""
+    text = (REPO / "docs" / "i18n" / "bg-terms.md").read_text(encoding="utf-8")
+    section = re.search(r"^## Guide labels\n(.*?)(?=^## |\Z)", text, re.M | re.S)
+    assert section, "bg-terms.md has no Guide labels section"
+    rows = [line for line in section.group(1).splitlines() if line.startswith("|")][2:]
+    out = {}
+    for line in rows:
+        en, bg = (re.sub(r"\s*\(.*?\)", "", c).strip() for c in line.strip().strip("|").split("|"))
+        out.update(zip((x.strip() for x in en.split(" / ")), (x.strip() for x in bg.split(" / ")), strict=True))
+    return out
+
+
+def test_the_bulgarian_in_short_labels_and_markers_are_the_term_tables_guide_labels():
+    table = _guide_labels_table()
+    for words in (G.LABELS, G.MARKERS):
+        for kind, english in words["en"].items():
+            # a marker is written without the label's colon ("Caution" is the table's "Caution:")
+            bulgarian = table.get(english) or table[english + ":"].removesuffix(":")
+            assert words["bg"][kind] == bulgarian, (kind, english)

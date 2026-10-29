@@ -187,12 +187,12 @@ def null_sentences(summary: Any, *, tx: Text) -> list[Paragraph]:
     k, w = n["selected"], n["width"]
     if k:
         side = tx("narrower") if w["median"] < w["observed"] else tx("wider")
-        message = ("{k} of {r} also have a Selected Partition, with {side} domains (median {median} against "
-                   "{observed}; wider than all {k}).") if w["narrower"] == k else (
-                   "{k} of {r} also have a Selected Partition, with {side} domains (median {median} against "
-                   "{observed}; wider than {narrower} of {k}).")
-        head += " " + tx(message, k=k, r=r, side=side, median=tx.fixed(w["median"], ".3g"),
-                         observed=tx.fixed(w["observed"], ".3g"), narrower=w["narrower"])
+        values = {"k": k, "r": r, "side": side, "median": tx.fixed(w["median"], ".3g"),
+                  "observed": tx.fixed(w["observed"], ".3g")}
+        head += " " + (tx("{k} of {r} also have a Selected Partition, with {side} domains (median {median} against "
+                          "{observed}; wider than all {k}).", **values) if w["narrower"] == k else
+                       tx("{k} of {r} also have a Selected Partition, with {side} domains (median {median} against "
+                          "{observed}; wider than {narrower} of {k}).", narrower=w["narrower"], **values))
     else:
         head += " " + tx("None of the {r} has a Selected Partition.", r=r)
     return [[(tx("Null Comparison"), "bold"), (" " + tx("({r} shuffled networks, same g and s).", r=r) + " " + head,

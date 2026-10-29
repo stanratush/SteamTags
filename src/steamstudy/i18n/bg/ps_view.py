@@ -41,7 +41,7 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "running": "изпълнява се",
     "{n} of {total} done": "готови {n} от {total}",
     "not run": "не е изпълнено",
-    "custom": "персонализирано",
+    "custom": "персонализирани",
     "default": "по подразбиране",
     "Run all datasets": "Изпълни за всички набори",
     "Export tables": "Експортирай таблиците",

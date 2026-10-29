@@ -103,6 +103,10 @@ This file sits outside `docs/user-guide/`, so the guide parser and the guide's p
 | dissolved (a Cluster under subsampling) | разпаднат (proposed) | разтворен |
 | Neighbour links (the Pair Inspector section) | сравнения със съседите (proposed) | връзки, ребра (those are Connections and edges) |
 | qualifies (a Threshold Pair) | квалифицира се (proposed) | — |
+| Default / Custom constraints · Default / Custom settings | Ограничения по подразбиране / Персонализирани ограничения · Настройки по подразбиране / Персонализирани настройки (proposed) | — |
+| robustness (of the Clusters) · a coarser split | робастност · по-едро разбиване (proposed) | устойчивост, разделяне |
+| subset · random 80% subsets of the games | подмножество · случайни подмножества от 80% от игрите (proposed) | — |
+| methods paragraph: adjusted Rand index · self-consistent resolution · upper envelope · curveball trades · scaled by floor · mean best-match Jaccard | коригиран индекс на Rand · самосъгласувана резолюция · горна обвивка · размени curveball · мащабирани със закръгляне надолу · среден индекс на Jaccard за най-добро съвпадение (proposed) | — |
 | App Bundle | пакет на приложението | самостоятелно приложение, преносима версия, офлайн пакет |
 | Free-to-Play Game | безплатна игра (Free-to-Play) | — |
 | Candidate Pool | пул от кандидати | топ-N игри, изтеглени игри |
@@ -200,7 +204,7 @@ The label set that `in_short()` reads for Bulgarian.
 | job (a background run) | задача (proposed) |
 | Pair Inspector · Apply to Workbench · Copy from Workbench | Инспектор на двойката · Приложи в работното място · Копирай от работното място (proposed) |
 | Reset to defaults · Confirm · Use these settings | Върни стойностите по подразбиране · Потвърди · Използвай тези настройки (proposed) |
-| default · custom (the pills' values) | по подразбиране · персонализирано (proposed) |
+| default · custom (the pills' values, and the strip's marker) | по подразбиране · персонализирани, agreeing with *ограничения* and *настройки* (proposed) |
 
 ## Superseded words
 

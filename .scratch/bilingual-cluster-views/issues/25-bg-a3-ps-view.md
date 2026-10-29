@@ -30,7 +30,7 @@ Spec: [Bilingual Interface and Cluster Views spec](../spec.md): "Bulk translatio
   - dissolved *разпаднат*;
   - Neighbour links *сравнения със съседите*: *връзки* is Connections and *ребра* is edges, so neither fits a link between two grid cells;
   - qualifies *квалифицира се*.
-- **Short UI words:** Pair Inspector *Инспектор на двойката*, Apply to Workbench *Приложи в работното място*, Copy from Workbench *Копирай от работното място*, Reset to defaults *Върни стойностите по подразбиране*, Confirm *Потвърди*, Use these settings *Използвай тези настройки*, and the pills' default / custom *по подразбиране* / *персонализирано*.
+- **Short UI words:** Pair Inspector *Инспектор на двойката*, Apply to Workbench *Приложи в работното място*, Copy from Workbench *Копирай от работното място*, Reset to defaults *Върни стойностите по подразбиране*, Confirm *Потвърди*, Use these settings *Използвай тези настройки*, and the pills' default / custom *по подразбиране* / *персонализирани* (plural, agreeing with *ограничения* and *настройки*; corrected in issue 26).
 
 **Choices for R1 to look at:**
 - **Number agreement**, as in issue 24: a count that can be 1 or that sits before a noun is written "label: n", e.g. *решетка: двойки {done} от {total}*, *начални числа за сканирането: {seeds}*, *стойности: {n}*. The loading panel's sentence puts each count in parentheses after its noun: *двойки прагове (153) × резолюции (91–327) × начални числа (10)*. The ETA reads *до края: около {n} min*, so no verb agrees with {n}.
