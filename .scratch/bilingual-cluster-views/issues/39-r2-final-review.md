@@ -4,7 +4,7 @@
 
 **Blocked by:** 38
 
-**Status:** ready-for-human
+**Status:** done
 
 Spec: [Bilingual Interface and Cluster Views spec](../spec.md): "Review (HITL)", "Corrections flow through the term table". Term table: [docs/i18n/bg-terms.md](../../../docs/i18n/bg-terms.md).
 
@@ -18,4 +18,8 @@ Checklist for the researcher. The agent prepares the session: it lists the propo
 
 ## Resolution
 
-<!-- The researcher's corrections and term decisions. -->
+**2026-10-29, the researcher (recorded by the agent):** "Accept the translation and continue."
+
+- **Term decisions:** every row still marked "proposed" in `bg-terms.md` is accepted as written, from G2–G10 (issues 30–38). No term changes, so nothing goes to Superseded words.
+- **Wording corrections:** none.
+- **The "Choices for R2"** listed in issues 32–38 stand as the slices made them, the review follow-ups included: the number forms (decimal comma in prose, the English form in formulas and intervals, constraint values as the app shows them), *етикет* for the `kind` labels, the Resolution Sweep example's English quote with its Bulgarian paraphrase, *съвкупност* for groups that are not Clusters, and *инспектор на реброто*.
