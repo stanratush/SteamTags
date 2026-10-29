@@ -37,7 +37,7 @@ Spec: [Bilingual Interface and Cluster Views spec](../spec.md): "Bulk translatio
   - *{n} qualify under {under}: {constraints}.* became *Квалифицирани при {under}: {n} ({constraints}).*
 - **A shared key:** the constraint name "Multi-Tag Cluster" is also the Cluster view's subtitle, and catalogue keys are shared across areas. Its one Bulgarian entry is the subtitle's *Многотагов клъстер*. The sentence therefore puts the names after a colon: *Ограничения, които не изключиха нито една двойка: запазване на информацията, LCC и сравними съседи.* When the Multi-Tag Cluster constraint is on and excludes no pair, the list will read *… и Многотагов клъстер*, with a capital and in the singular. Fixing that needs either a context mechanism the catalogue does not have, or new English wording.
 - **The other constraint names** are the Pair Constraints' own words (*запазване на информацията*, *дял на изолираните тагове*, *сравними съседи*), not the English short forms (retention, isolated-share, neighbour).
-- **Raw numbers:** the methods paragraph writes *1000 прохода* and *⌊0,8·n⌋* in the Bulgarian number format. The formulas and section references are untouched.
+- **Raw numbers:** the methods paragraph writes *1000 прохода* and *0,5* in the Bulgarian number format in prose. The formulas (*⌊0.8·n⌋*) and section references keep their English form, as the Guide slice conventions require; the code review caught *⌊0,8·n⌋*.
 
 **Checked in the app in BG** (Overall, the cached grid):
 - **"Why this pair" for the chosen pair** g = 17, s = 2, with the labels line, the qualify and pick sentences, its own Neighbour Agreement and both caveats, at 1300 and 1024 px.

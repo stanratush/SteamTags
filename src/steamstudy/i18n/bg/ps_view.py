@@ -103,7 +103,7 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "mean Jaccard": "среден индекс на Jaccard",
     "≤ 0.5 in k of B*": "≤ 0,5 в k от B*",
     "retention share": "дял на запазване",
-    "absent": "липсва",
+    "absent": "отсъствия",
     "re-selected": "при нов избор",
     "at resolution": "при резолюцията",
     "Dissolved": "Разпаднат",

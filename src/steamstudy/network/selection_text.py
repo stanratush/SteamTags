@@ -189,6 +189,7 @@ def null_sentences(summary: Any, *, tx: Text) -> list[Paragraph]:
         side = tx("narrower") if w["median"] < w["observed"] else tx("wider")
         values = {"k": k, "r": r, "side": side, "median": tx.fixed(w["median"], ".3g"),
                   "observed": tx.fixed(w["observed"], ".3g")}
+        # two literal keys, not one chosen beforehand: the catalogue's parity scan reads only literals
         head += " " + (tx("{k} of {r} also have a Selected Partition, with {side} domains (median {median} against "
                           "{observed}; wider than all {k}).", **values) if w["narrower"] == k else
                        tx("{k} of {r} also have a Selected Partition, with {side} domains (median {median} against "

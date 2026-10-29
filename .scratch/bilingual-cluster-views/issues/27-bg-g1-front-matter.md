@@ -53,4 +53,28 @@ Spec: [Bilingual Interface and Cluster Views spec](../spec.md): "Bulk translatio
 - **Tooltips:** none of these six files has an In short entry, so no tooltip comes from G1.
 - **No screenshot:** the browser pane was hidden while this was checked, so screenshots failed. The modal's text was read from the page instead.
 
-**Word count:** about 4.6k Bulgarian words, against 4.8k English words.
+**Word count:** about 4.9k Bulgarian words, against 4.8k English words.
+
+**Code review (2026-10-29), what changed across issues 25–27:**
+- **Appendix A:**
+  - "weak and possibly artificial" is now *слаба и възможно изкуствена*; *вероятно* had changed the band's meaning to "probably".
+  - "partitioning methods" is now *методи за разбиване*, not *разделяне*, which is an Avoid word.
+  - Hennig's "dissolved" is *„разпаднат“*, the table's term.
+- **Chapter 6:** *пропуски в проследяването*. *покритие* is the Coverage metric.
+- **Chapter 1:**
+  - dropped an added aside, *(бутонът „Премахни тага“; …)*;
+  - restored the bold on *режима*.
+- **The methods paragraph** (`selection_text`):
+  - the formula is *⌊0.8·n⌋* again, since formulas keep their English form;
+  - bands are *гранични зони*;
+  - *със {constraints}* and *определящия таг* for the grammar.
+- **The cluster table:** its *absent* header is the noun *отсъствия*.
+- **`_default_text`** writes a float default as `tx.figure(str(value))`. The earlier `format(value, "g")` would have turned an English "default 1.0" into "default 1". The test now covers 1.0.
+- **`bg-terms.md`:**
+  - its header now says that two tests read it;
+  - the ETA's Latin `min` / `s` are recorded as proposed.
+- **Left for R1:**
+  - the shared "Multi-Tag Cluster" key (issue 26);
+  - the raw codes on screen (`ok`, `not_representable`, `clipped_high`);
+  - *общности* inside the translated quotations of Appendix A (*структура от общности*). The table exempts only *откриване на общности*, and community structure is the sources' own term.
+

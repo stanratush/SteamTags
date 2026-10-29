@@ -656,8 +656,8 @@ def test_the_modes_text_goes_through_the_translator(ps_build, pseudo):
 
 def test_a_pair_constraints_default_is_written_in_the_languages_number_format():
     bg = text("bg")
-    assert [PV._default_text(v)(EN) for v in (0.5, 0.05, 2, None)] == ["default 0.5", "default 0.05", "default 2",
-                                                                         "default off"]
+    assert [PV._default_text(v)(EN) for v in (0.5, 0.05, 1.0, 2, None)] == [
+        "default 0.5", "default 0.05", "default 1.0", "default 2", "default off"]
     assert [PV._default_text(v)(bg) for v in (0.5, 2, None)] == ["по подразбиране 0,5", "по подразбиране 2",
                                                                    "по подразбиране изключено"]
 

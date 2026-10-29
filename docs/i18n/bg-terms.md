@@ -2,7 +2,7 @@
 
 Every Bulgarian text in the Tag Network app and the Bulgarian User Guide (`docs/user-guide/bg/`) follows this table. The English domain terms are defined in [CONTEXT.md](../../CONTEXT.md). This file only says how each one is written in Bulgarian. Agreed with the researcher on 2026-10-27 ([Bulgarian terminology](../../.scratch/bilingual-cluster-views/issues/03-bulgarian-terminology.md)); the terms of the Edge appearance card, the Connections views and the Games section on 2026-10-28 ([issue 22](../../.scratch/bilingual-cluster-views/issues/22-new-terms-and-superseded-scan.md)).
 
-This file sits outside `docs/user-guide/`, so the guide parser and the guide's parity tests never read it. Only the superseded-word scan reads it, for the table at the end.
+This file sits outside `docs/user-guide/`, so the guide parser never reads it. Two tests do: the superseded-word scan reads the table at the end, and a guide test checks `guide.LABELS` and `guide.MARKERS` against the Guide labels.
 
 **How a correction flows.** A term change, from a review or any other source, edits this file first: change the row, move the old word into its **Avoid** cell and into [Superseded words](#superseded-words), then sweep the Bulgarian text. A test (`tests/test_i18n.py`) fails on any superseded word left in `src/steamstudy/i18n/bg/` or `docs/user-guide/bg/`, so the sweep cannot be skipped.
 
@@ -211,6 +211,7 @@ The label set that `in_short()` reads for Bulgarian.
 | Min games · Min shared · Months ≥ (short labels) | Мин. игри · Мин. общи · Месеци ≥ (proposed) |
 | the drawing (what Edge appearance changes) | изображението (proposed) |
 | job (a background run) | задача (proposed) |
+| min · s (the ETA and elapsed time) | min · s, SI symbols in Latin script, as `ms` and `s` in the estimate (proposed) |
 | Pair Inspector · Apply to Workbench · Copy from Workbench | Инспектор на двойката · Приложи в работното място · Копирай от работното място (proposed) |
 | Reset to defaults · Confirm · Use these settings | Върни стойностите по подразбиране · Потвърди · Използвай тези настройки (proposed) |
 | default · custom (the pills' values, and the strip's marker) | по подразбиране · персонализирани, agreeing with *ограничения* and *настройки* (proposed) |
