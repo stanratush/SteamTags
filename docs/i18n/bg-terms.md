@@ -195,6 +195,10 @@ This file sits outside `docs/user-guide/`, so the guide parser never reads it. T
 | algorithmic · parameter · data (the three kinds of stability) | алгоритмична · по параметрите · по данните (proposed) |
 | noise seed · main seed · yardstick · companion (in a cluster) | начално число за шума · главно начално число · мерило · спътник (proposed) |
 | fixed partition (`fp_`) · reorganisation · mechanical (change) · bridge tag · run order · active strength | фиксирано разбиване · преподреждане · механична · свързващ таг · ред на изпълнение · активна сила (proposed) |
+| Parameter Selection entries: How Automatic Parameter Selection works · Threshold Pair and Parameter Grid · Admissible Partition and Optimality Domain · Resolution estimate and Stable Partition · Selected Partition and Selected Resolution · Isolated share and LCC share · Pair Constraints, Qualifying Pair and the selection rule | Как работи автоматичният избор на параметри · Двойка прагове и решетка на параметрите · Допустимо разбиване и област на оптималност · Оценка на резолюцията и стабилно разбиване · Избрано разбиване и избрана резолюция · Дял на изолираните тагове и дял на LCC · Ограничения за двойката, квалифицирана двойка и правилото за избор (proposed) |
+| resolution estimate γ̂ · fixed-point test · map target · CHAMP plot · pass loop · canonical membership | оценка на резолюцията · тест за неподвижна точка · целево разбиване · графиката на CHAMP · цикъл от проходи · канонично членство (proposed) |
+| degree-corrected planted-partition model · multigraph · likelihood · assortative · connected component | модел с вградено разбиване с корекция за степента · мултиграф · правдоподобие · асортативно · свързана компонента (proposed) |
+| neighbour link (in prose) · compared tags · perturbation · tag–game assignment · degenerate (subsample) · retention share · without replacement | сравнение със съсед · сравнявани тагове · смущение · назначение таг–игра · изродена · дял на запазване · без връщане (proposed) |
 
 ## Guide labels
 
