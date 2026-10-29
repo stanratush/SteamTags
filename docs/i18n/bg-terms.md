@@ -186,6 +186,11 @@ This file sits outside `docs/user-guide/`, so the guide parser never reads it. T
 | layout (Global, Cluster-separated) · loose layout · spring layout · gravity · main component | изглед (изгледът „Общо“, „По клъстери“) · свободно разположение · пружинно разположение · гравитация · основен компонент (proposed) |
 | hub dissuasion (ForceAtlas2) | потискане на хъбовете: the same sense of *хъб* as in the Position entry, a tag linked to almost every other (proposed) |
 | label-aware pass · box (node plus label) · graph area · zoom · zoomed out · packed (regions) · canvas · reference canvas | преминаване, съобразено с етикетите · кутия · областта на графа · приближение · отдалечен · подредени плътно · платно · еталонно платно (proposed) |
+| Clusters and partition quality entries: the section · Cluster labels and counts · Network size · Null-model baseline · Excess modularity and z-score · Coverage and inter-cluster weight share · Disconnected clusters · Mean silhouette · Internal edges, weight and densities · Cut weight and conductance · Cluster connections · Games within a Cluster | Клъстери и качество на разбиването · Етикети и брой на клъстерите · Размер на мрежата · Отправна стойност от нулевия модел · Превишение на модулярността и z-оценка · Покритие и дял на теглото между клъстерите · Несвързани клъстери · Среден силует · Вътрешни ребра, тегло и плътности · Тегло на среза и проводимост · Връзки между клъстерите · Игри в клъстера (proposed) |
+| group (of tags or characteristics, when not the Cluster itself) · grouping, structure | съвкупност (never *група*, the Cluster's Avoid word) · структура (proposed) |
+| resolution limit · objective (Q) · finding · pass mark | граница на резолюцията · целева функция · находка · праг за преминаване (proposed) |
+| cut weight · volume · edge density · weighted density · induced subgraph | тегло на среза · обем · плътност на ребрата · претеглена плътност · индуциран подграф (proposed) |
+| permutation test · sample SD | пермутационен тест · SD на извадката (proposed) |
 
 ## Guide labels
 
