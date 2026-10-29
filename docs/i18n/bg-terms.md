@@ -175,6 +175,12 @@ This file sits outside `docs/user-guide/`, so the guide parser never reads it. T
 | concurrent players · idle game · Peak Players | едновременни играчи · игра с изчакване · Peak Players, the Steam Charts column name (proposed) |
 | tie · tie-break | равенство · разрешаване на равенството (proposed) |
 | tag vocabulary · parse errors' parsers · SteamDB batch · reviewer | речник на таговете · програми за разбор · партида от SteamDB · рецензент (proposed) |
+| Feature analysis entries: Tag count and share · Median tag position · Eligible Pool baseline · Share ratio · Archived tag category · Genre frequency | Брой и дял на тага · Медианна позиция на тага · Базово ниво в пула на годните игри · Отношение на дяловете · Архивна категория на тага · Честота на жанровете (proposed) |
+| support · confidence · association rule · itemset sizes (pairs, triples) | подкрепа · достоверност · асоциативно правило · двойки и тройки тагове (a tag pair is always *двойка тагове*: *двойка* alone is the Threshold Pair) (proposed) |
+| co-occurrence · independence · interest (Brin et al.) · association table | съвместно срещане · независимост · интерес · таблица на асоциациите (proposed) |
+| Phi coefficient · Fisher exact p · Benjamini-Hochberg q · Loevinger's H · false discovery rate | коефициент phi · стойност p от точния тест на Fisher (short: p на Fisher) · q на Benjamini-Hochberg · H на Loevinger · очакван дял на фалшивите открития (proposed) |
+| screen (BH, Fisher) · chance finding · over-represented | отсяване · случайна находка · свръхпредставен (proposed) |
+| generic tag · medoid score · business label (`kind`) · gameplay genre | широк таг (not *общ*, which is *shared*) · оценка на медоида · търговски етикет · жанр на геймплея (proposed) |
 
 ## Guide labels
 
