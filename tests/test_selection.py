@@ -410,3 +410,32 @@ def test_explanation_with_every_conditional_sentence_off_and_the_workbench_varia
     odd = _explained(pair={"workbench": {"gamma": 1.1, "seed": 1, "seed_kind": "main", "flag": "not_representable",
                                          "ari": 0.8}})
     assert odd.split("\n\n")[0].endswith("(cannot be entered as a two-decimal value).")
+
+
+def _inspected(at, values=None):
+    from steamstudy.network import selection_text as T
+
+    grid, na = _choice_grid(values or {(3, 2): (0.70, {}), (4, 2): (0.98, {}), (5, 2): (0.96, {}),
+                                       (6, 2): (0.97, {"retention": 0.3})})
+    choice = SEL.choose(grid, na, C0)
+    words = {"retention_below_min": "Information Retention below the minimum"}
+    return T.to_markdown(T.pair_explanation(choice, at, grid.at(*at), na[at], "Default settings",
+                                            "Default constraints", 2, words, tx=EN)).split("\n\n")
+
+
+def test_an_inspected_pair_says_whether_it_qualifies_and_why_another_was_selected():
+    near = _inspected((5, 2))
+    assert near[:3] == [
+        "**Inspected: g = 5, s = 2**, resolution 1.100 (Workbench 1.10).", "Default constraints · Default settings.",
+        "It qualifies and is within 0.05 of the highest Neighbour Agreement among the qualifying pairs, 0.98 (g = 4, "
+        "s = 2); of these near-best pairs the one with the smallest g, then the smallest s, is selected. The "
+        "selected pair is g = 4, s = 2."]
+    assert near[3] == "Its Neighbour Agreement is 0.96 over 2 neighbours with a different graph."
+    assert _inspected((3, 2))[2] == (
+        "It qualifies, but its Neighbour Agreement is more than 0.05 below the highest among the qualifying pairs, "
+        "0.98 (g = 4, s = 2). The selected pair is g = 4, s = 2.")
+    assert _inspected((6, 2))[2] == ("It does not qualify: Information Retention below the minimum. The selected "
+                                     "pair is g = 4, s = 2.")
+    alone = _inspected((3, 2), {(3, 2): (0.9, {"retention": 0.3})})
+    assert alone[2] == ("It does not qualify: Information Retention below the minimum. No pair qualifies under the "
+                        "default constraints.")

@@ -912,7 +912,7 @@ def ps_render(mode, active, cstore, dataset, metric, pair, running, progress, bu
         not any(v.status == "complete" for v in views),
         PV.strip(views, dataset, {d: t for d, t in custom.items() if t}, tx=tx), loading,
         PV.heatmap(view, metric or "neighbour_agreement", inspected, tx=tx),
-        PV.why(view, settings_label.text, labels[dataset].text, settings.min_multi_tag_clusters, tx=tx),
+        PV.why(view, inspected, settings_label.text, labels[dataset].text, settings.min_multi_tag_clusters, tx=tx),
         PV.validation_card(view, shown, names, tx=tx),
         PV.inspector(view, inspected, inspected_validation, names, tx=tx),
         result is None or result.selected is None, apply_text, apply_class,

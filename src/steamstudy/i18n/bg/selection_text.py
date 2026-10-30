@@ -38,6 +38,19 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "(cannot be entered as a two-decimal value)": "(не може да се въведе като стойност с два знака след запетаята)",
     "(Workbench {gamma})": "(в работното място {gamma})",
     "Selected: g = {g}, s = {s}": "Избрана: g = {g}, s = {s}",
+    "Inspected: g = {g}, s = {s}": "Разгледана: g = {g}, s = {s}",
+    "It does not qualify: {reasons}.": "Не се квалифицира: {reasons}.",
+    "It qualifies and is within {tolerance} of the highest Neighbour Agreement among the qualifying pairs, {na} "
+    "(g = {g}, s = {s}); of these near-best pairs the one with the smallest g, then the smallest s, is selected.":
+        "Квалифицира се и е в рамките на {tolerance} от най-високото съгласие със съседите сред квалифицираните "
+        "двойки, {na} (g = {g}, s = {s}); от тези почти най-добри двойки се избира тази с най-малко g, после с "
+        "най-малко s.",
+    "It qualifies, but its Neighbour Agreement is more than {tolerance} below the highest among the qualifying "
+    "pairs, {na} (g = {g}, s = {s}).":
+        "Квалифицира се, но съгласието ѝ със съседите е с повече от {tolerance} под най-високото сред "
+        "квалифицираните двойки, {na} (g = {g}, s = {s}).",
+    "The selected pair is g = {g}, s = {s}.": "Избраната двойка е g = {g}, s = {s}.",
+    "No pair qualifies under {under}.": "Нито една двойка не се квалифицира при {under}.",
     ", resolution {resolution} {where}.": ", резолюция {resolution} {where}.",
     "Workbench {gamma} with the main seed shows a different partition.":
         "Стойността {gamma} в работното място с основното начално число дава различно разбиване.",

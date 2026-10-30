@@ -315,6 +315,17 @@ def test_constraints_that_exclude_everything_show_the_no_qualifying_message(ps_b
         assert str(e.alone) in why and str(e.cumulative) in why
 
 
+def test_why_this_pair_follows_the_inspected_cell(ps_build):
+    view = _views(ps_build)["overall"]
+    star = f"g = {view.star[0]}, s = {view.star[1]}"
+    assert f"Selected: {star}" in _text(render(ps_build)["why"])
+    other = next(p for p in view.pairs if p != view.star)
+    why = _text(render(ps_build, pair=list(other))["why"])
+    assert f"Inspected: g = {other[0]}, s = {other[1]}" in why and "Selected:" not in why
+    assert f"The selected pair is {star}." in why
+    assert f"Selected: {star}" in _text(render(ps_build, pair=list(view.star))["why"])
+
+
 def test_constraint_marks_and_confirm_state(ps_build):
     ctx = load_build(ps_build)
     active, cstore = _store(ctx)

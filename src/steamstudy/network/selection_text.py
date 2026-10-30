@@ -9,7 +9,7 @@ Every function takes the Interface Language's translator `tx` (`steamstudy.i18n`
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from steamstudy.i18n import Text
@@ -74,17 +74,7 @@ def explanation(choice: Any, pair: Any, na: Any, settings_label: str, constraint
     """"Why this pair": the template, built only from NA, the constraints and counts (never Q, Coverage or
     Silhouette). `pair` is the chosen pair's GraphResult and `na` its NeighbourAgreement."""
     g, s = choice.chosen
-    wb = pair.workbench
-    if wb["flag"] == "not_representable":
-        where = tx("(cannot be entered as a two-decimal value)")
-    else:
-        where = tx("(Workbench {gamma})", gamma=tx.fixed(wb["gamma"], ".2f"))
-    first: Paragraph = [(tx("Selected: g = {g}, s = {s}", g=g, s=s), "bold"),
-                        (tx(", resolution {resolution} {where}.", resolution=tx.fixed(pair.selected_resolution, ".3f"),
-                            where=where), None)]
-    if wb["flag"] == "not_reproduced":
-        first.append((" " + tx("Workbench {gamma} with the main seed shows a different partition.",
-                               gamma=tx.fixed(wb["gamma"], ".2f")), None))
+    first: Paragraph = [(tx("Selected: g = {g}, s = {s}", g=g, s=s), "bold"), *_resolution(pair, tx)]
     c = choice.constraints
     names_of = constraint_names(tx)
     unexcluding = [names_of[x] for x in choice.excluded_none]
@@ -103,14 +93,72 @@ def explanation(choice: Any, pair: Any, na: Any, settings_label: str, constraint
                            "smallest s, is selected.",
                  other="{n} pairs are within {tolerance} of it, and of these the one with the smallest g, then the "
                        "smallest s, is selected.", tolerance=tx.fixed(c.tolerance, ".2f")))
+    out: list[Paragraph] = [first, [(f"{constraints_label} · {settings_label}.", None)], [(qualify, None)],
+                            [(pick, None)], [(_own_agreement(na, tx), None)]]
+    return out + _partition_notes(pair, minimum_k, tx) + caveats(tx)
+
+
+def pair_explanation(choice: Any, at: tuple[int, int], pair: Any, na: Any, settings_label: str,
+                     constraints_label: str, minimum_k: int, reason_words: Mapping[str, str], *,
+                     tx: Text) -> list[Paragraph]:
+    """"Why this pair" for an inspected pair other than the selected one: whether it qualifies and, if it does, why
+    another pair was selected. The same facts as `explanation` (NA, the constraints and counts). `pair` is the
+    inspected pair's GraphResult, `na` its NeighbourAgreement and `reason_words` the words of each exclusion reason."""
+    g, s = at
+    first: Paragraph = [(tx("Inspected: g = {g}, s = {s}", g=g, s=s), "bold")]
+    first += _resolution(pair, tx) if pair.selected_resolution is not None else [(".", None)]
+    c = choice.constraints
+    reasons = choice.reasons[at]
+    if reasons:
+        verdict = tx("It does not qualify: {reasons}.", reasons=tx.join([reason_words[r] for r in reasons]))
+    else:
+        bg, bs = choice.best
+        values = {"tolerance": tx.fixed(c.tolerance, ".2f"), "na": tx.fixed(choice.max_na, ".2f"), "g": bg, "s": bs}
+        verdict = (tx("It qualifies and is within {tolerance} of the highest Neighbour Agreement among the qualifying "
+                      "pairs, {na} (g = {g}, s = {s}); of these near-best pairs the one with the smallest g, then the "
+                      "smallest s, is selected.", **values) if at in choice.near_best else
+                   tx("It qualifies, but its Neighbour Agreement is more than {tolerance} below the highest among the "
+                      "qualifying pairs, {na} (g = {g}, s = {s}).", **values))
+    if choice.chosen is not None:
+        verdict += " " + tx("The selected pair is g = {g}, s = {s}.", g=choice.chosen[0], s=choice.chosen[1])
+    else:
+        verdict += " " + tx("No pair qualifies under {under}.", under=_under(constraints_label, tx))
+    out: list[Paragraph] = [first, [(f"{constraints_label} · {settings_label}.", None)], [(verdict, None)]]
+    if na.value is not None:
+        out.append([(_own_agreement(na, tx), None)])
+    if pair.selected is not None:
+        out += _partition_notes(pair, minimum_k, tx)
+    return out + caveats(tx)
+
+
+def _resolution(pair: Any, tx: Text) -> Paragraph:
+    """A pair's Selected Resolution and its Workbench value, after its "g = …, s = …"."""
+    wb = pair.workbench
+    if wb["flag"] == "not_representable":
+        where = tx("(cannot be entered as a two-decimal value)")
+    else:
+        where = tx("(Workbench {gamma})", gamma=tx.fixed(wb["gamma"], ".2f"))
+    out: Paragraph = [(tx(", resolution {resolution} {where}.", resolution=tx.fixed(pair.selected_resolution, ".3f"),
+                          where=where), None)]
+    if wb["flag"] == "not_reproduced":
+        out.append((" " + tx("Workbench {gamma} with the main seed shows a different partition.",
+                             gamma=tx.fixed(wb["gamma"], ".2f")), None))
+    return out
+
+
+def _own_agreement(na: Any, tx: Text) -> str:
     own = tx.n(na.n_different, one="Its Neighbour Agreement is {na} over {n} neighbour with a different graph.",
                other="Its Neighbour Agreement is {na} over {n} neighbours with a different graph.",
                na=tx.fixed(na.value, ".2f"))
     if na.n_identical:
         own += " " + tx.n(na.n_identical, one="{n} more neighbour has an identical graph and is not counted.",
                           other="{n} more neighbours have an identical graph and are not counted.")
-    out: list[Paragraph] = [first, [(f"{constraints_label} · {settings_label}.", None)], [(qualify, None)],
-                            [(pick, None)], [(own, None)]]
+    return own
+
+
+def _partition_notes(pair: Any, minimum_k: int, tx: Text) -> list[Paragraph]:
+    """The Selected Partition's notes: the minimum Multi-Tag Clusters, a low Seed-Noise Floor."""
+    out: list[Paragraph] = []
     if pair.n_multi == minimum_k:
         out.append([(tx("Its Selected Partition has the minimum {k} Multi-Tag Clusters; a coarser split was not "
                         "allowed.", k=minimum_k), None)])
@@ -118,7 +166,7 @@ def explanation(choice: Any, pair: Any, na: Any, settings_label: str, constraint
     if floor < 0.5:
         out.append([(tx("The Seed-Noise Floor at this resolution is {floor}: the clustering also depends noticeably on "
                         "the seed.", floor=tx.fixed(floor, ".2f")), None)])
-    return out + caveats(tx)
+    return out
 
 
 def no_qualifying_message(choice: Any, constraints_label: str, *, tx: Text) -> list[Paragraph]:

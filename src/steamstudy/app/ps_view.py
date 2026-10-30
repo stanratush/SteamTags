@@ -584,11 +584,19 @@ def render(paragraphs: list[T.Paragraph]) -> list[Any]:
     return out
 
 
-def why(view: DatasetView, settings_label: str, constraints_label: str, minimum_k: int, *, tx: Text) -> list[Any]:
+def why(view: DatasetView, inspected: tuple[int, int] | None, settings_label: str, constraints_label: str,
+        minimum_k: int, *, tx: Text) -> list[Any]:
+    """"Why this pair" for the inspected cell: the selected pair's explanation, or for any other pair whether it
+    qualifies and why another one was selected."""
     if view.status == "not_run":
         return [html.P(tx(T.NOTHING_RUN))]
     if view.status != "complete" or view.choice is None:
         return [html.P(tx(T.NO_SELECTION_YET, done=view.done, total=view.total))]
+    other = view.result(inspected) if inspected is not None and inspected != view.star else None
+    if other is not None:
+        return [html.H4(tx("Why this pair")),
+                *render(T.pair_explanation(view.choice, inspected, other, view.na[inspected], settings_label,
+                                           constraints_label, minimum_k, reason_words(tx), tx=tx))]
     if view.star is None:
         table = html.Table([html.Tr([html.Th(tx("Constraint")), html.Th(tx("alone")), html.Th(tx("cumulative"))])] + [
             html.Tr([html.Td(phrase), html.Td(str(e.alone)), html.Td(str(e.cumulative))])
