@@ -54,6 +54,13 @@ CONSTRAINT_FIELDS = [("min_retention", msg("Minimum Information Retention"), 0.0
                      ("tolerance", msg("Tolerance (near-best)"), 0.0, 1.0, 0.01)]
 CONSTRAINT_HELP = {"tolerance": "selection.constraint.tolerance"} | {
     name: f"selection.constraint.{name}" for name, *_ in CONSTRAINT_FIELDS if name != "tolerance"}
+# A constraint's pill in the bar under the dataset strip names it short; its popover keeps the full label.
+CONSTRAINT_PILLS = {"min_retention": msg("Retention ≥"), "max_isolated_share": msg("Isolated share ≤"),
+                    "min_lcc_share": msg("LCC share ≥"), "min_comparable_neighbours": msg("Comparable neighbours ≥"),
+                    "max_multi_tag_clusters": msg("Multi-Tag Clusters ≤"), "tolerance": msg("Tolerance")}
+# The bar's two rows: first the constraints most often changed, then the rest.
+CONSTRAINT_ROWS = (("min_retention", "max_isolated_share", "tolerance"),
+                   ("min_lcc_share", "min_comparable_neighbours", "max_multi_tag_clusters"))
 
 
 def reason_words(tx: Text) -> dict[str, str]:
@@ -237,20 +244,50 @@ def provenance(computed_with: Mapping[str, Any] | None, *, tx: Text) -> tuple[st
 # ----------------------------------------------------------------------------- Controls column
 
 
-def _constraint_inputs(L: Labels, defaults: SEL.Constraints) -> list[Any]:
-    rows = []
+def _constraint_pills(L: Labels, defaults: SEL.Constraints) -> dict[str, html.Div]:
+    """One pill per Pair Constraint: its short name and staged value; the popover holds its field."""
+    pills = {}
     for name, label, lo, hi, step in CONSTRAINT_FIELDS:
         default = getattr(defaults, name)
         kw: dict[str, Any] = {"min": lo, "step": step}
         if hi is not None:
             kw["max"] = hi
-        rows.append(html.Div([
+        field = html.Div([
             html.Label([L.term(label, CONSTRAINT_HELP[name])], className="l", htmlFor=f"ps-c-{name}"),
             dcc.Input(id=f"ps-c-{name}", type="number", value=default, debounce=True, **kw),
             L.span(_default_text(default), className="mute small"),
             html.Span("", id=f"ps-c-{name}-changed", className="ps-changed small"),
-        ], className="ps-field"))
-    return rows
+        ], className="ps-field")
+        pills[name] = _pill(L, f"c-{name}", CONSTRAINT_PILLS[name], CONSTRAINT_HELP[name], field)
+    return pills
+
+
+def constraint_value(value: Any, name: str, *, tx: Text) -> str:
+    """A staged Pair Constraint as its pill shows it: the Multi-Tag Cluster cap is off when empty."""
+    if name == "max_multi_tag_clusters" and value in (None, "", 0):
+        return tx("off")
+    return "–" if value in (None, "") else tx.figure(str(value))
+
+
+def constraints_bar(L: Labels, constraints: SEL.Constraints) -> html.Div:
+    """The Pair Constraints under the dataset strip: a pill each in two rows (`CONSTRAINT_ROWS`), then a row with
+    where they apply, Confirm, Reset and the constraints label."""
+    pills = _constraint_pills(L, constraints)
+    return html.Div([
+        html.Span([L.span(msg("Pair Constraints")), " ", _static_help(L, "selection.constraints")],
+                  className="ps-cbar-h"),
+        *[html.Div([pills[name] for name in row], className="ps-cbar-row") for row in CONSTRAINT_ROWS],
+        html.Div([
+            dcc.RadioItems(id="ps-c-scope", options=L.options("ps-c-scope", [("all", msg("All five datasets")),
+                                                                             ("dataset", msg("this dataset only"))]),
+                           value="all", className="seg", inline=True),
+            html.Button(L.prop("ps-c-confirm", "children", msg("Confirm")), id="ps-c-confirm",
+                        className="btn primary", disabled=True),
+            html.Button(L.prop("ps-c-reset", "children", msg("Reset to defaults")), id="ps-c-reset", className="btn"),
+            html.Span("", id="ps-c-unconfirmed", className="ps-changed small"),
+            html.Span(id="ps-c-label", className="mute small"),
+        ], className="ps-cbar-row ps-cbar-acts"),
+    ], id="ps-cbar", className="ps-cbar")
 
 
 def _default_text(default: Any) -> Callable[[Text], str]:
@@ -260,7 +297,8 @@ def _default_text(default: Any) -> Callable[[Text], str]:
 
 def _pill(L: Labels, pill: str, label: str, key: str, section: html.Div) -> html.Div:
     """One Controls section: inline in the column, or a pill with a popover in the pill bar (medium and narrow, as
-    in the Workbench). The pill's value is filled by `ps_render`."""
+    in the Workbench); or a Pair Constraint's pill in the bar under the strip, at every form. The pill's value is
+    filled by a callback (`ps_render`, `ps_constraint_pills`)."""
     btn_id = f"ps-pill-btn-{pill}"
     attrs: dict[str, Any] = {"data-pill": pill, "data-tip": L.prop(btn_id, "data-tip", lambda tx: H.tip(key, tx))}
     return html.Div([
@@ -270,14 +308,12 @@ def _pill(L: Labels, pill: str, label: str, key: str, section: html.Div) -> html
     ], className="ctl-item")
 
 
-def pill_values(views: list[DatasetView], running: bool, constraints_custom: bool,
-                settings_custom: bool, *, tx: Text) -> tuple[str, str, str]:
-    """The pills' values: Run's state over the datasets, then default or custom for the other two."""
+def pill_values(views: list[DatasetView], running: bool, settings_custom: bool, *, tx: Text) -> tuple[str, str]:
+    """The Controls pills' values: Run's state over the datasets, then default or custom for the settings."""
     done = sum(v.status == "complete" for v in views)
     run = (tx("running") if running else tx("{n} of {total} done", n=done, total=len(views)) if done
            else tx("not run"))
-    word = lambda custom: tx("custom") if custom else tx("default")  # noqa: E731
-    return run, word(constraints_custom), word(settings_custom)
+    return run, tx("custom") if settings_custom else tx("default")
 
 
 def inspector_form(open_: bool) -> str:
@@ -285,7 +321,7 @@ def inspector_form(open_: bool) -> str:
     return "inspector docked ps-inspector" + (" has-sel" if open_ else "")
 
 
-def controls(L: Labels, ctx: BuildContext, defaults: SEL.SelectionSettings, constraints: SEL.Constraints) -> html.Div:
+def controls(L: Labels, ctx: BuildContext, defaults: SEL.SelectionSettings) -> html.Div:
     first = ctx.datasets[0].key
     defining = [d.defining_tag.name for d in ctx.datasets if d.defining_tag]
     first_label = ctx.dataset(first).label
@@ -306,21 +342,7 @@ def controls(L: Labels, ctx: BuildContext, defaults: SEL.SelectionSettings, cons
                               disabled=True),
                   _static_help(L, "selection.export")], className="row-inline"),
     ], className="ctl-section")
-    pc = html.Div([
-        html.H4([L.span(msg("Pair Constraints")), " ", _static_help(L, "selection.constraints")], className="ctl-h"),
-        *_constraint_inputs(L, constraints),
-        html.Label(L.span(msg("Apply to")), className="l"),
-        dcc.RadioItems(id="ps-c-scope", options=L.options("ps-c-scope", [("all", msg("All five datasets")),
-                                                                         ("dataset", msg("this dataset only"))]),
-                       value="all", className="seg", inline=True),
-        html.Div([html.Button(L.prop("ps-c-confirm", "children", msg("Confirm")), id="ps-c-confirm",
-                              className="btn primary", disabled=True),
-                  html.Button(L.prop("ps-c-reset", "children", msg("Reset to defaults")), id="ps-c-reset",
-                              className="btn")], className="row-inline"),
-        html.Span("", id="ps-c-unconfirmed", className="ps-changed small"),
-        html.Div(id="ps-c-label", className="mute small"),
-    ], className="ctl-section")
-    genre = [{"label": t.name, "value": t.id} for t in ctx.genre_tags]
+    genre =[{"label": t.name, "value": t.id} for t in ctx.genre_tags]
     names = tag_names(ctx)
     defining_label = (lambda tx: [{"label": tx("hide each dataset's defining tag ({tags})", tags=", ".join(defining))
                                    if defining else tx("hide each dataset's defining tag"), "value": 1}])
@@ -358,7 +380,6 @@ def controls(L: Labels, ctx: BuildContext, defaults: SEL.SelectionSettings, cons
     ], className="ctl-section")
     return html.Div([html.Div([html.B(L.span(msg("Parameter Selection")))], className="ctl-title"),
                      _pill(L, "run", msg("Run"), "selection.run", run),
-                     _pill(L, "constraints", msg("Pair Constraints"), "selection.constraints", pc),
                      _pill(L, "settings", msg("Selection settings"), "selection.settings", settings)],
                     id="ps-controls", className="controls ps-controls")
 
@@ -522,7 +543,7 @@ def heatmap(view: DatasetView, metric: str, inspected: tuple[int, int] | None, *
     fig.update_layout(shapes=shapes, margin={"l": 40, "r": 10, "t": 30 if caption else 10, "b": 40},
                       xaxis={"title": tx("s (minimum shared games)"), **edges},
                       yaxis={"title": tx("g (minimum games per tag)"), **edges}, plot_bgcolor="#e6e6e6",
-                      title={"text": caption, "font": {"size": 12}} if caption else None, height=460,
+                      title={"text": caption, "font": {"size": 12}} if caption else None,
                       separators=plotly_separators(tx))
     return fig
 
@@ -788,8 +809,10 @@ def mode_layout(ctx: BuildContext, L: Labels) -> html.Div:
     first = ctx.datasets[0].key
     main = html.Div([
         html.Div(id="ps-strip", className="ps-strip"),
+        constraints_bar(L, constraints),
         metric_picker(L),
-        dcc.Graph(id="ps-heatmap", config={"displayModeBar": False}),
+        # Responsive: it follows the main column's width when a panel is turned off (the height stays 460 px).
+        dcc.Graph(id="ps-heatmap", config={"displayModeBar": False}, responsive=True, style={"height": "460px"}),
         heatmap_key(L),
         html.Div(id="ps-why", className="panel ps-why"),
         html.Div(id="ps-validation", className="panel ps-validation"),
@@ -822,5 +845,5 @@ def mode_layout(ctx: BuildContext, L: Labels) -> html.Div:
               dcc.Store(id="ps-running", data=False),
               dcc.Store(id="ps-validate-request"), dcc.Store(id="ps-validate-done"), dcc.Store(id="ps-applied"),
               dcc.Download(id="ps-download")]
-    return html.Div([*stores, controls(L, ctx, defaults, constraints), main, job, inspector_panel, busy],
+    return html.Div([*stores, controls(L, ctx, defaults), main, job, inspector_panel, busy],
                     id="ps-body", className="app-body ps-body")

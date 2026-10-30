@@ -30,7 +30,7 @@ SMALL = {"g_range": [15, 17], "s_range": [2, 4], "null_replicates": 2, "subsampl
 OUTPUTS = ["rows", "cache_line", "provenance", "banner", "banner_style", "continue_style", "continue_text",
            "export_disabled", "strip", "loading", "heatmap", "why", "validation", "inspector", "apply_disabled",
            "apply_line", "apply_class", "validate_style", "c_label", "s_label", "run_one", "pill_run",
-           "pill_constraints", "pill_settings"]
+           "pill_settings"]
 
 
 def _text(component) -> str:
@@ -175,20 +175,46 @@ def test_a_strip_click_switches_the_dataset_and_resets_the_pair():
 
 def test_each_controls_section_is_a_pill_with_its_section_in_the_popover(ps_build):
     ctx = load_build(ps_build)
-    items = [c for c in _walk(PV.controls(Labels(EN), ctx, *PV.defaults_of(ctx)))
+    items = [c for c in _walk(PV.controls(Labels(EN), ctx, PV.defaults_of(ctx)[0]))
              if getattr(c, "className", None) == "ctl-item"]
-    assert [i.children[0].children[0].children for i in items] == ["Run", "Pair Constraints", "Selection settings"]
+    assert [i.children[0].children[0].children for i in items] == ["Run", "Selection settings"]
     pops = [i.children[1] for i in items]
     assert all(p.className == "pill-pop" and p.children.className == "ctl-section" for p in pops)
     assert "ps-run-all" in {getattr(c, "id", None) for c in _walk(pops[0])}
     out = render(ps_build)
-    assert (out["pill_run"], out["pill_constraints"], out["pill_settings"]) == ("5 of 5 done", "default", "default")
+    assert (out["pill_run"], out["pill_settings"]) == ("5 of 5 done", "default")
     progress = {"dataset": "overall", "dataset_index": 1, "n_datasets": 5, "phase": "grid", "done": 1, "total": 9,
                 "weight_done": 1.0, "weight_total": 45.0, "elapsed": 2.0}
     assert render(ps_build, progress=progress)["pill_run"] == "running"
-    _, cstore = _store(ctx)
-    cstore["shared"]["min_retention"] = 0.9
-    assert render(ps_build, cstore=cstore)["pill_constraints"] == "custom"
+
+
+def test_the_mode_has_its_own_panel_toggles_all_on_at_first(ps_build):
+    from steamstudy.app.layout import build_layout
+
+    toggles = next(c for c in _walk(build_layout(load_build(ps_build))) if getattr(c, "id", None) == "ps-panels")
+    assert [o["value"] for o in toggles.options] == ["controls", "constraints", "inspector"]
+    assert toggles.value == ["controls", "constraints", "inspector"]
+
+
+def test_the_pair_constraints_are_pills_under_the_dataset_strip(ps_build):
+    ctx = load_build(ps_build)
+    layout = PV.mode_layout(ctx, Labels(EN))
+    main = next(c for c in _walk(layout) if getattr(c, "id", None) == "ps-main")
+    ids = [getattr(c, "id", None) for c in main.children]
+    assert ids.index("ps-strip") + 1 == ids.index("ps-cbar")
+    rows = [c for c in main.children[1].children if getattr(c, "className", None) == "ps-cbar-row"]  # not the actions
+    # first the constraints most often changed, then the rest; each pill holds its field
+    assert [[p.children[0].id for p in r.children] for r in rows] == [
+        ["ps-pill-btn-c-min_retention", "ps-pill-btn-c-max_isolated_share", "ps-pill-btn-c-tolerance"],
+        ["ps-pill-btn-c-min_lcc_share", "ps-pill-btn-c-min_comparable_neighbours",
+         "ps-pill-btn-c-max_multi_tag_clusters"]]
+    assert all(f"ps-c-{p.children[0].id.removeprefix('ps-pill-btn-c-')}" in {getattr(c, "id", None) for c in _walk(p)}
+               for r in rows for p in r.children)
+    controls = next(c for c in _walk(layout) if getattr(c, "id", None) == "ps-controls")
+    assert not {"ps-c-confirm", "ps-c-min_retention"} & {getattr(c, "id", None) for c in _walk(controls)}
+    assert CB.ps_constraint_pills(0.5, 0.1, 0.9, 2, None, 0.05, "en") == ["0.5", "0.1", "0.9", "2", "off", "0.05"]
+    bg = CB.ps_constraint_pills(0.5, 0.1, 0.9, 2, 4, 0.05, "bg")
+    assert bg[0] == "0,5" and bg[4] == "4"
 
 
 def test_the_run_pill_says_not_run_on_an_empty_cache(empty_build):

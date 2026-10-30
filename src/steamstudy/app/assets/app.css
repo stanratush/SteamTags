@@ -391,7 +391,13 @@ body[data-form=narrow] #root.workbench .ov-bl{bottom:54px}
 #ps-body{display:none}
 #root.selection #app-body{display:none}
 #root.selection #ps-body{display:grid}
-#root.selection .search-slot,#root.selection #panels,#root.selection #graph-only{visibility:hidden}
+#root.selection .search-slot{visibility:hidden}
+/* The mode's own panel toggles take the place of the Workbench's (and of Graph only); a panel turned off is a
+   "no-…" class on #ps-body (workbench.js psPanels), and the heatmap takes its room. */
+#ps-panels,#root.selection #panels,#root.selection #graph-only{display:none}
+#root.selection #ps-panels{display:inline-flex}
+#root.selection #ps-body.no-controls .ps-controls,#root.selection #ps-body.no-constraints #ps-cbar,
+#root.selection #ps-body.no-inspector .ps-inspector{display:none}
 .ps-main{overflow:auto;padding:8px 12px 40px;gap:10px}
 .ps-inspector{grid-area:insp;width:380px;overflow:auto;background:var(--panel);border-left:1px solid var(--line);
  padding:4px 14px 40px}
@@ -410,6 +416,26 @@ body[data-form=narrow] #root.workbench .ov-bl{bottom:54px}
 .ps-strip-btn.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
 .ps-strip-v{font-variant-numeric:tabular-nums;font-size:12px}
 .ps-custom{font-size:10px;text-transform:uppercase;color:var(--mute)}
+/* The Pair Constraints bar under the dataset strip (ps_view.constraints_bar): a pill per constraint at every form,
+   its field in a popover (workbench.js opens it); a pill whose value differs from the default is accented. */
+/* Beside the heading, two rows of pills (ps_view.CONSTRAINT_ROWS), then where they apply, Confirm, Reset and the
+   constraints label. */
+.ps-cbar{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 10px;align-items:center;padding:2px 0 6px;
+ border-bottom:1px solid var(--line2)}
+.ps-cbar-h{grid-area:1/1;display:inline-flex;align-items:center;font-size:11px;text-transform:uppercase;
+ letter-spacing:.06em;color:var(--mute);font-weight:600}
+.ps-cbar-row{grid-column:2;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.ps-cbar .ctl-item{margin:0}
+.ps-cbar .pill-btn{display:inline-flex;gap:4px;align-items:baseline;border:1px solid var(--line);background:#fff;
+ border-radius:999px;padding:3px 11px;cursor:pointer;white-space:nowrap}
+.ps-cbar .pill-btn::after{content:"▾";color:var(--faint);font-size:10px}
+.ps-cbar .pill-btn:hover{border-color:#a9b1bf}
+.ps-cbar .ctl-item:has(.ps-changed:not(:empty)) .pill-btn{border-color:var(--acc);background:var(--acc-bg)}
+.ps-cbar .pill-pop{display:none;position:absolute;top:calc(100% + 5px);left:0;z-index:70;background:#fff;
+ border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 32px #0002;padding:12px;width:280px}
+.ps-cbar .ctl-item.open .pill-pop{display:block}
+.ps-cbar .ps-field{margin:0}
+.ps-cbar .ps-field .l{display:block;font-weight:500;margin-bottom:4px}
 /* The mode's two overlays (ps_view.mode_layout). A job's loading panel veils the main column only, so Cancel in the
    Controls stays in reach; while ps_render runs (entering the mode, a dataset, a metric) a veil covers the whole
    mode, after the busy chip's wait, so a quick answer never flashes. A job's ticks never raise it. */

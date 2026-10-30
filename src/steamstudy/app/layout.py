@@ -476,6 +476,11 @@ def build_layout(ctx: BuildContext, lang: str = "en") -> html.Div:
             dcc.Checklist(id="panels", options=L.options("panels", [
                 ("controls", msg("Controls")), ("inspector", msg("Inspector")), ("tables", msg("Tables"))]),
                           value=["controls", "inspector", "tables"], inline=True, className="seg toggles"),
+            # Parameter Selection's own panels (shown in that mode only): off gives the heatmap the room.
+            dcc.Checklist(id="ps-panels", options=L.options("ps-panels", [
+                ("controls", msg("Controls")), ("constraints", msg("Pair Constraints")),
+                ("inspector", msg("Inspector"))]),
+                          value=["controls", "constraints", "inspector"], inline=True, className="seg toggles"),
             _button(L, "graph-only", msg("Graph only"), title=msg("The narrowest form at any width")),
         ], className="hdr-right"),
     ], className="app-header")

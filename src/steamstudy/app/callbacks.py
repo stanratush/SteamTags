@@ -918,7 +918,7 @@ def ps_render(mode, active, cstore, dataset, metric, pair, running, progress, bu
         result is None or result.selected is None, apply_text, apply_class,
         {"display": "inline-block"} if can_validate and inspected_validation is None else {"display": "none"},
         labels[dataset].text, settings_label.text, tx("Run {dataset}", dataset=c.dataset(dataset).label),
-        *PV.pill_values(views, running, labels[dataset].custom, settings_label.custom, tx=tx),
+        *PV.pill_values(views, running, settings_label.custom, tx=tx),
     )
 
 
@@ -1042,6 +1042,13 @@ def ps_constraint_marks(*args):
     marks = [tx("changed") if getattr(staged, n) != getattr(default_constraints, n) else "" for n in CONSTRAINT_NAMES]
     differs = staged != current
     return [*marks, not differs, tx("Unconfirmed changes") if differs else ""]
+
+
+def ps_constraint_pills(*args):
+    """Each constraint pill's value: the field's staged value, in the Interface Language."""
+    *values, lang = args
+    tx = text(lang_of(lang))
+    return [PV.constraint_value(v, n, tx=tx) for v, n in zip(values, CONSTRAINT_NAMES)]
 
 
 def ps_constraints_store(_confirm, _reset, *args):
@@ -1269,6 +1276,8 @@ def register(app: dash.Dash) -> None:
        Input("help-target", "data"), Input("help-back", "n_clicks"), State("help-history", "data"),
        Input("lang", "data"), prevent_initial_call=True)(show_help)
     # ---- Parameter Selection mode
+    app.clientside_callback(ClientsideFunction(namespace="workbench", function_name="psPanels"),
+                            Output("ps-body", "className"), Input("ps-panels", "value"))
     ps_outputs = [Output("ps-rows", "children"), Output("ps-cache-line", "children"),
                   Output("ps-provenance", "children"), Output("ps-banner", "children"), Output("ps-banner", "style"),
                   Output("ps-continue", "style"), Output("ps-continue", "children"), Output("ps-export", "disabled"),
@@ -1278,7 +1287,7 @@ def register(app: dash.Dash) -> None:
                   Output("ps-apply-line", "children"), Output("ps-apply-line", "className"),
                   Output("ps-validate", "style"), Output("ps-c-label", "children"), Output("ps-s-label", "children"),
                   Output("ps-run-one", "children"), Output("ps-pill-run", "children"),
-                  Output("ps-pill-constraints", "children"), Output("ps-pill-settings", "children")]
+                  Output("ps-pill-settings", "children")]
     cb(*ps_outputs, Input("mode", "value"), Input("ps-active", "data"), Input("ps-constraints", "data"),
        Input("ps-dataset", "data"), Input("ps-metric", "value"), Input("ps-pair", "data"),
        Input("ps-running", "data"), Input("ps-progress", "data"), State("build-path", "data"),
@@ -1309,6 +1318,8 @@ def register(app: dash.Dash) -> None:
        Output("ps-c-unconfirmed", "children"), *c_inputs, Input("ps-constraints", "data"),
        Input("ps-dataset", "data"), Input("ps-active", "data"), State("build-path", "data"),
        Input("lang", "data"))(ps_constraint_marks)
+    cb(*[Output(f"ps-pill-c-{n}", "children") for n in CONSTRAINT_NAMES], *c_inputs,
+       Input("lang", "data"))(ps_constraint_pills)
     cb(Output("ps-constraints", "data", allow_duplicate=True), Input("ps-c-confirm", "n_clicks"),
        Input("ps-c-reset", "n_clicks"), *[State(f"ps-c-{n}", "value") for n in CONSTRAINT_NAMES],
        State("ps-c-scope", "value"), State("ps-constraints", "data"), State("ps-dataset", "data"),

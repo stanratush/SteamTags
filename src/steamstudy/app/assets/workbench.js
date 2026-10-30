@@ -297,6 +297,17 @@
             seed === null || seed === undefined ? "—" : String(seed), fill(w.of, {n, total})];
   }
 
+  // ------------------------------------------------------------------ Parameter Selection panels
+
+  // The mode's panel toggles (layout.py `ps-panels`): each panel turned off is a "no-…" class on the mode's body,
+  // which app.css hides, so the heatmap takes the room. A resize once the class is in place has Plotly redraw the
+  // heatmap at the new width (the Graph's own size watcher can miss it).
+  function psPanels(on) {
+    const off = ["controls", "constraints", "inspector"].filter((p) => !(on || []).includes(p));
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
+    return ["app-body", "ps-body", ...off.map((p) => "no-" + p)].join(" ");
+  }
+
   // ------------------------------------------------------------------ Interface Language
 
   // The EN | BG switch: the choice is kept per browser in a cookie (i18n.COOKIE), which ignores the port, so it
@@ -315,6 +326,6 @@
     if (data.lang) document.documentElement.lang = data.lang;
   }
 
-  window.dash_clientside = Object.assign({}, window.dash_clientside, {workbench: {pills, language, uiWords}});
+  window.dash_clientside = Object.assign({}, window.dash_clientside, {workbench: {pills, language, uiWords, psPanels}});
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();
