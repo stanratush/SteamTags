@@ -154,8 +154,8 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "Connection Ratio": "Отношение на свързаност",
     "Connection Share of {group}": "Дял на свързаност: {group}",
     "Shared-game total": "Сума на общите игри",
-    "Shared-game ratio (not tied to the clustering; can exceed γ)":
-        "Отношение по общи игри (не е обвързано с клъстеризацията; може да надхвърли γ)",
+    "Shared-game ratio": "Отношение по общи игри",
+    "not tied to the clustering; can exceed γ": "не е обвързано с клъстеризацията; може да надхвърли γ",
     "Tag in {group}": "Таг ({group})",
     "Cluster pair": "Двойка клъстери",
     "Links between them": "Ребра между тях",

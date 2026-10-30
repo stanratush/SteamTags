@@ -83,6 +83,7 @@ MESSAGES: dict[str, str | dict[str, str]] = {
         "прекъснато валидиране започва отначало.",
     "Computing Parameter Selection": "Изчисляване на избора на параметри",
     "How Automatic Parameter Selection works": "Как работи автоматичният избор на параметри",
+    "Loading Parameter Selection…": "Зареждане на избора на параметри…",
     # The heatmap
     "g={g}, s={s}: pending": "g={g}, s={s}: предстои",
     "✓ qualifies": "✓ квалифицира се",

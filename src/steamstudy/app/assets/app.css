@@ -214,7 +214,8 @@ tr.hidden-link td{color:var(--mute)}
 .i-h .cnt{text-transform:none;letter-spacing:0;font-weight:400}
 .lead{font-size:13.5px;margin:0 0 6px}
 .lead b{font-size:15px}
-.kv{display:grid;grid-template-columns:minmax(0,auto) minmax(0,1fr);gap:3px 12px;margin:2px 0}
+/* a label takes at most 58%: a long one wraps instead of pushing the values out */
+.kv{display:grid;grid-template-columns:fit-content(58%) minmax(0,1fr);gap:3px 12px;margin:2px 0}
 :lang(bg) .kv{grid-template-columns:minmax(0,58%) minmax(0,1fr)}  /* longer labels wrap, the values keep room */
 .kv>dt{color:var(--mute);cursor:help}
 .kv>dd{margin:0}
@@ -329,11 +330,17 @@ body[data-form=narrow] #root.workbench .tables-area{position:absolute;left:0;rig
  border-top:1px solid var(--line);box-shadow:0 -8px 24px #0000000f;transition:height .25s ease;overflow:hidden}
 body[data-form=narrow][data-sheet=open] #root.workbench .tables-area{height:46%}
 body[data-form=narrow][data-sheet=open] #root.workbench .inspector.has-sel{bottom:calc(46% + 12px)}
+/* "Graph only" at a window wide enough for the card beside the sheet: an open sheet leaves the right to the
+   Inspector, which keeps its full height instead of shrinking to the gap above the sheet. */
+@media (min-width:1024px){
+ body[data-form=narrow][data-sheet=open] #root.graph-only:has(.inspector.has-sel) .tables-area{right:376px}
+ body[data-form=narrow][data-sheet=open] #root.graph-only .inspector.has-sel{bottom:calc(var(--stage-bottom,0px) + 12px)}
+}
 body[data-form=narrow] #root.workbench .grip{display:inline-block}
 body[data-form=narrow] #root.workbench #blk-tabs{min-height:44px}
 body[data-form=narrow] #root.workbench .ov-bl{bottom:54px}
 @media (prefers-reduced-motion:reduce){.tables-area{transition:none!important}#inspector-body{transition-duration:0s!important}.sel-ring{display:none}
- .busy::before{animation:none}.busy,.busy>span,.graph-canvas{transition-duration:0s!important}}
+ .busy::before,.ps-loading>b::before{animation:none}.busy,.busy>span,.graph-canvas,.ps-busy{transition-duration:0s!important}}
 
 /* ------------------------------------------------------------------ Analysis Report mode: one scrolling page */
 #root.report .app-body{align-items:start}
@@ -403,9 +410,24 @@ body[data-form=narrow] #root.workbench .ov-bl{bottom:54px}
 .ps-strip-btn.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
 .ps-strip-v{font-variant-numeric:tabular-nums;font-size:12px}
 .ps-custom{font-size:10px;text-transform:uppercase;color:var(--mute)}
-.ps-loading{border:1px solid var(--line);border-radius:6px;padding:12px;background:var(--panel);display:flex;
- flex-direction:column;gap:4px}
-.ps-loading:not(.compact){min-height:40vh}
+/* The mode's two overlays (ps_view.mode_layout). A job's loading panel veils the main column only, so Cancel in the
+   Controls stays in reach; while ps_render runs (entering the mode, a dataset, a metric) a veil covers the whole
+   mode, after the busy chip's wait, so a quick answer never flashes. A job's ticks never raise it. */
+.ps-job{grid-area:main;position:relative;z-index:10;display:grid;place-items:center;padding:24px;min-height:0;
+ background:#f5f6f8d9}
+.ps-job:empty{display:none}
+.ps-loading{border:1px solid var(--line);border-radius:10px;padding:16px 18px;background:var(--panel);display:flex;
+ flex-direction:column;gap:4px;width:100%;max-width:560px;box-shadow:0 10px 34px #00000022}
+.ps-loading>b{display:flex;align-items:center;gap:8px;font-size:14px}
+.ps-loading>b::before{content:"";flex:none;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--acc);
+ border-radius:50%;animation:busy-spin .8s linear infinite}
+.ps-busy{--busy-show:.2s;--busy-hide:.05s;--busy-fade:.12s;position:absolute;inset:0;z-index:40;display:grid;
+ place-items:center;background:#f5f6f8e6;opacity:0;visibility:hidden;
+ transition:opacity var(--busy-fade) ease var(--busy-hide),visibility 0s linear calc(var(--busy-hide) + var(--busy-fade))}
+.ps-busy:has(#ps-busy:not([hidden])){opacity:1;visibility:visible;
+ transition:opacity var(--busy-fade) ease var(--busy-show),visibility 0s linear var(--busy-show)}
+.ps-busy>.busy{font-size:13px;padding:6px 14px 6px 10px}
+#ps-body:has(#ps-loading:not(:empty)) .ps-busy{display:none}
 .ps-eta{font-weight:600}
 .ps-picker{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .ps-metric-help{display:none}

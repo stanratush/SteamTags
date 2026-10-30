@@ -421,7 +421,7 @@ def strip(views: list[DatasetView], current: str, custom: Mapping[str, str], *, 
 
 
 def loading_panel(progress: Mapping[str, Any] | None, views: list[DatasetView], settings: SEL.SelectionSettings,
-                  reason: str, compact: bool, *, tx: Text) -> list[Any]:
+                  reason: str, *, tx: Text) -> list[Any]:
     lengths = [r.scan_length for v in views for r in v.results.values() if r.scan_length]
     scan = f"{min(lengths)}–{max(lengths)}" if lengths else tx("up to several hundred")
     what = tx("Searching {pairs} Threshold Pairs × {scan} resolutions × {seeds} seeds for each dataset, then checking "
@@ -442,7 +442,7 @@ def loading_panel(progress: Mapping[str, Any] | None, views: list[DatasetView], 
             html.Div(where), html.Div(once, className="mute small"), html.Div(eta, className="ps-eta"),
             html.A(tx("How Automatic Parameter Selection works"), href="#", className="term",
                    **H.attrs("selection.run", tx))]
-    return [html.Div(body, className="ps-loading" + (" compact" if compact else ""))]
+    return [html.Div(body, className="ps-loading", role="status")]
 
 
 # ----------------------------------------------------------------------------- heatmap
@@ -515,9 +515,13 @@ def heatmap(view: DatasetView, metric: str, inspected: tuple[int, int] | None, *
     if inspected is not None:
         shapes.append(_cell_shape(*inspected, "#222", 3))
     caption = tx(T.DESCRIPTIVE_CAPTION) if metric == "q" else ""
+    # The ticks name the cells' centres; the grid lines go between the cells (half-way), so the empty cells
+    # behind the grey background line up with the filled ones and their gaps.
+    edges = {"dtick": 1, "showgrid": False, "zeroline": False,
+             "minor": {"tick0": 0.5, "dtick": 1, "showgrid": True, "gridcolor": "#fff", "gridwidth": 1}}
     fig.update_layout(shapes=shapes, margin={"l": 40, "r": 10, "t": 30 if caption else 10, "b": 40},
-                      xaxis={"title": tx("s (minimum shared games)"), "dtick": 1},
-                      yaxis={"title": tx("g (minimum games per tag)"), "dtick": 1}, plot_bgcolor="#e6e6e6",
+                      xaxis={"title": tx("s (minimum shared games)"), **edges},
+                      yaxis={"title": tx("g (minimum games per tag)"), **edges}, plot_bgcolor="#e6e6e6",
                       title={"text": caption, "font": {"size": 12}} if caption else None, height=460,
                       separators=plotly_separators(tx))
     return fig
@@ -784,13 +788,19 @@ def mode_layout(ctx: BuildContext, L: Labels) -> html.Div:
     first = ctx.datasets[0].key
     main = html.Div([
         html.Div(id="ps-strip", className="ps-strip"),
-        html.Div(id="ps-loading"),
         metric_picker(L),
         dcc.Graph(id="ps-heatmap", config={"displayModeBar": False}),
         heatmap_key(L),
         html.Div(id="ps-why", className="panel ps-why"),
         html.Div(id="ps-validation", className="panel ps-validation"),
     ], id="ps-main", className="main ps-main")
+    # The loading panel, over the main column while a job runs (ps_render fills it); Cancel, in the Controls, stays
+    # in reach.
+    job = html.Div(id="ps-loading", className="ps-job")
+    # Over the whole mode while ps_render runs (callbacks.py `running`): entering the mode, a dataset or a metric.
+    busy = html.Div(html.Div(html.Span(L.prop("ps-busy", "children", msg("Loading Parameter Selection…")),
+                                       id="ps-busy", hidden=True), className="busy", role="status"),
+                    className="ps-busy")
     inspector_panel = html.Div([
         html.Div([html.B(L.span(msg("Pair Inspector"))),
                   html.Button("×", id="ps-inspector-close", className="x",
@@ -812,5 +822,5 @@ def mode_layout(ctx: BuildContext, L: Labels) -> html.Div:
               dcc.Store(id="ps-running", data=False),
               dcc.Store(id="ps-validate-request"), dcc.Store(id="ps-validate-done"), dcc.Store(id="ps-applied"),
               dcc.Download(id="ps-download")]
-    return html.Div([*stores, controls(L, ctx, defaults, constraints), main, inspector_panel], id="ps-body",
-                    className="app-body ps-body")
+    return html.Div([*stores, controls(L, ctx, defaults, constraints), main, job, inspector_panel, busy],
+                    id="ps-body", className="app-body ps-body")

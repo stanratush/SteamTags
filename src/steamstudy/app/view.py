@@ -580,7 +580,8 @@ def pair_inspector(row: dict[str, Any], links: list[dict[str, Any]], colors: tup
             (tx("Total"), _total(row["weight"], weight, tx)), (tx("Links"), str(row["edge_count"]))]
     if lift:
         rows += [(tx("Shared-game total"), _total(row["shared_weight"], "shared_games", tx)),
-                 (tx("Shared-game ratio (not tied to the clustering; can exceed γ)"), tx.num(row["shared_ratio"]))]
+                 (tx("Shared-game ratio"), Markup(f'{_e(tx.num(row["shared_ratio"]))} '
+                                                  f'<small>{_e(tx("not tied to the clustering; can exceed γ"))}</small>'))]
     help_of = {0: "connections.ratio", 1: "connections.share", 2: "connections.share"}
 
     def dt(i: int, label: str) -> str:

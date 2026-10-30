@@ -901,7 +901,7 @@ def ps_render(mode, active, cstore, dataset, metric, pair, running, progress, bu
     total = sum(v.total for v in partial)
     running = bool(progress)
     reason = settings_label.text if settings_label.custom else tx("No results for these settings on this computer yet.")
-    loading = PV.loading_panel(progress, views, settings, reason, compact=view.done > 0, tx=tx) if running else []
+    loading = PV.loading_panel(progress, views, settings, reason, tx=tx) if running else []
     result = view.result(inspected) if inspected else None
     apply_text, apply_class = PV.workbench_line(result, tx=tx) if result else ("", "small")
     can_validate = view.status == "complete" and result is not None and result.selected is not None
@@ -1282,7 +1282,7 @@ def register(app: dash.Dash) -> None:
     cb(*ps_outputs, Input("mode", "value"), Input("ps-active", "data"), Input("ps-constraints", "data"),
        Input("ps-dataset", "data"), Input("ps-metric", "value"), Input("ps-pair", "data"),
        Input("ps-running", "data"), Input("ps-progress", "data"), State("build-path", "data"),
-       Input("lang", "data"))(ps_render)
+       Input("lang", "data"), running=[(Output("ps-busy", "hidden"), False, True)])(ps_render)
     cb(Output("ps-run-request", "data"), Input("ps-run-all", "n_clicks"), Input("ps-run-one", "n_clicks"),
        Input("ps-continue", "n_clicks"), State("ps-active", "data"), State("ps-dataset", "data"),
        State("build-path", "data"), prevent_initial_call=True)(ps_run_request)
