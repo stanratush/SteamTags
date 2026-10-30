@@ -592,8 +592,7 @@ def why(view: DatasetView, inspected: tuple[int, int] | None, settings_label: st
         return [html.P(tx(T.NOTHING_RUN))]
     if view.status != "complete" or view.choice is None:
         return [html.P(tx(T.NO_SELECTION_YET, done=view.done, total=view.total))]
-    other = view.result(inspected) if inspected is not None and inspected != view.star else None
-    if other is not None:
+    if inspected is not None and inspected != view.star and (other := view.result(inspected)) is not None:
         return [html.H4(tx("Why this pair")),
                 *render(T.pair_explanation(view.choice, inspected, other, view.na[inspected], settings_label,
                                            constraints_label, minimum_k, reason_words(tx), tx=tx))]
