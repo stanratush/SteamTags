@@ -429,7 +429,7 @@ def test_restore_and_unhide_change_the_controls_exactly_as_the_existing_ones(bui
     assert puzzle[3] == {"kind": "node", "id": "1664"}
 
 
-def test_the_tag_view_lists_its_games_then_its_connected_tags_then_the_metrics(build_folder):
+def test_the_tag_view_lists_its_metrics_then_its_games_then_its_connected_tags(build_folder):
     from steamstudy.app import view as V
     from steamstudy.network.graph import filter_games
 
@@ -447,8 +447,9 @@ def test_the_tag_view_lists_its_games_then_its_connected_tags_then_the_metrics(b
     body, *_ = CB.inspector({"kind": "node", "id": str(tag)}, tables, None, str(build_folder), "overall", 20, meta)
     text = json.dumps([b.to_plotly_json() for b in body], default=str)
     lead = " games in the network have this tag"
-    assert lead in text and text.index(lead) < text.index("Connected tags") < text.index("Metrics")
-    assert body[2].children[0].children == str(node["n_games"])  # the bold count of the lead sentence
+    assert lead in text and text.index("Metrics") < text.index(lead) < text.index("Connected tags")
+    lead_p = next(b for b in body if getattr(b, "className", None) == "lead")
+    assert lead_p.children[0].children == str(node["n_games"])  # the bold count of the lead sentence
     assert "used for clustering" in text and "descriptive" in text and "hub" not in text.lower()
     rows = [b for b in body if getattr(b, "id", None) is None]
     assert any(f"Show all {node['n_games']}" in json.dumps(b.to_plotly_json(), default=str) for b in rows) == \

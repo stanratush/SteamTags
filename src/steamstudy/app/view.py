@@ -281,7 +281,7 @@ def _connected_table(connected: list[dict[str, Any]], tx: Text) -> str:
 def node_inspector(node: dict[str, Any], weight: str, rs_row: dict[str, Any] | None, cluster_size: int,
                    stale: bool, games: list[dict[str, Any]] | None = None,
                    connected: list[dict[str, Any]] | None = None, color: str = "#999", *, tx: Text) -> list[Any]:
-    """The tag view: its games, its connected tags, then its metrics (and its Removal Sensitivity, if run)."""
+    """The tag view: its metrics, its games, its connected tags (and its Removal Sensitivity, if run)."""
     games, connected = games or [], connected or []
     active = "strength_shared" if weight == "shared_games" else "strength_lift"
     used_note = tx("used for clustering")
@@ -299,29 +299,30 @@ def node_inspector(node: dict[str, Any], weight: str, rs_row: dict[str, Any] | N
                                                  if node["is_center"] else []), className="i-title"),
         html.P(tx.n(cluster_size, one="Tag {tag_id} · {cluster} ({n} tag)", other="Tag {tag_id} · {cluster} ({n} tags)",
                     tag_id=node["tag_id"], cluster=node["cluster"]), className="i-sub"),
+        html.Div(tx("Metrics"), className="i-h"),
+        _kv([
+            ("Cluster", node["cluster"]),
+            ("Games", str(node["n_games"])),
+            ("Total shared games", used("strength_shared", tx.num(node["strength_shared"]))),
+            ("Total lift", used("strength_lift", tx.num(node["strength_lift"]))),
+            ("Shared games in own cluster", used("strength_shared_intra", tx.num(node["strength_shared_intra"]))),
+            ("Lift in own cluster", used("strength_lift_intra", tx.num(node["strength_lift_intra"]))),
+            ("Links · in own cluster", f"{node['degree']} · {node['degree_intra']}"),
+            ("Membership Stability", tx.num(node["membership_stability"])),
+            ("Prominence in own cluster (z)", within_text),
+            ("Spread across clusters", tx.num(node["participation"])),
+            ("Fit to own cluster (silhouette)", silhouette),
+            ("Mean game-set distance to members", tx.num(node["medoid_score"], 3)),
+            ("Cluster Center", tx.num(True) + " ◆" if node["is_center"] else tx.num(False)),
+        ], tx),
+        html.Div(tx("Games"), className="i-h"),
         html.P(_bold_count(tx.n(n, one="{n} game in the network has this tag",
                                 other="{n} games in the network have this tag", n="\0"), n), className="lead"),
         _html(_show_all(games, tx)),
+        html.Div([tx("Connected tags") + " ",
+                  html.Span(tx("{n}, by shared games", n=len(connected)), className="cnt")], className="i-h"),
+        _html(_connected_table(connected, tx)),
     ]
-    out.append(html.Div([tx("Connected tags") + " ",
-                         html.Span(tx("{n}, by shared games", n=len(connected)), className="cnt")], className="i-h"))
-    out.append(_html(_connected_table(connected, tx)))
-    out.append(html.Div(tx("Metrics"), className="i-h"))
-    out.append(_kv([
-        ("Cluster", node["cluster"]),
-        ("Games", str(node["n_games"])),
-        ("Total shared games", used("strength_shared", tx.num(node["strength_shared"]))),
-        ("Total lift", used("strength_lift", tx.num(node["strength_lift"]))),
-        ("Shared games in own cluster", used("strength_shared_intra", tx.num(node["strength_shared_intra"]))),
-        ("Lift in own cluster", used("strength_lift_intra", tx.num(node["strength_lift_intra"]))),
-        ("Links · in own cluster", f"{node['degree']} · {node['degree_intra']}"),
-        ("Membership Stability", tx.num(node["membership_stability"])),
-        ("Prominence in own cluster (z)", within_text),
-        ("Spread across clusters", tx.num(node["participation"])),
-        ("Fit to own cluster (silhouette)", silhouette),
-        ("Mean game-set distance to members", tx.num(node["medoid_score"], 3)),
-        ("Cluster Center", tx.num(True) + " ◆" if node["is_center"] else tx.num(False)),
-    ], tx))
     if rs_row is not None:
         out += [html.Div(tx("Removal Sensitivity (stale: other settings)") if stale else tx("Removal Sensitivity"),
                          className="i-h"),
