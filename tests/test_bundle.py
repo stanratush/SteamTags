@@ -222,6 +222,33 @@ def test_a_stale_maker_cache_is_reported_and_not_shipped(ps_root, tmp_path, monk
         shutil.rmtree(ctx.app_cache)
 
 
+def test_every_path_in_a_bundle_with_parameter_selection_fits_windows_explorer(ps_root, tmp_path, monkeypatch):
+    from steamstudy.bundle.make import MAX_ENTRY_PATH
+
+    bundle = _ps_bundle(ps_root, tmp_path, monkeypatch)
+    entries = [p.relative_to(bundle.parent).as_posix() for p in bundle.rglob("*") if p.is_file()]
+    assert any("/parameter_selection/grids/" in e for e in entries)
+    longest = max(entries, key=len)
+    assert len(longest) <= MAX_ENTRY_PATH, longest
+
+
+def test_a_path_too_long_for_windows_explorer_writes_nothing(tmp_path, monkeypatch):
+    root = tmp_path / "root"
+    folder = root / "builds" / "s" / "b"
+    (folder / "datasets").mkdir(parents=True)
+    (folder / "datasets" / "build.json").write_text("{}", encoding="utf-8")
+    (folder / "datasets" / ("x" * 200 + ".csv")).write_text("", encoding="utf-8")
+    (root / "builds" / "latest").write_text("s/b\n", encoding="utf-8")
+    monkeypatch.setattr("steamstudy.bundle.make.read_lock",
+                        lambda _path: {"package": [{"name": "steamstudy", "version": "0.1.0", "dependencies": []}]})
+    wheel = tmp_path / "steamstudy-0.1.0-py3-none-any.whl"
+    wheel.write_bytes(b"x")
+    with pytest.raises(BundleError, match="Windows Explorer could not open the bundle"):
+        make_bundle(root, targets=["windows"], out=tmp_path / "out", lock_path=REPO / "uv.lock",
+                    build_wheel=lambda _repo, _out: wheel, skip_parameter_selection=True)
+    assert not (tmp_path / "out").exists()
+
+
 def test_skip_parameter_selection_ships_no_cache(ps_root, tmp_path, monkeypatch):
     import json
 

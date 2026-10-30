@@ -5,6 +5,9 @@
     grids/<grid_key_hash>/graphs/<graph_hash>.json one per finished distinct graph
     validation/<validation_key_hash>.json          one per (dataset, pair), written only when complete
 
+File and folder names use the first `NAME_LENGTH` hex digits of each hash, so a bundled Build's paths stay short
+enough for Windows (see `bundle.make.MAX_ENTRY_PATH`); the manifests keep the full hashes.
+
 Every write is atomic (tmp + replace) and only the job's parent process writes. Never evicted automatically;
 "Clear app cache" (`app_cache.clear_all`) deletes it, shipped results included.
 """
@@ -20,6 +23,7 @@ from typing import Any
 from steamstudy.network import selection as SEL
 
 RESULTS_DIR = "parameter_selection"
+NAME_LENGTH = 16  # 64 bits: no collision among a grid's graphs or a Build's keys in practice
 
 
 def root(cache_root: Path) -> Path:
@@ -27,11 +31,15 @@ def root(cache_root: Path) -> Path:
 
 
 def grid_dir(cache_root: Path, grid_key: dict[str, Any]) -> Path:
-    return root(cache_root) / "grids" / SEL.key_hash(grid_key)
+    return root(cache_root) / "grids" / SEL.key_hash(grid_key)[:NAME_LENGTH]
+
+
+def graph_path(cache_root: Path, grid_key: dict[str, Any], graph_hash: str) -> Path:
+    return grid_dir(cache_root, grid_key) / "graphs" / f"{graph_hash[:NAME_LENGTH]}.json"
 
 
 def validation_path(cache_root: Path, validation_key: dict[str, Any]) -> Path:
-    return root(cache_root) / "validation" / f"{SEL.key_hash(validation_key)}.json"
+    return root(cache_root) / "validation" / f"{SEL.key_hash(validation_key)[:NAME_LENGTH]}.json"
 
 
 def dumps(data: Any) -> str:
@@ -72,7 +80,7 @@ def write_manifest(cache_root: Path, grid_key: dict[str, Any], pair_hash: dict[t
 
 
 def write_graph(cache_root: Path, grid_key: dict[str, Any], result: SEL.GraphResult) -> None:
-    write_json(grid_dir(cache_root, grid_key) / "graphs" / f"{result.graph_hash}.json", result.to_json())
+    write_json(graph_path(cache_root, grid_key, result.graph_hash), result.to_json())
 
 
 def write_complete(cache_root: Path, grid_key: dict[str, Any], links: list[SEL.Link],
@@ -108,20 +116,20 @@ def grid_state(cache_root: Path, grid_key: dict[str, Any], total: int) -> GridSt
     manifest = read_json(folder / "manifest.json")
     if manifest is None:
         return GridState(grid_key, "absent", total)
-    hashes = {p.stem for p in (folder / "graphs").glob("*.json")} if (folder / "graphs").is_dir() else set()
+    names = {p.stem for p in (folder / "graphs").glob("*.json")} if (folder / "graphs").is_dir() else set()
     pair_hash = {_pair_of(k): v for k, v in manifest["pairs"].items()}
+    hashes = {h for h in pair_hash.values() if h[:NAME_LENGTH] in names}
     state = GridState(grid_key, "partial", int(manifest["total"]), pair_hash, hashes, manifest["computed_with"],
                       manifest)
     if manifest.get("complete") and state.done == state.total:
         state.status = "complete"
     elif state.done == 0:
-        state.status = "absent" if not hashes else "partial"
+        state.status = "absent" if not names else "partial"
     return state
 
 
 def load_results(cache_root: Path, grid_key: dict[str, Any], hashes: set[str]) -> dict[str, SEL.GraphResult]:
-    folder = grid_dir(cache_root, grid_key) / "graphs"
-    return {h: SEL.GraphResult.from_json(read_json(folder / f"{h}.json")) for h in sorted(hashes)}
+    return {h: SEL.GraphResult.from_json(read_json(graph_path(cache_root, grid_key, h))) for h in sorted(hashes)}
 
 
 def load_grid(cache_root: Path, grid_key: dict[str, Any], dataset: str) -> tuple[

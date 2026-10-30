@@ -481,8 +481,7 @@ def test_a_not_reproduced_pair_applies_the_fallback_and_shows_the_ari(ps_build):
     defaults, _ = PV.defaults_of(ctx)
     view = _views(ps_build)["overall"]
     result = view.result(view.star)
-    path = ps_cache.grid_dir(ctx.app_cache, defaults.grid_key("overall", ctx.context("overall"))) / "graphs" / (
-        f"{result.graph_hash}.json")
+    path = ps_cache.graph_path(ctx.app_cache, defaults.grid_key("overall", ctx.context("overall")), result.graph_hash)
     data = json.loads(path.read_text(encoding="utf-8"))
     fallback = max(0.01, round(result.selected_resolution, 2))
     wrong = 0.01  # a γ that shows a different partition

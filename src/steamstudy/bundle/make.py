@@ -38,6 +38,10 @@ REPO = Path(__file__).resolve().parents[3]
 FILES = Path(__file__).resolve().parent / "files"
 EXECUTABLE = 0o100755 << 16
 REGULAR = 0o100644 << 16
+# Windows Explorer shows a zip as empty ("the compressed folder is invalid") when any entry path has 260 characters
+# or more, and Windows without long-path support cannot open a longer file at all. The margin leaves room to extract
+# into a short folder such as C:\TagNetwork\.
+MAX_ENTRY_PATH = 240
 
 
 log = logging.getLogger("steamstudy.bundle")
@@ -212,6 +216,11 @@ def make_bundle(root: Path, *, builds: Sequence[str] = (), targets: Sequence[str
             targets=", ".join(TARGETS[t].label() for t in targets), created=now.strftime("%Y-%m-%d"),
             version=__version__)
         (stage / "READ ME FIRST.txt").write_text(readme, encoding="utf-8")
+        longest = max((str(Path(name) / p.relative_to(stage)).replace("\\", "/") for p in stage.rglob("*")
+                       if p.is_file()), key=len)
+        if len(longest) > MAX_ENTRY_PATH:
+            raise BundleError(f"a path in the zip has {len(longest)} characters, more than {MAX_ENTRY_PATH}: Windows "
+                              f"Explorer could not open the bundle ({longest})")
         out.mkdir(parents=True, exist_ok=True)
         target_zip = out / f"{name}.zip"
         partial = target_zip.with_suffix(".zip.partial")
