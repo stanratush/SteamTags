@@ -37,6 +37,8 @@
   const REF = {w: 1116, h: 678}, STEP = 1.08;  // the reference canvas and the canvas report's steps
   const REPORT_SETTLE = 150, LABEL_SETTLE = 120;  // ms a size or a zoom must stay put before acting on it
   const LABEL_PX = 11.5, TITLE_PX = 12.5, HALO = 2;  // constant on-screen sizes of labels and region titles
+  const TITLE_PAD = 6;  // free space kept on each side of a region title inside its region (layout.py TITLE_PAD)
+  const FONT = "system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
   const MOTION = 350, EASE = "ease-in-out-cubic";
   const DASH_QUIET = 50;  // ms without a Dash update before a view animation starts (whenDashIdle)
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -50,7 +52,7 @@
     return [
       {selector: "node", style: {
         "background-color": "data(color)", "label": "data(label)", "font-size": LABEL_PX, "min-zoomed-font-size": 0,
-        "font-family": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", "color": "#1b2130",
+        "font-family": FONT, "color": "#1b2130",
         "text-valign": "bottom", "text-margin-y": 2, "text-outline-color": "#fff", "text-outline-width": HALO,
         "text-outline-opacity": 0.95, "width": "data(size)", "height": "data(size)", "border-width": 1.2,
         "border-color": "#00000040", "z-index-compare": "manual", "z-index": 10}},
@@ -123,6 +125,13 @@
       selectNow({kind: "edge", id: e.id()});
     });
     cy.on("tap", (ev) => { if (ev.target === cy) { emit({kind: "background"}); selectNow(null); } });
+    // A shortened region title shows in full as the canvas's tooltip while the pointer is on it.
+    cy.on("mousemove", "node.region", (ev) => {
+      const n = ev.target, full = n.data("full");
+      if (full && n.data("label") !== full && onTitle(n, ev.position)) el.title = full;
+      else el.removeAttribute("title");
+    });
+    cy.on("mouseout", "node.region", () => el.removeAttribute("title"));
     cy.on("dragfree", "node", (ev) => {  // a dragged position, kept per layout
       const n = ev.target;
       if (!G.data || !G.data.positions[n.id()] || n.hasClass("region")) return;
@@ -319,6 +328,7 @@
         cy.nodes().not(".region").style({"font-size": LABEL_PX / z, "text-margin-y": 2 / z,
                                          "text-outline-width": HALO / z, "text-background-padding": 2 / z});
         cy.nodes(".region").style({"font-size": TITLE_PX / z, "text-margin-y": -4 / z});
+        fitTitles();
       });
       G.sizedZoom = z;
     }
@@ -405,7 +415,8 @@
       fadeOut(cy.nodes(".region").not(".leaving"), ms);
       G.regionSeq = (G.regionSeq || 0) + 1;
       for (const r of data.regions) {
-        const added = cy.add({group: "nodes", data: {id: r.id + "~" + G.regionSeq, label: regionTitle(r),
+        const title = regionTitle(r);
+        const added = cy.add({group: "nodes", data: {id: r.id + "~" + G.regionSeq, label: title, full: title,
                                                      cluster: r.cluster, count: r.count, color: r.color, w: r.w, h: r.h},
                               position: {x: r.x, y: r.y}, classes: "region", grabbable: false,
                               selectable: false, locked: true, pannable: true});
@@ -567,8 +578,9 @@
     if (G.data) { adoptAppearance(G.data); restyle(); renderCard(); markHiddenLinks(); }
     if (G.cy) {  // a language switch re-titles the regions
       G.cy.nodes(".region").forEach((n) => {
-        n.data("label", regionTitle({cluster: n.data("cluster"), count: n.data("count"), label: n.data("label")}));
+        n.data("full", regionTitle({cluster: n.data("cluster"), count: n.data("count"), label: n.data("full")}));
       });
+      G.cy.batch(fitTitles);
     }
     return keyText();
   }
@@ -883,6 +895,35 @@
     if (!map || !map.tags || !map.pool_region || r.count === undefined) return r.label;
     const count = (forms) => fill(forms[r.count === 1 ? 0 : 1], {n: r.count});
     return r.cluster === "one_tag_pool" ? count(map.pool_region) : r.cluster + " · " + count(map.tags);
+  }
+
+  // Each region's title as it fits over its region at this zoom (titles are constant on screen; the layout made
+  // each region as wide as its title at the zoom it was spaced for, but the first fit of a short canvas, or the
+  // user, can zoom further out): the full title, else the cluster alone ("C3", the pool's `map.pool`), else that
+  // cut short with "…". The full title stays the tooltip (mount).
+  function fitTitles() {
+    const z = G.cy.zoom(), map = A.ui && A.ui.map;
+    G.cy.nodes(".region").forEach((n) => {
+      const full = n.data("full") || "", room = n.data("w") * z - 2 * TITLE_PAD;
+      let shown = full;
+      if (titleWidth(full) > room) {
+        shown = n.data("cluster") === "one_tag_pool" ? (map && map.pool) || "" : n.data("cluster");
+        if (titleWidth(shown) > room) {
+          let cut = shown;
+          while (cut && titleWidth(cut + "…") > room) cut = cut.slice(0, -1);
+          shown = cut ? cut + "…" : "";
+        }
+      }
+      if (n.data("label") !== shown) n.data("label", shown);
+    });
+  }
+
+  function titleWidth(text) {
+    if (!G.titleCtx) {
+      G.titleCtx = document.createElement("canvas").getContext("2d");
+      G.titleCtx.font = `600 ${TITLE_PX}px ${FONT}`;
+    }
+    return G.titleCtx.measureText(text).width;
   }
 
   // Region ids carry a sequence suffix so a fading old region and its replacement can coexist.
