@@ -202,7 +202,8 @@ def _validation_rows(dataset: str, pair: tuple[int, int], validation: Mapping[st
                          "degenerate_reason": x["degenerate"],
                          "beyond_scan": x["degenerate"] == "beyond_scan" if at else None, "ari": x["ari"],
                          "edged_share": x["edged_share"],
-                         "at_resolution_changed": bool(x.get("at_resolution_changed")) if at else None,
+                         "at_resolution_changed": (bool(x.get("at_resolution_changed"))
+                                                   if at and x["degenerate"] is None else None),
                          "q_defined": None, "null_q_envelope": None, "null_q": None, "perturbation_share": None,
                          "domain_width": None, "selected_resolution": x.get("resolution"),
                          "n_multi_tag_clusters": x.get("n_multi")})

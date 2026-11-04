@@ -4,11 +4,11 @@
 
 **Blocked by:** 16
 
-**Status:** ready-for-agent
+**Status:** done
 
 Spec: [Validation review spec](../spec.md): "The card" items 2–4 and 6, "Bulgarian", "Tests". Verbatim English and Bulgarian: [bg-strings.md](../prototypes/11-bg-wording/bg-strings.md) ("Card" table) and the observed-runs note in [What do the User Guide's validation passages … say?](13-guide-and-context-wording.md), point 2. Sources: tickets [02](02-cluster-figures-and-verdict.md), [04](04-null-comparison-rule-and-wording.md), [06](06-validation-card-and-inspector-layout.md), [11](11-bg-wording-card-and-inspector.md).
 
-- [ ] **`null_sentences`:**
+- [x] **`null_sentences`:**
   - header "({r} shuffled networks, per-pair procedure at g = {g}, s = {s})";
   - "Q at resolution … is …;" then the state's sentence: "none of the {d} shuffled networks with a Q reaches it (range over {d} shuffled networks: {lo} to {hi})" / "{k} of {d} shuffled networks with a Q reach it: Q not above the null" / "no shuffled network has edges, so Q cannot be compared." (edgeless only) or the reasons form;
   - U's reasons appended when U > 0 ("{n} had no edges", "{n} lay beyond their γ scan");
@@ -17,15 +17,24 @@ Spec: [Validation review spec](../spec.md): "The card" items 2–4 and 6, "Bulga
   - "Multi-Tag Clusters: observed {o}, median {m} (range over {k} shuffled networks with a Selected Partition: {lo} to {hi})." or "None of the {r} shuffled networks has a Selected Partition.";
   - "Median domain width {m} vs observed {o}; observed wider than {n} of {k}.", both `.3f`, with "equal to {t}," only when ties exist;
   - "Widths are upper bounds, conditional on the partitions the γ scan finds.", then `NULL_CAVEAT`.
-- [ ] **`subsample_sentences`:**
+- [x] **`subsample_sentences`:**
   - "Re-selected: median ARI {m} (10th–90th percentile: {lo} to {hi}) over {n} of {t} subsamples, on {e} of the tags." with degenerate reasons as today (including `beyond_scan` for the at-resolution arm), then "At resolution {res}: median ARI …";
   - the combined dissolved list: the one-key lead (the template bolds the text before the first " ("), "{k} of {n} Multi-Tag Clusters in both arms" (`tx.n` on `{n}`), "re-selected only", "at resolution only", empty groups left out;
   - "Borderline (the 95% Wilson interval contains ½): … in both arms / …";
   - "Not assessable (fewer than 2 of its tags survive in every subsample): …";
   - "No Multi-Tag Cluster is dissolved in most subsamples in either arm." only when nothing is labelled and nothing is not assessable;
   - `SUBSAMPLE_CAVEAT` and the limitation sentence, in italics.
-- [ ] Numbers: `.3f` for Q and widths, `.2f` for ARI; the decimal comma in bg; ARI ranges always "от … до"; the minus sign `−`.
-- [ ] **Catalogue:** every new key in `i18n/bg/selection_text.py`, with bg-strings.md's Bulgarian; the retired `selection_text` keys listed in the spec are removed. Existing placeholder names are kept where an entry already exists.
-- [ ] **Golden texts:** `test_validation_block_golden_text` and `tests/fixtures/selection_report_{en,bg}.md` are regenerated with `STEAMSTUDY_WRITE_GOLDEN`. Comments quote the diff's key lines: the unlabelled ranges and the "wider"/"narrower" wording are gone.
-- [ ] Render tests: each null state; the weak warning; U reasons; the observed-runs note; the combined list with all three groups and with one; the "no Cluster dissolved" sentence suppressed by a not-assessable Cluster.
-- [ ] The catalogue parity test and the full test suite pass.
+- [x] Numbers: `.3f` for Q and widths, `.2f` for ARI; the decimal comma in bg; ARI ranges always "от … до"; the minus sign `−`.
+- [x] **Catalogue:** every new key in `i18n/bg/selection_text.py`, with bg-strings.md's Bulgarian; the retired `selection_text` keys listed in the spec are removed. Existing placeholder names are kept where an entry already exists.
+- [x] **Golden texts:** `test_validation_block_golden_text` and `tests/fixtures/selection_report_{en,bg}.md` are regenerated with `STEAMSTUDY_WRITE_GOLDEN`. Comments quote the diff's key lines: the unlabelled ranges and the "wider"/"narrower" wording are gone.
+- [x] Render tests: each null state; the weak warning; U reasons; the observed-runs note; the combined list with all three groups and with one; the "no Cluster dissolved" sentence suppressed by a not-assessable Cluster.
+- [x] The catalogue parity test and the full test suite pass.
+
+## Comments
+
+- 2026-11-05 (agent): Done in b994853 (methods paragraph in c2ffd8c).
+- Golden diff, key lines (`tests/fixtures/selection_report_{default,none_qualifies}.md`): the unlabelled ranges and the narrower/wider wording are gone, replaced by the three-state Q sentence, the width sentence with ties and the grouped dissolved / borderline / not-assessable lists. With S = 2 (the test Build) every Cluster is borderline (Wilson [0, 0.66]).
+- SUBSAMPLE_CAVEAT is kept word for word. bg-strings.md and the prototype reword it, but no decision adopted the change.
+- Three sentences are not in bg-strings.md: the undefined state ("no shuffled network has a Q ({reasons}), so Q cannot be compared."), "At resolution {resolution}: no subsample can be compared ({reasons}).", and the width tie form "equal to {t}". The spec needs all three; their Bulgarian follows bg-terms.
+- Open polish: "range over 1 shuffled networks" has no singular form.
+- Full suite: 635 passed.

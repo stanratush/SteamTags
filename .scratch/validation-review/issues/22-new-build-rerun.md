@@ -14,3 +14,7 @@ Spec: [Validation review spec](../spec.md): "New-Build rerun". Scripts and rerun
 - [ ] **Mixing:** if any pair has not plateaued by 10 trades per game, Comments say so and a follow-up opens on `TRADES_PER_GAME`.
 - [ ] **Guide quotes** (en and bg, `03-metric-reference.md` and `bg/`): the figures and the Build date in the quotes from tickets 08, 09 and 10, and the 0.58–0.70 Perturbation Share range, from the new results; also the Overall 17/2 example figures if that pair's stored figures moved.
 - [ ] The guide tests and the full test suite pass.
+
+## Comments
+
+- 2026-11-05 (agent): Still open: it needs the new Build, which does not exist yet. Issues 14–21 are done on branch `validation-review`.

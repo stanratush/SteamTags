@@ -996,8 +996,8 @@ PS_REPLICATES = declare(
         _ps("ari", "float", "Subsamples: ARI against the Selected Partition on the comparison set.", _SUB, _VAL),
         _ps("edged_share", "float", "Subsamples: share of the observed network's edged tags in the comparison set "
                                     "(the tags the ARI covers).", _SUB, _VAL),
-        _ps("at_resolution_changed", "bool", "At resolution: the runs at γ_obs beat the envelope's partition.", _SUB,
-            _VAL),
+        _ps("at_resolution_changed", "bool", "At resolution: the runs at γ_obs beat the envelope's partition; empty "
+                                             "when degenerate.", _SUB, _VAL),
         _ps("q_defined", "bool", "Nulls: the replicate has a Q at γ_obs.", _NULL, _VAL),
         _ps("null_q_envelope", "float", "Nulls: Q at γ_obs from the replicate's CHAMP envelope alone.", _NULL, _VAL),
         _ps("null_q", "float", "Nulls: the final Q at γ_obs, the higher of the envelope's and the runs' at γ_obs.",

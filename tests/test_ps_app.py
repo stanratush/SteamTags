@@ -950,7 +950,8 @@ def test_the_export_has_eight_tables_and_the_validation_figures_of_schema_5(ps_b
     assert all(r["null_q_envelope"] for r in nulls if r["q_defined"] == "true")
     assert all(not r["perturbation_share"] and not r["null_q_envelope"] and not r["q_defined"] for r in subs)
     assert all(r["edged_share"] for r in subs if r["degenerate"] == "false")
-    assert all(r["at_resolution_changed"] and r["beyond_scan"] for r in at)
+    assert all(r["beyond_scan"] for r in at)
+    assert all(bool(r["at_resolution_changed"]) == (r["degenerate"] == "false") for r in at)
     assert all(not r["at_resolution_changed"] and not r["beyond_scan"] for r in reps
                if r["arm"] == "subsample_reselected")
 
