@@ -116,12 +116,32 @@ How much of the network two adjacent **Threshold Pairs** share: the Jaccard over
 _Avoid_: edge stability, graph similarity
 
 **Subsample Stability**:
-How well a **Selected Partition** is recovered when the network is rebuilt and reclustered from random 80% subsets of the games, with the thresholds scaled to match: re-selected by the same procedure, and also read at the original **Selected Resolution**. Measures data stability: dependence on which games are in the dataset, not on the seed or the thresholds.
+How well a **Selected Partition** is recovered when the network is rebuilt and reclustered from random 80% subsets of the games, with the thresholds scaled to match: re-selected by the same per-pair procedure, and also read at the original **Selected Resolution**. Measures data stability: dependence on which games are in the dataset, not on the seed or the thresholds.
 _Avoid_: bootstrap confidence, robustness (unqualified)
 
+**Hennig's Jaccard**:
+How well one **Multi-Tag Cluster** is recovered in one subsample of **Subsample Stability**, judged only on its **Tags** that survive in the subsample: the best overlap with any subsample **Cluster**, on those tags. It needs at least two surviving tags. With fewer, the subsample cannot judge the Cluster. Losing tags does not lower it; see **Whole-Cluster Jaccard**.
+_Avoid_: stability score, bootstrap Jaccard
+
+**Whole-Cluster Jaccard**:
+The counterpart of **Hennig's Jaccard** that counts lost tags as not recovered: the best overlap of the whole **Multi-Tag Cluster** with any subsample **Cluster**. It is never higher than Hennig's Jaccard, and the two are equal when no tag is lost. It is 0 when no tag survives.
+_Avoid_: recovery Jaccard, full Jaccard
+
+**Dissolved in most subsamples**:
+A **Multi-Tag Cluster** whose **Hennig's Jaccard** is 0.5 or less in more than half of the subsamples that can judge it. The 0.5 cut for one subsample is Hennig's; the majority over subsamples is this study's rule. It says the Cluster depends on which games are in the dataset, not that it is wrong.
+_Avoid_: dissolved (mean ≤ 0.5), unstable cluster
+
 **Null Comparison**:
-The **Selected Partition**'s structure compared with networks rebuilt, at the same **Threshold Pair**, from game–tag tables shuffled so that every game keeps its tag count and every **Tag** its game count, each put through the same procedure. Shows only that the network is not random, never that its **Clusters** are real.
+The **Selected Partition**'s structure compared with networks rebuilt, at the same **Threshold Pair**, from game–tag tables shuffled so that every game keeps its tag count and every **Tag** its game count, each put through the per-pair procedure at that **Threshold Pair** (its own γ scan and **Selected Partition** rule), not the **Parameter Grid** or the choice of pair. Shows only that the network is not random, never that its **Clusters** are real.
 _Avoid_: significance test, p-value, validation (unqualified)
+
+**Q not above the null**:
+The **Null Comparison**'s verdict when at least one of its shuffled networks that has a Q reaches the observed Q at the **Selected Resolution**. Says Q gives no evidence of structure beyond the tag and game counts, not that the **Clusters** are random.
+_Avoid_: not significant, p > 0.05
+
+**Perturbation Share**:
+For one shuffled network of the **Null Comparison**, the share of the observed game–tag assignments that the shuffle moved. It shows how far the shuffle got from the observed data. It is a diagnostic, never part of a verdict.
+_Avoid_: mixing score, randomness
 
 **Information Retention**:
 The share of the visible **Tags**' game–tag assignments (hidden and removed tags never count) that belong to **Tags** with at least one edge in the **Tag Network** of a **Threshold Pair**, counted over the games left after the **Minimum Months Filter**. Describes how much of the data the network still represents.
