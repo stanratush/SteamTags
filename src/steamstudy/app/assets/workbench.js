@@ -115,6 +115,18 @@
   });
   document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") closePills(); });
 
+  // ------------------------------------------------------------------ the Inspector's link to the validation card
+
+  document.addEventListener("click", (ev) => {
+    const link = ev.target instanceof Element ? ev.target.closest("[data-goto]") : null;
+    if (!link) return;
+    const main = document.getElementById("ps-main"), card = document.getElementById(link.dataset.goto);
+    if (!main || !card) return;
+    ev.preventDefault();  // scroll the main column only, never the page or the URL
+    const top = card.getBoundingClientRect().top - main.getBoundingClientRect().top + main.scrollTop - 8;
+    main.scrollTo({top, behavior: "smooth"});
+  });
+
   // ------------------------------------------------------------------ click a state_id to copy it
 
   document.addEventListener("click", (ev) => {

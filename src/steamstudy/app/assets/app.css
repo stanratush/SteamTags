@@ -516,10 +516,22 @@ summary.ps-crow:hover{background:#fafbfc}
 .ps-ctable th{font-weight:600;background:#fafbfc}
 .ps-ctable .n{text-align:right}
 .ps-ctable .sub{display:block;font-weight:400;color:var(--mute);font-size:10.5px}
+/* The Inspector's Validation section (issue 19): one 12 px square per Multi-Tag Cluster and arm. */
+.ps-insp-validation{margin-top:4px}
+.ps-insp-validation #ps-validate{margin:2px 0 6px}
+.ps-badge.warn{border-color:#e0b25a;color:var(--warn);background:var(--warn-bg)}
+.ps-vstrip{display:flex;flex-wrap:wrap;gap:2px;align-items:center;margin:2px 0}
+.ps-strip-lab{width:14px}
+.ps-sq{width:12px;height:12px;border-radius:2px;background:var(--line);display:inline-block}
+.ps-sq.diss{background:var(--ink2)}
+.ps-sq.bord{outline:1.5px dashed var(--warn);outline-offset:-2px}
+.ps-sq.na{background:repeating-linear-gradient(45deg,#c9ced6 0 2px,#fff 2px 4px)}
+.ps-goto{display:inline-block;margin-top:4px}
 @container (max-width:650px){
  .ps-crow{grid-template-columns:minmax(100px,1fr) 44px 150px}
  .ps-whisker{width:150px}
  .ps-crow .st{grid-column:1/-1;padding-left:4px}
+ .ps-crow .st:empty,.ps-crow.head .st{display:none}  /* no empty second line */
 }
 .ps-readonly{margin:8px 0}
 /* The Workbench's panel toggles are hidden in this mode, so they never hide its Controls. */

@@ -841,8 +841,7 @@ def workbench_line(result: SEL.GraphResult, *, tx: Text) -> tuple[str, str]:
                flag=wb["flag"], ari=tx.fixed(wb["ari"], ".2f")), "warning small")
 
 
-def inspector(view: DatasetView, pair: tuple[int, int] | None, validation: Mapping[str, Any] | None,
-              names: Mapping[int, str], *, tx: Text) -> list[Any]:
+def inspector(view: DatasetView, pair: tuple[int, int] | None, names: Mapping[int, str], *, tx: Text) -> list[Any]:
     if pair is None or view.result(pair) is None:
         return [html.P(tx("Click a computed cell to inspect its pair."), className="mute")]
     r = view.result(pair)
@@ -909,19 +908,6 @@ def inspector(view: DatasetView, pair: tuple[int, int] | None, validation: Mappi
                                                               className="x small", title=remove)],
                           className="ps-member") for t in sorted(c.members, key=lambda t: names.get(t, ""))]],
                 className="ps-cluster"))
-    compact = [html.Span(tx("Not validated"), className="mute")]
-    if validation:
-        v = validation["summary"]
-        reselected = v["subsample"]["reselected"]["ari"]["median"]
-        compact = [html.Span(_term(tx("Q not above the null"), "selection.verdict.q_not_above_null", tx)
-                             if v["verdicts"]["null_q"] == "reached" else tx("Q above all null replicates"),
-                             className="ps-badge"),
-                   html.Span(tx("Dissolved: {n}", n=len(v["verdicts"]["dissolved_in_most"]["reselected"])),
-                             className="ps-badge"),
-                   html.Span(" " + tx("median ARI re-selected {reselected}, at resolution {at}",
-                                      reselected=tx.num(reselected),
-                                      at=tx.num(v["subsample"]["at_resolution"]["ari"]["median"])),
-                             className="small")]
     return [
         html.H4([tx("{dataset}: g = {g}, s = {s}", dataset=view.label, g=g, s=s), _help("selection.inspector", tx)]),
         html.Div(badges, className="ps-badges"),
@@ -930,8 +916,69 @@ def inspector(view: DatasetView, pair: tuple[int, int] | None, validation: Mappi
         html.H5([_term("CHAMP", "selection.inspector.champ", tx)]),
         dcc.Graph(figure=champ_figure(r, tx=tx), config={"displayModeBar": False}, id="ps-champ"),
         html.H5(tx("Clusters")), *clusters,
-        html.H5([tx("Validation") + " ", _help("selection.validate", tx)]), html.Div(compact, className="ps-badges"),
     ]
+
+
+def _null_badge(summary: Mapping[str, Any], tx: Text) -> html.Span:
+    """The Null Comparison in one badge, in its three states, with " ⚠" when most shuffled networks have no Q."""
+    null = summary["null"]
+    state, d = summary["verdicts"]["null_q"], null["q_defined"]
+    weak = " ⚠" if null["weak"] else ""
+    if state == "reached":
+        words: Any = [_term(tx("Q not above the null ({k} of {d})", k=null["q"]["reach"], d=d),
+                            "selection.verdict.q_not_above_null", tx), weak]
+    elif state == "above_all_defined":
+        words = tx("Q above all {d} shuffled networks", d=d) + weak
+    else:
+        words = tx("Null Q undefined") + weak
+    return html.Span(words, className=f"ps-badge null-{state}" + (" warn" if weak else ""))
+
+
+def _status_strip(letter: str, clusters: list[Mapping[str, Any]]) -> html.Div:
+    """One square per Multi-Tag Cluster in Cluster order: dark = dissolved in most subsamples, dashed outline =
+    borderline, hatched = not assessable; the label as its tooltip."""
+    def classes(c: Mapping[str, Any]) -> str:
+        out = ["ps-sq"]
+        if not c["assessable"]:
+            out.append("na")
+        if c["dissolved_in_most"]:
+            out.append("diss")
+        if c["borderline"]:
+            out.append("bord")
+        return " ".join(out)
+
+    return html.Div([html.Span(letter, className="small mute ps-strip-lab"),
+                     *[html.I(className=classes(c), title=c["label"]) for c in clusters]], className="ps-vstrip")
+
+
+def inspector_validation(view: DatasetView, pair: tuple[int, int] | None, validation: Mapping[str, Any] | None, *,
+                         tx: Text) -> list[Any]:
+    """The Inspector's Validation section, above the static Validate this pair button: "Not validated", or the null
+    badge, the dissolved count, the R and A status strips, the median ARI and, for the card's pair, a link to the
+    card."""
+    result = None if pair is None else view.result(pair)
+    if result is None or result.selected is None:
+        return []
+    head = html.H5([tx("Validation"), _help("selection.validate", tx)])
+    if not validation:
+        return [head, html.P(tx("Not validated"), className="mute")]
+    v = validation["summary"]
+    sub = v["subsample"]
+    out: list[Any] = [
+        head,
+        html.Div([_null_badge(v, tx), html.Span(_term(
+            tx("Dissolved in most subsamples (re-selected): {n}", n=len(v["verdicts"]["dissolved_in_most"]["reselected"])),
+            "selection.verdict.dissolved", tx), className="ps-badge")], className="ps-badges"),
+        _status_strip("R", sub["reselected"]["clusters"]), _status_strip("A", sub["at_resolution"]["clusters"]),
+        html.Div(tx("median ARI re-selected {reselected}, at resolution {at}",
+                    reselected=tx.num(sub["reselected"]["ari"]["median"]),
+                    at=tx.num(sub["at_resolution"]["ari"]["median"])), className="small"),
+    ]
+    if view.default_choice is not None and pair == view.default_choice.chosen:
+        goto: dict[str, Any] = {"data-goto": "ps-validation"}  # workbench.js scrolls the main column to the card
+        out.append(html.A(tx("Open the validation card") + " ↓", href="#ps-validation", className="small ps-goto",
+                          **goto))
+    return out
 
 
 # ----------------------------------------------------------------------------- the whole mode
@@ -967,10 +1014,12 @@ def mode_layout(ctx: BuildContext, L: Labels) -> html.Div:
                               className="btn primary"),
                   _static_help(L, "selection.apply")], className="row-inline"),
         html.Div(id="ps-apply-line", className="small"),
-        html.Div([html.Button(L.prop("ps-validate", "children", msg("Validate this pair")), id="ps-validate",
-                              className="btn", style={"display": "none"}),
-                  _static_help(L, "selection.validate")], className="row-inline"),
         html.Div(id="ps-inspector-body"),
+        # The Validation section at the Inspector's bottom: its content is rendered, and the Validate this pair button
+        # stays a static component under it (its callback toggles the style and `disabled`).
+        html.Div([html.Div(id="ps-inspector-validation"),
+                  html.Button(L.prop("ps-validate", "children", msg("Validate this pair")), id="ps-validate",
+                              className="btn", style={"display": "none"})], className="ps-insp-validation"),
     ], id="ps-inspector", className=inspector_form(False))
     stores = [dcc.Store(id="ps-active", data=settings_data(defaults)),
               dcc.Store(id="ps-constraints", data={"shared": constraints_data(constraints), "datasets": {}}),

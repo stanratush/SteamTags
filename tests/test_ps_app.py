@@ -30,7 +30,7 @@ SMALL = {"g_range": [15, 17], "s_range": [2, 4], "null_replicates": 2, "subsampl
 OUTPUTS = ["rows", "cache_line", "provenance", "banner", "banner_style", "continue_style", "continue_text",
            "export_disabled", "strip", "loading", "heatmap", "why", "validation", "inspector", "apply_disabled",
            "apply_line", "apply_class", "validate_style", "c_label", "s_label", "run_one", "pill_run",
-           "pill_settings"]
+           "pill_settings", "inspector_validation"]
 
 
 def _text(component) -> str:
@@ -398,7 +398,7 @@ def test_a_ps_validation_1_file_is_not_read_and_the_pair_shows_as_not_validated(
     try:
         assert not PV.is_validated(ctx, settings, "overall", other)
         assert PV.validation_of(ctx, settings, "overall", other, view.result(other)) is None
-        assert "Not validated" in _text(render(ps_build, pair=list(other))["inspector"])
+        assert "Not validated" in _text(render(ps_build, pair=list(other))["inspector_validation"])
     finally:
         path.unlink()
 
@@ -414,7 +414,8 @@ def test_validate_this_pair_writes_the_file_and_updates_the_card(ps_build):
     assert CB.ps_validate_job(lambda _: None, request, str(ps_build), map_fn=map) == request["nonce"]
     assert PV.validation_of(ctx, PV.defaults_of(ctx)[0], "overall", other, view.result(other)) is not None
     after = render(ps_build, pair=list(other))
-    assert after["validate_style"] == {"display": "none"} and "Not validated" not in _text(after["inspector"])
+    assert after["validate_style"] == {"display": "none"}
+    assert "Not validated" not in _text(after["inspector_validation"])
 
 
 # ----------------------------------------------------------------------------- issue 29: Selection settings
@@ -827,3 +828,81 @@ def test_the_card_has_headings_and_warns_when_no_pair_qualifies_under_custom_con
     assert any(isinstance(c, html.Div) and c.className == "ps-clusters" for c in card)
     default = PV.validation_card(_views(ps_build)["overall"], validation, {}, tx=EN)
     assert not any("ps-note" in (getattr(c, "className", None) or "") for c in _walk(default))
+
+
+# ----------------------------------------------------------------------------- validation review, issue 19: the Inspector
+
+
+def _flat(component) -> str:
+    """A component's text in document order."""
+    if isinstance(component, str):
+        return component
+    children = getattr(component, "children", None)
+    children = children if isinstance(children, list) else [] if children is None else [children]
+    return "".join(_flat(c) for c in children)
+
+
+def _inspector_summary(state="above_all_defined", weak=False):
+    summary = _card_summary()
+    reach = {"reached": 3}.get(state, 0)
+    d = 0 if state == "undefined" else 40 if weak else 100
+    summary.update({
+        "null": {"q_defined": d, "weak": weak, "q": {"reach": reach}},
+        "verdicts": {"null_q": state, "dissolved_in_most": {"reselected": ["C1", "C2"], "at_resolution": ["C1"]}},
+    })
+    for arm in ("reselected", "at_resolution"):
+        summary["subsample"][arm]["ari"] = {"median": 0.78}
+    return summary
+
+
+@pytest.mark.parametrize(("state", "weak", "badge"), [
+    ("above_all_defined", False, "Q above all 100 shuffled networks"),
+    ("above_all_defined", True, "Q above all 40 shuffled networks ⚠"),
+    ("reached", False, "Q not above the null (3 of 100)"),
+    ("undefined", False, "Null Q undefined"),
+    ("undefined", True, "Null Q undefined ⚠"),
+])
+def test_the_inspectors_null_badge_in_each_state(ps_build, state, weak, badge):
+    view = _views(ps_build)["overall"]
+    section = PV.inspector_validation(view, view.star, {"summary": _inspector_summary(state, weak)}, tx=EN)
+    badges = next(c for c in section if getattr(c, "className", None) == "ps-badges")
+    assert _flat(badges.children[0]) == badge
+    assert ("warn" in badges.children[0].className) == weak
+    if state == "reached":
+        assert badges.children[0].children[0].className == "term"  # the help link
+    assert _text(badges.children[1]) == "Dissolved in most subsamples (re-selected): 2"
+
+
+def test_the_inspectors_strips_and_the_card_link(ps_build):
+    view = _views(ps_build)["overall"]
+    section = PV.inspector_validation(view, view.star, {"summary": _inspector_summary()}, tx=EN)
+    assert [_text(c) for c in section if getattr(c, "className", None) == "small"] == [
+        "median ARI re-selected 0.78, at resolution 0.78"]
+    strips = [c for c in section if getattr(c, "className", None) == "ps-vstrip"]
+    assert [s.children[0].children for s in strips] == ["R", "A"]
+    squares = [[(sq.className, sq.title) for sq in s.children[1:]] for s in strips]
+    assert squares[0] == [("ps-sq diss", "C1"), ("ps-sq diss", "C2"), ("ps-sq na", "C3"), ("ps-sq bord", "C4")]
+    assert [c for c, _ in squares[1]] == ["ps-sq diss", "ps-sq", "ps-sq na", "ps-sq bord"]
+    link = [c for c in _walk(section) if getattr(c, "className", None) == "small ps-goto"]
+    assert len(link) == 1 and _text(link[0]) == "Open the validation card ↓"
+    other = next(p for p in view.pairs if p != view.star and view.result(p).selected is not None)
+    elsewhere = PV.inspector_validation(view, other, {"summary": _inspector_summary()}, tx=EN)
+    assert not [c for c in _walk(elsewhere) if getattr(c, "className", None) == "small ps-goto"]
+    bg = _text(PV.inspector_validation(view, view.star, {"summary": _inspector_summary()}, tx=text("bg")))
+    assert "Q е над всички 100 разбъркани мрежи" in bg and "Отвори картата за валидиране" in bg
+
+
+def test_the_validate_button_sits_in_the_inspectors_validation_section(ps_build):
+    from steamstudy.app.layout import build_layout
+
+    layout = build_layout(load_build(ps_build))
+    inspector = next(c for c in _walk(layout) if getattr(c, "id", None) == "ps-inspector")
+    ids = [getattr(c, "id", None) for c in _walk(inspector)]
+    assert ids.index("ps-inspector-body") < ids.index("ps-inspector-validation") < ids.index("ps-validate")
+    assert ids.index("ps-apply") < ids.index("ps-apply-line") < ids.index("ps-inspector-body")
+    view = _views(ps_build)["overall"]
+    other = next(p for p in view.pairs if p != view.star and view.result(p).selected is not None)
+    section = render(ps_build, pair=list(other))["inspector_validation"]
+    assert [_text(c) for c in section] == ["Validation ?", "Not validated"]
+    assert "Validation" not in [_text(h) for h in render(ps_build, pair=list(other))["inspector"]
+                                if type(h).__name__ == "H5"]

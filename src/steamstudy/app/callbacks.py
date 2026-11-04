@@ -916,11 +916,12 @@ def ps_render(mode, active, cstore, dataset, metric, pair, running, progress, bu
         PV.heatmap(view, metric or "neighbour_agreement", inspected, tx=tx),
         PV.why(view, inspected, settings_label.text, labels[dataset].text, settings.min_multi_tag_clusters, tx=tx),
         PV.validation_card(view, shown, names, tx=tx),
-        PV.inspector(view, inspected, inspected_validation, names, tx=tx),
+        PV.inspector(view, inspected, names, tx=tx),
         result is None or result.selected is None, apply_text, apply_class,
         {"display": "inline-block"} if can_validate and inspected_validation is None else {"display": "none"},
         labels[dataset].text, settings_label.text, tx("Run {dataset}", dataset=c.dataset(dataset).label),
         *PV.pill_values(views, running, settings_label.custom, tx=tx),
+        PV.inspector_validation(view, inspected, inspected_validation, tx=tx),
     )
 
 
@@ -1289,7 +1290,7 @@ def register(app: dash.Dash) -> None:
                   Output("ps-apply-line", "children"), Output("ps-apply-line", "className"),
                   Output("ps-validate", "style"), Output("ps-c-label", "children"), Output("ps-s-label", "children"),
                   Output("ps-run-one", "children"), Output("ps-pill-run", "children"),
-                  Output("ps-pill-settings", "children")]
+                  Output("ps-pill-settings", "children"), Output("ps-inspector-validation", "children")]
     cb(*ps_outputs, Input("mode", "value"), Input("ps-active", "data"), Input("ps-constraints", "data"),
        Input("ps-dataset", "data"), Input("ps-metric", "value"), Input("ps-pair", "data"),
        Input("ps-running", "data"), Input("ps-progress", "data"), State("build-path", "data"),
