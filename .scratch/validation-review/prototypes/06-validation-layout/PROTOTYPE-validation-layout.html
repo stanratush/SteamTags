@@ -13,7 +13,7 @@
                          the ½ line, status chips; a row expands to every figure for both arms.
   Shared: the header with ?, the labelled ranges, one combined dissolved list (both / re-selected only / at resolution
   only), the 460 px heatmap that never shrinks, the Validate button inside the Inspector's Validation section, the
-  no_qualifying_pair note. Top bar: language (EN/BG, BG is a DRAFT for fit only), form (app widths), null-Q state,
+  no_qualifying_pair note. Top bar: language (EN/BG; BG is the wording decided in ticket 11, which also widened the Size column to 44 px), form (app widths), null-Q state,
   Cluster edge cases, constraints note, Inspector validated or not.
   Prototype shortcuts: Whole-Cluster Jaccard is a stand-in (Hennig's J x retention; |D'| is not stored); the reached /
   undefined / weak null states are synthesised; Why this pair, metrics, CHAMP are grey stubs. Run: double-click.
@@ -100,12 +100,12 @@ table.t th.sticky{background:#fafbfc}
 .segc{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;margin:4px 0}
 .segc button{border:0;background:#fff;padding:3px 10px;cursor:pointer}
 .segc button.on{background:var(--acc-bg);color:var(--acc);font-weight:600}
-.row-c{display:grid;grid-template-columns:minmax(120px,1.3fr) 34px 170px minmax(120px,1fr);gap:8px;align-items:center;
+.row-c{display:grid;grid-template-columns:minmax(120px,1.3fr) 44px 170px minmax(120px,1fr);gap:8px;align-items:center;
  padding:4px 2px;border-bottom:1px solid var(--line);cursor:pointer}
 .row-c:hover{background:#fafbfc}
 .row-c.head{cursor:default;font-weight:600;font-size:11.5px;background:#fafbfc}
 .detail{grid-column:1/-1;padding:4px 0 8px 12px;cursor:default}
-.narrowfit .row-c{grid-template-columns:minmax(100px,1fr) 30px 150px;}
+.narrowfit .row-c{grid-template-columns:minmax(100px,1fr) 44px 150px;}
 .narrowfit .row-c .st{grid-column:1/-1;padding-left:4px}
 .strip{display:flex;gap:2px;align-items:center;margin:2px 0}
 .strip i{width:12px;height:12px;border-radius:2px;background:#e3e6eb;display:inline-block}
@@ -128,44 +128,48 @@ const S = {variant: P.get("variant") || "A", lang: P.get("lang") || "en", form: 
   insp: P.get("insp") || "validated", arm: "reselected", open: new Set()};
 const FORMS = {wide1280: [1280, "wide"], wide1600: [1600, "wide"], medium1100: [1100, "medium"], narrow800: [800, "narrow"]};
 
-// ---------------------------------------------------------------- i18n (BG is a DRAFT, for fit only)
+// ---------------------------------------------------------------- i18n (BG as decided in ticket 11)
 const BG = {
+ // Card header and notes
  "Validation of g = {g}, s = {s}": "Валидиране на g = {g}, s = {s}",
  "Validation ran for g = {g}, s = {s}, the pair chosen under the default constraints.":
    "Валидирането е за g = {g}, s = {s}: двойката, избрана при ограниченията по подразбиране.",
  "No pair qualifies under your constraints, so this is the validation of g = {g}, s = {s}, the pair chosen under the default constraints.":
-   "При вашите ограничения нито една двойка не се квалифицира, затова това е валидирането на g = {g}, s = {s}: двойката, избрана при ограниченията по подразбиране.",
+   "При вашите ограничения не се квалифицира нито една двойка, затова това е валидирането на g = {g}, s = {s}: двойката, избрана при ограниченията по подразбиране.",
+ // Null Comparison
  "Null Comparison": "Сравнение с нулев модел",
  "Subsample Stability": "Стабилност при подизвадки",
- "({r} shuffled networks, per-pair procedure at g = {g}, s = {s})": "(разбъркани мрежи: {r}, процедурата за двойка при g = {g}, s = {s})",
+ "({r} shuffled networks, per-pair procedure at g = {g}, s = {s})": "(разбъркани мрежи: {r}; процедурата за една двойка при g = {g}, s = {s})",
  "Q at resolution {res} is {q};": "Q при резолюция {res} е {q};",
  "none of the {d} shuffled networks with a Q reaches it (range over {d} shuffled networks: {lo} to {hi})":
-   "никоя от {d} разбъркани мрежи с Q не го достига (обхват в {d} разбъркани мрежи: от {lo} до {hi})",
+   "никоя разбъркана мрежа с Q не го достига (разбъркани мрежи с Q: {d}; обхват от {lo} до {hi})",
  "{k} of {d} shuffled networks with a Q reach it: Q not above the null":
-   "{k} от {d} разбъркани мрежи с Q го достигат: Q не е над нулевия модел",
+   "разбъркани мрежи с Q, които го достигат: {k} от {d}; Q не е над нулевия модел",
  "no shuffled network has edges, so Q cannot be compared.": "никоя разбъркана мрежа няма ребра, затова Q не може да се сравни.",
  "{n} had no edges": "без ребра: {n}",
  "{n} lay beyond their γ scan": "извън своето сканиране по γ: {n}",
  "Most shuffled networks have no Q ({u} of {r}), so this comparison is weak.":
    "Повечето разбъркани мрежи нямат Q ({u} от {r}), затова това сравнение е слабо.",
  "Multi-Tag Clusters: observed {o}, median {m} (range over {k} shuffled networks with a Selected Partition: {lo} to {hi}).":
-   "Многотагови клъстери: наблюдавани {o}, медиана {m} (обхват в {k} разбъркани мрежи с избрано разбиване: от {lo} до {hi}).",
+   "Многотагови клъстери: наблюдавани {o}, медиана {m} (разбъркани мрежи с избрано разбиване: {k}; обхват от {lo} до {hi}).",
  "None of the {r} shuffled networks has a Selected Partition.": "Нито една от {r} разбъркани мрежи няма избрано разбиване.",
  "Median domain width {m} vs observed {o}; observed wider than {n} of {k}.":
-   "Медиана на ширината на областта {m} срещу наблюдавана {o}; наблюдаваната е по-широка от {n} от {k}.",
+   "Ширина на областта на оптималност: медиана {m} срещу наблюдавана {o}; наблюдаваната е по-широка от {n} от {k}.",
  "Widths are upper bounds, conditional on the partitions the γ scan finds.":
-   "Ширините са горни граници, зависещи от разбиванията, които сканирането по γ намира.",
+   "Ширините са горни граници и зависят от разбиванията, които сканирането по γ намира.",
  "This shows only that the network is not random, not that its Clusters are real.":
    "Това показва само, че мрежата не е случайна, а не че клъстерите ѝ са реални.",
+ // Subsample Stability
  "({t} random 80% subsets of the games, g′ = {g}, s′ = {s}).": "(случайни подмножества от 80% от игрите: {t}, g′ = {g}, s′ = {s}).",
  "Re-selected: median ARI {m} (10th–90th percentile: {lo} to {hi}) over {n} of {t} subsamples, on {e} of the tags.":
-   "При нов избор: медиана на ARI {m} (10-и–90-и персентил: от {lo} до {hi}) при {n} от {t} подизвадки, върху {e} от таговете.",
+   "При нов избор: медиана на ARI {m} (персентили 10–90: от {lo} до {hi}) при {n} от {t} подизвадки, върху {e} от таговете.",
  "At resolution {res}: median ARI {m} (10th–90th percentile: {lo} to {hi}).":
-   "При резолюция {res}: медиана на ARI {m} (10-и–90-и персентил: от {lo} до {hi}).",
+   "При резолюция {res}: медиана на ARI {m} (персентили 10–90: от {lo} до {hi}).",
  "Dissolved in most subsamples": "Разпаднат в повечето подизвадки",
- "(Hennig's Jaccard ≤ 0.5 in more than half; the majority is this study's rule):":
-   "(индекс на Jaccard на Hennig ≤ 0,5 в повече от половината; правилото за мнозинство е на това изследване):",
- "{k} of {n} Multi-Tag Clusters in both arms": "в двата варианта — {k} от {n} многотагови клъстера",
+ "Dissolved in most subsamples (Hennig's Jaccard ≤ 0.5 in more than half; the majority is this study's rule):":
+   "Разпаднати в повечето подизвадки (индекс на Jaccard по Hennig ≤ 0,5 в повече от половината; правилото на мнозинството е избор на това изследване):",
+ // tx.n pair: one "{k} от {n} многотагов клъстер в двата варианта"; the prototype has no plurals, so it shows `other`
+ "{k} of {n} Multi-Tag Clusters in both arms": "{k} от {n} многотагови клъстера в двата варианта",
  "re-selected only": "само при нов избор", "at resolution only": "само при резолюцията",
  "Borderline (the 95% Wilson interval contains ½):": "На границата (95% интервал на Wilson съдържа ½):",
  "in both arms": "в двата варианта",
@@ -176,34 +180,38 @@ const BG = {
  "The pair was chosen on the same data, so Subsample Stability may be slightly optimistic. Q played no part in the choice, so the Null Comparison is barely affected.":
    "Двойката е избрана върху същите данни, затова стабилността при подизвадки може да е леко оптимистична. Q не участва в избора, така че сравнението с нулев модел почти не е засегнато.",
  "Three kinds of stability": "Три вида стабилност",
- "Cluster": "Клъстер", "Size": "Размер", "Status": "Състояние",
- "Re-selected": "При нов избор", "At resolution {res}": "При резолюция {res}",
- "Hennig's J": "Jaccard (Hennig)", "mean ± s.e.; 10th–90th pct": "средно ± ст. гр.; 10-и–90-и перс.",
+ // Cluster list (interval plot) and its expanded rows
+ "Cluster": "Клъстер", "Size": "Размер", "Status": "Статус",
+ "Share of subsamples with Hennig's Jaccard ≤ 0.5, with its 95% Wilson interval. R = re-selected, A = at resolution.":
+   "Дял на подизвадките с индекс на Jaccard по Hennig ≤ 0,5, с неговия 95% интервал на Wilson. R = при нов избор, A = при резолюцията.",
+ "Click a row for every figure.": "Щракнете върху ред, за да видите всички стойности.",
+ "≤ 0.5: 0 — ½ — 1": "≤ 0,5: 0 — ½ — 1",
+ "Arm": "Вариант", "re-selected": "при нов избор", "at resolution": "при резолюцията",
+ "Hennig's J": "Jaccard (Hennig)", "mean ± s.e.; 10th–90th pct": "средно ± ст. гр.; перс. 10–90",
  "≤ 0.5 in": "≤ 0,5 в", "> 0.75 in": "> 0,75 в", "k of B*; 95% Wilson": "k от B*; 95% Wilson",
  "Whole-Cluster J": "Jaccard (цял клъстер)", "mean ± s.e.": "средно ± ст. гр.",
  "{k} of {n}": "{k} от {n}", "borderline": "на границата", "Not assessable": "Не може да се оцени",
  "rarely assessable ({b} of {s})": "рядко оценим ({b} от {s})",
+ // Losing variants A/B only (not shipped; kept so the prototype still renders them)
+ "Re-selected": "При нов избор", "At resolution {res}": "При резолюция {res}",
  "not at resolution": "не при резолюцията", "not re-selected": "не при нов избор",
- "also at resolution": "и при резолюцията", "also re-selected": "и при нов избор",
  "Observed": "Наблюдавано", "Shuffled networks": "Разбъркани мрежи",
  "Q at resolution {res}": "Q при резолюция {res}", "Multi-Tag Clusters": "Многотагови клъстери", "Domain width": "Ширина на областта",
- "range {lo} to {hi} over {d} with a Q": "обхват от {lo} до {hi} в {d} с Q",
- "median {m}, range {lo} to {hi} over {k} with a Selected Partition": "медиана {m}, обхват от {lo} до {hi} в {k} с избрано разбиване",
+ "range {lo} to {hi} over {d} with a Q": "с Q: {d}; обхват от {lo} до {hi}",
+ "median {m}, range {lo} to {hi} over {k} with a Selected Partition": "с избрано разбиване: {k}; медиана {m}, обхват от {lo} до {hi}",
  "median {m}; observed wider than {n} of {k}": "медиана {m}; наблюдаваната е по-широка от {n} от {k}",
- "no Q": "няма Q", "Share of subsamples with Hennig's Jaccard ≤ 0.5, with its 95% Wilson interval. R = re-selected, A = at resolution.":
-   "Дял на подизвадките с индекс на Jaccard на Hennig ≤ 0,5 и 95% интервал на Wilson. R = при нов избор, A = при резолюцията.",
- "Click a row for every figure.": "Щракнете ред за всички стойности.",
- "Arm": "Вариант", "re-selected": "при нов избор", "at resolution": "при резолюцията",
+ "re-selected {a}, at resolution {b} of {n}": "при нов избор {a}, при резолюцията {b} от {n}",
+ "{n} borderline": "на границата: {n}", "median ARI": "медиана на ARI",
  // Inspector
- "Pair Inspector": "Инспектор на двойки", "Apply to Workbench": "Приложи в работното място",
+ "Pair Inspector": "Инспектор на двойката", "Apply to Workbench": "Приложи в работното място",
  "Validation": "Валидиране", "Not validated": "Не е валидирано", "Validate this pair": "Валидирай тази двойка",
+ "About 3 min on 12 workers.": "Около 3 мин с 12 процеса.",
  "Q above all {d} shuffled networks": "Q е над всички {d} разбъркани мрежи",
- "Q not above the null ({k} of {d})": "Q не е над нулевия модел ({k} от {d})", "Null Q undefined": "Нулевото Q е неопределено",
+ "Q not above the null ({k} of {d})": "Q не е над нулевия модел ({k} от {d})",
+ "Null Q undefined": "Q на нулевия модел е неопределено",
  "Dissolved in most subsamples (re-selected): {n}": "Разпаднати в повечето подизвадки (при нов избор): {n}",
  "median ARI re-selected {a}, at resolution {b}": "медиана на ARI при нов избор {a}, при резолюцията {b}",
- "re-selected {a}, at resolution {b} of {n}": "при нов избор {a}, при резолюцията {b} от {n}",
- "{n} borderline": "на границата: {n}", "median ARI": "медиана на ARI", "Open the validation card": "Отвори картата за валидиране",
- "About 3 min on 12 workers.": "Около 3 мин на 12 процеса.",
+ "Open the validation card": "Отвори картата за валидиране",
  "Metrics": "Показатели", "Clusters": "Клъстери", "Why this pair": "Защо тази двойка",
  "{d}: g = {g}, s = {s}": "{d}: g = {g}, s = {s}",
 };
@@ -318,7 +326,8 @@ function dissolvedProse() {
     if (both.length) parts.push(`${tx("{k} of {n} Multi-Tag Clusters in both arms", {k: both.length, n})}: ${list(both)}`);
     if (ro.length) parts.push(`${tx("re-selected only")}: ${list(ro)}`);
     if (ao.length) parts.push(`${tx("at resolution only")}: ${list(ao)}`);
-    out += `<p><b>${tx("Dissolved in most subsamples")}</b> ${tx("(Hennig's Jaccard ≤ 0.5 in more than half; the majority is this study's rule):")} ${parts.join("; ")}.</p>`;
+    const lead = tx("Dissolved in most subsamples (Hennig's Jaccard ≤ 0.5 in more than half; the majority is this study's rule):"), cut = lead.indexOf(" (");
+    out += `<p><b>${lead.slice(0, cut)}</b>${lead.slice(cut)} ${parts.join("; ")}.</p>`;
   } else if (!na.length) out += `<p>${tx("No Multi-Tag Cluster is dissolved in most subsamples in either arm.")}</p>`;
   const bR = re.filter(c => c.borderline).map(c => c.label), bA = at.filter(c => c.borderline).map(c => c.label);
   if (bR.length || bA.length) {
@@ -400,7 +409,7 @@ function whisker(r, a) {
 function listC() {
   const C = clusters();
   let h = `<p class="legend">${tx("Share of subsamples with Hennig's Jaccard ≤ 0.5, with its 95% Wilson interval. R = re-selected, A = at resolution.")} ${tx("Click a row for every figure.")}</p>
-    <div class="row-c head"><span>${tx("Cluster")}</span><span>${tx("Size")}</span><span>≤ 0.5: 0 — ½ — 1</span><span class="st">${tx("Status")}</span></div>`;
+    <div class="row-c head"><span>${tx("Cluster")}</span><span>${tx("Size")}</span><span>${tx("≤ 0.5: 0 — ½ — 1")}</span><span class="st">${tx("Status")}</span></div>`;
   C.reselected.forEach((r, i) => {
     const a = C.at_resolution[i];
     let st = "";
@@ -487,7 +496,7 @@ function render() {
 function protoBar() {
   const seg = (key, opts) => `<label>${key}</label><span class="seg">${Object.entries(opts).map(([v, l]) => `<button data-k="${key}" data-v="${v}" class="${S[key] === v ? "on" : ""}">${l}</button>`).join("")}</span>`;
   document.getElementById("proto").innerHTML = "<b style='color:#f0c400'>PROTOTYPE</b>" +
-    seg("lang", {en: "EN", bg: "BG (draft)"}) + seg("form", {wide1280: "wide 1280", wide1600: "wide 1600", medium1100: "medium 1100", narrow800: "narrow 800"}) +
+    seg("lang", {en: "EN", bg: "BG"}) + seg("form", {wide1280: "wide 1280", wide1600: "wide 1600", medium1100: "medium 1100", narrow800: "narrow 800"}) +
     seg("nullq", {above: "above all", reached: "reached", undefined: "undefined", weak: "weak D<R/2"}) +
     seg("edge", {real: "real Clusters", edge: "+ not assessable / rarely", none: "none dissolved"}) +
     seg("note", {none: "no note", other: "custom: other pair", noq: "custom: no qualifying pair"}) +

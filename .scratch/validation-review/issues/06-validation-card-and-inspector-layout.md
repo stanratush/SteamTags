@@ -85,3 +85,7 @@ Decided 2026-11-04 by the researcher, from a prototype: [PROTOTYPE-validation-la
 **Hand-offs**
 - To [How are versions, reruns and tests staged?](07-versioning-reruns-and-tests.md): golden texts for the combined dissolved, borderline and not-assessable sentences; the card for `no_qualifying_pair`; the strip and badges in the Inspector; and a CSS test of the heatmap's `flex-shrink` if the CSS tests allow it.
 - The spec: `ps_view.cluster_table` and `validation_card` are rewritten, the Validate button moves into `inspector()`, and `selection_text.subsample_sentences` gets the combined lists.
+
+## Comments
+
+- 2026-11-04, from [What is the bg wording of the validation card and the Inspector's Validation section?](11-bg-wording-card-and-inspector.md): the Cluster list's **Size column is 44 px** in both the wide and narrow-fit grids (was 34 / 30 px). The bg header "Размер" (39 px) overflowed it. The prototype is updated, and fit is re-verified in both languages at all four widths.
