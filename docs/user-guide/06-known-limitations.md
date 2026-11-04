@@ -39,4 +39,5 @@ This chapter is the single home of every caveat the study carries. The reports' 
 - **The widest-domain rule and the Selected Resolution as a midpoint are this study's rules**; the sources give none.
 - **A dataset can end with `no_qualifying_pair`.** Nothing is relaxed automatically; the mode then shows the exclusion table.
 - **Validation is one 80% fraction and one null model.** No curve of fractions, no other noise type, and no Subsample Stability on null replicates.
+- **Validation runs on the data the pair was chosen on.** Subsample Stability may be slightly optimistic; Q played no part in the choice, so the Null Comparison is barely affected. The grid and the choice of pair are not repeated per replicate.
 - **One pair per dataset, chosen independently.** No pair common to all five datasets is chosen, and the datasets' Clusters are not compared.

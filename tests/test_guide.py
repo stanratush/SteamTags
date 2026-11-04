@@ -87,14 +87,20 @@ def test_no_interpretation_bands_in_the_metric_reference():
         assert phrase not in text
 
 
-def test_hennigs_dissolution_is_the_only_jaccard_cut():
-    """English only. Appendix A allows ≤ 0.5 = dissolved for Subsample Stability; fpc's bands stay unused everywhere."""
-    assert "≤ 0.5 = dissolved (Hennig 2007, §2) is the only cut used" in _text("appendix-a-rules-of-thumb.md")
+def test_hennigs_cuts_apply_per_subsample_and_fpcs_bands_stay_unused():
+    """English only. Appendix A: Hennig's 0.5 and 0.75 apply per subsample (0.5 for the majority rule, 0.75 as a
+    frequency only); fpc's bands on the mean (0.6, 0.75, 0.85) stay unused in the metric reference."""
+    appendix = _text("appendix-a-rules-of-thumb.md")
+    assert "in a subsample, a Cluster is dissolved when its Jaccard is ≤ 0.5 (Hennig 2007, §2)" in appendix
+    assert "Hennig's 0.75 is reported only as a frequency, never as a label." in appendix
     from steamstudy.app.guide import section
 
     entry = section(_text("03-metric-reference.md"), "subsample-stability")
-    assert "≤ 0.5" in entry
-    assert not re.search(r"(?<![\d.])0\.(6|75|85)(?!\d)", entry) and "good recover" not in entry
+    assert "≤ 0.5" in entry and "> 0.75 (good recovery" in entry
+    assert not re.search(r"(?<![\d.])0\.(6|85)(?!\d)", entry)
+    # 0.75 only as Hennig's per-subsample cut ("> 0.75", "above 0.75"), never as a band on the mean
+    assert all(entry[m.start() - 6:m.start()].endswith(("> ", "above "))
+               for m in re.finditer(r"(?<![\d.])0\.75(?!\d)", entry))
 
 
 def test_the_guides_methods_paragraph_is_the_report_template():

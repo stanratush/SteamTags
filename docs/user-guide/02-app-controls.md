@@ -628,7 +628,7 @@ It is offered on any pair with a Selected Partition in a complete grid, also und
 
 ### Export tables
 
-> **In short.** Writes one zip per settings key with seven tables, `parameter_selection.json` and a templated `selection_report.md`, for every dataset with a complete grid.
+> **In short.** Writes one zip per settings key with eight tables, `parameter_selection.json` and a templated `selection_report.md`, for every dataset with a complete grid.
 >
 > **Here:** the record of a selection, for a paper's supplement.
 >

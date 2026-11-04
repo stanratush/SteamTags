@@ -100,7 +100,14 @@ This file sits outside `docs/user-guide/`, so the guide parser never reads it. T
 | scan · scan seed · scan range · hits · envelope (CHAMP) | сканиране · начално число от сканирането · обхват на сканирането · попадения · обвивка | — |
 | Validation · Validate this pair | валидиране · Валидирай тази двойка (Null Comparison keeps its own name) | — |
 | arm · re-selected · at resolution (Subsample Stability) | вариант · при нов избор · при резолюцията | рамо |
-| dissolved (a Cluster under subsampling) | разпаднат | разтворен |
+| Dissolved in most subsamples | разпаднат в повечето подизвадки (a list or count: разпаднати…) | разтворен; bare *разпаднат* as the label |
+| Hennig's Jaccard | индекс на Jaccard по Hennig; short Jaccard (Hennig) | индекс на стабилност, bootstrap Jaccard |
+| Whole-Cluster Jaccard | индекс на Jaccard за целия клъстер; short Jaccard (цял клъстер) | пълен Jaccard |
+| Q not above the null | Q не е над нулевия модел | незначимо, p > 0,05 |
+| Perturbation Share | дял на смущението | оценка на смесването, случайност |
+| per-pair procedure | процедурата за една двойка | — |
+| borderline · Not assessable · rarely assessable | на границата · Не може да се оцени · рядко оценим | Неоценим (reads as *invaluable*) |
+| s.e. · 10th–90th percentile spread · 95% Wilson interval · Monte Carlo error | стандартна грешка (ст. гр.) · разсейване между персентили 10–90 (перс. 10–90) · 95% интервал на Wilson · грешка по Monte Carlo | доверителен интервал (for any of them) |
 | Neighbour links (the Pair Inspector section) | сравнения със съседите | връзки, ребра (those are Connections and edges) |
 | qualifies (a Threshold Pair) | квалифицира се | — |
 | Default / Custom constraints · Default / Custom settings | Ограничения по подразбиране / Персонализирани ограничения · Настройки по подразбиране / Персонализирани настройки | — |

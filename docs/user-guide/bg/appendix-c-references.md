@@ -34,6 +34,7 @@
 - van Eck, N. J., Waltman, L. (2009). How to normalize cooccurrence data? An analysis of some well-known similarity measures. *JASIST* 60(8), 1635–1651. doi:10.1002/asi.21075 (ур. 5, §3, §4, §6)
 - Warrens, M. J. (2008). On association coefficients for 2 × 2 tables and properties that do not depend on the marginal distributions. *Psychometrika* 73(4), 777–789. doi:10.1007/s11336-008-9070-3 (§3.2 ур. 7, твърдение 2)
 - Weir, W. H., Emmons, S., Gibson, R., Taylor, D., Mucha, P. J. (2017). Post-processing partitions to identify domains of modularity optimization. *Algorithms* 10(3), 93. doi:10.3390/a10030093 (§2, ур. 1–4)
+- Wilson, E. B. (1927). Probable inference, the law of succession, and statistical inference. *J. Am. Stat. Assoc.* 22(158), 209–212. doi:10.1080/01621459.1927.10502953
 
 ## Документация на софтуера {#software-documentation}
 

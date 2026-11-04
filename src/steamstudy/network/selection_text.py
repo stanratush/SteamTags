@@ -442,13 +442,23 @@ def methods_paragraph(tx: Text, values: dict[str, Any] | None = None) -> str:
         "between a pair's Selected Partition and those of its grid neighbours (g ± 1, s ± 1) with a different graph, "
         "on the shared tags with an edge in either graph. The chosen pair is the one with the smallest g, then the "
         "smallest s, among the pairs whose Neighbour Agreement is within {tolerance} of the highest, among pairs with "
-        "{constraints}. We compared the chosen pair with {replicates} networks whose game–tag table was shuffled by "
-        "curveball trades (every tag and game keeps its count), each analysed by the identical procedure (Karrer, "
-        "Levina & Newman 2008, abstract, §III and §VI), and with {subsamples} random subsets of m = ⌊0.8·n⌋ of the n "
-        "games, with the thresholds scaled by floor (g′ = ⌊g·m/n⌋, s′ = max(2, ⌊s·m/n⌋)). For each Multi-Tag Cluster "
-        "we report Hennig's (2007, §2) mean best-match Jaccard on the tags present in both networks, over the B* "
-        "subsamples in which the Cluster has a tag, and call it dissolved at a mean of 0.5 or less; the 0.6, 0.75 "
-        "and 0.85 bands of the fpc package refer to the bootstrap and are not applied.", **values)
+        "{constraints}. We compared each validated Threshold Pair with {replicates} networks whose game–tag table was "
+        "shuffled by curveball trades (every tag and game keeps its count; Strona et al. 2014), each analysed by the "
+        "identical procedure: the per-pair procedure at the same Threshold Pair (its own γ scan, CHAMP, γ̂ and the "
+        "Selected Partition rule), not the Parameter Grid or the choice of pair (Karrer, Levina & Newman 2008, "
+        "abstract, §III and §VI). Q at the observed Selected Resolution was taken as the best of each network's scan "
+        "envelope and 10 Leiden runs at exactly that γ, on the observed network and every replicate alike; we report "
+        "how many of the D shuffled networks with a defined Q reach the observed Q, and give no p-value, because the "
+        "resolution and the pair were chosen on the observed data. We also compared the pair with {subsamples} random "
+        "subsets of m = ⌊0.8·n⌋ of the n games, with the thresholds scaled by floor (g′ = ⌊g·m/n⌋, s′ = max(2, "
+        "⌊s·m/n⌋)), once re-selecting by the same per-pair procedure and once reading the partition at the observed "
+        "resolution. For each Multi-Tag Cluster we report Hennig's (2007, §2) mean best-match Jaccard on its tags "
+        "present in both networks, over the B* subsamples in which at least two of them survive, with its Monte Carlo "
+        "standard error and the frequencies of values ≤ 0.5 and > 0.75 with 95% Wilson intervals (Wilson 1927), and a "
+        "Whole-Cluster Jaccard that counts lost tags as not recovered. We call a Cluster dissolved in most subsamples "
+        "when its Jaccard is 0.5 or less in more than half of the B* subsamples (the per-subsample cut is Hennig's, "
+        "the majority our rule); the 0.6, 0.75 and 0.85 bands of the fpc package refer to the bootstrap and are not "
+        "applied. The pair was chosen on the same data, so Subsample Stability may be slightly optimistic.", **values)
 
 
 def methods_values(settings: Any, constraints: Any, *, tx: Text) -> dict[str, Any]:
