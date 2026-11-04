@@ -707,3 +707,12 @@ def test_a_language_switch_re_renders_the_mode_and_never_touches_a_running_job(p
     for job in ("ps-run-done.data", "ps-validate-done.data", "ps-run-request.data"):
         d = next(d for d in deps if job in d["output"])
         assert "lang" not in [i["id"] for i in d["inputs"] + d["state"]], job
+
+
+def test_the_heatmap_keeps_its_height_when_the_main_column_overflows():
+    """Review item 1: `.ps-main` is a scrolling flex column, so without these rules a long validation card shrinks
+    the heatmap to nothing."""
+    css = (REPO / "src" / "steamstudy" / "app" / "assets" / "app.css").read_text(encoding="utf-8")
+    flat = "".join(css.split())
+    assert "#ps-heatmap{flex:00460px" in flat
+    assert ".ps-main>*{flex-shrink:0" in flat

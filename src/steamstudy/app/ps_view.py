@@ -818,7 +818,8 @@ def mode_layout(ctx: BuildContext, L: Labels) -> html.Div:
         html.Div(id="ps-strip", className="ps-strip"),
         constraints_bar(L, constraints),
         metric_picker(L),
-        # Responsive: it follows the main column's width when a panel is turned off (the height stays 460 px).
+        # Responsive: it follows the main column's width when a panel is turned off. The height stays 460 px: app.css
+        # gives it `flex: 0 0 460px` in the scrolling main column, so a long validation card cannot shrink it.
         dcc.Graph(id="ps-heatmap", config={"displayModeBar": False}, responsive=True, style={"height": "460px"}),
         heatmap_key(L),
         html.Div(id="ps-why", className="panel ps-why"),

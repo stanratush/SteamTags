@@ -98,6 +98,14 @@ def test_shipped_parameter_selection_table(config_dir):
     assert (ps.min_comparable_neighbours, ps.max_multi_tag_clusters) == (2, None)
 
 
+@pytest.mark.parametrize("step", [0.05, 0.1, 0.01, 0.07])
+def test_a_gamma_step_on_the_hundredths_grid_loads(config_dir, step):
+    """`champ.scan_gammas` rounds γ to 2 decimals, so only whole multiples of 0.01 give an even grid."""
+    files = _files(config_dir)
+    files["network"]["parameter_selection"]["gamma_step"] = step
+    assert config_from_data(files).network.parameter_selection.gamma_step == step
+
+
 def test_a_build_without_the_table_gets_the_shipped_defaults(config_dir):
     files = _files(config_dir)
     shipped = config_from_data(files).network.parameter_selection
@@ -112,6 +120,7 @@ def test_a_build_without_the_table_gets_the_shipped_defaults(config_dir):
     ("min_comparable_neighbours", 5, "min_comparable_neighbours"), ("max_multi_tag_clusters", 2,
                                                                     "max_multi_tag_clusters"),
     ("workers", -1, "workers"), ("subsamples", 0, "subsamples"),
+    ("gamma_step", 0.025, "gamma_step: must be a whole multiple of 0.01"),
 ])
 def test_invalid_parameter_selection_values_raise_clear_errors(config_dir, key, value, message):
     files = _files(config_dir)

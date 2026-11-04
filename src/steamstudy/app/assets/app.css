@@ -399,6 +399,10 @@ body[data-form=narrow] #root.workbench .ov-bl{bottom:54px}
 #root.selection #ps-body.no-controls .ps-controls,#root.selection #ps-body.no-constraints #ps-cbar,
 #root.selection #ps-body.no-inspector .ps-inspector{display:none}
 .ps-main{overflow:auto;padding:8px 12px 40px;gap:10px}
+/* .ps-main is a scrolling flex column: its children keep their own height and the column scrolls, so a long
+   validation card never squeezes the heatmap (review item 1). */
+.ps-main>*{flex-shrink:0}
+#ps-heatmap{flex:0 0 460px}
 .ps-inspector{grid-area:insp;width:380px;overflow:auto;background:var(--panel);border-left:1px solid var(--line);
  padding:4px 14px 40px}
 #root.selection .ps-inspector{display:block}

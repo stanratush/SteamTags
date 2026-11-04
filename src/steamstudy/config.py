@@ -470,6 +470,8 @@ def _parameter_selection(t: dict[str, Any]) -> ParameterSelectionDefaults:
     _between(ps.min_multi_tag_clusters, 1, 10, f"{w}.min_multi_tag_clusters")
     if ps.gamma_step <= 0:
         raise ConfigError(f"{w}.gamma_step: must be > 0")
+    if abs(round(ps.gamma_step * 100) - ps.gamma_step * 100) > 1e-9:  # champ.scan_gammas rounds γ to 2 decimals
+        raise ConfigError(f"{w}.gamma_step: must be a whole multiple of 0.01, got {ps.gamma_step}")
     for key in ("scan_seeds", "null_replicates", "subsamples"):
         _at_least(getattr(ps, key), 1, f"{w}.{key}")
     _at_least(ps.workers, 0, f"{w}.workers")
