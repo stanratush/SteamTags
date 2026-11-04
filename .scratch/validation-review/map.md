@@ -40,7 +40,9 @@ An **implementation-ready spec** (`.scratch/validation-review/spec.md`) plus num
 
 ## Not yet specified
 
-- Nothing left, and no ticket is open. The way to the destination is clear: every methodological choice is locked, and what remains is to write `spec.md` and its numbered `ready-for-agent` issues from the Decisions so far. The last fog, the guide and glossary wording, was resolved in [What do the User Guide's validation passages and CONTEXT.md entries say, in English and Bulgarian?](issues/13-guide-and-context-wording.md).
+<!-- nothing: every ticket is resolved, and the last patch graduated into the spec. -->
+
+**Destination reached (2026-11-05):** [spec.md](spec.md) and implementation issues 14–22 (`ready-for-agent`), listed at the end of the spec. Implementation happens on a new branch `validation-review`, cut from `bilingual-cluster-views`.
 
 ## Out of scope
 

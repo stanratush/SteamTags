@@ -76,3 +76,7 @@ Tickets 02, 04, 06 and 11 and the straight bugs #1–4 change only the derived s
 **New-Build rerun:** the spec's **final issue**, `ready-for-agent` and blocked by the implementation issues. On the coming Build it reruns the three one-off scripts (`prototypes/08-mixing-check/`, `09-clamp-bracket/`, `10-scan-step/`). It applies the reopen rule from [Should the default γ step be finer than 0.05?](12-default-gamma-step.md) as acceptance criteria and updates the guide quotes' figures.
 
 No new glossary term. No ADR: storing records only and deriving the summary is cheap to reverse, so it fails the hard-to-reverse test.
+
+## Comments
+
+- 2026-11-05, spec: the export columns gain three small additions. `validation_pairs.csv` also carries `resolution`, `observed_q` (the Q the comparison uses) and `observed_q_selected` (the Selected Partition's), so ticket 13's observed-runs note can be read from the export. `validation_clusters.csv` also carries the recovery frequency's Wilson bounds, which ticket 02 decided but the column list above left out. The validation file also holds `observed` (the observed network's run at γ_obs). See the spec's "Export: schema 5" and "Resolved while writing this spec".

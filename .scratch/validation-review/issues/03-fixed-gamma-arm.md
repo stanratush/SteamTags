@@ -57,3 +57,7 @@ The envelope understates a null's Q at γ_obs by at most 0.0013, about 1% of the
   - `beyond_scan` is one cause of an undefined null Q;
   - the residual sentence;
   - the note when the observed side's runs beat the Selected Partition's Q.
+
+## Comments
+
+- 2026-11-05, spec: a subsample gets **one** run set at γ_obs, which serves both arms ("in both arms" above). Both arms share the subsample's network, so a second set would repeat the first; only the at-resolution arm reads it. The observed network's run is stored in the validation file, not in the grid's graph result, so the grid key is untouched. See the spec's "Resolved while writing this spec".
