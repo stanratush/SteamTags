@@ -1,0 +1,506 @@
+<!doctype html>
+<!--
+  PROTOTYPE, throwaway (2026-11-04). Map: .scratch/validation-review. Ticket: 06 "How should the validation card and
+  the Inspector's Validation section look?"
+  Three structurally different validation cards + Inspector Validation sections over the SAME real run (rpg 7/5 on
+  Build 20261008T221504Z-7a23ae9f, 15 Multi-Tag Clusters, dumped by dump_validation.py and inlined), switchable with
+  ?variant=A|B|C and the bar at the bottom (<- ->):
+    A  Grouped table   - one row per Cluster, both arms side by side under grouped headers (Re-selected | At
+                         resolution), Size and a Status column per arm; the Null Comparison as prose.
+    B  Arm selector    - one row per Cluster for ONE arm at a time (a segmented switch), the other arm's differing
+                         status noted in the row; the Null Comparison as an Observed | Shuffled table.
+    C  Interval plot   - one row per Cluster: size, a dot-and-whisker of the dissolution frequency per arm against
+                         the ½ line, status chips; a row expands to every figure for both arms.
+  Shared: the header with ?, the labelled ranges, one combined dissolved list (both / re-selected only / at resolution
+  only), the 460 px heatmap that never shrinks, the Validate button inside the Inspector's Validation section, the
+  no_qualifying_pair note. Top bar: language (EN/BG, BG is a DRAFT for fit only), form (app widths), null-Q state,
+  Cluster edge cases, constraints note, Inspector validated or not.
+  Prototype shortcuts: Whole-Cluster Jaccard is a stand-in (Hennig's J x retention; |D'| is not stored); the reached /
+  undefined / weak null states are synthesised; Why this pair, metrics, CHAMP are grey stubs. Run: double-click.
+  Regenerate data: .venv/Scripts/python -I .scratch/validation-review/prototypes/06-validation-layout/dump_validation.py
+    builds/20261005T062558Z-full/20261008T221504Z-7a23ae9f rpg 7 5
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Validation layout prototype</title>
+<!--DATA--><script>window.DATA = {"dataset": "rpg", "g": 7, "s": 5, "build": "20261008T221504Z-7a23ae9f", "summary": {"method_version": "ps-validation-1", "null": {"capped_total": 0, "edges": {"null_median": 621.0, "observed": 646, "ratio": 1.040257648953301}, "n_multi": {"max": 19, "median": 13.0, "min": 6, "observed": 15}, "q": {"max": 0.06831162362141878, "median": 0.051614471068936546, "min": 0.038359591656770234, "observed": 0.15079172180459788, "reach": 0}, "reasons": {}, "replicates": 100, "resolution": {"max": 1.8289797349174504, "median": 1.535796524773903, "min": 1.1388170904553088, "observed": 2.0057972360405927}, "scan_length_total": 20269, "selected": 100, "width": {"max": 0.5524477970171089, "median": 0.18534500014797806, "min": 0.08689282863308301, "narrower": 79, "observed": 0.2689872846958794}}, "resolution": 2.0057972360405927, "subsample": {"at_resolution": {"ari": {"median": 0.544233900473283, "min": 0.4061063690085358, "p10": 0.45209208827074165, "p90": 0.6511206682900301}, "clusters": [{"absent": 0, "at_most_half": 0, "dissolved": false, "label": "C1", "mean_jaccard": 0.849680735930736, "mean_retention": 0.9825, "members": [493, 1643, 1662, 1678, 1702, 3810, 7332, 1100689], "present": 100}, {"absent": 0, "at_most_half": 21, "dissolved": false, "label": "C2", "mean_jaccard": 0.6423192640692641, "mean_retention": 0.9985714285714287, "members": [113, 128, 1754, 1775, 3843, 4726, 6730], "present": 100}, {"absent": 0, "at_most_half": 47, "dissolved": false, "label": "C3", "mean_jaccard": 0.5531469086469086, "mean_retention": 0.9957142857142857, "members": [1684, 4057, 4085, 4172, 4191, 4434, 4608], "present": 100}, {"absent": 0, "at_most_half": 47, "dissolved": false, "label": "C4", "mean_jaccard": 0.6250995670995672, "mean_retention": 0.9757142857142856, "members": [1756, 4026, 4166, 4342, 4604, 4711, 29482], "present": 100}, {"absent": 0, "at_most_half": 25, "dissolved": false, "label": "C5", "mean_jaccard": 0.6762896825396826, "mean_retention": 0.9983333333333333, "members": [1663, 1669, 1774, 3835, 3839, 3942], "present": 100}, {"absent": 0, "at_most_half": 35, "dissolved": false, "label": "C6", "mean_jaccard": 0.6557208624708625, "mean_retention": 0.96, "members": [492, 3871, 3959, 3964, 4182], "present": 100}, {"absent": 0, "at_most_half": 48, "dissolved": false, "label": "C7", "mean_jaccard": 0.5613939393939394, "mean_retention": 0.985, "members": [1646, 1720, 4236, 5851], "present": 100}, {"absent": 0, "at_most_half": 84, "dissolved": true, "label": "C8", "mean_jaccard": 0.43309920634920634, "mean_retention": 0.98, "members": [1742, 3987, 6426, 44868], "present": 100}, {"absent": 0, "at_most_half": 89, "dissolved": true, "label": "C9", "mean_jaccard": 0.39317965367965363, "mean_retention": 1.0, "members": [3834, 3993, 4106, 4175], "present": 100}, {"absent": 0, "at_most_half": 53, "dissolved": false, "label": "C10", "mean_jaccard": 0.5357261904761905, "mean_retention": 1.0, "members": [1667, 4345, 4667], "present": 100}, {"absent": 0, "at_most_half": 88, "dissolved": true, "label": "C11", "mean_jaccard": 0.371984126984127, "mean_retention": 0.9933333333333333, "members": [1697, 3854, 7208], "present": 100}, {"absent": 0, "at_most_half": 11, "dissolved": false, "label": "C12", "mean_jaccard": 0.7348095238095237, "mean_retention": 0.9733333333333333, "members": [1741, 4325, 17305], "present": 100}, {"absent": 0, "at_most_half": 91, "dissolved": true, "label": "C13", "mean_jaccard": 0.4018888888888889, "mean_retention": 1.0, "members": [4747, 6650, 12095], "present": 100}, {"absent": 0, "at_most_half": 89, "dissolved": true, "label": "C14", "mean_jaccard": 0.44976190476190475, "mean_retention": 0.955, "members": [1695, 4145], "present": 100}, {"absent": 0, "at_most_half": 86, "dissolved": true, "label": "C15", "mean_jaccard": 0.3908888888888889, "mean_retention": 0.99, "members": [4231, 10695], "present": 100}], "degenerate": 0, "edged_share_mean": 0.987, "n": 100, "reasons": {}}, "capped_total": 0, "g": 5, "m": 80, "reselected": {"ari": {"median": 0.5368868359309962, "min": 0.3891337297423341, "p10": 0.4519353991473032, "p90": 0.6516157347421198}, "clusters": [{"absent": 0, "at_most_half": 0, "dissolved": false, "label": "C1", "mean_jaccard": 0.8368769841269841, "mean_retention": 0.9825, "members": [493, 1643, 1662, 1678, 1702, 3810, 7332, 1100689], "present": 100}, {"absent": 0, "at_most_half": 20, "dissolved": false, "label": "C2", "mean_jaccard": 0.6398639971139971, "mean_retention": 0.9985714285714287, "members": [113, 128, 1754, 1775, 3843, 4726, 6730], "present": 100}, {"absent": 0, "at_most_half": 48, "dissolved": false, "label": "C3", "mean_jaccard": 0.5482554945054945, "mean_retention": 0.9957142857142857, "members": [1684, 4057, 4085, 4172, 4191, 4434, 4608], "present": 100}, {"absent": 0, "at_most_half": 48, "dissolved": false, "label": "C4", "mean_jaccard": 0.6100285825285825, "mean_retention": 0.9757142857142856, "members": [1756, 4026, 4166, 4342, 4604, 4711, 29482], "present": 100}, {"absent": 0, "at_most_half": 25, "dissolved": false, "label": "C5", "mean_jaccard": 0.6774801587301588, "mean_retention": 0.9983333333333333, "members": [1663, 1669, 1774, 3835, 3839, 3942], "present": 100}, {"absent": 0, "at_most_half": 37, "dissolved": false, "label": "C6", "mean_jaccard": 0.6413876123876123, "mean_retention": 0.96, "members": [492, 3871, 3959, 3964, 4182], "present": 100}, {"absent": 0, "at_most_half": 52, "dissolved": false, "label": "C7", "mean_jaccard": 0.5432539405039405, "mean_retention": 0.985, "members": [1646, 1720, 4236, 5851], "present": 100}, {"absent": 0, "at_most_half": 84, "dissolved": true, "label": "C8", "mean_jaccard": 0.4273816738816739, "mean_retention": 0.98, "members": [1742, 3987, 6426, 44868], "present": 100}, {"absent": 0, "at_most_half": 90, "dissolved": true, "label": "C9", "mean_jaccard": 0.3891093073593073, "mean_retention": 1.0, "members": [3834, 3993, 4106, 4175], "present": 100}, {"absent": 0, "at_most_half": 54, "dissolved": false, "label": "C10", "mean_jaccard": 0.5231212121212121, "mean_retention": 1.0, "members": [1667, 4345, 4667], "present": 100}, {"absent": 0, "at_most_half": 86, "dissolved": true, "label": "C11", "mean_jaccard": 0.3710753968253968, "mean_retention": 0.9933333333333333, "members": [1697, 3854, 7208], "present": 100}, {"absent": 0, "at_most_half": 11, "dissolved": false, "label": "C12", "mean_jaccard": 0.7334206349206349, "mean_retention": 0.9733333333333333, "members": [1741, 4325, 17305], "present": 100}, {"absent": 0, "at_most_half": 90, "dissolved": true, "label": "C13", "mean_jaccard": 0.39560317460317457, "mean_retention": 1.0, "members": [4747, 6650, 12095], "present": 100}, {"absent": 0, "at_most_half": 90, "dissolved": true, "label": "C14", "mean_jaccard": 0.44012301587301583, "mean_retention": 0.955, "members": [1695, 4145], "present": 100}, {"absent": 0, "at_most_half": 89, "dissolved": true, "label": "C15", "mean_jaccard": 0.3710523088023088, "mean_retention": 0.99, "members": [4231, 10695], "present": 100}], "degenerate": 0, "edged_share_mean": 0.987, "n": 100, "n_multi": {"max": 18, "median": 14.0, "min": 9}, "reasons": {}, "resolution": {"max": 2.350824981186204, "median": 2.0074014873012334, "min": 1.5980262874758244}}, "s": 4, "scan_length_total": 22002, "subsamples": 100}, "verdicts": {"dissolved": {"at_resolution": ["C8", "C9", "C11", "C13", "C14", "C15"], "reselected": ["C8", "C9", "C11", "C13", "C14", "C15"]}, "q_not_above_null": false}}, "clusters": {"reselected": [{"label": "C1", "members": ["Early Access", "Building", "Survival", "War", "Crafting", "Sandbox", "Base Building", "Open World Survival Craft"], "size": 8, "b": 100, "s": 100, "mean": 0.8368769841269841, "se": 0.011358666024066077, "p10": 0.6636363636363636, "p90": 1.0, "diss": 0, "diss_ci": [0.0, 0.03699349876899627], "rec": 77, "rec_ci": [0.6784561689907251, 0.841567341674017], "w_mean": 0.822386994949495, "w_se": 0.011863104831895854, "w_p10": 0.6363636363636364, "w_p90": 1.0, "retention": 0.9825, "status": null, "borderline": false, "rarely": false, "old_dissolved": false}, {"label": "C2", "members": ["Free to Play", "Massively Multiplayer", "MMORPG", "PvP", "Online Co-Op", "Cute", "PvE"], "size": 7, "b": 100, "s": 100, "mean": 0.6398639971139971, "se": 0.013805929978598913, "p10": 0.4954545454545455, "p90": 0.8571428571428571, "diss": 20, "diss_ci": [0.13336693289714838, 0.2888291663642495], "rec": 14, "rec_ci": [0.08526343626497376, 0.2213718828487036], "w_mean": 0.6390476705833849, "w_se": 0.013870785509177308, "w_p10": 0.48627087198515767, "w_p90": 0.8571428571428571, "retention": 0.9985714285714287, "status": null, "borderline": false, "rarely": false, "old_dissolved": false}, {"label": "C3", "members": ["Fantasy", "Magic", "Anime", "Medieval", "3D", "JRPG", "Swordplay"], "size": 7, "b": 100, "s": 100, "mean": 0.5482554945054945, "se": 0.017109909776567345, "p10": 0.3333333333333333, "p90": 0.7777777777777778, "diss": 48, "diss_ci": [0.3846455168617764, 0.5768342230889836], "rec": 11, "rec_ci": [0.06254196329419368, 0.18631296574562342], "w_mean": 0.5458065149136577, "w_se": 0.0171048394055857, "w_p10": 0.3333333333333333, "w_p90": 0.7777777777777778, "retention": 0.9957142857142857, "status": null, "borderline": true, "rarely": false, "old_dissolved": false}, {"label": "C4", "members": ["Great Soundtrack", "Difficult", "Atmospheric", "Dark", "Dark Fantasy", "Replay Value", "Souls-like"], "size": 7, "b": 100, "s": 100, "mean": 0.6100285825285825, "se": 0.02264406262755423, "p10": 0.36363636363636365, "p90": 1.0, "diss": 48, "diss_ci": [0.3846455168617764, 0.5768342230889836], "rec": 28, "rec_ci": [0.2013968515708077, 0.3748802878875508], "w_mean": 0.597713171748886, "w_se": 0.022890602269690197, "w_p10": 0.34285714285714286, "w_p90": 0.8875000000000011, "retention": 0.9757142857142856, "status": null, "borderline": true, "rarely": false, "old_dissolved": false}, {"label": "C5", "members": ["FPS", "Moddable", "Shooter", "Post-apocalyptic", "First-Person", "Sci-fi"], "size": 6, "b": 100, "s": 100, "mean": 0.6774801587301588, "se": 0.019321173103063992, "p10": 0.42857142857142855, "p90": 0.8571428571428571, "diss": 25, "diss_ci": [0.17545211311910353, 0.34304463626539466], "rec": 35, "rec_ci": [0.2636424818146032, 0.4474555678160957], "w_mean": 0.6770039682539682, "w_se": 0.019424296098324443, "w_p10": 0.42857142857142855, "w_p90": 0.8571428571428571, "retention": 0.9983333333333333, "status": null, "borderline": false, "rarely": false, "old_dissolved": false}, {"label": "C6", "members": ["Indie", "2D", "Roguelite", "Pixel Graphics", "Singleplayer"], "size": 5, "b": 100, "s": 100, "mean": 0.6413876123876123, "se": 0.024326909999965566, "p10": 0.3076923076923077, "p90": 1.0, "diss": 37, "diss_ci": [0.2818236047080924, 0.4677947049718467], "rec": 43, "rec_ci": [0.33733298455633143, 0.5278461052713281], "w_mean": 0.6210990842490842, "w_se": 0.024882594227376244, "w_p10": 0.2985714285714286, "w_p90": 1.0, "retention": 0.96, "status": null, "borderline": false, "rarely": false, "old_dissolved": false}, {"label": "C7", "members": ["Hack and Slash", "Dungeon Crawler", "Loot", "Isometric"], "size": 4, "b": 100, "s": 100, "mean": 0.5432539405039405, "se": 0.02269021637935297, "p10": 0.25, "p90": 0.8, "diss": 52, "diss_ci": [0.42316577691101653, 0.6153544831382237], "rec": 25, "rec_ci": [0.17545211311910353, 0.34304463626539466], "w_mean": 0.540175387112887, "w_se": 0.023164758162838202, "w_p10": 0.25, "w_p90": 0.8, "retention": 0.985, "status": "dissolved", "borderline": true, "rarely": false, "old_dissolved": false}, {"label": "C8", "members": ["Story Rich", "Historical", "Choices Matter", "LGBTQ+"], "size": 4, "b": 100, "s": 100, "mean": 0.4273816738816739, "se": 0.01701013922153661, "p10": 0.24722222222222223, "p90": 0.6, "diss": 84, "diss_ci": [0.7557973053553682, 0.8990471154817143], "rec": 3, "rec_ci": [0.010254523944281516, 0.08451936489857499], "w_mean": 0.41788167388167385, "w_se": 0.016853373922762902, "w_p10": 0.24722222222222223, "w_p90": 0.6, "retention": 0.98, "status": "dissolved", "borderline": false, "rarely": false, "old_dissolved": true}, {"label": "C9", "members": ["Exploration", "Combat", "Action-Adventure", "Realistic"], "size": 4, "b": 100, "s": 100, "mean": 0.3891093073593073, "se": 0.01515230950936328, "p10": 0.25, "p90": 0.5100000000000009, "diss": 90, "diss_ci": [0.8256343377898756, 0.9447708631949274], "rec": 4, "rec_ci": [0.01566330388275538, 0.09837071498472119], "w_mean": 0.3891093073593073, "w_se": 0.01515230950936328, "w_p10": 0.25, "w_p90": 0.5100000000000009, "retention": 1.0, "status": "dissolved", "borderline": false, "rarely": false, "old_dissolved": true}, {"label": "C10", "members": ["Horror", "Gore", "Violent"], "size": 3, "b": 100, "s": 100, "mean": 0.5231212121212121, "se": 0.015759595953229885, "p10": 0.3333333333333333, "p90": 0.75, "diss": 54, "diss_ci": [0.4426486024827802, 0.6343919176157], "rec": 2, "rec_ci": [0.0055019675006616475, 0.07001179131757478], "w_mean": 0.5231212121212121, "w_se": 0.015759595953229885, "w_p10": 0.3333333333333333, "w_p90": 0.75, "retention": 1.0, "status": "dissolved", "borderline": true, "rarely": false, "old_dissolved": false}, {"label": "C11", "members": ["Third Person", "Lore-Rich", "Female Protagonist"], "size": 3, "b": 100, "s": 100, "mean": 0.3710753968253968, "se": 0.01744537718313232, "p10": 0.2, "p90": 0.6666666666666666, "diss": 86, "diss_ci": [0.7786281171512964, 0.9147365637350263], "rec": 2, "rec_ci": [0.0055019675006616475, 0.07001179131757478], "w_mean": 0.36690873015873016, "w_se": 0.016606538022983147, "w_p10": 0.2, "w_p90": 0.6666666666666666, "retention": 0.9933333333333333, "status": "dissolved", "borderline": false, "rarely": false, "old_dissolved": true}, {"label": "C12", "members": ["Turn-Based Strategy", "Turn-Based Combat", "Strategy RPG"], "size": 3, "b": 99, "s": 100, "mean": 0.7397065897065896, "se": 0.017214421159603466, "p10": 0.5800000000000001, "p90": 1.0, "diss": 10, "diss_ci": [0.05579667477060007, 0.17603063632204818], "rec": 22, "rec_ci": [0.15158101785180467, 0.3136152113899125], "w_mean": 0.7161719576719576, "w_se": 0.018093834987986675, "w_p10": 0.5, "w_p90": 1.0, "retention": 0.9733333333333333, "status": null, "borderline": false, "rarely": false, "old_dissolved": false}, {"label": "C13", "members": ["Character Customization", "Nudity", "Sexual Content"], "size": 3, "b": 100, "s": 100, "mean": 0.39560317460317457, "se": 0.019076211004149704, "p10": 0.22, "p90": 0.5100000000000009, "diss": 90, "diss_ci": [0.8256343377898756, 0.9447708631949274], "rec": 6, "rec_ci": [0.027786123800628143, 0.12476815511608857], "w_mean": 0.39560317460317457, "w_se": 0.019076211004149704, "w_p10": 0.22, "w_p90": 0.5100000000000009, "retention": 1.0, "status": "dissolved", "borderline": false, "rarely": false, "old_dissolved": true}, {"label": "C14", "members": ["Open World", "Cinematic"], "size": 2, "b": 91, "s": 100, "mean": 0.4158860980289552, "se": 0.018053888609131374, "p10": 0.2, "p90": 0.5, "diss": 85, "diss_ci": [0.8635353372948364, 0.9694337137071811], "rec": 3, "rec_ci": [0.011274406679982224, 0.09249307008999887], "w_mean": 0.4092896825396825, "w_se": 0.017156692473980512, "w_p10": 0.2, "w_p90": 0.5, "retention": 0.955, "status": "dissolved", "borderline": false, "rarely": false, "old_dissolved": true}, {"label": "C15", "members": ["Action RPG", "Party-Based RPG"], "size": 2, "b": 98, "s": 100, "mean": 0.37573364843773005, "se": 0.02312144835683664, "p10": 0.16666666666666666, "p90": 0.6666666666666666, "diss": 87, "diss_ci": [0.8101006655770652, 0.9361573008232768], "rec": 8, "rec_ci": [0.04194405875209637, 0.15288287223700833], "w_mean": 0.3696356421356421, "w_se": 0.02306300524336396, "w_p10": 0.16666666666666666, "w_p90": 0.6666666666666666, "retention": 0.99, "status": "dissolved", "borderline": false, "rarely": false, "old_dissolved": true}], "at_resolution": [{"label": "C1", "members": ["Early Access", "Building", "Survival", "War", "Crafting", "Sandbox", "Base Building", "Open World Survival Craft"], "size": 8, "b": 100, "s": 100, "mean": 0.849680735930736, "se": 0.010420937640722706, "p10": 0.7, "p90": 1.0, "diss": 0, "diss_ci": [0.0, 0.03699349876899627], "rec": 81, "rec_ci": [0.7222115454423077, 0.8748524853209148], "w_mean": 0.8340482954545455, "w_se": 0.010504540967004785, "w_p10": 0.7, "w_p90": 1.0, "retention": 0.9825, "status": null, "borderline": false, "rarely": false, "old_dissolved": false}, {"label": "C2", "members": ["Free to Play", "Massively Multiplayer", "MMORPG", "PvP", "Online Co-Op", "Cute", "PvE"], "size": 7, "b": 100, "s": 100, "mean": 0.6423192640692641, "se": 0.0144804002130192, "p10": 0.4535353535353535, "p90": 0.8571428571428571, "diss": 21, "diss_ci": [0.14165654017044627, 0.2997996891155716], "rec": 16, "rec_ci": [0.10095288451828571, 0.2442026946446318], "w_mean": 0.6415029375386518, "w_se": 0.014543640166648133, "w_p10": 0.4535353535353535, "w_p90": 0.8571428571428571, "retention": 0.9985714285714287, "status": null, "borderline": false, "rarely": false, "old_dissolved": false}, {"label": "C3", "members": ["Fantasy", "Magic", "Anime", "Medieval", "3D", "JRPG", "Swordplay"], "size": 7, "b": 100, "s": 100, "mean": 0.5531469086469086, "se": 0.017234020813575973, "p10": 0.3333333333333333, "p90": 0.7777777777777778, "diss": 47, "diss_ci": [0.37510817888094034, 0.5671114310451995], "rec": 11, "rec_ci": [0.06254196329419368, 0.18631296574562342], "w_mean": 0.550697929055072, "w_se": 0.01723600856910181, "w_p10": 0.3333333333333333, "w_p90": 0.7777777777777778, "retention": 0.9957142857142857, "status": null, "borderline": true, "rarely": false, "old_dissolved": false}, {"label": "C4", "members": ["Great Soundtrack", "Difficult", "Atmospheric", "Dark", "Dark Fantasy", "Replay Value", "Souls-like"], "size": 7, "b": 100, "s": 100, "mean": 0.6250995670995672, "se": 0.023241638989862985, "p10": 0.36363636363636365, "p90": 1.0, "diss": 47, "diss_ci": [0.37510817888094034, 0.5671114310451995], "rec": 31, "rec_ci": [0.22779697154852568, 0.4062605579836929], "w_mean": 0.6117994743351887, "w_se": 0.02330764895106682, "w_p10": 0.34285714285714286, "w_p90": 1.0, "retention": 0.9757142857142856, "status": null, "borderline": true, "rarely": false, "old_dissolved": false}, {"label": "C5", "members": ["FPS", "Moddable", "Shooter", "Post-apocalyptic", "First-Person", "Sci-fi"], "size": 6, "b": 100, "s": 100, "mean": 0.6762896825396826, "se": 0.019669659795833027, "p10": 0.42857142857142855, "p90": 0.8571428571428571, "diss": 25, "diss_ci": [0.17545211311910353, 0.34304463626539466], "rec": 34, "rec_ci": [0.25461520736693877, 0.4372227122391401], "w_mean": 0.6758134920634921, "w_se": 0.01977067558097659, "w_p10": 0.42857142857142855, "w_p90": 0.8571428571428571, "retention": 0.9983333333333333, "status": null, "borderline": false, "rarely": false, "old_dissolved": false}, {"label": "C6", "members": ["Indie", "2D", "Roguelite", "Pixel Graphics", "Singleplayer"], "size": 5, "b": 100, "s": 100, "mean": 0.6557208624708625, "se": 0.02332617479331347, "p10": 0.33076923076923076, "p90": 1.0, "diss": 35, "diss_ci": [0.2636424818146032, 0.4474555678160957], "rec": 45, "rec_ci": [0.3561453790959721, 0.5475539707809276], "w_mean": 0.634377788877789, "w_se": 0.023922544286886813, "w_p10": 0.2985714285714286, "w_p90": 1.0, "retention": 0.96, "status": null, "borderline": false, "rarely": false, "old_dissolved": false}, {"label": "C7", "members": ["Hack and Slash", "Dungeon Crawler", "Loot", "Isometric"], "size": 4, "b": 100, "s": 100, "mean": 0.5613939393939394, "se": 0.022427149732532528, "p10": 0.25, "p90": 0.8, "diss": 48, "diss_ci": [0.3846455168617764, 0.5768342230889836], "rec": 27, "rec_ci": [0.19269584096677833, 0.36432116846696], "w_mean": 0.5581310425685426, "w_se": 0.022949567782607434, "w_p10": 0.25, "w_p90": 0.8, "retention": 0.985, "status": null, "borderline": true, "rarely": false, "old_dissolved": false}, {"label": "C8", "members": ["Story Rich", "Historical", "Choices Matter", "LGBTQ+"], "size": 4, "b": 100, "s": 100, "mean": 0.43309920634920634, "se": 0.01689330612340177, "p10": 0.25, "p90": 0.6, "diss": 84, "diss_ci": [0.7557973053553682, 0.8990471154817143], "rec": 3, "rec_ci": [0.010254523944281516, 0.08451936489857499], "w_mean": 0.42359920634920634, "w_se": 0.016768198240547816, "w_p10": 0.25, "w_p90": 0.6, "retention": 0.98, "status": "dissolved", "borderline": false, "rarely": false, "old_dissolved": true}, {"label": "C9", "members": ["Exploration", "Combat", "Action-Adventure", "Realistic"], "size": 4, "b": 100, "s": 100, "mean": 0.39317965367965363, "se": 0.015752648955502224, "p10": 0.25, "p90": 0.6, "diss": 89, "diss_ci": [0.8136870342543766, 0.9374580367058064], "rec": 5, "rec_ci": [0.021543679017992173, 0.1117504698741045], "w_mean": 0.39317965367965363, "w_se": 0.015752648955502224, "w_p10": 0.25, "w_p90": 0.6, "retention": 1.0, "status": "dissolved", "borderline": false, "rarely": false, "old_dissolved": true}, {"label": "C10", "members": ["Horror", "Gore", "Violent"], "size": 3, "b": 100, "s": 100, "mean": 0.5357261904761905, "se": 0.015450588352677536, "p10": 0.3333333333333333, "p90": 0.75, "diss": 53, "diss_ci": [0.43288856895480055, 0.6248918211190597], "rec": 2, "rec_ci": [0.0055019675006616475, 0.07001179131757478], "w_mean": 0.5357261904761905, "w_se": 0.015450588352677536, "w_p10": 0.3333333333333333, "w_p90": 0.75, "retention": 1.0, "status": "dissolved", "borderline": true, "rarely": false, "old_dissolved": false}, {"label": "C11", "members": ["Third Person", "Lore-Rich", "Female Protagonist"], "size": 3, "b": 100, "s": 100, "mean": 0.371984126984127, "se": 0.016880163302365185, "p10": 0.2, "p90": 0.6666666666666666, "diss": 88, "diss_ci": [0.8018790050092598, 0.9300059359263032], "rec": 2, "rec_ci": [0.0055019675006616475, 0.07001179131757478], "w_mean": 0.3678174603174603, "w_se": 0.01601412893663439, "w_p10": 0.2, "w_p90": 0.6666666666666666, "retention": 0.9933333333333333, "status": "dissolved", "borderline": false, "rarely": false, "old_dissolved": true}, {"label": "C12", "members": ["Turn-Based Strategy", "Turn-Based Combat", "Strategy RPG"], "size": 3, "b": 99, "s": 100, "mean": 0.7397065897065896, "se": 0.017214421159603466, "p10": 0.5800000000000001, "p90": 1.0, "diss": 10, "diss_ci": [0.05579667477060007, 0.17603063632204818], "rec": 22, "rec_ci": [0.15158101785180467, 0.3136152113899125], "w_mean": 0.7166349206349206, "w_se": 0.017923431449695527, "w_p10": 0.5, "w_p90": 1.0, "retention": 0.9733333333333333, "status": null, "borderline": false, "rarely": false, "old_dissolved": false}, {"label": "C13", "members": ["Character Customization", "Nudity", "Sexual Content"], "size": 3, "b": 100, "s": 100, "mean": 0.4018888888888889, "se": 0.01944778917154719, "p10": 0.25, "p90": 0.5, "diss": 91, "diss_ci": [0.8377378707781101, 0.9519274602313131], "rec": 7, "rec_ci": [0.0343192608798127, 0.13749514806152413], "w_mean": 0.4018888888888889, "w_se": 0.01944778917154719, "w_p10": 0.25, "w_p90": 0.5, "retention": 1.0, "status": "dissolved", "borderline": false, "rarely": false, "old_dissolved": true}, {"label": "C14", "members": ["Open World", "Cinematic"], "size": 2, "b": 91, "s": 100, "mean": 0.4206174777603349, "se": 0.01762874930621006, "p10": 0.2, "p90": 0.5, "diss": 85, "diss_ci": [0.8635353372948364, 0.9694337137071811], "rec": 3, "rec_ci": [0.011274406679982224, 0.09249307008999887], "w_mean": 0.4162619047619047, "w_se": 0.016711958489757147, "w_p10": 0.2, "w_p90": 0.5, "retention": 0.955, "status": "dissolved", "borderline": false, "rarely": false, "old_dissolved": true}, {"label": "C15", "members": ["Action RPG", "Party-Based RPG"], "size": 2, "b": 98, "s": 100, "mean": 0.3956916099773243, "se": 0.023610487913713424, "p10": 0.2, "p90": 0.6666666666666666, "diss": 84, "diss_ci": [0.7743875689184294, 0.9129552948713591], "rec": 9, "rec_ci": [0.04906921490689041, 0.16539608361906538], "w_mean": 0.3893333333333333, "w_se": 0.023566479901218393, "w_p10": 0.2, "w_p90": 0.6666666666666666, "retention": 0.99, "status": "dissolved", "borderline": false, "rarely": false, "old_dissolved": true}]}};</script><!--/DATA-->
+<style>
+:root{--bg:#f5f6f8;--panel:#fff;--line:#e3e6eb;--line2:#eef0f3;--ink:#1b2130;--ink2:#3d4555;--mute:#6b7280;--faint:#9aa1ad;
+ --acc:#2457d6;--acc-bg:#eef3ff;--warn:#9a5b00;--warn-bg:#fff6e5;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font:13px/1.45 var(--sans);color:var(--ink);background:#d9dce2;font-variant-numeric:tabular-nums}
+button{font:inherit;color:inherit}
+.mute{color:var(--mute)}.small{font-size:12px}
+/* ---------- prototype chrome (not part of the design) */
+#proto{position:fixed;top:0;left:0;right:0;height:40px;z-index:100;background:#111;color:#eee;display:flex;gap:14px;
+ align-items:center;padding:0 12px;font-size:12px;overflow-x:auto;white-space:nowrap}
+#proto label{color:#aaa}
+#proto .seg{display:inline-flex;border:1px solid #444;border-radius:6px;overflow:hidden}
+#proto .seg button{background:none;border:0;color:#ccc;padding:3px 8px;cursor:pointer}
+#proto .seg button.on{background:#f0c400;color:#111}
+#switcher{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:100;background:#111;color:#fff;
+ border-radius:999px;padding:6px 8px;display:flex;gap:10px;align-items:center;box-shadow:0 6px 24px #0006;font-size:13px}
+#switcher button{background:#333;border:0;color:#fff;border-radius:50%;width:28px;height:28px;cursor:pointer}
+#stage{position:absolute;top:40px;left:0;right:0;bottom:0;overflow:auto;padding:10px}
+#frame-label{font-size:11px;color:#555;margin:0 0 4px}
+/* ---------- app mock */
+.app{position:relative;background:var(--bg);border:1px solid #999;display:grid;overflow:hidden}
+.app.wide{grid-template-columns:264px minmax(0,1fr) 380px}
+.app.medium,.app.narrow{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+.ctl{background:var(--panel);border-right:1px solid var(--line);padding:10px}
+.pillbar{background:var(--panel);border-bottom:1px solid var(--line);padding:6px 10px;display:flex;gap:6px}
+.pillbar span{border:1px solid var(--line);border-radius:999px;padding:2px 10px;color:var(--mute)}
+.stub{background:var(--line2);border-radius:6px;margin:6px 0;color:var(--faint);font-size:11px;padding:4px 8px}
+.main{display:flex;flex-direction:column;gap:10px;overflow:auto;padding:8px 12px 60px;min-width:0;min-height:0}
+.main>*{flex-shrink:0}  /* review item 1: every child of .ps-main keeps its height; the column scrolls */
+.heat{height:460px;flex:0 0 460px;background:repeating-linear-gradient(45deg,#e9edf5 0 10px,#f2f4f9 10px 20px);
+ border:1px solid var(--line);border-radius:6px;display:grid;place-items:center;color:var(--faint)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+.insp{background:var(--panel);border-left:1px solid var(--line);overflow:auto;padding:4px 14px 60px}
+.app.medium .insp,.app.narrow .insp{position:absolute;right:12px;top:52px;bottom:12px;width:380px;border:1px solid var(--line);
+ border-radius:10px;box-shadow:0 12px 32px #0003;z-index:5}
+.insp-title{display:flex;align-items:center;margin:6px 0}
+.insp-title .x{margin-left:auto;border:0;background:none;font-size:16px;color:var(--mute)}
+.btn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:4px 10px;cursor:pointer;white-space:nowrap}
+.btn.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+h4{font-size:15px;margin:4px 0 6px;display:flex;align-items:center;gap:6px}
+h5{font-size:13px;margin:12px 0 4px;display:flex;align-items:center;gap:6px}
+.q{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;border:1px solid #b9c0cc;font-size:10px;
+ color:var(--mute);cursor:help;font-weight:500;flex:none}
+p{margin:4px 0}
+.cav{font-style:italic;color:var(--ink2)}
+.note{background:var(--warn-bg);border:1px solid #f0d8a8;color:var(--warn);border-radius:6px;padding:5px 8px;margin:4px 0}
+.ps-badges{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+.ps-badge{font-size:11px;border:1px solid var(--line);border-radius:10px;padding:1px 8px}
+.ps-badge.warn{border-color:#e0b25a;color:var(--warn);background:var(--warn-bg)}
+.ps-badge.ok{border-color:#59a14f;color:#2f6b2a}
+.ps-kv{font-size:12px;border-collapse:collapse;width:100%}
+.ps-kv th{text-align:left;font-weight:500;padding:2px 8px 2px 0;vertical-align:top;width:42%}
+.ps-kv td{padding:2px 0;vertical-align:top}
+/* tables */
+.tw{overflow-x:auto;max-width:100%}
+table.t{border-collapse:collapse;font-size:12px;margin:6px 0}
+table.t th,table.t td{padding:3px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+table.t th{font-weight:600;background:#fafbfc}
+table.t th .sub{display:block;font-weight:400;color:var(--mute);font-size:10.5px}
+table.t td .sub{display:block;color:var(--mute);font-size:11px}
+table.t td.n,table.t th.n{text-align:right}
+table.t .grp{text-align:center;border-bottom:2px solid var(--ink2)}
+table.t .sep{border-left:2px solid var(--line)}
+table.t .sticky{position:sticky;left:0;background:#fff;z-index:1}
+table.t th.sticky{background:#fafbfc}
+.cname b{font-weight:600}.cname .mem{color:var(--mute);font-size:11px;display:block;max-width:190px}
+.chip{display:inline-block;font-size:11px;border-radius:9px;padding:0 7px;margin:1px 2px 1px 0;white-space:nowrap}
+.chip.diss{background:#3d4555;color:#fff}
+.chip.bord{border:1px dashed #9a5b00;color:var(--warn)}
+.chip.na{background:#e3e6eb;color:var(--ink2)}
+.flag{color:var(--warn);font-size:11px;display:block}
+.segc{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;margin:4px 0}
+.segc button{border:0;background:#fff;padding:3px 10px;cursor:pointer}
+.segc button.on{background:var(--acc-bg);color:var(--acc);font-weight:600}
+.row-c{display:grid;grid-template-columns:minmax(120px,1.3fr) 34px 170px minmax(120px,1fr);gap:8px;align-items:center;
+ padding:4px 2px;border-bottom:1px solid var(--line);cursor:pointer}
+.row-c:hover{background:#fafbfc}
+.row-c.head{cursor:default;font-weight:600;font-size:11.5px;background:#fafbfc}
+.detail{grid-column:1/-1;padding:4px 0 8px 12px;cursor:default}
+.narrowfit .row-c{grid-template-columns:minmax(100px,1fr) 30px 150px;}
+.narrowfit .row-c .st{grid-column:1/-1;padding-left:4px}
+.strip{display:flex;gap:2px;align-items:center;margin:2px 0}
+.strip i{width:12px;height:12px;border-radius:2px;background:#e3e6eb;display:inline-block}
+.strip i.diss{background:#3d4555}.strip i.bord{outline:1.5px dashed #9a5b00;outline-offset:-2px}
+.strip i.na{background:repeating-linear-gradient(45deg,#c9ced6 0 2px,#fff 2px 4px)}
+.legend{font-size:11px;color:var(--mute)}
+a{color:var(--acc);cursor:pointer}
+</style>
+</head>
+<body>
+<div id="proto"></div>
+<div id="stage"><div id="frame-label"></div><div id="frame"></div></div>
+<div id="switcher"><button id="prev">←</button><span id="vlabel"></span><button id="next">→</button></div>
+<script>
+const D = window.DATA;
+const VARIANTS = {A: "Grouped table", B: "Arm selector", C: "Interval plot"};
+const P = new URLSearchParams(location.search);
+const S = {variant: P.get("variant") || "A", lang: P.get("lang") || "en", form: P.get("form") || "wide1280",
+  nullq: P.get("nullq") || "above", edge: P.get("edge") || "real", note: P.get("note") || "none",
+  insp: P.get("insp") || "validated", arm: "reselected", open: new Set()};
+const FORMS = {wide1280: [1280, "wide"], wide1600: [1600, "wide"], medium1100: [1100, "medium"], narrow800: [800, "narrow"]};
+
+// ---------------------------------------------------------------- i18n (BG is a DRAFT, for fit only)
+const BG = {
+ "Validation of g = {g}, s = {s}": "Валидиране на g = {g}, s = {s}",
+ "Validation ran for g = {g}, s = {s}, the pair chosen under the default constraints.":
+   "Валидирането е за g = {g}, s = {s}: двойката, избрана при ограниченията по подразбиране.",
+ "No pair qualifies under your constraints, so this is the validation of g = {g}, s = {s}, the pair chosen under the default constraints.":
+   "При вашите ограничения нито една двойка не се квалифицира, затова това е валидирането на g = {g}, s = {s}: двойката, избрана при ограниченията по подразбиране.",
+ "Null Comparison": "Сравнение с нулев модел",
+ "Subsample Stability": "Стабилност при подизвадки",
+ "({r} shuffled networks, per-pair procedure at g = {g}, s = {s})": "(разбъркани мрежи: {r}, процедурата за двойка при g = {g}, s = {s})",
+ "Q at resolution {res} is {q};": "Q при резолюция {res} е {q};",
+ "none of the {d} shuffled networks with a Q reaches it (range over {d} shuffled networks: {lo} to {hi})":
+   "никоя от {d} разбъркани мрежи с Q не го достига (обхват в {d} разбъркани мрежи: от {lo} до {hi})",
+ "{k} of {d} shuffled networks with a Q reach it: Q not above the null":
+   "{k} от {d} разбъркани мрежи с Q го достигат: Q не е над нулевия модел",
+ "no shuffled network has edges, so Q cannot be compared.": "никоя разбъркана мрежа няма ребра, затова Q не може да се сравни.",
+ "{n} had no edges": "без ребра: {n}",
+ "{n} lay beyond their γ scan": "извън своето сканиране по γ: {n}",
+ "Most shuffled networks have no Q ({u} of {r}), so this comparison is weak.":
+   "Повечето разбъркани мрежи нямат Q ({u} от {r}), затова това сравнение е слабо.",
+ "Multi-Tag Clusters: observed {o}, median {m} (range over {k} shuffled networks with a Selected Partition: {lo} to {hi}).":
+   "Многотагови клъстери: наблюдавани {o}, медиана {m} (обхват в {k} разбъркани мрежи с избрано разбиване: от {lo} до {hi}).",
+ "None of the {r} shuffled networks has a Selected Partition.": "Нито една от {r} разбъркани мрежи няма избрано разбиване.",
+ "Median domain width {m} vs observed {o}; observed wider than {n} of {k}.":
+   "Медиана на ширината на областта {m} срещу наблюдавана {o}; наблюдаваната е по-широка от {n} от {k}.",
+ "Widths are upper bounds, conditional on the partitions the γ scan finds.":
+   "Ширините са горни граници, зависещи от разбиванията, които сканирането по γ намира.",
+ "This shows only that the network is not random, not that its Clusters are real.":
+   "Това показва само, че мрежата не е случайна, а не че клъстерите ѝ са реални.",
+ "({t} random 80% subsets of the games, g′ = {g}, s′ = {s}).": "(случайни подмножества от 80% от игрите: {t}, g′ = {g}, s′ = {s}).",
+ "Re-selected: median ARI {m} (10th–90th percentile: {lo} to {hi}) over {n} of {t} subsamples, on {e} of the tags.":
+   "При нов избор: медиана на ARI {m} (10-и–90-и персентил: от {lo} до {hi}) при {n} от {t} подизвадки, върху {e} от таговете.",
+ "At resolution {res}: median ARI {m} (10th–90th percentile: {lo} to {hi}).":
+   "При резолюция {res}: медиана на ARI {m} (10-и–90-и персентил: от {lo} до {hi}).",
+ "Dissolved in most subsamples": "Разпаднат в повечето подизвадки",
+ "(Hennig's Jaccard ≤ 0.5 in more than half; the majority is this study's rule):":
+   "(индекс на Jaccard на Hennig ≤ 0,5 в повече от половината; правилото за мнозинство е на това изследване):",
+ "{k} of {n} Multi-Tag Clusters in both arms": "в двата варианта — {k} от {n} многотагови клъстера",
+ "re-selected only": "само при нов избор", "at resolution only": "само при резолюцията",
+ "Borderline (the 95% Wilson interval contains ½):": "На границата (95% интервал на Wilson съдържа ½):",
+ "in both arms": "в двата варианта",
+ "No Multi-Tag Cluster is dissolved in most subsamples in either arm.": "В нито един вариант няма многотагов клъстер, разпаднат в повечето подизвадки.",
+ "Not assessable (fewer than 2 of its tags survive in every subsample):": "Не може да се оцени (във всяка подизвадка оцеляват по-малко от 2 негови тага):",
+ "This measures how much the clustering depends on which games are in the dataset. It does not show that a Cluster is right.":
+   "Това измерва доколко клъстеризацията зависи от това кои игри са в набора. Не показва, че даден клъстер е верен.",
+ "The pair was chosen on the same data, so Subsample Stability may be slightly optimistic. Q played no part in the choice, so the Null Comparison is barely affected.":
+   "Двойката е избрана върху същите данни, затова стабилността при подизвадки може да е леко оптимистична. Q не участва в избора, така че сравнението с нулев модел почти не е засегнато.",
+ "Three kinds of stability": "Три вида стабилност",
+ "Cluster": "Клъстер", "Size": "Размер", "Status": "Състояние",
+ "Re-selected": "При нов избор", "At resolution {res}": "При резолюция {res}",
+ "Hennig's J": "Jaccard (Hennig)", "mean ± s.e.; 10th–90th pct": "средно ± ст. гр.; 10-и–90-и перс.",
+ "≤ 0.5 in": "≤ 0,5 в", "> 0.75 in": "> 0,75 в", "k of B*; 95% Wilson": "k от B*; 95% Wilson",
+ "Whole-Cluster J": "Jaccard (цял клъстер)", "mean ± s.e.": "средно ± ст. гр.",
+ "{k} of {n}": "{k} от {n}", "borderline": "на границата", "Not assessable": "Не може да се оцени",
+ "rarely assessable ({b} of {s})": "рядко оценим ({b} от {s})",
+ "not at resolution": "не при резолюцията", "not re-selected": "не при нов избор",
+ "also at resolution": "и при резолюцията", "also re-selected": "и при нов избор",
+ "Observed": "Наблюдавано", "Shuffled networks": "Разбъркани мрежи",
+ "Q at resolution {res}": "Q при резолюция {res}", "Multi-Tag Clusters": "Многотагови клъстери", "Domain width": "Ширина на областта",
+ "range {lo} to {hi} over {d} with a Q": "обхват от {lo} до {hi} в {d} с Q",
+ "median {m}, range {lo} to {hi} over {k} with a Selected Partition": "медиана {m}, обхват от {lo} до {hi} в {k} с избрано разбиване",
+ "median {m}; observed wider than {n} of {k}": "медиана {m}; наблюдаваната е по-широка от {n} от {k}",
+ "no Q": "няма Q", "Share of subsamples with Hennig's Jaccard ≤ 0.5, with its 95% Wilson interval. R = re-selected, A = at resolution.":
+   "Дял на подизвадките с индекс на Jaccard на Hennig ≤ 0,5 и 95% интервал на Wilson. R = при нов избор, A = при резолюцията.",
+ "Click a row for every figure.": "Щракнете ред за всички стойности.",
+ "Arm": "Вариант", "re-selected": "при нов избор", "at resolution": "при резолюцията",
+ // Inspector
+ "Pair Inspector": "Инспектор на двойки", "Apply to Workbench": "Приложи в работното място",
+ "Validation": "Валидиране", "Not validated": "Не е валидирано", "Validate this pair": "Валидирай тази двойка",
+ "Q above all {d} shuffled networks": "Q е над всички {d} разбъркани мрежи",
+ "Q not above the null ({k} of {d})": "Q не е над нулевия модел ({k} от {d})", "Null Q undefined": "Нулевото Q е неопределено",
+ "Dissolved in most subsamples (re-selected): {n}": "Разпаднати в повечето подизвадки (при нов избор): {n}",
+ "median ARI re-selected {a}, at resolution {b}": "медиана на ARI при нов избор {a}, при резолюцията {b}",
+ "re-selected {a}, at resolution {b} of {n}": "при нов избор {a}, при резолюцията {b} от {n}",
+ "{n} borderline": "на границата: {n}", "median ARI": "медиана на ARI", "Open the validation card": "Отвори картата за валидиране",
+ "About 3 min on 12 workers.": "Около 3 мин на 12 процеса.",
+ "Metrics": "Показатели", "Clusters": "Клъстери", "Why this pair": "Защо тази двойка",
+ "{d}: g = {g}, s = {s}": "{d}: g = {g}, s = {s}",
+};
+function tx(s, v = {}) {
+  let t = S.lang === "bg" && BG[s] !== undefined ? BG[s] : s;
+  if (S.lang === "bg" && BG[s] === undefined) console.warn("missing bg:", s);
+  return t.replace(/\{(\w+)\}/g, (_, k) => v[k] !== undefined ? v[k] : `{${k}}`);
+}
+function fx(x, d = 3) { if (x == null) return "—"; let s = x.toFixed(d).replace("-", "−"); return S.lang === "bg" ? s.replace(".", ",") : s; }
+function pc(x) { return Math.round(x * 100) + "%"; }
+const H = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const q = (title) => `<span class="q" title="${H(title)}">?</span>`;
+
+// ---------------------------------------------------------------- state -> figures
+function clusters() {
+  const deep = JSON.parse(JSON.stringify(D.clusters));
+  if (S.edge === "edge") {         // C15 not assessable in both arms, C14 rarely assessable
+    for (const arm of ["reselected", "at_resolution"]) {
+      const c15 = deep[arm][14]; Object.assign(c15, {b: 0, mean: null, se: null, p10: null, p90: null, diss: 0, diss_ci: null,
+        rec: 0, rec_ci: null, status: "not_assessable", borderline: false, w_mean: 0.31, w_se: 0.012});
+      const c14 = deep[arm][13]; Object.assign(c14, {b: 38, diss: 33, diss_ci: [0.72, 0.94], rarely: true});
+    }
+  }
+  if (S.edge === "none") {
+    for (const arm of ["reselected", "at_resolution"]) for (const c of deep[arm]) { c.status = null; c.borderline = false; }
+  }
+  return deep;
+}
+function nullFig() {
+  const n = D.summary.null, r = n.replicates;
+  const base = {r, d: r, u: 0, reasons: [], reach: 0, lo: n.q.min, hi: n.q.max, med: n.q.median,
+    multi: n.n_multi, k: n.selected, width: n.width};
+  if (S.nullq === "reached") Object.assign(base, {reach: 3, hi: 0.1552});
+  if (S.nullq === "weak") Object.assign(base, {d: 40, u: 60, reasons: [["no_edges", 52], ["beyond_scan", 8]], k: 37,
+    multi: {...n.n_multi, median: 11, min: 4, max: 17}, width: {...n.width, narrower: 30}});
+  if (S.nullq === "undefined") Object.assign(base, {d: 0, u: r, reasons: [["no_edges", r]], k: 0});
+  return base;
+}
+function reasonWords(rs) {
+  return rs.map(([k, n]) => k === "no_edges" ? tx("{n} had no edges", {n}) : tx("{n} lay beyond their γ scan", {n})).join("; ");
+}
+const RES = () => fx(D.summary.resolution);
+
+// ---------------------------------------------------------------- shared card pieces
+function header() {
+  let h = `<h4>${tx("Validation of g = {g}, s = {s}", {g: D.g, s: D.s})} ${q("selection.validate")}</h4>`;
+  if (S.note === "other") h += `<p class="small mute">${tx("Validation ran for g = {g}, s = {s}, the pair chosen under the default constraints.", {g: D.g, s: D.s})}</p>`;
+  if (S.note === "noq") h += `<p class="note small">${tx("No pair qualifies under your constraints, so this is the validation of g = {g}, s = {s}, the pair chosen under the default constraints.", {g: D.g, s: D.s})}</p>`;
+  return h;
+}
+function nullHead() {
+  const N = nullFig();
+  return `<h5>${tx("Null Comparison")} ${q("selection.null")} <span class="mute" style="font-weight:400">${tx("({r} shuffled networks, per-pair procedure at g = {g}, s = {s})", {r: N.r, g: D.g, s: D.s})}</span></h5>`;
+}
+function nullProse() {
+  const N = nullFig(), obs = D.summary.null.q.observed;
+  let s = tx("Q at resolution {res} is {q};", {res: RES(), q: fx(obs)}) + " ";
+  if (N.d === 0) s += tx("no shuffled network has edges, so Q cannot be compared.");
+  else {
+    s += N.reach ? tx("{k} of {d} shuffled networks with a Q reach it: Q not above the null", {k: N.reach, d: N.d})
+                 : tx("none of the {d} shuffled networks with a Q reaches it (range over {d} shuffled networks: {lo} to {hi})", {d: N.d, lo: fx(N.lo), hi: fx(N.hi)});
+    s += N.u ? "; " + reasonWords(N.reasons) + "." : ".";
+  }
+  let out = `<p>${s}</p>`;
+  if (N.d > 0 && N.d < N.r / 2) out += `<p class="note small">⚠ ${tx("Most shuffled networks have no Q ({u} of {r}), so this comparison is weak.", {u: N.u, r: N.r})}</p>`;
+  if (N.k) {
+    out += `<p>${tx("Multi-Tag Clusters: observed {o}, median {m} (range over {k} shuffled networks with a Selected Partition: {lo} to {hi}).", {o: N.multi.observed, m: N.multi.median, k: N.k, lo: N.multi.min, hi: N.multi.max})}</p>`;
+    out += `<p>${tx("Median domain width {m} vs observed {o}; observed wider than {n} of {k}.", {m: fx(N.width.median), o: fx(N.width.observed), n: N.width.narrower, k: N.k})} ${tx("Widths are upper bounds, conditional on the partitions the γ scan finds.")}</p>`;
+  } else out += `<p>${tx("None of the {r} shuffled networks has a Selected Partition.", {r: N.r})}</p>`;
+  return out + `<p class="cav small">${tx("This shows only that the network is not random, not that its Clusters are real.")}</p>`;
+}
+function nullTable() {
+  const N = nullFig(), obs = D.summary.null.q.observed;
+  let qcell;
+  if (N.d === 0) qcell = tx("no shuffled network has edges, so Q cannot be compared.");
+  else qcell = tx("range {lo} to {hi} over {d} with a Q", {lo: fx(N.lo), hi: fx(N.hi), d: N.d}) + (N.u ? `<span class="sub">${reasonWords(N.reasons)}</span>` : "");
+  const rows = [[tx("Q at resolution {res}", {res: RES()}), fx(obs), qcell]];
+  if (N.k) {
+    rows.push([tx("Multi-Tag Clusters"), N.multi.observed, tx("median {m}, range {lo} to {hi} over {k} with a Selected Partition", {m: N.multi.median, lo: N.multi.min, hi: N.multi.max, k: N.k})]);
+    rows.push([tx("Domain width") + " " + q("widths are upper bounds"), fx(N.width.observed), tx("median {m}; observed wider than {n} of {k}", {m: fx(N.width.median), n: N.width.narrower, k: N.k})]);
+  }
+  let verdict = N.d === 0 ? `<span class="ps-badge">${tx("Null Q undefined")}</span>` :
+    N.reach ? `<span class="ps-badge warn">${tx("Q not above the null ({k} of {d})", {k: N.reach, d: N.d})}${N.d < N.r / 2 ? " ⚠" : ""}</span> ${q("selection.verdict.q_not_above_null")}` :
+    `<span class="ps-badge ok">${tx("Q above all {d} shuffled networks", {d: N.d})}${N.d < N.r / 2 ? " ⚠" : ""}</span>`;
+  let out = `<div class="ps-badges">${verdict}</div><div class="tw"><table class="t"><tr><th></th><th class="n">${tx("Observed")}</th><th>${tx("Shuffled networks")}</th></tr>` +
+    rows.map(r => `<tr><th style="font-weight:500">${r[0]}</th><td class="n">${r[1]}</td><td>${r[2]}</td></tr>`).join("") + `</table></div>`;
+  if (N.d > 0 && N.d < N.r / 2) out += `<p class="note small">⚠ ${tx("Most shuffled networks have no Q ({u} of {r}), so this comparison is weak.", {u: N.u, r: N.r})}</p>`;
+  if (!N.k) out += `<p>${tx("None of the {r} shuffled networks has a Selected Partition.", {r: N.r})}</p>`;
+  else out += `<p class="small mute">${tx("Widths are upper bounds, conditional on the partitions the γ scan finds.")}</p>`;
+  return out + `<p class="cav small">${tx("This shows only that the network is not random, not that its Clusters are real.")}</p>`;
+}
+function subHead() {
+  const sub = D.summary.subsample;
+  return `<h5>${tx("Subsample Stability")} ${q("selection.subsample")} <span class="mute" style="font-weight:400">${tx("({t} random 80% subsets of the games, g′ = {g}, s′ = {s}).", {t: sub.subsamples, g: sub.g, s: sub.s})}</span></h5>`;
+}
+function ariProse() {
+  const sub = D.summary.subsample, re = sub.reselected, at = sub.at_resolution;
+  return `<p>${tx("Re-selected: median ARI {m} (10th–90th percentile: {lo} to {hi}) over {n} of {t} subsamples, on {e} of the tags.", {m: fx(re.ari.median, 2), lo: fx(re.ari.p10, 2), hi: fx(re.ari.p90, 2), n: sub.subsamples - re.degenerate, t: sub.subsamples, e: pc(re.edged_share_mean)})}
+    ${tx("At resolution {res}: median ARI {m} (10th–90th percentile: {lo} to {hi}).", {res: RES(), m: fx(at.ari.median, 2), lo: fx(at.ari.p10, 2), hi: fx(at.ari.p90, 2)})}</p>`;
+}
+const cname = (c) => `<i>${c.label}</i>`;
+function dissolvedProse() {
+  const C = clusters(), re = C.reselected, at = C.at_resolution, n = re.length;
+  const lab = (arr) => new Set(arr.filter(c => c.status === "dissolved").map(c => c.label));
+  const R = lab(re), A = lab(at);
+  const both = [...R].filter(x => A.has(x)), ro = [...R].filter(x => !A.has(x)), ao = [...A].filter(x => !R.has(x));
+  const na = re.filter(c => c.status === "not_assessable").map(c => c.label);
+  const list = (xs) => xs.map(x => `<i>${x}</i>`).join(", ");
+  let out = "";
+  if (R.size || A.size) {
+    let parts = [];
+    if (both.length) parts.push(`${tx("{k} of {n} Multi-Tag Clusters in both arms", {k: both.length, n})}: ${list(both)}`);
+    if (ro.length) parts.push(`${tx("re-selected only")}: ${list(ro)}`);
+    if (ao.length) parts.push(`${tx("at resolution only")}: ${list(ao)}`);
+    out += `<p><b>${tx("Dissolved in most subsamples")}</b> ${tx("(Hennig's Jaccard ≤ 0.5 in more than half; the majority is this study's rule):")} ${parts.join("; ")}.</p>`;
+  } else if (!na.length) out += `<p>${tx("No Multi-Tag Cluster is dissolved in most subsamples in either arm.")}</p>`;
+  const bR = re.filter(c => c.borderline).map(c => c.label), bA = at.filter(c => c.borderline).map(c => c.label);
+  if (bR.length || bA.length) {
+    const bb = bR.filter(x => bA.includes(x)), br = bR.filter(x => !bA.includes(x)), ba = bA.filter(x => !bR.includes(x));
+    let parts = [];
+    if (bb.length) parts.push(`${list(bb)} ${tx("in both arms")}`);
+    if (br.length) parts.push(`${tx("re-selected only")}: ${list(br)}`);
+    if (ba.length) parts.push(`${tx("at resolution only")}: ${list(ba)}`);
+    out += `<p>${tx("Borderline (the 95% Wilson interval contains ½):")} ${parts.join("; ")}.</p>`;
+  }
+  if (na.length) out += `<p>${tx("Not assessable (fewer than 2 of its tags survive in every subsample):")} ${list(na)}.</p>`;
+  return out;
+}
+function footer() {
+  return `<p class="cav small">${tx("This measures how much the clustering depends on which games are in the dataset. It does not show that a Cluster is right.")}</p>
+   <p class="cav small">${tx("The pair was chosen on the same data, so Subsample Stability may be slightly optimistic. Q played no part in the choice, so the Null Comparison is barely affected.")}</p>
+   <div class="small"><a>${tx("Three kinds of stability")}</a> · <a>${tx("Null Comparison")}</a> · <a>${tx("Subsample Stability")}</a></div>`;
+}
+function nameCell(c) { return `<span class="cname"><b>${c.label}</b><span class="mem">${H(c.members.slice(0, 3).join(", ") + (c.members.length > 3 ? ", …" : ""))}</span></span>`; }
+function jCell(c) {
+  if (c.b === 0) return `<span class="mute">—</span>`;
+  return `${fx(c.mean)} ± ${fx(c.se)}<span class="sub">${fx(c.p10, 2)}–${fx(c.p90, 2)}</span>` + (c.rarely ? `<span class="flag">⚑ ${tx("rarely assessable ({b} of {s})", {b: c.b, s: c.s})}</span>` : "");
+}
+function fCell(k, b, ci) { return b === 0 ? `<span class="mute">—</span>` : `${tx("{k} of {n}", {k, n: b})}<span class="sub">${Math.round(ci[0] * 100)}–${pc(ci[1])}</span>`; }
+function wCell(c) { return `${fx(c.w_mean)} ± ${fx(c.w_se)}`; }
+function statusChips(c) {
+  let s = "";
+  if (c.status === "not_assessable") s += `<span class="chip na">${tx("Not assessable")}</span>`;
+  if (c.status === "dissolved") s += `<span class="chip diss">${tx("Dissolved in most subsamples")}</span>`;
+  if (c.borderline) s += `<span class="chip bord">${tx("borderline")}</span>`;
+  return s;
+}
+
+// ---------------------------------------------------------------- variant A: grouped table
+function tableA() {
+  const C = clusters();
+  const sub = (a, b) => `${tx(a)}<span class="sub">${tx(b)}</span>`;
+  const armHead = (sep) => `<th class="n${sep}">${sub("Hennig's J", "mean ± s.e.; 10th–90th pct")}</th><th class="n">${sub("≤ 0.5 in", "k of B*; 95% Wilson")}</th><th class="n">${sub("> 0.75 in", "k of B*; 95% Wilson")}</th><th class="n">${sub("Whole-Cluster J", "mean ± s.e.")}</th><th>${tx("Status")}</th>`;
+  let h = `<div class="tw"><table class="t"><tr><th rowspan="2" class="sticky">${tx("Cluster")}</th><th rowspan="2" class="n">${tx("Size")} ${q("2–3-tag Clusters can take only a few Jaccard values")}</th>
+    <th colspan="5" class="grp sep">${tx("Re-selected")}</th><th colspan="5" class="grp sep">${tx("At resolution {res}", {res: RES()})}</th></tr>
+    <tr>${armHead(" sep")}${armHead(" sep")}</tr>`;
+  C.reselected.forEach((r, i) => {
+    const a = C.at_resolution[i];
+    const arm = (c) => `<td class="n sep">${jCell(c)}</td><td class="n">${fCell(c.diss, c.b, c.diss_ci)}</td><td class="n">${fCell(c.rec, c.b, c.rec_ci)}</td><td class="n">${wCell(c)}</td><td>${statusChips(c)}</td>`;
+    h += `<tr><td class="sticky">${nameCell(r)}</td><td class="n">${r.size}</td>${arm(r)}${arm(a)}</tr>`;
+  });
+  return h + `</table></div>`;
+}
+function cardA() {
+  return header() + nullHead() + nullProse() + subHead() + ariProse() + dissolvedProse() + tableA() + footer();
+}
+// ---------------------------------------------------------------- variant B: arm selector
+function tableB() {
+  const C = clusters(), arm = S.arm, other = arm === "reselected" ? "at_resolution" : "reselected";
+  const sub = (a, b) => `${tx(a)}<span class="sub">${tx(b)}</span>`;
+  let h = `<div class="segc"><button data-arm="reselected" class="${arm === "reselected" ? "on" : ""}">${tx("Re-selected")}</button><button data-arm="at_resolution" class="${arm === "at_resolution" ? "on" : ""}">${tx("At resolution {res}", {res: RES()})}</button></div>
+    <div class="tw"><table class="t"><tr><th>${tx("Cluster")}</th><th class="n">${tx("Size")} ${q("2–3-tag Clusters …")}</th><th class="n">${sub("Hennig's J", "mean ± s.e.; 10th–90th pct")}</th><th class="n">${sub("≤ 0.5 in", "k of B*; 95% Wilson")}</th><th class="n">${sub("> 0.75 in", "k of B*; 95% Wilson")}</th><th class="n">${sub("Whole-Cluster J", "mean ± s.e.")}</th><th>${tx("Status")}</th></tr>`;
+  C[arm].forEach((c, i) => {
+    const o = C[other][i];
+    let diff = "";
+    if ((c.status === "dissolved") !== (o.status === "dissolved"))
+      diff = `<span class="sub mute">${c.status === "dissolved" ? tx(arm === "reselected" ? "not at resolution" : "not re-selected") : `${tx("Dissolved in most subsamples")} ${tx(arm === "reselected" ? "at resolution only" : "re-selected only")}`}</span>`;
+    h += `<tr><td>${nameCell(c)}</td><td class="n">${c.size}</td><td class="n">${jCell(c)}</td><td class="n">${fCell(c.diss, c.b, c.diss_ci)}</td><td class="n">${fCell(c.rec, c.b, c.rec_ci)}</td><td class="n">${wCell(c)}</td><td>${statusChips(c)}${diff}</td></tr>`;
+  });
+  return h + `</table></div>`;
+}
+function cardB() {
+  return header() + nullHead() + nullTable() + subHead() + ariProse() + dissolvedProse() + tableB() + footer();
+}
+// ---------------------------------------------------------------- variant C: interval plot
+function whisker(r, a) {
+  const W = 150, x = (v) => 6 + v * (W - 12);
+  const one = (c, y, lab) => c.b === 0 ? `<text x="${x(0)}" y="${y + 3}" font-size="9" fill="#9aa1ad">${tx("Not assessable")}</text>` :
+    `<text x="0" y="${y + 3}" font-size="8" fill="#9aa1ad">${lab}</text><line x1="${x(c.diss_ci[0])}" x2="${x(c.diss_ci[1])}" y1="${y}" y2="${y}" stroke="${c.status === "dissolved" ? "#3d4555" : "#9aa1ad"}" stroke-width="2"/>` +
+    `<circle cx="${x(c.diss / c.b)}" cy="${y}" r="3.5" fill="${c.status === "dissolved" ? "#3d4555" : "#fff"}" stroke="${c.status === "dissolved" ? "#3d4555" : "#6b7280"}"/>`;
+  return `<svg width="${W}" height="30" style="display:block"><rect x="${x(0)}" y="2" width="${x(1) - x(0)}" height="26" fill="#fafbfc"/>
+    <line x1="${x(.5)}" x2="${x(.5)}" y1="0" y2="30" stroke="#c0392b" stroke-dasharray="2 2"/>${one(r, 9, "R")}${one(a, 21, "A")}</svg>`;
+}
+function listC() {
+  const C = clusters();
+  let h = `<p class="legend">${tx("Share of subsamples with Hennig's Jaccard ≤ 0.5, with its 95% Wilson interval. R = re-selected, A = at resolution.")} ${tx("Click a row for every figure.")}</p>
+    <div class="row-c head"><span>${tx("Cluster")}</span><span>${tx("Size")}</span><span>≤ 0.5: 0 — ½ — 1</span><span class="st">${tx("Status")}</span></div>`;
+  C.reselected.forEach((r, i) => {
+    const a = C.at_resolution[i];
+    let st = "";
+    const sr = statusChips(r), sa = statusChips(a);
+    st = sr === sa ? sr : `<span class="small mute">R</span> ${sr || "—"} <span class="small mute">A</span> ${sa || "—"}`;
+    h += `<div class="row-c" data-c="${r.label}"><span>${nameCell(r)}</span><span>${r.size}</span>${whisker(r, a)}<span class="st">${st}${r.rarely ? `<span class="flag">⚑ ${tx("rarely assessable ({b} of {s})", {b: r.b, s: r.s})}</span>` : ""}</span>`;
+    if (S.open.has(r.label)) {
+      const row = (lab, c) => `<tr><td>${tx(lab)}</td><td class="n">${jCell(c)}</td><td class="n">${fCell(c.diss, c.b, c.diss_ci)}</td><td class="n">${fCell(c.rec, c.b, c.rec_ci)}</td><td class="n">${wCell(c)}</td></tr>`;
+      const sub = (x, y) => `${tx(x)}<span class="sub">${tx(y)}</span>`;
+      h += `<div class="detail"><table class="t"><tr><th>${tx("Arm")}</th><th class="n">${sub("Hennig's J", "mean ± s.e.; 10th–90th pct")}</th><th class="n">${sub("≤ 0.5 in", "k of B*; 95% Wilson")}</th><th class="n">${sub("> 0.75 in", "k of B*; 95% Wilson")}</th><th class="n">${sub("Whole-Cluster J", "mean ± s.e.")}</th></tr>${row("re-selected", r)}${row("at resolution", a)}</table><div class="small mute">${H(r.members.join(", "))}</div></div>`;
+    }
+    h += `</div>`;
+  });
+  return h;
+}
+function cardC() {
+  return header() + nullHead() + nullProse() + subHead() + ariProse() + dissolvedProse() + listC() + footer();
+}
+
+// ---------------------------------------------------------------- Inspector Validation section
+function nullBadge() {
+  const N = nullFig(), weak = N.d > 0 && N.d < N.r / 2 ? " ⚠" : "";
+  if (N.d === 0) return `<span class="ps-badge">${tx("Null Q undefined")}</span>`;
+  if (N.reach) return `<span class="ps-badge warn">${tx("Q not above the null ({k} of {d})", {k: N.reach, d: N.d})}${weak}</span>${q("selection.verdict.q_not_above_null")}`;
+  return `<span class="ps-badge">${tx("Q above all {d} shuffled networks", {d: N.d})}${weak}</span>`;
+}
+function validationSection() {
+  let h = `<h5>${tx("Validation")} ${q("selection.validate")}</h5>`;
+  if (S.insp === "not") return h + `<div class="ps-badges"><span class="mute">${tx("Not validated")}</span></div>
+     <div style="display:flex;gap:6px;align-items:center"><button class="btn">${tx("Validate this pair")}</button><span class="small mute">${tx("About 3 min on 12 workers.")}</span></div>`;
+  const C = clusters(), sub = D.summary.subsample;
+  const nR = C.reselected.filter(c => c.status === "dissolved").length, nA = C.at_resolution.filter(c => c.status === "dissolved").length;
+  const nB = C.reselected.filter(c => c.borderline).length;
+  const ari = tx("median ARI re-selected {a}, at resolution {b}", {a: fx(sub.reselected.ari.median, 2), b: fx(sub.at_resolution.ari.median, 2)});
+  if (S.variant === "A") return h + `<div class="ps-badges">${nullBadge()}<span class="ps-badge">${tx("Dissolved in most subsamples (re-selected): {n}", {n: nR})}</span></div><div class="small">${ari}</div>`;
+  if (S.variant === "B") return h + `<table class="ps-kv"><tr><th>${tx("Null Comparison")}</th><td>${nullBadge()}</td></tr>
+     <tr><th>${tx("Dissolved in most subsamples")}</th><td>${tx("re-selected {a}, at resolution {b} of {n}", {a: nR, b: nA, n: C.reselected.length})}${nB ? `<br><span class="mute">${tx("{n} borderline", {n: nB})}</span>` : ""}</td></tr>
+     <tr><th>${tx("median ARI")}</th><td>${tx("re-selected {a}, at resolution {b} of {n}", {a: fx(sub.reselected.ari.median, 2), b: fx(sub.at_resolution.ari.median, 2), n: ""}).replace(/ (от|of) $/, "")}</td></tr></table>
+     <a class="small" data-goto="card">${tx("Open the validation card")} ↓</a>`;
+  const strip = (arr) => arr.map(c => `<i class="${c.status === "dissolved" ? "diss" : c.status === "not_assessable" ? "na" : ""} ${c.borderline ? "bord" : ""}" title="${c.label}"></i>`).join("");
+  return h + `<div class="ps-badges">${nullBadge()}<span class="ps-badge">${tx("Dissolved in most subsamples (re-selected): {n}", {n: nR})}</span></div>
+     <div class="strip"><span class="small mute" style="width:14px">R</span>${strip(C.reselected)}</div>
+     <div class="strip"><span class="small mute" style="width:14px">A</span>${strip(C.at_resolution)}</div>
+     <div class="small">${ari}</div><a class="small" data-goto="card">${tx("Open the validation card")} ↓</a>`;
+}
+function inspector() {
+  return `<div class="insp-title"><b>${tx("Pair Inspector")}</b><button class="x">×</button></div>
+    <button class="btn primary">${tx("Apply to Workbench")}</button> <span class="q">?</span>
+    <h4>${tx("{d}: g = {g}, s = {s}", {d: "RPG", g: D.g, s: D.s})} ${q("selection.inspector")}</h4>
+    <div class="ps-badges"><span class="ps-badge ok">✓ qualifies</span></div>
+    <h5>${tx("Metrics")}</h5><div class="stub" style="height:220px">metrics + descriptive (stub)</div>
+    <h5>CHAMP</h5><div class="stub" style="height:200px">CHAMP figure (stub)</div>
+    <h5>${tx("Clusters")}</h5><div class="stub" style="height:160px">15 Multi-Tag Clusters (stub)</div>
+    <div id="insp-val">${validationSection()}</div>`;
+}
+
+// ---------------------------------------------------------------- frame
+function render() {
+  const [w, form] = FORMS[S.form];
+  const card = {A: cardA, B: cardB, C: cardC}[S.variant]();
+  const main = `<div class="main" id="main"><div class="stub" style="height:56px">dataset strip + Pair Constraints bar (stub)</div>
+     <div class="stub" style="height:28px">metric picker (stub)</div><div class="heat">g × s heatmap, 460 px, flex-shrink 0</div>
+     <div class="stub" style="height:14px">heatmap key</div><div class="panel"><h4>${tx("Why this pair")}</h4><div class="stub" style="height:90px">(stub)</div></div>
+     <div class="panel ${w <= 1280 && form === "wide" ? "narrowfit" : ""}" id="card">${card}</div></div>`;
+  const ctl = form === "wide" ? `<div class="ctl"><div class="stub" style="height:300px">Controls (stub)</div></div>` : `<div class="pillbar"><span>Settings ▾</span><span>Run ▾</span><span>Export ▾</span></div>`;
+  const insp = `<div class="insp" id="insp">${inspector()}</div>`;
+  const fr = document.getElementById("frame");
+  const keepM = document.getElementById("main")?.scrollTop, keepI = document.getElementById("insp")?.scrollTop;
+  const h = Math.max(560, innerHeight - 40 - 20 - 18 - 4);
+  fr.innerHTML = `<div class="app ${form}" style="width:${w}px;height:${h}px">${form === "wide" ? ctl + main + insp : ctl + main + insp}</div>`;
+  if (form !== "wide") { fr.querySelector(".app").style.gridTemplateRows = "auto minmax(0,1fr)"; }
+  document.getElementById("frame-label").textContent = `${S.form} — main column ${document.getElementById("main").clientWidth}px, Inspector 380px` + (form === "wide" ? " (docked)" : " (floating over the main column)");
+  const m = document.getElementById("main"), i = document.getElementById("insp");
+  if (keepM == null || render.jump) { m.scrollTop = document.getElementById("card").offsetTop - 8; i.scrollTop = i.scrollHeight; render.jump = false; }
+  else { m.scrollTop = keepM; i.scrollTop = keepI; }
+  document.querySelectorAll("[data-arm]").forEach(b => b.onclick = () => { S.arm = b.dataset.arm; render(); });
+  document.querySelectorAll(".row-c[data-c]").forEach(r => r.onclick = (e) => { if (e.target.closest(".detail")) return; const c = r.dataset.c; S.open.has(c) ? S.open.delete(c) : S.open.add(c); render(); });
+  document.querySelectorAll("[data-goto=card]").forEach(a => a.onclick = () => { m.scrollTop = document.getElementById("card").offsetTop - 8; });
+  document.getElementById("vlabel").textContent = `${S.variant} (${VARIANTS[S.variant]})`;
+  protoBar();
+  const u = new URLSearchParams({variant: S.variant, lang: S.lang, form: S.form, nullq: S.nullq, edge: S.edge, note: S.note, insp: S.insp});
+  try { history.replaceState(null, "", "?" + u); } catch (e) { /* data: snapshot in the preview pane */ }
+}
+function protoBar() {
+  const seg = (key, opts) => `<label>${key}</label><span class="seg">${Object.entries(opts).map(([v, l]) => `<button data-k="${key}" data-v="${v}" class="${S[key] === v ? "on" : ""}">${l}</button>`).join("")}</span>`;
+  document.getElementById("proto").innerHTML = "<b style='color:#f0c400'>PROTOTYPE</b>" +
+    seg("lang", {en: "EN", bg: "BG (draft)"}) + seg("form", {wide1280: "wide 1280", wide1600: "wide 1600", medium1100: "medium 1100", narrow800: "narrow 800"}) +
+    seg("nullq", {above: "above all", reached: "reached", undefined: "undefined", weak: "weak D<R/2"}) +
+    seg("edge", {real: "real Clusters", edge: "+ not assessable / rarely", none: "none dissolved"}) +
+    seg("note", {none: "no note", other: "custom: other pair", noq: "custom: no qualifying pair"}) +
+    seg("insp", {validated: "inspected: validated", not: "not validated"});
+  document.querySelectorAll("#proto button").forEach(b => b.onclick = () => { S[b.dataset.k] = b.dataset.v; render(); });
+}
+const keys = Object.keys(VARIANTS);
+function cycle(d) { S.variant = keys[(keys.indexOf(S.variant) + d + keys.length) % keys.length]; render.jump = true; render(); }
+document.getElementById("prev").onclick = () => cycle(-1);
+document.getElementById("next").onclick = () => cycle(1);
+addEventListener("keydown", (e) => { if (e.target.closest("input,textarea,[contenteditable]")) return; if (e.key === "ArrowLeft") cycle(-1); if (e.key === "ArrowRight") cycle(1); });
+addEventListener("resize", render);
+render();
+</script>
+</body>
+</html>

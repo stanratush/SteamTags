@@ -1,0 +1,48 @@
+# Map: Validation review
+
+Label: wayfinder:map
+
+## Destination
+
+An **implementation-ready spec** (`.scratch/validation-review/spec.md`) plus numbered `ready-for-agent` issues that fix the Parameter Selection **Validation** (Null Comparison and Subsample Stability). It covers the bugs, the reported figures and verdicts, the documented method and the cache versioning. Every methodological choice is locked, so implementation can start without further design questions. *(Proposed while charting, 2026-11-04; confirm with the researcher.)*
+
+## Notes
+
+- **Domain:** the Tag Network app's Parameter Selection mode. Glossary: [CONTEXT.md](../../CONTEXT.md). Use its terms: Null Comparison, Subsample Stability, Multi-Tag Cluster, Selected Resolution, Threshold Pair.
+- **Skills:** grilling tickets use `grilling` + `domain-modeling`. UI uses `prototype` (in `prototypes/`). One-off measurements are `task` tickets with scripts in `prototypes/`.
+- **Evidence base:** [Verified review](research/01-verified-review.md). It has verdict, impact, root cause and recommended fix for each of the 23 reported issues (1–4, 6–24; there is no 5), plus figures mined from the 9 stored `ps-validation-1` runs on Build `20261008T221504Z-7a23ae9f`.
+- **Prior decisions this effort may reopen** (say so explicitly when a ticket does):
+  - [Validation design](../auto-parameter-selection/issues/07-validation-design.md): mean Jaccard ≤ 0.5 as the verdict; no z-score or p-value.
+  - [Validation methods](../auto-parameter-selection/research/02-validation-methods.md): it recommended mean plus dissolution count plus recovery count, which 07 narrowed.
+  - The Automatic Parameter Selection map's **Out of scope**: "a curve of subsample fractions".
+- **Constraints:**
+  - Every new string needs a bg catalogue entry (ADR 0003; parity test).
+  - Validations ship in App Bundles (Automatic Parameter Selection ticket 13).
+  - Nothing is implemented on this map.
+- **Straight bugs need no decision.** The heatmap shrink (#1), the TypeError with no defined null Q (#2) and the null-Q denominator (#3) have one obvious fix each (see the review). They go straight into the spec. Their wording is settled in [Null Comparison decision rule and wording](issues/04-null-comparison-rule-and-wording.md).
+
+## Decisions so far
+
+<!-- one line per resolved ticket -->
+- [How does tag loss count in Cluster recovery?](issues/01-tag-loss-in-cluster-recovery.md): Hennig's Jaccard stays (surviving tags, needs ≥ 2). A **Whole-Cluster Jaccard** is added, counting lost tags as not recovered (0 when absent; new replicate calculations). Both arms report the same figures; ARI stays conditional, with its tag share shown. Degenerate subsamples stay unscored. B* = 0 shows "Not assessable", and B* below half of the non-degenerate subsamples gets a flag. A size column and a small-Cluster caveat are added, with no minimum size.
+- [Which per-Cluster figures and verdict replace "Dissolved"?](issues/02-cluster-figures-and-verdict.md): frequencies and the only label use Hennig's Jaccard. **Dissolved in most subsamples** (J ≤ 0.5 in more than half of B*; the majority is our rule) replaces mean ≤ 0.5. Recovery (> 0.75) is a frequency, not a label. Monte Carlo s.e. and Wilson intervals are worded apart from the 10th–90th percentile spread. "Borderline" means the Wilson interval contains ½. Whole-Cluster Jaccard is a mean only. On stored runs: 19 labels against 13, and 8 borderline.
+- [Does the fixed-γ arm optimise at the observed resolution?](issues/03-fixed-gamma-arm.md): yes. Leiden runs at exactly γ_obs with the 10 scan seeds on the observed network and every replicate, for the fixed-γ arm only, never for selection. Extrapolation past a replicate's scan end becomes `beyond_scan` (undefined or degenerate). The Selected Partition is never changed by validation. Records keep envelope-only and final Q. Measured: null Q is understated by at most 0.0013 (about 1% of the gap), and the observed Q never improves.
+- [What does the Null Comparison state, and by which rule?](issues/04-null-comparison-rule-and-wording.md): three states (above all D defined / reached / undefined) over the D replicates with a Q, with fixed card and badge wording and U shown with reasons. The rule is a count only, and "no p-value" stands: γ and the pair are chosen on the observed data, so a Monte Carlo bound would only be nominal. A flag appears when D < R/2, with no minimum. The guide sentence is weakened to "no evidence beyond the counts". The card adds Multi-Tag Clusters; resolution and edge ratio stay in the export. The width sentence uses fixed `.3f` with ties counted apart. The scope phrase is "the per-pair procedure at the same Threshold Pair", plus a limitation sentence. **Q not above the null** joins CONTEXT.md. All summary-only.
+- [Which sensitivity checks run, and as one-off studies or in-app?](issues/05-sensitivity-checks-and-scope.md): the selection effect is not measured, not even with a cheap probe. A per-replicate **Perturbation Share** goes in-app, in the records, the export and the guide, not on the card. The fraction stays at 80%. The guide documents the s′ clamp's direction, and a card/guide sentence says widths are conditional on the scan. Three one-off `task` studies (mixing, clamp bracket, scan step) run on the 2026-10-08 Build with rerunnable scripts. The spec lists rerunning them on the coming new Build, and they never run at bundle time.
+- [How should the validation card and the Inspector's Validation section look?](issues/06-validation-card-and-inspector-layout.md): the **interval plot** layout won, over a grouped table (it overflows at wide 1280) and an arm selector. The card has an H4 with a help link, a `no_qualifying_pair` note, the Null Comparison as prose (ticket 04) and labelled ARI spreads. It has one combined dissolved list (both arms / re-selected only / at resolution only), plus borderline and not-assessable sentences. Each Cluster is one row: size, a dot-and-whisker of the dissolution frequency with its Wilson interval for R and A against ½, and status chips; a row expands to every figure. The Inspector's Validation section holds the Validate button, ticket 04's badge, "Dissolved in most subsamples (re-selected): n", R/A status strips and a link to the card. The heatmap is held at 460 px. Graduated the card's bg wording to [ticket 11](issues/11-bg-wording-card-and-inspector.md).
+- [Mixing check at the validated pairs](issues/08-mixing-check-at-validated-pairs.md): every one of the 8 validated pairs has plateaued by 10 trades per game. Every statistic, Q at γ_obs included, is within 0.2 SD of the 200 reference at 400 chains, while the perturbation share still lags by 0.5–0.7 SD at 5. `TRADES_PER_GAME` stays at 10, with no follow-up. The guide quote is in the ticket, and the rerunnable script is in `prototypes/08-mixing-check/`. On this Build the Perturbation Share is 0.58–0.70.
+
+## Not yet specified
+
+- The **bg wording** of the User Guide and CONTEXT.md sentences, once their English is written. The card and Inspector strings graduated to [What is the bg wording of the validation card and the Inspector's Validation section?](issues/11-bg-wording-card-and-inspector.md).
+- **Export changes:** new `validation_clusters.csv` / `validation_replicates.csv` columns (size, Whole-Cluster Jaccard, surviving-tag counts, dissolution and recovery frequencies, s.e., perturbation share, `beyond_scan`, envelope-only vs final fixed-γ Q, the null verdict state and `q_defined`), and whether `SCHEMA_VERSION` moves to 4.
+- **User Guide edits:** ch. 3 entries (Null Comparison, Subsample Stability), the methods paragraph, Appendix A's Jaccard bands, and the CONTEXT.md entries. These follow from tickets 01–05.
+- **Bundle handling** of old shipped validations after the version split (re-summarise vs recompute in `steamstudy bundle`).
+- **Conditional follow-ups from the studies:** a default `gamma_step` change if [Domain-width sensitivity to the scan step](issues/10-scan-step-width-sensitivity.md) moves a verdict. It would change the records, and becomes a ticket only if the study triggers it. (The mixing check triggered no `TRADES_PER_GAME` change.)
+
+## Out of scope
+
+<!-- work ruled beyond the destination -->
+- **Measuring the selection effect with a full-pipeline null** (grid plus pair choice repeated per replicate, ≈ 9 h per dataset): this effort only names the scope and adds a limitation sentence. Ruled out in [What does the Null Comparison state, and by which rule?](issues/04-null-comparison-rule-and-wording.md). A cheap 10-replicate probe is ruled out too, in [Which sensitivity checks run, and as one-off studies or in-app?](issues/05-sensitivity-checks-and-scope.md).
+- **Alternative subsample fractions** (a curve, or m = 90): the app keeps a single 80% fraction, so the Automatic Parameter Selection map's ruling stands. Ruled out in [Which sensitivity checks run, and as one-off studies or in-app?](issues/05-sensitivity-checks-and-scope.md).
+- **Running the sensitivity studies at bundle time** or in the app: they stay one-off scripts, rerun by hand on new Builds. Ruled out in the same ticket.
