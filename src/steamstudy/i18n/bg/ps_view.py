@@ -106,13 +106,34 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "cumulative": "натрупано",
     "Why this pair": "Защо тази двойка",
     "Arm": "Вариант",
-    "mean Jaccard": "среден индекс на Jaccard",
-    "≤ 0.5 in k of B*": "≤ 0,5 в k от B*",
-    "retention share": "дял на запазване",
-    "absent": "отсъствия",
     "re-selected": "при нов избор",
     "at resolution": "при резолюцията",
-    "Dissolved": "Разпаднат",
+    "Not validated.": "Не е валидирано.",
+    # The validation card's Cluster list (interval plot) and its expanded rows
+    "Share of subsamples with Hennig's Jaccard ≤ 0.5, with its 95% Wilson interval. R = re-selected, A = at "
+    "resolution.":
+        "Дял на подизвадките с индекс на Jaccard по Hennig ≤ 0,5, с неговия 95% интервал на Wilson. R = при нов "
+        "избор, A = при резолюцията.",
+    "Click a row for every figure.": "Щракнете върху ред, за да видите всички стойности.",
+    "Cluster": "Клъстер",
+    "Size": "Размер",
+    "Status": "Статус",
+    "≤ 0.5: 0 — ½ — 1": "≤ 0,5: 0 — ½ — 1",
+    "Clusters of 2–3 tags can take only a few Jaccard values, and they drop sharply when they lose or move one tag.":
+        "Клъстерите от 2–3 тага могат да приемат само няколко стойности на индекса и рязко падат, когато загубят или "
+        "преместят един таг.",
+    "Hennig's J": "Jaccard (Hennig)",
+    "mean ± s.e.; 10th–90th pct": "средно ± ст. гр.; перс. 10–90",
+    "≤ 0.5 in": "≤ 0,5 в",
+    "> 0.75 in": "> 0,75 в",
+    "k of B*; 95% Wilson": "k от B*; 95% Wilson",
+    "Whole-Cluster J": "Jaccard (цял клъстер)",
+    "mean ± s.e.": "средно ± ст. гр.",
+    "{k} of {n}": "{k} от {n}",
+    "Dissolved in most subsamples": "Разпаднат в повечето подизвадки",
+    "borderline": "на границата",
+    "Not assessable": "Не може да се оцени",
+    "rarely assessable ({b} of {s})": "рядко оценим ({b} от {s})",
     "No pair qualifies under the default constraints, so nothing was validated automatically. Validate this pair is "
     "offered on any inspected pair.":
         "При ограниченията по подразбиране не се квалифицира нито една двойка, затова нищо не е валидирано "

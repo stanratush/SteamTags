@@ -378,10 +378,10 @@ def test_the_validation_card_renders_the_block_and_dissolved_only_in_most_subsam
     for arm in ("reselected", "at_resolution"):
         for c in summary["subsample"][arm]["clusters"]:
             assert c["dissolved_in_most"] == (2 * c["at_most_half"] > c["assessable_subsamples"])
-    table = PV.cluster_table(summary, {}, tx=EN)
+    listing = PV.cluster_list(summary, {}, tx=EN)
     dissolved = sum(c["dissolved_in_most"] for arm in ("reselected", "at_resolution")
                     for c in summary["subsample"][arm]["clusters"])
-    assert _text(table).count("Dissolved") == dissolved
+    assert sum(" diss" in x for x in _classes(listing) if x.startswith("ps-wdot")) == dissolved
 
 
 def test_a_ps_validation_1_file_is_not_read_and_the_pair_shows_as_not_validated(ps_build, monkeypatch):
@@ -736,3 +736,94 @@ def test_the_heatmap_keeps_its_height_when_the_main_column_overflows():
     flat = "".join(css.split())
     assert "#ps-heatmap{flex:00460px" in flat
     assert ".ps-main>*{flex-shrink:0" in flat
+
+
+# ----------------------------------------------------------------------------- validation review, issue 18: the card
+
+
+def _vc(label, members, b=10, s=10, k=2, dissolved=False, border=False, rarely=False):
+    """One Cluster in one arm of a summary, with the figures the card reads."""
+    assessable = b > 0
+    return {"label": label, "members": members, "size": len(members), "assessable_subsamples": b,
+            "assessable": assessable, "dissolved_in_most": dissolved, "borderline": border,
+            "rarely_assessable": rarely, "at_most_half": k, "dissolution_frequency": k / b if b else None,
+            "wilson_low": 0.1 if assessable else None, "wilson_high": 0.6 if assessable else None,
+            "recovered": 1, "recovery_wilson_low": 0.02 if assessable else None,
+            "recovery_wilson_high": 0.4 if assessable else None, "mean_jaccard": 0.7 if assessable else None,
+            "mean_jaccard_se": 0.03 if assessable else None, "jaccard_p10": 0.4 if assessable else None,
+            "jaccard_p90": 0.9 if assessable else None, "mean_whole_cluster_jaccard": 0.6,
+            "whole_cluster_jaccard_se": 0.02}
+
+
+def _card_summary():
+    m = lambda i: [10 * i + j for j in range(4)]  # noqa: E731
+    re_ = [_vc("C1", m(1), k=8, dissolved=True), _vc("C2", m(2), k=8, dissolved=True),
+           _vc("C3", m(3), b=0), _vc("C4", m(4), b=3, rarely=True, border=True)]
+    at = [_vc("C1", m(1), k=8, dissolved=True), _vc("C2", m(2), k=1), _vc("C3", m(3), b=0),
+          _vc("C4", m(4), b=3, rarely=True, border=True)]
+    arm = lambda clusters: {"n": 10, "degenerate": 0, "clusters": clusters}  # noqa: E731
+    return {"subsample": {"reselected": arm(re_), "at_resolution": arm(at)}}
+
+
+def _classes(component) -> list[str]:
+    return [getattr(c, "className", None) or "" for c in _walk(component)]
+
+
+def test_the_cluster_list_has_a_row_per_cluster_with_each_status_combination():
+    from dash import html
+
+    names = {10: "Strategy", 11: "Tactical", 12: "Turn-Based", 13: "Wargame"}
+    listing = PV.cluster_list(_card_summary(), names, tx=EN)
+    rows = [c for c in _walk(listing) if isinstance(c, html.Details)]
+    assert len(rows) == 4
+    texts = [_text(r.children[0]) for r in rows]
+    status = [_text(r.children[0].children[3]) for r in rows]
+    # C1: both arms agree, so one chip; its member tags are shown, three at most
+    assert "C1" in texts[0] and "Strategy, Tactical, Turn-Based, …" in texts[0]
+    assert status[0] == "Dissolved in most subsamples"
+    # C2: the arms differ, so R … A …, the A side empty
+    differ = rows[1].children[0].children[3].children
+    words = [c if isinstance(c, str) else _text(c) for c in differ if not (isinstance(c, str) and c == " ")]
+    assert words == ["R", "Dissolved in most subsamples", "A", "—"]
+    # C3: Not assessable in words in both plot lines, and once as a chip
+    assert texts[2].count("Not assessable") == 3
+    # C4: borderline, and one rarely-assessable flag for both arms
+    assert "borderline" in texts[3] and texts[3].count("⚑ rarely assessable (3 of 10)") == 1
+    c1 = _classes(rows[0])
+    assert c1.count("ps-wdot ps-wl1 diss") == 1 and c1.count("ps-wbar ps-wl2 diss") == 1
+    c2 = _classes(rows[1])
+    assert "ps-wdot ps-wl2 open" in c2
+    # the expanded row: every figure for both arms, Wilson intervals as whole percents, then every member tag
+    detail = _text(rows[0].children[1])
+    assert "0.70 ± 0.03" in detail and "0.40–0.90" in detail and "8 of 10" in detail and "10–60%" in detail
+    assert "Strategy, Tactical, Turn-Based, Wargame" in detail
+
+
+def test_the_cluster_list_in_bulgarian():
+    listing = _text(PV.cluster_list(_card_summary(), {}, tx=text("bg")))
+    assert "Разпаднат в повечето подизвадки" in listing and "Не може да се оцени" in listing
+    assert "0,70 ± 0,03" in listing and "0,40–0,90" in listing and "10–60%" in listing
+    assert "≤ 0,5: 0 — ½ — 1" in listing
+
+
+def test_the_card_has_headings_and_warns_when_no_pair_qualifies_under_custom_constraints(ps_build):
+    from dash import html
+
+    ctx = load_build(ps_build)
+    _, constraints = PV.defaults_of(ctx)
+    cstore = {"shared": {**PV.constraints_data(constraints), "max_multi_tag_clusters": 1}, "datasets": {}}
+    view = _views(ps_build, cstore)["overall"]
+    assert view.star is None and view.default_choice.chosen is not None
+    pair = view.default_choice.chosen
+    validation = PV.validation_of(ctx, PV.defaults_of(ctx)[0], "overall", pair, view.result(pair))
+    card = PV.validation_card(view, validation, {}, tx=EN)
+    note = next(c for c in _walk(card) if "ps-note" in (getattr(c, "className", None) or ""))
+    assert note.children == (f"No pair qualifies under your constraints, so this is the validation of g = {pair[0]}, "
+                             f"s = {pair[1]}, the pair chosen under the default constraints.")
+    heads = [c for c in card if isinstance(c, (html.H4, html.H5))]
+    assert [type(h).__name__ for h in heads] == ["H4", "H5", "H5"]
+    assert _text(heads[0]).startswith(f"Validation of g = {pair[0]}, s = {pair[1]}")
+    assert [_text(h).split(" ?")[0] for h in heads[1:]] == ["Null Comparison", "Subsample Stability"]
+    assert any(isinstance(c, html.Div) and c.className == "ps-clusters" for c in card)
+    default = PV.validation_card(_views(ps_build)["overall"], validation, {}, tx=EN)
+    assert not any("ps-note" in (getattr(c, "className", None) or "") for c in _walk(default))

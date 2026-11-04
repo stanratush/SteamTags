@@ -474,6 +474,53 @@ body[data-form=narrow] #root.workbench .ov-bl{bottom:54px}
 .ps-cluster{font-size:12px;margin:4px 0}
 .ps-member{display:inline-flex;align-items:center;gap:2px;margin:0 6px 2px 0}
 .ps-q{margin-left:4px;font-size:11px;color:var(--mute);cursor:help}
+/* The validation card (validation review, issue 18): H4/H5 headings with their ? links, and the Cluster list, an
+   interval plot of each Multi-Tag Cluster's dissolution frequency per arm (R, A) against ½, drawn with absolutely
+   positioned spans. A row is a <details>: its summary is the grid row, its body every figure. Under about 650 px of
+   card width the Status cell takes its own line. */
+.ps-validation{container-type:inline-size}
+.ps-validation h4,.ps-validation h5{display:flex;align-items:center;gap:2px}
+.ps-validation h4{margin:4px 0 6px}.ps-validation h5{margin:12px 0 2px}
+.ps-note{margin:4px 0;display:block}
+.ps-legend{margin:8px 0 4px}
+.ps-crow{display:grid;grid-template-columns:minmax(120px,1.3fr) 44px 170px minmax(120px,1fr);gap:8px;align-items:center;
+ padding:4px 2px;border-bottom:1px solid var(--line)}
+.ps-crow.head{font-weight:600;font-size:11.5px;background:#fafbfc}
+.ps-crow .n{text-align:right;font-variant-numeric:tabular-nums}
+.ps-crow.head span:nth-child(2){text-align:right}
+summary.ps-crow{cursor:pointer;list-style:none}
+summary.ps-crow::-webkit-details-marker{display:none}
+summary.ps-crow:hover{background:#fafbfc}
+.ps-crow-d[open]>summary.ps-crow{background:#fafbfc}
+.ps-cname b{font-weight:600}
+.ps-cname .mem{display:block;color:var(--mute);font-size:11px}
+.ps-chip{display:inline-block;font-size:11px;border-radius:9px;padding:0 7px;margin:1px 2px 1px 0;white-space:nowrap}
+.ps-chip.diss{background:var(--ink2);color:#fff}
+.ps-chip.bord{border:1px dashed var(--warn);color:var(--warn)}
+.ps-chip.na{background:var(--line);color:var(--ink2)}
+.ps-flag{display:block;color:var(--warn);font-size:11px}
+.ps-whisker{position:relative;width:170px;height:30px}
+.ps-wlab{position:absolute;left:0;font-size:9px;line-height:10px;color:var(--faint)}
+.ps-track{position:absolute;left:14px;right:6px;top:0;bottom:0;background:#fafbfc}
+.ps-half{position:absolute;left:50%;top:0;bottom:0;border-left:1px dashed #c0392b}
+.ps-wl1{top:4px}.ps-wl2{top:16px}
+.ps-wbar{position:absolute;height:2px;margin-top:4px;background:var(--faint)}
+.ps-wbar.diss{background:var(--ink2)}
+.ps-wdot{position:absolute;width:7px;height:7px;margin:1px 0 0 -4px;border-radius:50%;background:#fff;
+ border:1px solid var(--mute)}
+.ps-wdot.diss{background:var(--ink2);border-color:var(--ink2)}
+.ps-wna{position:absolute;left:2px;font-size:9px;line-height:10px;color:var(--faint);white-space:nowrap}
+.ps-cdetail{padding:4px 0 8px 12px}
+.ps-tw{overflow-x:auto;max-width:100%}
+.ps-ctable th,.ps-ctable td{vertical-align:top}
+.ps-ctable th{font-weight:600;background:#fafbfc}
+.ps-ctable .n{text-align:right}
+.ps-ctable .sub{display:block;font-weight:400;color:var(--mute);font-size:10.5px}
+@container (max-width:650px){
+ .ps-crow{grid-template-columns:minmax(100px,1fr) 44px 150px}
+ .ps-whisker{width:150px}
+ .ps-crow .st{grid-column:1/-1;padding-left:4px}
+}
 .ps-readonly{margin:8px 0}
 /* The Workbench's panel toggles are hidden in this mode, so they never hide its Controls. */
 #root.selection:not(.controls-on) .ps-controls{display:block}

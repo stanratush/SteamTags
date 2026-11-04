@@ -615,23 +615,136 @@ def why(view: DatasetView, inspected: tuple[int, int] | None, settings_label: st
                                                                 constraints_label, minimum_k, tx=tx))]
 
 
-def cluster_table(summary: Mapping[str, Any], names: Mapping[int, str], *, tx: Text) -> html.Table:
-    head = html.Tr([html.Th(x) for x in (tx("Arm"), tx("Cluster"), tx("mean Jaccard"), tx("≤ 0.5 in k of B*"),
-                                         tx("retention share"), tx("absent"), "")])
-    rows = [head]
-    for arm, label in (("reselected", tx("re-selected")), ("at_resolution", tx("at resolution"))):
-        for c in summary["subsample"][arm]["clusters"]:
-            rows.append(html.Tr([html.Td(label), html.Td(T.cluster_name(c, names)), html.Td(tx.num(c["mean_jaccard"])),
-                                 html.Td(tx("{n} of {total}", n=c["at_most_half"], total=c["assessable_subsamples"])),
-                                 html.Td(tx.num(c["mean_retention"])), html.Td(str(c["absent"])),
-                                 html.Td(_term(tx("Dissolved"), "selection.verdict.dissolved", tx)
-                                         if c["dissolved_in_most"] else "")]))
-    return html.Table(rows, className="ps-table")
+def _chips(c: Mapping[str, Any], tx: Text) -> list[Any]:
+    """A Cluster's status chips in one arm, in display order: Not assessable, Dissolved in most subsamples,
+    borderline."""
+    out: list[Any] = []
+    if not c["assessable"]:
+        out.append(html.Span(tx("Not assessable"), className="ps-chip na"))
+    if c["dissolved_in_most"]:
+        out.append(html.Span(tx("Dissolved in most subsamples"), className="ps-chip diss"))
+    if c["borderline"]:
+        out.append(html.Span(tx("borderline"), className="ps-chip bord"))
+    return out
+
+
+def _status(c: Mapping[str, Any]) -> tuple[bool, bool, bool]:
+    return c["assessable"], c["dissolved_in_most"], c["borderline"]
+
+
+def _whisker(arms: list[tuple[str, Mapping[str, Any]]], tx: Text) -> html.Div:
+    """The dot-and-whisker plot of one Cluster: per arm, the dissolution frequency (dot) and its 95% Wilson interval
+    (whisker) against ½, in absolutely positioned spans; dark when Dissolved in most subsamples, hollow grey
+    otherwise, and "Not assessable" in words when B* = 0."""
+    track: list[Any] = [html.Span(className="ps-half")]
+    labels: list[Any] = []
+    for i, (letter, c) in enumerate(arms):
+        line = f"ps-wl{i + 1}"
+        labels.append(html.Span(letter, className=f"ps-wlab {line}"))
+        if not c["assessable"]:
+            track.append(html.Span(tx("Not assessable"), className=f"ps-wna {line}"))
+            continue
+        tone = "diss" if c["dissolved_in_most"] else "open"
+        low, high = c["wilson_low"], c["wilson_high"]
+        track.append(html.Span(className=f"ps-wbar {line} {tone}",
+                               style={"left": f"{low * 100:.2f}%", "width": f"{(high - low) * 100:.2f}%"}))
+        track.append(html.Span(className=f"ps-wdot {line} {tone}",
+                               style={"left": f"{c['dissolution_frequency'] * 100:.2f}%"}))
+    return html.Div([*labels, html.Div(track, className="ps-track")], className="ps-whisker")
+
+
+def _compact(lo: float | None, hi: float | None, tx: Text) -> str:
+    """A compact range of values ≥ 0 (Jaccard spreads): an en dash, no spaces."""
+    return "—" if lo is None or hi is None else f"{tx.fixed(lo, '.2f')}–{tx.fixed(hi, '.2f')}"
+
+
+def _mean_se(mean: float | None, se: float | None, tx: Text) -> str:
+    if mean is None:
+        return "—"
+    return tx.fixed(mean, ".2f") + ("" if se is None else f" ± {tx.fixed(se, '.2f')}")
+
+
+def _frequency(k: int, b: int, low: float | None, high: float | None, tx: Text) -> list[Any]:
+    """"k of B*" over a Wilson interval as whole percents ("42–62%")."""
+    if not b or low is None or high is None:
+        return ["—"]
+    return [tx("{k} of {n}", k=k, n=b),
+            html.Span(f"{tx.fixed(low * 100, '.0f')}–{tx.pct(high, 0)}", className="sub")]
+
+
+def _detail(arms: list[tuple[str, Mapping[str, Any]]], members: list[int], names: Mapping[int, str], *,
+            tx: Text) -> html.Div:
+    """An expanded row: every figure for both arms, then every member tag."""
+    def head(top: str, sub: str) -> html.Th:
+        return html.Th([top, html.Span(sub, className="sub")], className="n")
+
+    rows = [html.Tr([html.Th(tx("Arm")), head(tx("Hennig's J"), tx("mean ± s.e.; 10th–90th pct")),
+                     head(tx("≤ 0.5 in"), tx("k of B*; 95% Wilson")), head(tx("> 0.75 in"), tx("k of B*; 95% Wilson")),
+                     head(tx("Whole-Cluster J"), tx("mean ± s.e."))])]
+    for name, c in arms:
+        b = c["assessable_subsamples"]
+        rows.append(html.Tr([
+            html.Td(name),
+            html.Td([_mean_se(c["mean_jaccard"], c["mean_jaccard_se"], tx),
+                     html.Span(_compact(c["jaccard_p10"], c["jaccard_p90"], tx), className="sub")], className="n"),
+            html.Td(_frequency(c["at_most_half"], b, c["wilson_low"], c["wilson_high"], tx), className="n"),
+            html.Td(_frequency(c["recovered"], b, c["recovery_wilson_low"], c["recovery_wilson_high"], tx),
+                    className="n"),
+            html.Td(_mean_se(c["mean_whole_cluster_jaccard"], c["whole_cluster_jaccard_se"], tx), className="n"),
+        ]))
+    tags = ", ".join(names.get(t, str(t)) for t in members)
+    return html.Div([html.Div(html.Table(rows, className="ps-table ps-ctable"), className="ps-tw"),
+                     html.Div(tags, className="small mute")], className="ps-cdetail")
+
+
+def cluster_list(summary: Mapping[str, Any], names: Mapping[int, str], *, tx: Text) -> html.Div:
+    """The interval plot: one expandable row per Multi-Tag Cluster, in Cluster order, with its size, the dissolution
+    frequency of both arms against ½, and its statuses."""
+    sub = summary["subsample"]
+    re_arm, at_arm = sub["reselected"], sub["at_resolution"]
+    size_help = html.Span("?", className="ps-q term", tabIndex="0", **H.attrs(
+        "selection.subsample", tx, last=("caution", tx(
+            "Clusters of 2–3 tags can take only a few Jaccard values, and they drop sharply when they lose or move "
+            "one tag."))))
+    rows: list[Any] = [
+        html.P([tx("Share of subsamples with Hennig's Jaccard ≤ 0.5, with its 95% Wilson interval. R = re-selected, "
+                   "A = at resolution."), " ", tx("Click a row for every figure.")], className="ps-legend small mute"),
+        html.Div([html.Span(tx("Cluster")), html.Span([tx("Size"), size_help]), html.Span(tx("≤ 0.5: 0 — ½ — 1")),
+                  html.Span(tx("Status"), className="st")], className="ps-crow head"),
+    ]
+    for r, a in zip(re_arm["clusters"], at_arm["clusters"]):
+        if _status(r) == _status(a):
+            status: list[Any] = _chips(r, tx)
+        else:
+            status = [html.Span("R", className="small mute"), " ", *(_chips(r, tx) or ["—"]), " ",
+                      html.Span("A", className="small mute"), " ", *(_chips(a, tx) or ["—"])]
+        flags = [(letter, c, arm["n"] - arm["degenerate"]) for letter, c, arm in (("R", r, re_arm), ("A", a, at_arm))
+                 if c["rarely_assessable"]]
+        if len(flags) == 2 and (flags[0][1]["assessable_subsamples"], flags[0][2]) == (
+                flags[1][1]["assessable_subsamples"], flags[1][2]):
+            flags = flags[:1]
+            flags[0] = ("", *flags[0][1:])
+        for letter, c, s in flags:
+            status.append(html.Span(("⚑ " + (f"{letter} " if letter else "")
+                                     + tx("rarely assessable ({b} of {s})", b=c["assessable_subsamples"], s=s)),
+                                    className="ps-flag"))
+        members = [names.get(t, str(t)) for t in r["members"]]
+        shown = ", ".join(members[:3]) + (", …" if len(members) > 3 else "")
+        summary_row = html.Summary([
+            html.Span([html.B(r["label"]), html.Span(shown, className="mem")], className="ps-cname"),
+            html.Span(str(r["size"]), className="n"),
+            _whisker([("R", r), ("A", a)], tx),
+            html.Span(status, className="st"),
+        ], className="ps-crow")
+        rows.append(html.Details([summary_row, _detail([(tx("re-selected"), r), (tx("at resolution"), a)], r["members"],
+                                                       names, tx=tx)], className="ps-crow-d"))
+    return html.Div(rows, className="ps-clusters")
 
 
 def validation_card(view: DatasetView, validation: Mapping[str, Any] | None, names: Mapping[int, str], *,
                     tx: Text) -> list[Any]:
-    """The default-constraint pair's validation, with the custom-constraints note when another pair is chosen."""
+    """The default-constraint pair's validation, with the custom-constraints note when another pair is chosen (or a
+    warning when none qualifies under them)."""
     if view.status != "complete" or view.default_choice is None:
         return []
     pair = view.default_choice.chosen
@@ -639,10 +752,17 @@ def validation_card(view: DatasetView, validation: Mapping[str, Any] | None, nam
         return [html.P(tx("No pair qualifies under the default constraints, so nothing was validated automatically. "
                           "Validate this pair is offered on any inspected pair."))]
     summary = validation["summary"] if validation else None
-    paragraphs = T.validation_block(summary, pair, view.star, view.star == pair, names, tx=tx)
-    out = render(paragraphs)
-    if summary is not None:
-        out.append(cluster_table(summary, names, tx=tx))
+    out: list[Any] = [html.H4([T.validation_title(pair, tx=tx), _help("selection.validate", tx)])]
+    note = T.constraints_note(pair, view.star, view.star == pair, tx=tx)
+    if note is not None:
+        out.append(html.P(note[0], className="ps-note warning" if note[1] else "small mute"))
+    if summary is None:
+        return out + [html.P(tx("Not validated."))]
+    for section in (T.null_section(summary, pair, tx=tx), T.subsample_section(summary, names, tx=tx)):
+        out += [html.H5([section.title, _help(section.help_key, tx)]), html.P(section.header, className="small mute"),
+                *render(section.paragraphs)]
+    out.append(cluster_list(summary, names, tx=tx))
+    out += render(T.closing(tx=tx))
     out.append(html.Div([_term(tx("Three kinds of stability"), "selection.stability", tx), " · ",
                          _term(tx("Null Comparison"), "selection.null", tx), " · ",
                          _term(tx("Subsample Stability"), "selection.subsample", tx)], className="small"))
