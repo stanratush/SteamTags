@@ -190,7 +190,7 @@ The zip's metadata: `schema_version`, the full Network State key and its `state_
 
 ## Parameter Selection files
 
-**Export tables** in the Parameter Selection mode writes one zip per settings key. Every table is stacked by a `dataset` column and covers only the datasets whose grid is complete; the two validation tables hold rows for validated pairs only.
+**Export tables** in the Parameter Selection mode writes one zip per settings key. Every table is stacked by a `dataset` column and covers only the datasets whose grid is complete; the three validation tables hold rows for validated pairs only.
 
 ### `pairs.csv`
 
@@ -212,13 +212,17 @@ One row is one tag of one pair's network with its Cluster in the Selected Partit
 
 One row per dataset: the chosen pair or `no_qualifying_pair`, the highest Neighbour Agreement, the tolerance, the near-best set, the tie-break used, the constraints label and the settings label.
 
+### `validation_pairs.csv`
+
+One row is one validated pair: the Null Comparison's state (above all defined, reached or undefined), R, D, U and U's reasons, the domain-width count with ties counted apart, and two flags: most shuffled networks have no Q (D < R/2), and a Multi-Tag Cluster is rarely assessable.
+
 ### `validation_replicates.csv`
 
-One row is one validation replicate and arm (`null`, `subsample_reselected`, `subsample_at_resolution`) of a validated pair: its seed, whether it had a Selected Partition or was degenerate and why, its ARI against the Selected Partition, Q at the observed resolution (null arm), the scan length and capped runs.
+One row is one validation replicate and arm (`null`, `subsample_reselected`, `subsample_at_resolution`) of a validated pair: its seed, whether it had a Selected Partition or was degenerate and why (including `beyond_scan`), its ARI against the Selected Partition with the share of edged tags it covers, Q at the observed resolution from the envelope alone and after the runs at γ_obs, and its Perturbation Share (null arm), the scan length and capped runs.
 
 ### `validation_clusters.csv`
 
-One row is one Multi-Tag Cluster of a validated pair's Selected Partition in one Subsample Stability arm: the mean Jaccard, the subsamples with a Jaccard ≤ 0.5 out of those where it is present, the mean retention share, the absent count and `dissolved`.
+One row is one Multi-Tag Cluster of a validated pair's Selected Partition in one Subsample Stability arm: its size; Hennig's Jaccard as a mean with its standard error, with the dissolution and good-recovery counts and frequencies and their 95% Wilson intervals; the Whole-Cluster Jaccard mean; the statuses `dissolved_in_most`, `borderline` and `assessable`; the mean retention share and the absent count.
 
 ### `parameter_selection.json`
 

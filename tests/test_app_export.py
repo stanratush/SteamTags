@@ -264,3 +264,14 @@ def test_a_version_3_export_still_opens_and_matches_its_recomputation(build_fold
     assert opened.schema_version == 3 and recorded_table_hashes_match(opened, v3)
     edited = old.getvalue().replace(rows[0]["weight"], rows[0]["weight"] + "1", 1).encode("utf-8-sig")
     assert not recorded_table_hashes_match(opened, _rezip(export, {**v3_files, "cluster_connections.csv": edited}))
+
+
+def test_a_version_4_export_still_opens_and_matches_its_recomputation(build_folder):
+    """Schema 5 changed only the Parameter Selection zip's tables: an app export recorded under schema 4 opens and
+    checks out on its own columns."""
+    ctx = load_build(build_folder)
+    _, data = export_zip(ctx, ctx.default_settings("overall"))
+    export, files = read_export(data)
+    v4 = _rezip({**export, "schema_version": 4}, files)
+    opened = open_export(v4, builds_root=_builds(build_folder))
+    assert opened.schema_version == 4 and recorded_table_hashes_match(opened, v4)

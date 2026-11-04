@@ -13,8 +13,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 
 # 1 + the one shared bump for the ticket 25, 27 and 28 overrides (spec); 3 adds the Parameter Selection
-# export zip (`parameter_selection` group) and `applied_from` in export.json.
-SCHEMA_VERSION = 4
+# export zip (`parameter_selection` group) and `applied_from` in export.json; 5 (the validation review) adds
+# validation_pairs.csv and the new validation_replicates.csv and validation_clusters.csv columns.
+SCHEMA_VERSION = 5
 
 # Column types and how the writer renders them:
 #   str        as is
@@ -945,6 +946,36 @@ PS_SELECTION = declare(
 )
 
 _VAL = "Parameter Selection: validation card"
+PS_VALIDATION_PAIRS = declare(
+    "validation_pairs.csv",
+    "One row per validated pair: the Null Comparison's state and counts, and the two flags.",
+    [
+        *_PS_PAIR,
+        _ps("resolution", "float", "The observed Selected Resolution γ_obs, where every shuffled network's Q is read.",
+            _NULL, _VAL),
+        _ps("observed_q", "float", "The observed Q the comparison uses: the Selected Partition's, or the runs' at "
+                                   "γ_obs when higher.", _NULL, _VAL),
+        _ps("observed_q_selected", "float", "The Selected Partition's own Q at γ_obs.", _NULL, _VAL),
+        _ps("null_state", "str", "above_all_defined, reached or undefined (D = 0).", _NULL, _VAL),
+        _ps("replicates", "int", "R: shuffled networks.", _NULL, _VAL),
+        _ps("q_defined", "int", "D: shuffled networks with a Q at γ_obs.", _NULL, _VAL),
+        _ps("q_undefined", "int", "U = R − D: shuffled networks without one.", _NULL, _VAL),
+        _ps("q_undefined_no_edges", "int", "Of U: networks without edges.", _NULL, _VAL),
+        _ps("q_undefined_beyond_scan", "int", "Of U: γ_obs lay beyond the network's γ scan.", _NULL, _VAL),
+        _ps("reach", "int", "Of D: shuffled networks whose Q reaches observed_q (≥).", _NULL, _VAL),
+        _ps("width_observed", "float", "Width of the Selected Partition's domain.", _NULL, _VAL),
+        _ps("width_null_median", "float", "Median domain width over the K shuffled networks with a Selected "
+                                          "Partition.", _NULL, _VAL),
+        _ps("width_wider", "int", "Of K: shuffled networks the observed domain is wider than.", _NULL, _VAL),
+        _ps("width_equal", "int", "Of K: equal widths, counted apart.", _NULL, _VAL),
+        _ps("width_compared", "int", "K: shuffled networks with a Selected Partition.", _NULL, _VAL),
+        _ps("weak_null", "bool", "Most shuffled networks have no Q at γ_obs (D < R/2).", _NULL, _VAL),
+        _ps("rarely_assessable", "bool", "A Multi-Tag Cluster is rarely assessable (B* < S/2) in either Subsample "
+                                         "Stability arm.", _SUB, _VAL),
+    ],
+    group="parameter_selection",
+)
+
 PS_REPLICATES = declare(
     "validation_replicates.csv",
     "One row per validated pair, replicate and arm (null, subsample_reselected, subsample_at_resolution).",
@@ -958,10 +989,21 @@ PS_REPLICATES = declare(
         _ps("reason", "str", "Why not, as for the observed pair.", _NULL, _VAL),
         _ps("degenerate", "bool", "Subsample left out of the summaries (no edges; re-selected: no Selected "
                                   "Partition).", _SUB, _VAL),
-        _ps("degenerate_reason", "str", "Why it is degenerate.", _SUB, _VAL),
-        _ps("ari", "float", "Subsamples: ARI against the Selected Partition on the comparison set.", _SUB, _VAL),
-        _ps("null_q", "float", "Nulls: Q at the observed Selected Resolution from the replicate's envelope.", _NULL,
+        _ps("degenerate_reason", "str", "Why it is degenerate (beyond_scan: γ_obs lay beyond its γ scan).", _SUB,
             _VAL),
+        _ps("beyond_scan", "bool", "Nulls and the at-resolution arm: γ_obs lay beyond the replicate's γ scan.",
+            _NULL, _VAL),
+        _ps("ari", "float", "Subsamples: ARI against the Selected Partition on the comparison set.", _SUB, _VAL),
+        _ps("edged_share", "float", "Subsamples: share of the observed network's edged tags in the comparison set "
+                                    "(the tags the ARI covers).", _SUB, _VAL),
+        _ps("at_resolution_changed", "bool", "At resolution: the runs at γ_obs beat the envelope's partition.", _SUB,
+            _VAL),
+        _ps("q_defined", "bool", "Nulls: the replicate has a Q at γ_obs.", _NULL, _VAL),
+        _ps("null_q_envelope", "float", "Nulls: Q at γ_obs from the replicate's CHAMP envelope alone.", _NULL, _VAL),
+        _ps("null_q", "float", "Nulls: the final Q at γ_obs, the higher of the envelope's and the runs' at γ_obs.",
+            _NULL, _VAL),
+        _ps("perturbation_share", "float", "Nulls: Perturbation Share, the share of the game × tag table's 1-cells "
+                                           "the shuffle moved.", _NULL, _VAL),
         _ps("domain_width", "float", "Width of the replicate's Selected Partition's domain.", _NULL, _VAL),
         _ps("selected_resolution", "float", "The replicate's Selected Resolution.", _NULL, _VAL),
         _ps("n_multi_tag_clusters", "int", "Multi-Tag Clusters of the replicate's Selected Partition.", _NULL, _VAL),
@@ -980,15 +1022,34 @@ PS_CLUSTERS = declare(
         _ps("arm", "str", "subsample_reselected or subsample_at_resolution.", _SUB, _VAL),
         _ps("cluster", "str", "C1… of the Selected Partition.", _SUB, _VAL),
         _ps("member_tag_ids", "int_list", "The Cluster's tags.", IDENTIFIERS_ENTRY, _VAL),
-        _ps("mean_jaccard", "float", "Hennig's mean best-match Jaccard over the B* subsamples where it is present.",
-            _SUB, _VAL),
-        _ps("at_most_half", "int", "Subsamples with a Jaccard ≤ 0.5.", _SUB, _VAL),
-        _ps("present", "int", "B*: subsamples where the Cluster has a tag in the comparison set.", _SUB, _VAL),
+        _ps("size", "int", "Tags in the Cluster.", _SUB, _VAL),
+        _ps("present", "int", "B*: subsamples where Hennig's Jaccard is defined (two or more of the Cluster's tags "
+                              "in the comparison set).", _SUB, _VAL),
+        _ps("mean_jaccard", "float", "Mean of Hennig's Jaccard (best match, on the comparison set) over the B* "
+                                     "subsamples.", _SUB, _VAL),
+        _ps("mean_jaccard_se", "float", "Monte Carlo standard error of mean_jaccard (sd/√B*); empty under two "
+                                        "values.", _SUB, _VAL),
+        _ps("at_most_half", "int", "Of B*: subsamples with Hennig's Jaccard ≤ 0.5.", _SUB, _VAL),
+        _ps("dissolution_frequency", "float", "at_most_half / B*.", _SUB, _VAL),
+        _ps("wilson_low", "float", "Lower end of the 95% Wilson interval of dissolution_frequency.", _SUB, _VAL),
+        _ps("wilson_high", "float", "Upper end of the 95% Wilson interval of dissolution_frequency.", _SUB, _VAL),
+        _ps("recovered", "int", "Of B*: subsamples with Hennig's Jaccard > 0.75.", _SUB, _VAL),
+        _ps("recovery_frequency", "float", "recovered / B*.", _SUB, _VAL),
+        _ps("recovery_wilson_low", "float", "Lower end of the 95% Wilson interval of recovery_frequency.", _SUB,
+            _VAL),
+        _ps("recovery_wilson_high", "float", "Upper end of the 95% Wilson interval of recovery_frequency.", _SUB,
+            _VAL),
+        _ps("mean_whole_cluster_jaccard", "float", "Mean Whole-Cluster Jaccard over the arm's non-degenerate "
+                                                   "subsamples (0 when no tag survives).", _SUB, _VAL),
         _ps("mean_retention", "float", "Mean share of the Cluster's tags present.", _SUB, _VAL),
-        _ps("absent", "int", "Subsamples where none of its tags is present (left out of the mean).", _SUB, _VAL),
-        _ps("dissolved", "bool", "mean_jaccard ≤ 0.5 (Hennig 2007, §2).", _SUB, _VAL),
+        _ps("absent", "int", "Subsamples where none of its tags is present.", _SUB, _VAL),
+        _ps("assessable", "bool", "B* ≥ 1; otherwise the Cluster is Not assessable.", _SUB, _VAL),
+        _ps("dissolved_in_most", "bool", "Dissolved in most subsamples: at_most_half > B*/2 (exactly half is not "
+                                         "labelled).", _SUB, _VAL),
+        _ps("borderline", "bool", "The 95% Wilson interval of dissolution_frequency contains ½.", _SUB, _VAL),
     ],
     group="parameter_selection",
 )
 
-PS_TABLES = (PS_PAIRS, PS_ADMISSIBLE, PS_LINKS, PS_SELECTED, PS_SELECTION, PS_REPLICATES, PS_CLUSTERS)
+PS_TABLES = (PS_PAIRS, PS_ADMISSIBLE, PS_LINKS, PS_SELECTED, PS_SELECTION, PS_VALIDATION_PAIRS, PS_REPLICATES,
+             PS_CLUSTERS)

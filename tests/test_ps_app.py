@@ -585,7 +585,7 @@ def test_export_tables_writes_the_record(ps_build):
     assert name == f"steamstudy_parameter-selection_{SEL.key_hash(defaults.settings_key())[:12]}_20261027T120000Z.zip"
     assert set(files) == {s.name for s in S.PS_TABLES} | {"parameter_selection.json", "selection_report.md"}
     meta = json.loads(files["parameter_selection.json"])
-    assert meta["schema_version"] == 4 and all(i["status"] == "complete" for i in meta["datasets"].values())
+    assert meta["schema_version"] == 5 and all(i["status"] == "complete" for i in meta["datasets"].values())
     for file, info in meta["files"].items():
         assert hashlib.sha256(files[file]).hexdigest() == info["sha256"], file
     assert len(_rows(files, "pairs.csv")) == 9 * 5 and len(_rows(files, "selection.csv")) == 5
@@ -906,3 +906,63 @@ def test_the_validate_button_sits_in_the_inspectors_validation_section(ps_build)
     assert [_text(c) for c in section] == ["Validation ?", "Not validated"]
     assert "Validation" not in [_text(h) for h in render(ps_build, pair=list(other))["inspector"]
                                 if type(h).__name__ == "H5"]
+
+
+# ----------------------------------------------------------------------------- validation review, issue 20: schema 5
+
+
+def test_the_export_has_eight_tables_and_the_validation_figures_of_schema_5(ps_build):
+    from steamstudy.export import schema as S
+
+    _, files = _export(ps_build)
+    assert len(S.PS_TABLES) == 8
+    tables = sorted(n for n in files if n.endswith(".csv"))
+    assert tables.index("validation_pairs.csv") < tables.index("validation_replicates.csv")
+    meta = json.loads(files["parameter_selection.json"])
+    assert meta["method_versions"]["validation"] == "ps-validation-2"
+    assert set(meta["columns"]["validation_pairs.csv"]) == {c.name for c in S.PS_VALIDATION_PAIRS.columns}
+
+    ctx = load_build(ps_build)
+    view = _views(ps_build)["overall"]
+    pair = view.default_choice.chosen
+    summary = PV.validation_of(ctx, PV.defaults_of(ctx)[0], "overall", pair, view.result(pair))["summary"]
+    null = summary["null"]
+    rows = [r for r in _rows(files, "validation_pairs.csv") if r["dataset"] == "overall"]
+    assert len(rows) == 1
+    row = rows[0]
+    assert (row["g"], row["s"]) == (str(pair[0]), str(pair[1]))
+    assert row["null_state"] == summary["verdicts"]["null_q"]
+    assert int(row["replicates"]) == null["replicates"] == int(row["q_defined"]) + int(row["q_undefined"])
+    assert int(row["q_undefined"]) == int(row["q_undefined_no_edges"]) + int(row["q_undefined_beyond_scan"])
+    assert int(row["reach"]) == null["q"]["reach"] and int(row["width_compared"]) == null["selected"]
+    assert float(row["observed_q"]) == null["q"]["observed"]
+    assert float(row["observed_q_selected"]) == null["q"]["observed_selected"]
+    assert int(row["width_wider"]) == null["width"]["wider"] and int(row["width_equal"]) == null["width"]["equal"]
+    assert row["weak_null"] in ("true", "false") and row["rarely_assessable"] in ("true", "false")
+    assert all(row[c] != "" for c in ("resolution", "width_observed", "width_null_median"))
+
+    reps = [r for r in _rows(files, "validation_replicates.csv") if r["dataset"] == "overall"
+            and (r["g"], r["s"]) == (str(pair[0]), str(pair[1]))]
+    nulls = [r for r in reps if r["arm"] == "null"]
+    subs = [r for r in reps if r["arm"] != "null"]
+    at = [r for r in reps if r["arm"] == "subsample_at_resolution"]
+    assert nulls and all(r["perturbation_share"] and r["q_defined"] and r["beyond_scan"] for r in nulls)
+    assert all(r["null_q_envelope"] for r in nulls if r["q_defined"] == "true")
+    assert all(not r["perturbation_share"] and not r["null_q_envelope"] and not r["q_defined"] for r in subs)
+    assert all(r["edged_share"] for r in subs if r["degenerate"] == "false")
+    assert all(r["at_resolution_changed"] and r["beyond_scan"] for r in at)
+    assert all(not r["at_resolution_changed"] and not r["beyond_scan"] for r in reps
+               if r["arm"] == "subsample_reselected")
+
+    clusters = [r for r in _rows(files, "validation_clusters.csv") if r["dataset"] == "overall"
+                and (r["g"], r["s"]) == (str(pair[0]), str(pair[1]))]
+    assert "dissolved" not in clusters[0]
+    new = ("size", "dissolved_in_most", "dissolution_frequency", "wilson_low", "wilson_high", "borderline",
+           "assessable", "recovered", "recovery_frequency", "recovery_wilson_low", "recovery_wilson_high",
+           "mean_jaccard_se", "mean_whole_cluster_jaccard")
+    assessable = [r for r in clusters if r["assessable"] == "true"]
+    assert assessable and all(r[c] != "" for r in assessable for c in new)
+    first = summary["subsample"]["reselected"]["clusters"][0]
+    row = next(r for r in clusters if r["arm"] == "subsample_reselected" and r["cluster"] == first["label"])
+    assert int(row["size"]) == first["size"] and int(row["present"]) == first["assessable_subsamples"]
+    assert int(row["recovered"]) == first["recovered"] and float(row["wilson_low"]) == first["wilson_low"]

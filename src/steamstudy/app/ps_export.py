@@ -153,7 +153,32 @@ def _selection_row(dataset: str, choice: SEL.Choice, constraints_label: str, set
     }
 
 
+_ARMS = (("reselected", "subsample_reselected"), ("at_resolution", "subsample_at_resolution"))
+# validation_clusters.csv columns read as they are from the derived summary's per-Cluster figures
+_CLUSTER_FIGURES = ("size", "mean_jaccard", "mean_jaccard_se", "at_most_half", "dissolution_frequency", "wilson_low",
+                    "wilson_high", "recovered", "recovery_frequency", "recovery_wilson_low", "recovery_wilson_high",
+                    "mean_whole_cluster_jaccard", "mean_retention", "absent", "assessable", "dissolved_in_most",
+                    "borderline")
+
+
+def _validation_pair_row(dataset: str, pair: tuple[int, int], summary: Mapping[str, Any]) -> dict[str, Any]:
+    """validation_pairs.csv: the Null Comparison of one validated pair, from the derived summary."""
+    null = summary["null"]
+    undefined = null["q_undefined_reasons"]
+    return {"dataset": dataset, "g": pair[0], "s": pair[1], "resolution": summary["resolution"],
+            "observed_q": null["q"]["observed"], "observed_q_selected": null["q"]["observed_selected"],
+            "null_state": summary["verdicts"]["null_q"], "replicates": null["replicates"],
+            "q_defined": null["q_defined"], "q_undefined": null["q_undefined"],
+            "q_undefined_no_edges": undefined.get("no_edges", 0),
+            "q_undefined_beyond_scan": undefined.get("beyond_scan", 0), "reach": null["q"]["reach"],
+            "width_observed": null["width"]["observed"], "width_null_median": null["width"]["median"],
+            "width_wider": null["width"]["wider"], "width_equal": null["width"]["equal"],
+            "width_compared": null["selected"], "weak_null": null["weak"],
+            "rarely_assessable": summary["verdicts"]["rarely_assessable"]}
+
+
 def _validation_rows(dataset: str, pair: tuple[int, int], validation: Mapping[str, Any]) -> tuple[list, list]:
+    """validation_replicates.csv from the records, and validation_clusters.csv from the derived summary."""
     g, s = pair
     reps, clusters = [], []
     for r in validation["records"]:
@@ -162,24 +187,31 @@ def _validation_rows(dataset: str, pair: tuple[int, int], validation: Mapping[st
         if r["kind"] == "null":
             reps.append({**base, "arm": "null", "has_selected_partition": r["selected"],
                          "reason": None if r["selected"] else r["reason"], "degenerate": None,
-                         "degenerate_reason": None, "ari": None, "null_q": r["q_fixed"], "domain_width": r["width"],
+                         "degenerate_reason": None, "beyond_scan": r["q_reason"] == "beyond_scan", "ari": None,
+                         "edged_share": None, "at_resolution_changed": None, "q_defined": r["q_fixed"] is not None,
+                         "null_q_envelope": r["q_envelope"], "null_q": r["q_fixed"],
+                         "perturbation_share": r["perturbation_share"], "domain_width": r["width"],
                          "selected_resolution": r["resolution"], "n_multi_tag_clusters": r["n_multi"]})
             continue
-        for arm, name in (("reselected", "subsample_reselected"), ("at_resolution", "subsample_at_resolution")):
+        for arm, name in _ARMS:
             x = r["arms"][arm]
+            at = arm == "at_resolution"
             reps.append({**base, "arm": name,
-                         "has_selected_partition": None if arm != "reselected" else x["degenerate"] is None,
+                         "has_selected_partition": None if at else x["degenerate"] is None,
                          "reason": None, "degenerate": x["degenerate"] is not None,
-                         "degenerate_reason": x["degenerate"], "ari": x["ari"], "null_q": None, "domain_width": None,
-                         "selected_resolution": x.get("resolution"), "n_multi_tag_clusters": x.get("n_multi")})
+                         "degenerate_reason": x["degenerate"],
+                         "beyond_scan": x["degenerate"] == "beyond_scan" if at else None, "ari": x["ari"],
+                         "edged_share": x["edged_share"],
+                         "at_resolution_changed": bool(x.get("at_resolution_changed")) if at else None,
+                         "q_defined": None, "null_q_envelope": None, "null_q": None, "perturbation_share": None,
+                         "domain_width": None, "selected_resolution": x.get("resolution"),
+                         "n_multi_tag_clusters": x.get("n_multi")})
     summary = validation["summary"]
-    for arm, name in (("reselected", "subsample_reselected"), ("at_resolution", "subsample_at_resolution")):
+    for arm, name in _ARMS:
         for c in summary["subsample"][arm]["clusters"]:
             clusters.append({"dataset": dataset, "g": g, "s": s, "arm": name, "cluster": c["label"],
-                             "member_tag_ids": c["members"], "mean_jaccard": c["mean_jaccard"],
-                             "at_most_half": c["at_most_half"], "present": c["assessable_subsamples"],
-                             "mean_retention": c["mean_retention"], "absent": c["absent"],
-                             "dissolved": c["dissolved_in_most"]})
+                             "member_tag_ids": c["members"], "present": c["assessable_subsamples"],
+                             **{k: c[k] for k in _CLUSTER_FIGURES}})
     return reps, clusters
 
 
@@ -235,10 +267,11 @@ def export_tables(ctx: BuildContext, settings: SEL.SelectionSettings, constraint
                 if pair in shown:
                     info["validation"][entry] = {"status": "not_run"}
                 continue
+            summary = validation["summary"]
             reps, clusters = _validation_rows(d.key, pair, validation)
+            tables["validation_pairs.csv"].append(_validation_pair_row(d.key, pair, summary))
             tables["validation_replicates.csv"] += reps
             tables["validation_clusters.csv"] += clusters
-            summary = validation["summary"]
             info["validation"][entry] = {"status": "complete", "validation_key": vkey,
                                          "validation_key_hash": SEL.key_hash(vkey),
                                          "g_prime": summary["subsample"]["g"], "s_prime": summary["subsample"]["s"],
