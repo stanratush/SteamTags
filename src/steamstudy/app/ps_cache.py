@@ -3,7 +3,8 @@
     grids/<grid_key_hash>/manifest.json            grid key, (g, s) -> graph hash, total, computed_with;
                                                    neighbour links and Neighbour Agreement once complete
     grids/<grid_key_hash>/graphs/<graph_hash>.json one per finished distinct graph
-    validation/<validation_key_hash>.json          one per (dataset, pair), written only when complete
+    validation/<validation_key_hash>.json          one per (dataset, pair), written only when complete: the
+                                                   replicate records and the observed runs, never a summary
 
 File and folder names use the first `NAME_LENGTH` hex digits of each hash, so a bundled Build's paths stay short
 enough for Windows (see `bundle.make.MAX_ENTRY_PATH`); the manifests keep the full hashes.
@@ -148,10 +149,12 @@ def load_grid(cache_root: Path, grid_key: dict[str, Any], dataset: str) -> tuple
 # ----------------------------------------------------------------------------- validation
 
 
-def write_validation(cache_root: Path, validation_key: dict[str, Any], summary: dict[str, Any],
-                     records: list[dict[str, Any]], computed_with: dict[str, Any]) -> None:
+def write_validation(cache_root: Path, validation_key: dict[str, Any], records: list[dict[str, Any]],
+                     observed: dict[str, Any], computed_with: dict[str, Any]) -> None:
+    """Records only, with the observed network's runs at γ_obs: every reader derives the summary
+    (`validation.summary_from_records`), so the records version in the key is the only version."""
     write_json(validation_path(cache_root, validation_key),
-               {"validation_key": validation_key, "summary": summary, "records": records,
+               {"validation_key": validation_key, "records": records, "observed": observed,
                 "computed_with": computed_with})
 
 

@@ -62,8 +62,10 @@ def test_a_run_writes_the_layout_and_a_second_run_computes_nothing(build):
         assert ps_cache.grid_state(ctx.app_cache, key, 9).status == "complete"
         if o.chosen is not None:
             assert o.validation == "done"
-            assert ps_cache.read_validation(ctx.app_cache, settings.validation_key(
-                o.dataset, ctx.context(o.dataset), *o.chosen))["summary"]["null"]["replicates"] == 2
+            stored = ps_cache.read_validation(ctx.app_cache, settings.validation_key(
+                o.dataset, ctx.context(o.dataset), *o.chosen))
+            assert "summary" not in stored and sum(r["kind"] == "null" for r in stored["records"]) == 2
+            assert set(stored["observed"]) == {"q_selected", "q_runs"}
     assert any(o.validation == "done" for o in outcomes)
     # progress: monotonic, ends with everything done
     dones = [r["weight_done"] for r in progress]

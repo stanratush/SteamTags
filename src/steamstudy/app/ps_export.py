@@ -23,6 +23,7 @@ from steamstudy.export.writer import csv_bytes
 from steamstudy.i18n import text
 from steamstudy.network import selection as SEL
 from steamstudy.network import selection_text as T
+from steamstudy.network import validation as V
 from steamstudy.network.cluster import PASS_CAP, label_clusters
 from steamstudy.network.stability import TRADES_PER_GAME, noise_seeds, replicate_seeds
 from steamstudy.versions import software_versions
@@ -226,8 +227,10 @@ def export_tables(ctx: BuildContext, settings: SEL.SelectionSettings, constraint
         shown = {p for p in (choice.chosen, default_choice.chosen) if p is not None}
         for pair in grid.pairs:  # the chosen pairs, and every pair validated by hand
             vkey = settings.validation_key(d.key, ctx.context(d.key), *pair)
-            validation = ps_cache.read_validation(cache_root, vkey)
+            stored = ps_cache.read_validation(cache_root, vkey)
             entry = f"{pair[0]},{pair[1]}"
+            validation = (None if stored is None
+                          else {**stored, "summary": V.summary_from_records(grid.at(*pair), stored)})
             if validation is None:
                 if pair in shown:
                     info["validation"][entry] = {"status": "not_run"}

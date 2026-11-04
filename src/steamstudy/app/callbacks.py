@@ -887,9 +887,11 @@ def ps_render(mode, active, cstore, dataset, metric, pair, running, progress, bu
     custom = {d: "; ".join(x.text for x in (settings_label, labels[d]) if x.custom) for d in labels}
     validated = {v.dataset: PV.is_validated(c, settings, v.dataset, v.default_choice.chosen if v.default_choice
                                             else None) for v in views}
-    shown = PV.validation_of(c, settings, dataset, view.default_choice.chosen if view.default_choice else None)
+    shown_pair = view.default_choice.chosen if view.default_choice else None
+    shown = PV.validation_of(c, settings, dataset, shown_pair, view.result(shown_pair) if shown_pair else None)
     inspected = tuple(pair) if pair else view.star
-    inspected_validation = PV.validation_of(c, settings, dataset, inspected) if inspected else None
+    inspected_validation = (PV.validation_of(c, settings, dataset, inspected, view.result(inspected)) if inspected
+                            else None)
     computed = next((v.computed_with for v in views if v.computed_with), None)
     line, banner = PV.provenance(computed, tx=tx)
     key_hash = SEL.key_hash(settings.settings_key())[:12]

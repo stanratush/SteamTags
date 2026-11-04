@@ -192,8 +192,8 @@ def _validate(ctx: BuildContext, settings: SEL.SelectionSettings, dataset: str, 
     records = V.run_validation(tasks, map_fn=map_fn, on_result=on_result, should_stop=stop)
     if records is None:
         return "stopped"
-    ps_cache.write_validation(cache_root, settings.validation_key(dataset, context, g, s),
-                              V.summary_from_records(observed, records), records, computed_with())
+    ps_cache.write_validation(cache_root, settings.validation_key(dataset, context, g, s), records,
+                              V.observed_runs(tasks[0]), computed_with())
     return "done"
 
 

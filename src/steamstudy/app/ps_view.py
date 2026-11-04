@@ -28,6 +28,7 @@ from steamstudy.app.loader import BuildContext
 from steamstudy.app.relabel import Labels, msg
 from steamstudy.network import selection as SEL
 from steamstudy.network import selection_text as T
+from steamstudy.network import validation as V
 from steamstudy.network.cluster import label_clusters
 from steamstudy.i18n import Text
 from steamstudy.versions import APP_LIBRARIES, software_versions
@@ -196,11 +197,16 @@ def is_validated(ctx: BuildContext, settings: SEL.SelectionSettings, dataset: st
 
 
 def validation_of(ctx: BuildContext, settings: SEL.SelectionSettings, dataset: str, pair: tuple[int, int] | None,
-                  cache_root: Path | None = None) -> dict[str, Any] | None:
-    if pair is None:
+                  observed: SEL.GraphResult | None, cache_root: Path | None = None) -> dict[str, Any] | None:
+    """The pair's validation file with its `summary` derived from the records (never stored); `observed` is the
+    pair's GraphResult. None when the pair is not validated under the current records version."""
+    if pair is None or observed is None or observed.selected is None:
         return None
     key = settings.validation_key(dataset, ctx.context(dataset), *pair)
-    return ps_cache.read_validation(Path(cache_root or ctx.app_cache), key)
+    validation = ps_cache.read_validation(Path(cache_root or ctx.app_cache), key)
+    if validation is None:
+        return None
+    return {**validation, "summary": V.summary_from_records(observed, validation)}
 
 
 # ----------------------------------------------------------------------------- small helpers

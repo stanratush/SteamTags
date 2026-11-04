@@ -368,7 +368,8 @@ def test_the_champ_figure_and_the_links_table(ps_build):
 def test_the_validation_card_renders_the_block_and_dissolved_only_at_half_or_less(ps_build):
     ctx = load_build(ps_build)
     view = _views(ps_build)["overall"]
-    validation = PV.validation_of(ctx, PV.defaults_of(ctx)[0], "overall", view.default_choice.chosen)
+    chosen = view.default_choice.chosen
+    validation = PV.validation_of(ctx, PV.defaults_of(ctx)[0], "overall", chosen, view.result(chosen))
     assert validation is not None
     card = PV.validation_card(view, validation, {}, tx=EN)
     text = _text(card)
@@ -383,6 +384,25 @@ def test_the_validation_card_renders_the_block_and_dissolved_only_at_half_or_les
     assert _text(table).count("Dissolved") == dissolved
 
 
+def test_a_ps_validation_1_file_is_not_read_and_the_pair_shows_as_not_validated(ps_build, monkeypatch):
+    """The records version is in the key: an old file simply misses (no migration, no partial read)."""
+    ctx = load_build(ps_build)
+    view = _views(ps_build)["overall"]
+    other = next(p for p in view.pairs if p != view.star and view.result(p).selected is not None)
+    settings = PV.defaults_of(ctx)[0]
+    monkeypatch.setattr(SEL, "VALIDATION_METHOD_VERSION", "ps-validation-1")
+    old = settings.validation_key("overall", ctx.context("overall"), *other)
+    monkeypatch.undo()
+    path = ps_cache.validation_path(ctx.app_cache, old)
+    ps_cache.write_json(path, {"validation_key": old, "summary": {}, "records": [], "computed_with": {}})
+    try:
+        assert not PV.is_validated(ctx, settings, "overall", other)
+        assert PV.validation_of(ctx, settings, "overall", other, view.result(other)) is None
+        assert "Not validated" in _text(render(ps_build, pair=list(other))["inspector"])
+    finally:
+        path.unlink()
+
+
 def test_validate_this_pair_writes_the_file_and_updates_the_card(ps_build):
     ctx = load_build(ps_build)
     view = _views(ps_build)["overall"]
@@ -392,7 +412,7 @@ def test_validate_this_pair_writes_the_file_and_updates_the_card(ps_build):
     active, _ = _store(ctx)
     request = CB.ps_validate_request(1, active, "overall", list(other), str(ps_build))
     assert CB.ps_validate_job(lambda _: None, request, str(ps_build), map_fn=map) == request["nonce"]
-    assert PV.validation_of(ctx, PV.defaults_of(ctx)[0], "overall", other) is not None
+    assert PV.validation_of(ctx, PV.defaults_of(ctx)[0], "overall", other, view.result(other)) is not None
     after = render(ps_build, pair=list(other))
     assert after["validate_style"] == {"display": "none"} and "Not validated" not in _text(after["inspector"])
 

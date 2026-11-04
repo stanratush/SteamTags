@@ -19,7 +19,10 @@ from typing import Any
 import numpy as np
 from sklearn.metrics import adjusted_rand_score
 
+import networkx as nx
+
 from steamstudy.network import champ as C
+from steamstudy.network.cluster import leiden_scan
 from steamstudy.network.graph import build_network, filter_games, to_graph
 from steamstudy.network.model import Game, Settings, TagContext
 from steamstudy.network.selection import (
@@ -97,26 +100,77 @@ def validation_tasks(games: list[Game], settings: SelectionSettings, dataset: st
 
 
 def envelope_partition(result: C.ChampResult, gamma: float) -> C.AdmissiblePartition | None:
-    """The Admissible Partition with the highest Q at γ (the smallest P̂ on a tie): the envelope's partition inside
-    [0, γ_end], and its continuation by the same lines beyond it."""
-    if not result.admissible:
+    """The Admissible Partition with the highest Q at γ (the smallest P̂ on a tie), inside [0, γ_end] only: past the
+    scan end nothing is known, so nothing is returned (never an extrapolation of the lines)."""
+    if not result.admissible or gamma > result.gamma_end:
         return None
     return max(result.admissible, key=lambda p: (p.a_hat - gamma * p.p_hat, -p.p_hat))
+
+
+Best = tuple[tuple[int, ...], float]  # a canonical membership in node order, and its Q at γ
+
+
+def runs_at(graph: nx.Graph, arrays: C.EdgeArrays, gamma: float, seeds: Iterable[int]) -> Best:
+    """Leiden at exactly γ with the given seeds (the task's scan seeds): the run with the highest Q at γ, the first
+    seed on a tie. Used for the fixed-γ figures only, never in a scan, CHAMP or a Selected Partition."""
+    memberships = [C.canonical(r.membership) for r in leiden_scan(graph, [gamma], list(seeds))]
+    a_hat, p_hat = C.partition_coefficients(memberships, arrays)
+    qs = (a_hat - gamma * p_hat) / arrays.two_m
+    best = int(np.argmax(qs))
+    return tuple(int(x) for x in memberships[best]), float(qs[best])
+
+
+@dataclass(frozen=True)
+class AtGamma:
+    """A network's partition and Q at γ_obs: the envelope's, or the explicit runs' when they find a higher Q."""
+
+    membership: tuple[int, ...] | None
+    q_envelope: float | None
+    q: float | None
+    reason: str | None  # beyond_scan
+    changed: bool | None  # whether the runs replaced the envelope's partition
+
+
+def at_gamma(result: C.ChampResult, gamma: float, runs: Best | None) -> AtGamma:
+    """The fixed-γ arm's partition at γ: the best of the scan envelope and the runs at γ (`runs_at`)."""
+    top = envelope_partition(result, gamma)
+    if top is None:
+        return AtGamma(None, None, None, "beyond_scan", None)
+    q_env = (top.a_hat - gamma * top.p_hat) / result.two_m
+    if runs is not None and runs[1] > q_env + 1e-12 * max(1.0, abs(q_env)):
+        return AtGamma(runs[0], q_env, runs[1], None, True)
+    return AtGamma(top.membership, q_env, q_env, None, False)
 
 
 def _procedure(network_games: list[Game], settings: Settings, context: TagContext, task: ReplicateTask) -> dict[str, Any]:
     network = build_network(network_games, settings, context)
     out: dict[str, Any] = {"n_edges": len(network.edges), "scan_length": 0, "capped_runs": 0, "nodes": network.nodes,
-                           "edged": [], "champ": None, "reason": "no_edges"}
+                           "edged": [], "champ": None, "reason": "no_edges", "fixed": None}
     if not network.edges:
         return out
     graph = to_graph(network.nodes, network.edges, settings.clustering_weight)
     arrays = edge_arrays_of(network, settings.clustering_weight)
     scan, result = scan_and_select(graph, arrays, task.scan_seeds, task.gamma_step, task.min_multi_tag_clusters)
+    # The fixed-γ arm, after the procedure and apart from it: the runs at γ_obs never reach the scan or CHAMP.
+    gamma = task.observed.resolution
+    runs = runs_at(graph, arrays, gamma, task.scan_seeds) if gamma <= result.gamma_end else None
     out.update({"scan_length": scan.n_runs // max(1, len(task.scan_seeds)), "capped_runs": scan.capped_runs,
                 "edged": [t for t, e in zip(network.nodes, arrays.edged.tolist()) if e], "champ": result,
-                "reason": result.reason})
+                "reason": result.reason, "fixed": at_gamma(result, gamma, runs)})
     return out
+
+
+def observed_runs(task: ReplicateTask) -> dict[str, Any]:
+    """The observed network's own runs at γ_obs, with the same γ and seeds as every replicate: stored beside the
+    Selected Partition's Q, for the observed side of the Null Comparison only (the Selected Partition never moves)."""
+    obs = task.observed
+    network = build_network(task.games, task.settings, task.context)
+    if network.nodes != obs.nodes:
+        raise ValueError("the observed network does not match its Selected Partition")
+    graph = to_graph(network.nodes, network.edges, task.settings.clustering_weight)
+    arrays = edge_arrays_of(network, task.settings.clustering_weight)
+    _, q = runs_at(graph, arrays, obs.resolution, task.scan_seeds)
+    return {"q_selected": obs.q, "q_runs": q}
 
 
 def shuffled_games(games: list[Game], tags: Iterable[int], seed: int) -> list[Game]:
@@ -129,23 +183,34 @@ def shuffled_games(games: list[Game], tags: Iterable[int], seed: int) -> list[Ga
     return [replace(g, tag_ids=tuple(sorted(r)), tags=tuple(names[t] for t in sorted(r))) for g, r in zip(games, shuffled)]
 
 
+def perturbation_share(before: list[Game], after: list[Game], tags: Iterable[int]) -> float | None:
+    """The share of the game × visible-tag table's 1-cells that are 0 after the shuffle (Strona's diagnostic of how
+    far the null moved from the observed table), with no threshold."""
+    visible = set(tags)
+    ones = lost = 0
+    for b, a in zip(before, after, strict=True):
+        row = {t for t in b.tag_ids if t in visible}
+        ones += len(row)
+        lost += len(row - set(a.tag_ids))
+    return lost / ones if ones else None
+
+
 def null_replicate(task: ReplicateTask) -> dict[str, Any]:
     obs = task.observed
     games = filter_games(task.games, task.settings.min_months)
-    run = _procedure(shuffled_games(games, obs.nodes, task.seed), task.settings, task.context, task)
+    shuffled = shuffled_games(games, obs.nodes, task.seed)
+    run = _procedure(shuffled, task.settings, task.context, task)
     result: C.ChampResult | None = run["champ"]
     chosen = None if result is None else result.selected_partition
-    q_fixed = None
-    if result is not None:
-        top = envelope_partition(result, obs.resolution)
-        assert top is not None
-        q_fixed = (top.a_hat - obs.resolution * top.p_hat) / result.two_m
+    fixed: AtGamma | None = run["fixed"]
     return {
         "kind": "null", "index": task.index, "seed": task.seed, "n_edges": run["n_edges"],
         "scan_length": run["scan_length"], "capped_runs": run["capped_runs"], "reason": run["reason"],
         "selected": chosen is not None, "width": None if chosen is None else chosen.width,
         "resolution": None if chosen is None else chosen.midpoint, "n_multi": None if chosen is None else chosen.n_multi,
-        "q_fixed": q_fixed,
+        "q_envelope": None if fixed is None else fixed.q_envelope, "q_fixed": None if fixed is None else fixed.q,
+        "q_reason": "no_edges" if fixed is None else fixed.reason,
+        "perturbation_share": perturbation_share(games, shuffled, obs.nodes),
     }
 
 
@@ -157,11 +222,16 @@ def subsample_thresholds(g: int, s: int, n: int) -> tuple[int, int, int]:
 
 def compare(obs: Observed, nodes: list[int], edged: list[int], labels: list[int] | None) -> dict[str, Any]:
     """On the NA comparison set (tags in both networks with an edge in at least one): ARI, and per observed Multi-Tag
-    Cluster Hennig's Jaccard (best match over every subsample Cluster, One-Tag ones included), retention share and
-    whether it is absent. `labels` is the subsample partition in `nodes` order."""
+    Cluster C, with C′ its surviving tags:
+    - Hennig's Jaccard |C′ ∩ D′| / |C′ ∪ D′|, best match over every subsample Cluster D′ (One-Tag ones included),
+      only when |C′| ≥ 2 (else None);
+    - the Whole-Cluster Jaccard |C ∩ D′| / |C ∪ D′| with the whole Cluster, 0 when no tag survives, so lost tags count;
+    - the surviving-tag count |C′| and the retention share |C′| / |C|.
+    `labels` is the subsample partition in `nodes` order; None (a degenerate arm) leaves every figure None."""
+    n = len(obs.clusters)
     if labels is None:
-        return {"ari": None, "jaccard": [None] * len(obs.clusters), "retention": [None] * len(obs.clusters),
-                "edged_share": None}
+        return {"ari": None, "jaccard": [None] * n, "whole_jaccard": [None] * n, "survivors": [None] * n,
+                "retention": [None] * n, "edged_share": None}
     present = set(nodes)
     any_edge = set(obs.edged) | set(edged)
     comparison = [t for t in obs.nodes if t in present and t in any_edge]
@@ -174,16 +244,21 @@ def compare(obs: Observed, nodes: list[int], edged: list[int], labels: list[int]
     for t in comparison:
         groups.setdefault(theirs[t], set()).add(t)
     jaccard: list[float | None] = []
+    whole: list[float | None] = []
+    survivors: list[int | None] = []
     retention: list[float | None] = []
     for cluster in obs.clusters:
-        restricted = set(cluster) & keep
+        full = set(cluster)
+        restricted = full & keep
+        survivors.append(len(restricted))
         retention.append(len(restricted) / len(cluster))
-        if not restricted:
-            jaccard.append(None)  # absent: left out of its mean, never 0
-            continue
-        jaccard.append(max(len(restricted & d) / len(restricted | d) for d in groups.values()))
+        whole.append(max((len(full & d) / len(full | d) for d in groups.values()), default=0.0))
+        # Fewer than two surviving tags: Hennig's Jaccard is not assessable (one tag always matches itself).
+        jaccard.append(max(len(restricted & d) / len(restricted | d) for d in groups.values())
+                       if len(restricted) >= 2 else None)
     edged_share = len(set(obs.edged) & keep) / len(obs.edged) if obs.edged else None
-    return {"ari": ari, "jaccard": jaccard, "retention": retention, "edged_share": edged_share}
+    return {"ari": ari, "jaccard": jaccard, "whole_jaccard": whole, "survivors": survivors, "retention": retention,
+            "edged_share": edged_share}
 
 
 def subsample_replicate(task: ReplicateTask) -> dict[str, Any]:
@@ -207,9 +282,12 @@ def subsample_replicate(task: ReplicateTask) -> dict[str, Any]:
             "resolution": None if chosen is None else chosen.midpoint,
             "n_multi": None if chosen is None else chosen.n_multi,
         }
-        top = envelope_partition(result, obs.resolution)
-        assert top is not None
-        arms["at_resolution"] = {"degenerate": None, **compare(obs, run["nodes"], run["edged"], list(top.membership))}
+        fixed: AtGamma = run["fixed"]
+        arms["at_resolution"] = {
+            "degenerate": fixed.reason,
+            **compare(obs, run["nodes"], run["edged"], None if fixed.membership is None else list(fixed.membership)),
+            "q_envelope": fixed.q_envelope, "q": fixed.q, "at_resolution_changed": fixed.changed,
+        }
     return {"kind": "subsample", "index": task.index, "seed": task.seed, "m": m, "g": g2, "s": s2,
             "n_edges": run["n_edges"], "scan_length": run["scan_length"], "capped_runs": run["capped_runs"],
             "arms": arms}
@@ -314,8 +392,10 @@ def summarise(observed: Observed, records: list[dict[str, Any]]) -> dict[str, An
     }
 
 
-def summary_from_records(observed: GraphResult, records: list[dict[str, Any]]) -> dict[str, Any]:
-    return summarise(Observed.of(observed), records)
+def summary_from_records(observed: GraphResult, validation: Mapping[str, Any]) -> dict[str, Any]:
+    """The summary every reader shows (card, Inspector, export, report), derived from a validation file's records and
+    never stored, so a summary-only change needs no version bump."""
+    return summarise(Observed.of(observed), validation["records"])
 
 
 def records_by_kind(records: list[dict[str, Any]]) -> Mapping[str, list[dict[str, Any]]]:

@@ -85,6 +85,19 @@ def test_hennig_jaccard_on_the_comparison_set():
     assert [c["label"] for c in summary["clusters"]] == ["C1", "C2", "C3"]
 
 
+def test_the_whole_cluster_jaccard_counts_lost_tags():
+    # C1 = {1, 2, 3} keeps only tag 1 (one tag left), C2 = {4, 5} loses both, C3 = {6, 7} survives whole.
+    obs = _observed([[1, 2, 3], [4, 5], [6, 7]], [1, 2, 3, 4, 5, 6, 7], [0, 0, 0, 1, 1, 2, 2])
+    got = V.compare(obs, [1, 6, 7, 8], [1, 6, 7, 8], [0, 1, 1, 0])
+    assert got["survivors"] == [1, 0, 2]
+    assert got["jaccard"] == [None, None, 1.0]  # Hennig's Jaccard needs two surviving tags
+    # On the comparison set (tag 8 is not in the observed network): C1 against {1} is |{1}| / |{1, 2, 3}|; C2 matches
+    # nothing; C3 is {6, 7} exactly.
+    assert got["whole_jaccard"] == [pytest.approx(1 / 3), 0.0, 1.0]
+    none = V.compare(obs, [1], [1], None)
+    assert none["whole_jaccard"] == [None] * 3 and none["survivors"] == [None] * 3
+
+
 def test_degenerate_subsamples_are_counted_never_scored_zero():
     obs = _observed([[1, 2]], [1, 2, 3], [0, 0, 1])
     good = {"degenerate": None, "ari": 0.4, "jaccard": [0.4], "retention": [1.0], "edged_share": 1.0,
@@ -101,17 +114,65 @@ def test_degenerate_subsamples_are_counted_never_scored_zero():
     assert summary["verdicts"]["dissolved"] == {"reselected": ["C1"], "at_resolution": ["C1"]}
 
 
-def test_the_fixed_gamma_q_is_read_from_the_envelope(observed):
+def test_the_envelope_is_read_inside_the_scan_and_never_extrapolated(observed):
     from steamstudy.network import champ as C
 
     result = C.from_json(observed.champ)
-    for gamma in (0.3, observed.selected_resolution, result.gamma_end, result.gamma_end + 1):
+    for gamma in (0.3, observed.selected_resolution, result.gamma_end):
         top = V.envelope_partition(result, gamma)
         assert top.a_hat - gamma * top.p_hat == max(p.a_hat - gamma * p.p_hat for p in result.admissible)
-        if gamma <= result.gamma_end:
-            assert result.q_at(gamma) == pytest.approx((top.a_hat - gamma * top.p_hat) / result.two_m)
+        assert result.q_at(gamma) == pytest.approx((top.a_hat - gamma * top.p_hat) / result.two_m)
+    assert V.envelope_partition(result, result.gamma_end + 1) is None
+    beyond = V.at_gamma(result, result.gamma_end + 1, None)
+    assert (beyond.membership, beyond.q_envelope, beyond.q, beyond.reason) == (None, None, None, "beyond_scan")
     obs = V.Observed.of(observed)
     assert obs.q == pytest.approx(observed.modularity, abs=1e-12)
+
+
+def test_the_fixed_gamma_q_is_the_best_of_the_envelope_and_the_runs(observed):
+    from steamstudy.network import champ as C
+
+    result = C.from_json(observed.champ)
+    gamma = observed.selected_resolution
+    top = V.envelope_partition(result, gamma)
+    q_env = (top.a_hat - gamma * top.p_hat) / result.two_m
+    lower = V.at_gamma(result, gamma, (tuple(range(len(top.membership))), q_env - 0.01))
+    assert (lower.q_envelope, lower.q, lower.changed, lower.membership) == (q_env, q_env, False, top.membership)
+    higher = V.at_gamma(result, gamma, ((0,) * len(top.membership), q_env + 0.01))
+    assert (higher.q_envelope, higher.q, higher.changed) == (q_env, q_env + 0.01, True)
+    assert higher.membership == (0,) * len(top.membership)
+
+
+def test_the_runs_at_the_observed_resolution_use_one_gamma_and_the_scan_seeds_and_never_select(tasks, monkeypatch):
+    calls = []
+    real = V.runs_at
+
+    def spy(graph, arrays, gamma, seeds):
+        calls.append((gamma, tuple(seeds)))
+        return real(graph, arrays, gamma, seeds)
+
+    null, sub = next(t for t in tasks if t.kind == "null"), next(t for t in tasks if t.kind == "subsample")
+    plain = [V.run_replicate(null), V.run_replicate(sub)]
+    monkeypatch.setattr(V, "runs_at", spy)
+    observed = V.observed_runs(null)
+    assert [V.run_replicate(null), V.run_replicate(sub)] == plain
+    assert observed["q_selected"] == null.observed.q and observed["q_runs"] is not None
+    assert len(calls) == 3 and set(calls) == {(null.observed.resolution, null.scan_seeds)}
+
+    # A run that beats every scan partition moves only the fixed-γ figures, never a Selected Partition.
+    monkeypatch.setattr(V, "runs_at", lambda graph, arrays, gamma, seeds: ((0,) * graph.number_of_nodes(), 99.0))
+    boosted_null, boosted_sub = V.run_replicate(null), V.run_replicate(sub)
+    keep = ("selected", "width", "resolution", "n_multi", "q_envelope", "n_edges", "scan_length")
+    assert {k: boosted_null[k] for k in keep} == {k: plain[0][k] for k in keep} and boosted_null["q_fixed"] == 99.0
+    assert boosted_sub["arms"]["reselected"] == plain[1]["arms"]["reselected"]
+    assert boosted_sub["arms"]["at_resolution"]["at_resolution_changed"] is True
+
+
+def test_the_perturbation_share_counts_the_lost_ones(ctx, observed):
+    games = filter_games(ctx.games("overall"), 0)
+    assert V.perturbation_share(games, games, observed.nodes) == 0
+    share = V.perturbation_share(games, V.shuffled_games(games, observed.nodes, 99), observed.nodes)
+    assert 0 < share <= 1
 
 
 def test_serial_and_a_pool_of_two_give_identical_summaries(tasks, observed):
@@ -123,7 +184,8 @@ def test_serial_and_a_pool_of_two_give_identical_summaries(tasks, observed):
     assert serial == parallel and len(serial) == 8
     assert [(r["kind"], r["index"]) for r in serial] == [("null", i) for i in range(1, 5)] + [
         ("subsample", i) for i in range(1, 5)]
-    assert V.summary_from_records(observed, serial) == V.summary_from_records(observed, parallel)
+    assert V.summary_from_records(observed, {"records": serial}) == V.summary_from_records(
+        observed, {"records": parallel})
 
 
 def test_a_stopped_validation_returns_nothing(tasks):

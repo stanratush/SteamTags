@@ -29,7 +29,7 @@ from steamstudy.network.model import Game, Settings, TagContext, canonical_key_j
 from steamstudy.network.stability import TRADES_PER_GAME, derive_seeds, noise_seeds, replicate_seeds
 
 METHOD_VERSION = "parameter-selection-1"
-VALIDATION_METHOD_VERSION = "ps-validation-1"  # validation.METHOD_VERSION; here so keys need no validation import
+VALIDATION_METHOD_VERSION = "ps-validation-2"  # validation.METHOD_VERSION; here so keys need no validation import
 SUBSAMPLE_FRACTION = 0.8
 SCAN_RULE = "gm22_gamma_max_n_e"
 SCAN_STREAM, NULL_SHUFFLE_STREAM, SUBSAMPLE_STREAM = 3, 4, 5
