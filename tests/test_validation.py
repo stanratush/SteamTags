@@ -334,47 +334,135 @@ def test_a_stopped_validation_returns_nothing(tasks):
 # ----------------------------------------------------------------------------- the validation block
 
 
-def _summary(reach=0, dissolved=False, degenerate=1):
-    cluster = {"label": "C2", "members": [1, 2, 3, 4], "mean_jaccard": 0.4 if dissolved else 0.8, "at_most_half": 3,
-               "assessable_subsamples": 99, "mean_retention": 1.0, "absent": 0, "dissolved_in_most": dissolved}
-    others = [dict(cluster, label=f"C{i}", dissolved_in_most=False, mean_jaccard=0.9) for i in (1, 3, 4)]
-    arm = lambda ari, clusters, deg: {  # noqa: E731
+def _clusters(dissolved=(), borderline=(), unassessable=()):
+    return [{"label": f"C{i}", "members": [4 * i - 3 + j for j in range(4)],
+             "dissolved_in_most": f"C{i}" in dissolved, "borderline": f"C{i}" in borderline,
+             "assessable": f"C{i}" not in unassessable} for i in range(1, 5)]
+
+
+def _summary(reach=0, d=100, reasons=None, from_runs=False, equal=0, k=79, re_clusters=None, at_clusters=None,
+             degenerate=1):
+    """A hand-built summary in `validation.summarise`'s shape, with only what the sentences read: the stored Overall
+    17/2 run's figures by default."""
+    reasons = reasons or ({} if d == 100 else {"no_edges": 100 - d})
+    arm = lambda median, p10, p90, deg, clusters: {  # noqa: E731
         "n": 100, "degenerate": deg, "reasons": {"no_stable_partition": deg} if deg else {},
-        "ari": {"median": ari, "p10": ari - 0.12, "p90": min(1.0, ari + 0.17), "min": 0.2}, "clusters": clusters,
-        "edged_share_mean": 1.0}
+        "ari": {"median": median, "p10": p10, "p90": p90, "min": 0.2}, "edged_share_mean": 0.993,
+        "clusters": clusters}
     return {
         "resolution": 1.151,
-        "null": {"replicates": 100, "selected": 79, "reasons": {},
-                 "width": {"observed": 0.158, "median": 0.03, "min": 0.01, "max": 0.1, "wider": 79},
-                 "q": {"observed": 0.067, "median": -0.015, "min": -0.021, "max": -0.012, "reach": reach}},
+        "null": {"replicates": 100, "selected": k, "q_defined": d, "q_undefined": 100 - d,
+                 "q_undefined_reasons": reasons, "weak": 2 * d < 100,
+                 "width": {"observed": 0.158, "median": 0.049, "min": 0.01, "max": 0.1, "wider": k - equal,
+                           "equal": equal},
+                 "n_multi": {"observed": 4, "median": 5, "min": 3, "max": 9},
+                 "q": {"observed": 0.0687 if from_runs else 0.0667, "observed_selected": 0.0667,
+                       "observed_from_runs": from_runs, "median": -0.015, "min": -0.021, "max": -0.012,
+                       "reach": reach}},
         "subsample": {"subsamples": 100, "m": 80, "g": 13, "s": 2,
-                      "reselected": arm(0.69, [others[0], cluster, *others[1:]], degenerate),
-                      "at_resolution": arm(0.86, [others[0], dict(cluster, dissolved_in_most=False), *others[1:]], 0)},
+                      "reselected": arm(0.69, 0.57, 0.86, degenerate,
+                                        re_clusters if re_clusters is not None else _clusters(("C2",))),
+                      "at_resolution": arm(0.86, -0.05, 1.0, 0,
+                                           at_clusters if at_clusters is not None else _clusters())},
     }
 
 
+NAMES = {1: "Strategy", 2: "Tactical", 3: "Turn-Based", 4: "Wargame"}
+
+
+def _block(summary, tx=EN, pair=(17, 2), chosen=(17, 2), ran=True):
+    return T.to_markdown(T.validation_block(summary, pair, chosen, ran, NAMES, tx=tx))
+
+
 def test_validation_block_golden_text():
-    names = {1: "Strategy", 2: "Tactical", 3: "Turn-Based", 4: "Wargame"}
-    text = T.to_markdown(T.validation_block(_summary(dissolved=True), (17, 2), (17, 2), True, names, tx=EN))
-    assert text == (
+    assert _block(_summary()) == (
         "**Validation of g = 17, s = 2**\n\n"
-        "**Null Comparison** (100 shuffled networks, same g and s). Q at resolution 1.151 is 0.067; no shuffled "
-        "network reaches it (−0.021 to −0.012). 79 of 100 also have a Selected Partition, with narrower domains "
-        "(median 0.03 against 0.158; wider than all 79).\n\n"
+        "**Null Comparison** (100 shuffled networks, per-pair procedure at g = 17, s = 2)\n\n"
+        "Q at resolution 1.151 is 0.067; none of the 100 shuffled networks with a Q reaches it (range over 100 "
+        "shuffled networks: −0.021 to −0.012).\n\n"
+        "Multi-Tag Clusters: observed 4, median 5 (range over 79 shuffled networks with a Selected Partition: 3 to "
+        "9). Median domain width 0.049 vs observed 0.158; observed wider than 79 of 79. Widths are upper bounds, "
+        "conditional on the partitions the γ scan finds.\n\n"
         "*This shows only that the network is not random, not that its Clusters are real.*\n\n"
-        "**Subsample Stability** (100 random 80% subsets of the games, g′ = 13, s′ = 2). Re-selected: median ARI "
-        "0.69 (0.57–0.86) over 99 of 100 subsamples; 1 had no Selected Partition. At resolution 1.151: median ARI "
-        "0.86 (0.74–1.00). 1 of 4 Multi-Tag Clusters is dissolved when re-selected (mean Jaccard ≤ 0.5): "
-        "*C2 (Strategy, Tactical, Turn-Based, …)*.\n\n"
+        "**Subsample Stability** (100 random 80% subsets of the games, g′ = 13, s′ = 2).\n\n"
+        "Re-selected: median ARI 0.69 (10th–90th percentile: 0.57 to 0.86) over 99 of 100 subsamples, on 99% of the "
+        "tags; 1 had no Selected Partition. At resolution 1.151: median ARI 0.86 (10th–90th percentile: −0.05 to "
+        "1.00).\n\n"
+        "**Dissolved in most subsamples** (Hennig's Jaccard ≤ 0.5 in more than half; the majority is this study's "
+        "rule): re-selected only: *C2 (5, 6, 7, …)*.\n\n"
         "*This measures how much the clustering depends on which games are in the dataset. It does not show that "
-        "the Clusters are real either.*")
+        "the Clusters are real either.*\n\n"
+        "*The pair was chosen on the same data, so Subsample Stability may be slightly optimistic. Q played no part "
+        "in the choice, so the Null Comparison is barely affected.*")
+
+
+@pytest.mark.parametrize(("kwargs", "expected"), [
+    ({"reach": 3}, "Q at resolution 1.151 is 0.067; 3 of 100 shuffled networks with a Q reach it: Q not above the "
+                   "null."),
+    ({"d": 0, "reasons": {"no_edges": 100}, "k": 0},
+     "Q at resolution 1.151 is 0.067; no shuffled network has edges, so Q cannot be compared."),
+    ({"d": 0, "reasons": {"beyond_scan": 8, "no_edges": 92}, "k": 0},
+     "Q at resolution 1.151 is 0.067; no shuffled network has a Q (8 lay beyond their γ scan; 92 had no edges), so Q "
+     "cannot be compared."),
+    ({"d": 40, "reasons": {"beyond_scan": 8, "no_edges": 52}, "k": 30},
+     "none of the 40 shuffled networks with a Q reaches it (range over 40 shuffled networks: −0.021 to −0.012); 8 "
+     "lay beyond their γ scan; 52 had no edges."),
+])
+def test_each_null_state_and_the_reasons_for_undefined_q(kwargs, expected):
+    assert expected in _block(_summary(**kwargs))
+
+
+def test_the_weak_warning_appears_only_when_most_shuffled_networks_have_no_q():
+    weak = "⚠ Most shuffled networks have no Q (60 of 100), so this comparison is weak."
+    assert weak in _block(_summary(d=40, k=30))
+    assert "this comparison is weak" not in _block(_summary(d=50, k=30))
+
+
+def test_the_observed_runs_note_ties_and_no_selected_partition():
+    note = ("The runs at γ_obs found a Q of 0.069 on the observed network, above its Selected Partition's 0.067; the "
+            "comparison uses 0.069.")
+    assert note in _block(_summary(from_runs=True)) and "The runs at γ_obs" not in _block(_summary())
+    assert "observed wider than 76, equal to 3, of 79." in _block(_summary(equal=3))
+    none = _block(_summary(k=0))
+    assert "None of the 100 shuffled networks has a Selected Partition." in none
+    assert "Widths are upper bounds" not in none and "Multi-Tag Clusters: observed" not in none
+
+
+def test_the_combined_dissolved_list_with_all_three_groups_and_with_one():
+    three = _block(_summary(re_clusters=_clusters(("C1", "C2")), at_clusters=_clusters(("C1", "C3"))))
+    assert ("**Dissolved in most subsamples** (Hennig's Jaccard ≤ 0.5 in more than half; the majority is this "
+            "study's rule): 1 of 4 Multi-Tag Clusters in both arms: *C1 (Strategy, Tactical, Turn-Based, …)*; re-selected only: "
+            "*C2 (5, 6, 7, …)*; at resolution only: *C3 (9, 10, 11, …)*.") in three
+    both = _block(_summary(re_clusters=_clusters(("C1", "C2")), at_clusters=_clusters(("C1", "C2"))))
+    assert "rule): 2 of 4 Multi-Tag Clusters in both arms: *C1 (Strategy, Tactical, Turn-Based, …)*, *C2 (5, 6, 7, …)*." in both
+    assert "only:" not in both
+    border = _block(_summary(re_clusters=_clusters(borderline=("C4",)), at_clusters=_clusters(borderline=("C4",))))
+    assert ("**Borderline** (the 95% Wilson interval contains ½): in both arms: *C4 (13, 14, 15, …)*.") in border
+    assert "No Multi-Tag Cluster is dissolved in most subsamples in either arm." in border
+
+
+def test_a_not_assessable_cluster_suppresses_the_no_dissolved_sentence():
+    gone = _block(_summary(re_clusters=_clusters(unassessable=("C3",)), at_clusters=_clusters(unassessable=("C3",))))
+    assert ("**Not assessable** (fewer than 2 of its tags survive in every subsample): in both arms: "
+            "*C3 (9, 10, 11, …)*.") in gone
+    assert "No Multi-Tag Cluster is dissolved" not in gone
+    assert "No Multi-Tag Cluster is dissolved in most subsamples in either arm." in _block(
+        _summary(re_clusters=_clusters()))
 
 
 def test_validation_block_variants():
-    reached = T.to_markdown(T.validation_block(_summary(reach=3), (17, 2), (17, 2), True, tx=EN))
-    assert "Q at resolution 1.151 is 0.067; 3 of 100 shuffled networks reach it: Q not above the null." in reached
-    assert "No Multi-Tag Cluster is dissolved (mean Jaccard ≤ 0.5) in either arm." in reached
-    assert T.to_markdown(T.validation_block(None, (14, 2), (14, 2), True, tx=EN)) == (
-        "**Validation of g = 14, s = 2**\n\nNot validated.")
-    custom = T.to_markdown(T.validation_block(_summary(), (17, 2), (15, 3), False, tx=EN))
+    assert _block(None, pair=(14, 2), chosen=(14, 2)) == "**Validation of g = 14, s = 2**\n\nNot validated."
+    custom = _block(_summary(), chosen=(15, 3), ran=False)
     assert custom.split("\n\n")[1] == "Validation ran for g = 17, s = 2, the pair chosen under the default constraints."
+    none = _block(_summary(), chosen=None, ran=False)
+    assert none.split("\n\n")[1] == ("⚠ No pair qualifies under your constraints, so this is the validation of g = 17, "
+                                     "s = 2, the pair chosen under the default constraints.")
+
+
+def test_the_validation_block_in_bulgarian_uses_the_decimal_comma_and_from_to_ranges():
+    bg = _block(_summary(equal=3), tx=text("bg"))
+    assert "Q при резолюция 1,151 е 0,067;" in bg
+    assert "обхват от −0,021 до −0,012" in bg
+    assert "(персентили 10–90: от 0,57 до 0,86)" in bg
+    assert "наблюдаваната е по-широка от 76 и равна на 3 от 79." in bg
+    assert "**Разпаднати в повечето подизвадки** (индекс на Jaccard по Hennig ≤ 0,5" in bg

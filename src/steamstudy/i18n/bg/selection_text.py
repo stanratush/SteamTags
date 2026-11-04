@@ -87,44 +87,72 @@ MESSAGES: dict[str, str | dict[str, str]] = {
         "решетката и я приложете ръчно.",
     # Validation: the Null Comparison and Subsample Stability sentences
     "{n} had no edges": {"one": "без ребра: {n}", "other": "без ребра: {n}"},
+    "{n} lay beyond their γ scan": {"one": "извън своето сканиране по γ: {n}",
+                                    "other": "извън своето сканиране по γ: {n}"},
     "{n} had no Selected Partition": {"one": "без избрано разбиване: {n}", "other": "без избрано разбиване: {n}"},
-    "{lo} to {hi}": "от {lo} до {hi}",
+    "({r} shuffled networks, per-pair procedure at g = {g}, s = {s})":
+        "(разбъркани мрежи: {r}; процедурата за една двойка при g = {g}, s = {s})",
     "Q at resolution {resolution} is {q};": "Q при резолюция {resolution} е {q};",
-    "{reach} of {r} shuffled networks reach it: Q not above the null.":
-        "разбъркани мрежи, които го достигат: {reach} от {r}; Q не е над нулевия модел.",
-    "no shuffled network reaches it ({range}).": "никоя разбъркана мрежа не го достига ({range}).",
-    "narrower": "по-тесни",
-    "wider": "по-широки",
-    "{k} of {r} also have a Selected Partition, with {side} domains (median {median} against {observed}; wider than "
-    "all {k}).":
-        "Избрано разбиване имат и {k} от {r}, с {side} области на оптималност (медиана {median} срещу {observed}; "
-        "наблюдаваната е по-широка от всички {k}).",
-    "{k} of {r} also have a Selected Partition, with {side} domains (median {median} against {observed}; wider than "
-    "{narrower} of {k}).":
-        "Избрано разбиване имат и {k} от {r}, с {side} области на оптималност (медиана {median} срещу {observed}; "
-        "наблюдаваната е по-широка от {narrower} от {k}).",
-    "None of the {r} has a Selected Partition.": "Нито една от {r} мрежи няма избрано разбиване.",
-    "({r} shuffled networks, same g and s).": "(разбъркани мрежи: {r}, със същите g и s).",
-    "median ARI {median} ({p10}–{p90})": "медиана на ARI {median} ({p10}–{p90})",
+    "none of the {d} shuffled networks with a Q reaches it (range over {d} shuffled networks: {lo} to {hi})":
+        "никоя разбъркана мрежа с Q не го достига (разбъркани мрежи с Q: {d}; обхват от {lo} до {hi})",
+    "{k} of {d} shuffled networks with a Q reach it: Q not above the null":
+        "разбъркани мрежи с Q, които го достигат: {k} от {d}; Q не е над нулевия модел",
+    "no shuffled network has edges, so Q cannot be compared.":
+        "никоя разбъркана мрежа няма ребра, затова Q не може да се сравни.",
+    "no shuffled network has a Q ({reasons}), so Q cannot be compared.":
+        "никоя разбъркана мрежа няма Q ({reasons}), затова Q не може да се сравни.",
+    "The runs at γ_obs found a Q of {q} on the observed network, above its Selected Partition's {q0}; the comparison "
+    "uses {q}.":
+        "Изпълненията при γ_obs намериха Q {q} за наблюдаваната мрежа, над {q0} на избраното ѝ разбиване; сравнението "
+        "използва {q}.",
+    "Most shuffled networks have no Q ({u} of {r}), so this comparison is weak.":
+        "Повечето разбъркани мрежи нямат Q ({u} от {r}), затова това сравнение е слабо.",
+    "Multi-Tag Clusters: observed {observed}, median {median} (range over {k} shuffled networks with a Selected "
+    "Partition: {lo} to {hi}).":
+        "Многотагови клъстери: наблюдавани {observed}, медиана {median} (разбъркани мрежи с избрано разбиване: {k}; "
+        "обхват от {lo} до {hi}).",
+    "None of the {r} shuffled networks has a Selected Partition.":
+        "Нито една от {r} разбъркани мрежи няма избрано разбиване.",
+    "Median domain width {median} vs observed {observed}; observed wider than {n} of {k}.":
+        "Ширина на областта на оптималност: медиана {median} срещу наблюдавана {observed}; наблюдаваната е по-широка "
+        "от {n} от {k}.",
+    "Median domain width {median} vs observed {observed}; observed wider than {n}, equal to {t}, of {k}.":
+        "Ширина на областта на оптималност: медиана {median} срещу наблюдавана {observed}; наблюдаваната е по-широка "
+        "от {n} и равна на {t} от {k}.",
+    "Widths are upper bounds, conditional on the partitions the γ scan finds.":
+        "Ширините са горни граници и зависят от разбиванията, които сканирането по γ намира.",
     "({total} random 80% subsets of the games, g′ = {g}, s′ = {s}).":
         "(случайни подмножества от 80% от игрите: {total}, g′ = {g}, s′ = {s}).",
     "Re-selected: no subsample has a Selected Partition ({reasons}).":
         "При нов избор: никоя подизвадка няма избрано разбиване ({reasons}).",
-    "Re-selected: {ari} over {n} of {total} subsamples": "При нов избор: {ari} при {n} от {total} подизвадки",
-    "At resolution {gamma}: {ari}": "При резолюция {gamma}: {ari}",
-    "{n} of {total} Multi-Tag Clusters is dissolved when re-selected (mean Jaccard ≤ 0.5):": {
-        "one": "Многотагови клъстери, разпаднати при нов избор (среден индекс на Jaccard ≤ 0,5): {n} от {total} —",
-        "other": "Многотагови клъстери, разпаднати при нов избор (среден индекс на Jaccard ≤ 0,5): {n} от {total} —"},
-    "{n} of {total} Multi-Tag Clusters is dissolved at resolution {gamma} (mean Jaccard ≤ 0.5):": {
-        "one": "Многотагови клъстери, разпаднати при резолюция {gamma} (среден индекс на Jaccard ≤ 0,5): {n} от "
-               "{total} —",
-        "other": "Многотагови клъстери, разпаднати при резолюция {gamma} (среден индекс на Jaccard ≤ 0,5): {n} от "
-                 "{total} —"},
-    "No Multi-Tag Cluster is dissolved (mean Jaccard ≤ 0.5) in either arm.":
-        "В нито един от двата варианта не се разпада многотагов клъстер (среден индекс на Jaccard ≤ 0,5).",
+    "Re-selected: median ARI {median} (10th–90th percentile: {p10} to {p90}) over {n} of {total} subsamples, on "
+    "{share} of the tags":
+        "При нов избор: медиана на ARI {median} (персентили 10–90: от {p10} до {p90}) при {n} от {total} подизвадки, "
+        "върху {share} от таговете",
+    "At resolution {resolution}: median ARI {median} (10th–90th percentile: {p10} to {p90})":
+        "При резолюция {resolution}: медиана на ARI {median} (персентили 10–90: от {p10} до {p90})",
+    "At resolution {resolution}: no subsample can be compared ({reasons}).":
+        "При резолюция {resolution}: никоя подизвадка не може да се сравни ({reasons}).",
+    "Dissolved in most subsamples (Hennig's Jaccard ≤ 0.5 in more than half; the majority is this study's rule):":
+        "Разпаднати в повечето подизвадки (индекс на Jaccard по Hennig ≤ 0,5 в повече от половината; правилото на "
+        "мнозинството е избор на това изследване):",
+    "{k} of {n} Multi-Tag Cluster in both arms": {"one": "{k} от {n} многотагов клъстер в двата варианта",
+                                                  "other": "{k} от {n} многотагови клъстера в двата варианта"},
+    "re-selected only": "само при нов избор",
+    "at resolution only": "само при резолюцията",
+    "in both arms": "в двата варианта",
+    "Borderline (the 95% Wilson interval contains ½):": "На границата (95% интервал на Wilson съдържа ½):",
+    "Not assessable (fewer than 2 of its tags survive in every subsample):":
+        "Не може да се оцени (във всяка подизвадка оцеляват по-малко от 2 негови тага):",
+    "No Multi-Tag Cluster is dissolved in most subsamples in either arm.":
+        "В нито един вариант няма многотагов клъстер, разпаднат в повечето подизвадки.",
     "Validation of g = {g}, s = {s}": "Валидиране на g = {g}, s = {s}",
     "Validation ran for g = {g}, s = {s}, the pair chosen under the default constraints.":
         "Валидирането е за g = {g}, s = {s}: двойката, избрана при ограниченията по подразбиране.",
+    "No pair qualifies under your constraints, so this is the validation of g = {g}, s = {s}, the pair chosen under "
+    "the default constraints.":
+        "При вашите ограничения не се квалифицира нито една двойка, затова това е валидирането на g = {g}, s = {s}: "
+        "двойката, избрана при ограниченията по подразбиране.",
     "Not validated.": "Не е валидирано.",
     # The methods paragraph
     "For each Top-100 Dataset we built the Tag Network at every Threshold Pair (g, s) of the Parameter Grid, "
@@ -213,4 +241,8 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "Clusters are real either.":
         "Това измерва доколко клъстеризацията зависи от това кои игри са в набора. И то не показва, че клъстерите са "
         "реални.",
+    "The pair was chosen on the same data, so Subsample Stability may be slightly optimistic. Q played no part in the "
+    "choice, so the Null Comparison is barely affected.":
+        "Двойката е избрана върху същите данни, затова стабилността при подизвадки може да е леко оптимистична. Q не "
+        "участва в избора, така че сравнението с нулев модел почти не е засегнато.",
 }

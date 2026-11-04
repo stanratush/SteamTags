@@ -10,6 +10,7 @@ Every function takes the Interface Language's translator `tx` (`steamstudy.i18n`
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 from steamstudy.i18n import Text
@@ -36,8 +37,10 @@ NOTHING_RUN = "No results for these settings yet. Run computes them."
 NULL_CAVEAT = "This shows only that the network is not random, not that its Clusters are real."
 SUBSAMPLE_CAVEAT = ("This measures how much the clustering depends on which games are in the dataset. It does not "
                     "show that the Clusters are real either.")
+LIMITATION = ("The pair was chosen on the same data, so Subsample Stability may be slightly optimistic. Q played no "
+              "part in the choice, so the Null Comparison is barely affected.")
 SENTENCES = (NA_CAVEAT, HIGH_G_CAVEAT, DESCRIPTIVE_CAPTION, DESCRIPTIVE_HELP, DATASET_STRIP_SENTENCE, LEIDEN_ONLY,
-             NO_SELECTION_YET, NOTHING_RUN, NULL_CAVEAT, SUBSAMPLE_CAVEAT)
+             NO_SELECTION_YET, NOTHING_RUN, NULL_CAVEAT, SUBSAMPLE_CAVEAT, LIMITATION)
 
 
 def constraint_names(tx: Text) -> dict[str, str]:
@@ -191,23 +194,32 @@ def to_text(paragraphs: Sequence[Paragraph]) -> str:
 # ----------------------------------------------------------------------------- validation
 
 
+@dataclass(frozen=True)
+class Section:
+    """One part of the validation card: its title (an H5 on the card, bold in the report), its help key, the muted
+    header after the title, and its prose."""
+
+    title: str
+    help_key: str
+    header: str
+    paragraphs: list[Paragraph]
+
+
 def _degenerate(reason: str, count: int, tx: Text) -> str:
     if reason == "no_edges":
         return tx.n(count, one="{n} had no edges", other="{n} had no edges")
+    if reason == "beyond_scan":
+        return tx.n(count, one="{n} lay beyond their γ scan", other="{n} lay beyond their γ scan")
     if reason in ("no_stable_partition", "too_few_multi_tag_clusters"):
         return tx.n(count, one="{n} had no Selected Partition", other="{n} had no Selected Partition")
     return f"{count} {reason}"
-
-
-def _range(spread: Any, tx: Text, digits: int = 3) -> str:
-    return tx("{lo} to {hi}", lo=_signed(spread["min"], tx, digits), hi=_signed(spread["max"], tx, digits))
 
 
 def _signed(value: float, tx: Text, digits: int = 3) -> str:
     return tx.fixed(value, f".{digits}f").replace("-", "−")
 
 
-def _degenerate_words(reasons: dict[str, int], tx: Text) -> str:
+def _degenerate_words(reasons: Mapping[str, int], tx: Text) -> str:
     groups: dict[str, int] = {}
     for reason, count in reasons.items():
         key = "no_stable_partition" if reason == "too_few_multi_tag_clusters" else reason
@@ -215,104 +227,189 @@ def _degenerate_words(reasons: dict[str, int], tx: Text) -> str:
     return "; ".join(_degenerate(reason, count, tx) for reason, count in groups.items())
 
 
-def cluster_name(cluster: dict[str, Any], names: Any) -> str:
+def cluster_name(cluster: Mapping[str, Any], names: Any) -> str:
     """"C2 (Strategy, Tactical, …)": the label and up to three member tags."""
     members = [names.get(t, str(t)) for t in cluster["members"]]
     shown = ", ".join(members[:3]) + (", …" if len(members) > 3 else "")
     return f"{cluster['label']} ({shown})"
 
 
-def null_sentences(summary: Any, *, tx: Text) -> list[Paragraph]:
+def _q_sentence(summary: Any, tx: Text) -> str:
+    """"Q at resolution … is …;" and the Null Comparison's state over the D shuffled networks with a Q."""
     n = summary["null"]
-    r, q = n["replicates"], n["q"]
-    reach = q["reach"]
-    head = tx("Q at resolution {resolution} is {q};", resolution=tx.fixed(summary["resolution"], ".3f"),
-              q=_signed(q["observed"], tx)) + " "
-    if reach:
-        head += tx("{reach} of {r} shuffled networks reach it: Q not above the null.", reach=reach, r=r)
+    q, d, r = n["q"], n["q_defined"], n["replicates"]
+    out = tx("Q at resolution {resolution} is {q};", resolution=tx.fixed(summary["resolution"], ".3f"),
+             q=_signed(q["observed"], tx)) + " "
+    reasons = n["q_undefined_reasons"]
+    if not d:
+        if set(reasons) == {"no_edges"}:
+            return out + tx("no shuffled network has edges, so Q cannot be compared.")
+        return out + tx("no shuffled network has a Q ({reasons}), so Q cannot be compared.",
+                        reasons=_degenerate_words(reasons, tx))
+    if q["reach"]:
+        out += tx("{k} of {d} shuffled networks with a Q reach it: Q not above the null", k=q["reach"], d=d)
     else:
-        head += tx("no shuffled network reaches it ({range}).", range=_range(q, tx))
-    k, w = n["selected"], n["width"]
+        out += tx("none of the {d} shuffled networks with a Q reaches it (range over {d} shuffled networks: {lo} to "
+                  "{hi})", d=d, lo=_signed(q["min"], tx), hi=_signed(q["max"], tx))
+    return out + (f"; {_degenerate_words(reasons, tx)}." if n["q_undefined"] else ".")
+
+
+def null_section(summary: Any, pair: tuple[int, int], *, tx: Text) -> Section:
+    n = summary["null"]
+    q, r, k = n["q"], n["replicates"], n["selected"]
+    first = _q_sentence(summary, tx)
+    if q["observed_from_runs"]:
+        first += " " + tx("The runs at γ_obs found a Q of {q} on the observed network, above its Selected Partition's "
+                          "{q0}; the comparison uses {q}.", q=_signed(q["observed"], tx),
+                          q0=_signed(q["observed_selected"], tx))
+    paragraphs: list[Paragraph] = [[(first, None)]]
+    if n["weak"]:
+        paragraphs.append([("⚠ " + tx("Most shuffled networks have no Q ({u} of {r}), so this comparison is weak.",
+                                      u=n["q_undefined"], r=r), None)])
     if k:
-        side = tx("narrower") if w["median"] < w["observed"] else tx("wider")
-        values = {"k": k, "r": r, "side": side, "median": tx.fixed(w["median"], ".3g"),
-                  "observed": tx.fixed(w["observed"], ".3g")}
-        # two literal keys, not one chosen beforehand: the catalogue's parity scan reads only literals
-        head += " " + (tx("{k} of {r} also have a Selected Partition, with {side} domains (median {median} against "
-                          "{observed}; wider than all {k}).", **values) if w["wider"] == k else
-                       tx("{k} of {r} also have a Selected Partition, with {side} domains (median {median} against "
-                          "{observed}; wider than {narrower} of {k}).", narrower=w["wider"], **values))
+        m, w = n["n_multi"], n["width"]
+        values = {"n": w["wider"], "k": k, "median": tx.fixed(w["median"], ".3f"),
+                  "observed": tx.fixed(w["observed"], ".3f")}
+        width = (tx("Median domain width {median} vs observed {observed}; observed wider than {n}, equal to {t}, of "
+                    "{k}.", t=w["equal"], **values) if w["equal"] else
+                 tx("Median domain width {median} vs observed {observed}; observed wider than {n} of {k}.", **values))
+        paragraphs.append([(" ".join([
+            tx("Multi-Tag Clusters: observed {observed}, median {median} (range over {k} shuffled networks with a "
+               "Selected Partition: {lo} to {hi}).", observed=m["observed"], median=tx.fixed(m["median"], "g"), k=k,
+               lo=m["min"], hi=m["max"]),
+            width, tx("Widths are upper bounds, conditional on the partitions the γ scan finds.")]), None)])
     else:
-        head += " " + tx("None of the {r} has a Selected Partition.", r=r)
-    return [[(tx("Null Comparison"), "bold"), (" " + tx("({r} shuffled networks, same g and s).", r=r) + " " + head,
-                                               None)],
-            [(tx(NULL_CAVEAT), "italic")]]
+        paragraphs.append([(tx("None of the {r} shuffled networks has a Selected Partition.", r=r), None)])
+    paragraphs.append([(tx(NULL_CAVEAT), "italic")])
+    header = tx("({r} shuffled networks, per-pair procedure at g = {g}, s = {s})", r=r, g=pair[0], s=pair[1])
+    return Section(tx("Null Comparison"), "selection.null", header, paragraphs)
 
 
-def _ari_spread(ari: dict[str, Any], tx: Text) -> str:
-    return tx("median ARI {median} ({p10}–{p90})", median=tx.fixed(ari["median"], ".2f"),
-              p10=tx.fixed(ari["p10"], ".2f"), p90=tx.fixed(ari["p90"], ".2f"))
+def _ari(ari: Mapping[str, Any], tx: Text) -> dict[str, str]:
+    """ARI can be negative: its ranges are always "from … to", never a compact dash."""
+    return {"median": _signed(ari["median"], tx, 2), "p10": _signed(ari["p10"], tx, 2),
+            "p90": _signed(ari["p90"], tx, 2)}
 
 
-def subsample_sentences(summary: Any, names: Any, *, tx: Text) -> list[Paragraph]:
+def _arm_groups(sub: Mapping[str, Any], key: str, value: bool, names: Any, tx: Text) -> list[tuple[str | None, list]]:
+    """The Clusters with `key` == `value` in both arms, re-selected only and at resolution only, in Cluster order;
+    empty groups left out. Each group: its words (None for "both arms") and its Clusters."""
+    re_ = [c for c in sub["reselected"]["clusters"] if c[key] is value]
+    at = {c["label"] for c in sub["at_resolution"]["clusters"] if c[key] is value}
+    re_labels = {c["label"] for c in re_}
+    at_clusters = [c for c in sub["at_resolution"]["clusters"] if c["label"] in at]
+    groups = [(None, [c for c in re_ if c["label"] in at]),
+              (tx("re-selected only"), [c for c in re_ if c["label"] not in at]),
+              (tx("at resolution only"), [c for c in at_clusters if c["label"] not in re_labels])]
+    return [(words, clusters) for words, clusters in groups if clusters]
+
+
+def _lead(lead: str) -> list[Span]:
+    """A list's lead: bold up to its first " (", the parenthesis plain."""
+    cut = lead.find(" (")
+    return [(lead, "bold")] if cut < 0 else [(lead[:cut], "bold"), (lead[cut:], None)]
+
+
+def _grouped(lead: str, groups: list[tuple[str | None, list]], both: str, names: Any) -> Paragraph:
+    spans: Paragraph = _lead(lead)
+    for i, (words, clusters) in enumerate(groups):
+        spans.append((("; " if i else " ") + (both if words is None else words) + ": ", None))
+        for j, c in enumerate(clusters):
+            spans.append((cluster_name(c, names), "italic"))
+            if j < len(clusters) - 1:
+                spans.append((", ", None))
+    spans.append((".", None))
+    return spans
+
+
+def subsample_section(summary: Any, names: Any, *, tx: Text) -> Section:
     sub = summary["subsample"]
     total = sub["subsamples"]
     re_, at = sub["reselected"], sub["at_resolution"]
-    text = " " + tx("({total} random 80% subsets of the games, g′ = {g}, s′ = {s}).", total=total, g=sub["g"],
-                    s=sub["s"]) + " "
     if re_["ari"]["median"] is None:
-        text += tx("Re-selected: no subsample has a Selected Partition ({reasons}).",
-                   reasons=_degenerate_words(re_["reasons"], tx))
+        text = tx("Re-selected: no subsample has a Selected Partition ({reasons}).",
+                  reasons=_degenerate_words(re_["reasons"], tx))
     else:
-        text += tx("Re-selected: {ari} over {n} of {total} subsamples", ari=_ari_spread(re_["ari"], tx),
-                   n=total - re_["degenerate"], total=total)
+        share = re_["edged_share_mean"]
+        text = tx("Re-selected: median ARI {median} (10th–90th percentile: {p10} to {p90}) over {n} of {total} "
+                  "subsamples, on {share} of the tags", n=total - re_["degenerate"], total=total,
+                  share=tx.num(None) if share is None else tx.pct(share, 0), **_ari(re_["ari"], tx))
         text += f"; {_degenerate_words(re_['reasons'], tx)}." if re_["degenerate"] else "."
-    gamma = tx.fixed(summary["resolution"], ".3f")
+    resolution = tx.fixed(summary["resolution"], ".3f")
     if at["ari"]["median"] is not None:
-        text += " " + tx("At resolution {gamma}: {ari}", gamma=gamma, ari=_ari_spread(at["ari"], tx))
+        text += " " + tx("At resolution {resolution}: median ARI {median} (10th–90th percentile: {p10} to {p90})",
+                         resolution=resolution, **_ari(at["ari"], tx))
         text += f"; {_degenerate_words(at['reasons'], tx)}." if at["degenerate"] else "."
+    elif at["degenerate"]:
+        text += " " + tx("At resolution {resolution}: no subsample can be compared ({reasons}).",
+                         resolution=resolution, reasons=_degenerate_words(at["reasons"], tx))
+    paragraphs: list[Paragraph] = [[(text, None)]]
     n_clusters = len(re_["clusters"])
-    spans: Paragraph = [(tx("Subsample Stability"), "bold"), (text, None)]
-    any_dissolved = False
-    for arm in ("reselected", "at_resolution"):
-        gone = [c for c in sub[arm]["clusters"] if c["dissolved_in_most"]]
-        if gone:
-            any_dissolved = True
-            if arm == "reselected":
-                lead = tx.n(len(gone), one="{n} of {total} Multi-Tag Clusters is dissolved when re-selected (mean "
-                                           "Jaccard ≤ 0.5):",
-                            other="{n} of {total} Multi-Tag Clusters are dissolved when re-selected (mean Jaccard "
-                                  "≤ 0.5):", total=n_clusters)
-            else:
-                lead = tx.n(len(gone), one="{n} of {total} Multi-Tag Clusters is dissolved at resolution {gamma} "
-                                           "(mean Jaccard ≤ 0.5):",
-                            other="{n} of {total} Multi-Tag Clusters are dissolved at resolution {gamma} (mean "
-                                  "Jaccard ≤ 0.5):", total=n_clusters, gamma=gamma)
-            spans.append((f" {lead} ", None))
-            for i, c in enumerate(gone):
-                spans.append((cluster_name(c, names), "italic"))
-                spans.append((", " if i < len(gone) - 1 else ".", None))
-    if not any_dissolved:
-        spans.append((" " + tx("No Multi-Tag Cluster is dissolved (mean Jaccard ≤ 0.5) in either arm."), None))
-    return [spans, [(tx(SUBSAMPLE_CAVEAT), "italic")]]
+    both = tx("in both arms")
+    dissolved = _arm_groups(sub, "dissolved_in_most", True, names, tx)
+    if dissolved:
+        words, first = dissolved[0]
+        if words is None:  # "k of N Multi-Tag Clusters in both arms"
+            dissolved[0] = (tx.n(n_clusters, one="{k} of {n} Multi-Tag Cluster in both arms",
+                                 other="{k} of {n} Multi-Tag Clusters in both arms", k=len(first)), first)
+        paragraphs.append(_grouped(tx("Dissolved in most subsamples (Hennig's Jaccard ≤ 0.5 in more than half; the "
+                                      "majority is this study's rule):"), dissolved, both, names))
+    borderline = _arm_groups(sub, "borderline", True, names, tx)
+    if borderline:
+        paragraphs.append(_grouped(tx("Borderline (the 95% Wilson interval contains ½):"), borderline, both, names))
+    unassessable = _arm_groups(sub, "assessable", False, names, tx)
+    if unassessable:
+        paragraphs.append(_grouped(tx("Not assessable (fewer than 2 of its tags survive in every subsample):"),
+                                   unassessable, both, names))
+    if not dissolved and not unassessable:
+        paragraphs.append([(tx("No Multi-Tag Cluster is dissolved in most subsamples in either arm."), None)])
+    header = tx("({total} random 80% subsets of the games, g′ = {g}, s′ = {s}).", total=total, g=sub["g"], s=sub["s"])
+    return Section(tx("Subsample Stability"), "selection.subsample", header, paragraphs)
+
+
+def closing(*, tx: Text) -> list[Paragraph]:
+    """The card's last lines: what Subsample Stability does not show, and the selection effect."""
+    return [[(tx(SUBSAMPLE_CAVEAT), "italic")], [(tx(LIMITATION), "italic")]]
+
+
+def section_paragraphs(section: Section) -> list[Paragraph]:
+    """A section as report paragraphs: its title in bold before its header, then its prose."""
+    return [[(section.title, "bold"), (" " + section.header, None)], *section.paragraphs]
 
 
 def validation_title(pair: tuple[int, int], *, tx: Text) -> str:
     return tx("Validation of g = {g}, s = {s}", g=pair[0], s=pair[1])
 
 
+def constraints_note(pair: tuple[int, int], chosen_pair: tuple[int, int] | None, ran_for_default: bool, *,
+                     tx: Text) -> tuple[str, bool] | None:
+    """The note under the title when custom constraints are in force: (text, is a warning), or None. `chosen_pair`
+    None means no pair qualifies under the custom constraints."""
+    if ran_for_default:
+        return None
+    if chosen_pair is None:
+        return (tx("No pair qualifies under your constraints, so this is the validation of g = {g}, s = {s}, the pair "
+                   "chosen under the default constraints.", g=pair[0], s=pair[1]), True)
+    if chosen_pair != pair:
+        return (tx("Validation ran for g = {g}, s = {s}, the pair chosen under the default constraints.", g=pair[0],
+                   s=pair[1]), False)
+    return None
+
+
 def validation_block(summary: Any, pair: tuple[int, int], chosen_pair: tuple[int, int] | None, ran_for_default: bool,
                      names: Any = None, *, tx: Text) -> list[Paragraph]:
-    """The validation card. `summary` None: "Not validated". `ran_for_default` False when custom constraints chose
-    `chosen_pair` and the shown validation is the default-constraint pair's."""
+    """The validation card as report paragraphs. `summary` None: "Not validated". `ran_for_default` False when
+    custom constraints are in force; then `chosen_pair` is their pair (None: none qualifies) and the shown
+    validation is the default-constraint pair's."""
     names = names or {}
     out: list[Paragraph] = [[(validation_title(pair, tx=tx), "bold")]]
-    if not ran_for_default and chosen_pair is not None and chosen_pair != pair:
-        out.append([(tx("Validation ran for g = {g}, s = {s}, the pair chosen under the default constraints.",
-                        g=pair[0], s=pair[1]), None)])
+    note = constraints_note(pair, chosen_pair, ran_for_default, tx=tx)
+    if note is not None:
+        out.append([(("⚠ " if note[1] else "") + note[0], None)])
     if summary is None:
         return out + [[(tx("Not validated."), None)]]
-    return out + null_sentences(summary, tx=tx) + subsample_sentences(summary, names, tx=tx)
+    return (out + section_paragraphs(null_section(summary, pair, tx=tx))
+            + section_paragraphs(subsample_section(summary, names, tx=tx)) + closing(tx=tx))
 
 
 # ----------------------------------------------------------------------------- the methods paragraph

@@ -20,13 +20,25 @@ Its Neighbour Agreement is 1.00 over 2 neighbours with a different graph. 1 more
 
 **Validation of g = 15, s = 3**
 
-**Null Comparison** (2 shuffled networks, same g and s). Q at resolution 1.385 is 0.163; no shuffled network reaches it (−0.050 to −0.047). 1 of 2 also have a Selected Partition, with narrower domains (median 0.0807 against 1.43; wider than all 1).
+**Null Comparison** (2 shuffled networks, per-pair procedure at g = 15, s = 3)
+
+Q at resolution 1.385 is 0.163; none of the 2 shuffled networks with a Q reaches it (range over 2 shuffled networks: −0.050 to −0.047).
+
+Multi-Tag Clusters: observed 4, median 3 (range over 1 shuffled networks with a Selected Partition: 3 to 3). Median domain width 0.081 vs observed 1.426; observed wider than 1 of 1. Widths are upper bounds, conditional on the partitions the γ scan finds.
 
 *This shows only that the network is not random, not that its Clusters are real.*
 
-**Subsample Stability** (2 random 80% subsets of the games, g′ = 12, s′ = 2). Re-selected: median ARI 1.00 (1.00–1.00) over 2 of 2 subsamples. At resolution 1.385: median ARI 1.00 (1.00–1.00). No Multi-Tag Cluster is dissolved (mean Jaccard ≤ 0.5) in either arm.
+**Subsample Stability** (2 random 80% subsets of the games, g′ = 12, s′ = 2).
+
+Re-selected: median ARI 1.00 (10th–90th percentile: 1.00 to 1.00) over 2 of 2 subsamples, on 100% of the tags. At resolution 1.385: median ARI 1.00 (10th–90th percentile: 1.00 to 1.00).
+
+**Borderline** (the 95% Wilson interval contains ½): in both arms: *C1 (tag 5000, tag 5001, tag 5002, …)*, *C2 (tag 5010, tag 5011, tag 5012, …)*, *C3 (tag 5020, tag 5021, tag 5022, …)*, *C4 (tag 5030, tag 5031, tag 5032, …)*.
+
+No Multi-Tag Cluster is dissolved in most subsamples in either arm.
 
 *This measures how much the clustering depends on which games are in the dataset. It does not show that the Clusters are real either.*
+
+*The pair was chosen on the same data, so Subsample Stability may be slightly optimistic. Q played no part in the choice, so the Null Comparison is barely affected.*
 
 ## Puzzle
 
