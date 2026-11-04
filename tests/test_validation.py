@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import statistics
 from collections import Counter
 
 import pytest
@@ -81,7 +82,8 @@ def test_hennig_jaccard_on_the_comparison_set():
     assert got["retention"] == [1.0, 1.0, 0.0]
     summary = V._arm_summary(obs, [{"arms": {"x": {"degenerate": None, **got}}}], "x")
     c3 = summary["clusters"][2]
-    assert (c3["mean_jaccard"], c3["absent"], c3["present"], c3["dissolved"]) == (None, 1, 0, False)
+    assert (c3["mean_jaccard"], c3["absent"], c3["assessable_subsamples"]) == (None, 1, 0)
+    assert (c3["assessable"], c3["dissolved_in_most"], c3["borderline"]) == (False, False, False)  # Not assessable
     assert [c["label"] for c in summary["clusters"]] == ["C1", "C2", "C3"]
 
 
@@ -100,18 +102,154 @@ def test_the_whole_cluster_jaccard_counts_lost_tags():
 
 def test_degenerate_subsamples_are_counted_never_scored_zero():
     obs = _observed([[1, 2]], [1, 2, 3], [0, 0, 1])
-    good = {"degenerate": None, "ari": 0.4, "jaccard": [0.4], "retention": [1.0], "edged_share": 1.0,
-            "resolution": 1.0, "n_multi": 1}
-    bad = {"degenerate": "no_stable_partition", "ari": None, "jaccard": [None], "retention": [None],
-           "edged_share": None, "resolution": None, "n_multi": None}
+    good = {"degenerate": None, "ari": 0.4, "jaccard": [0.4], "whole_jaccard": [0.4], "survivors": [2],
+            "retention": [1.0], "edged_share": 1.0, "resolution": 1.0, "n_multi": 1}
+    bad = {"degenerate": "no_stable_partition", "ari": None, "jaccard": [None], "whole_jaccard": [None],
+           "survivors": [None], "retention": [None], "edged_share": None, "resolution": None, "n_multi": None}
     records = [{"kind": "subsample", "index": i, "seed": i, "m": 8, "g": 2, "s": 2, "n_edges": 1, "scan_length": 1,
                 "capped_runs": 0, "arms": {"reselected": arm, "at_resolution": good}}
                for i, arm in enumerate([good, bad, bad], start=1)]
     summary = V.summarise(obs, records)
     re_ = summary["subsample"]["reselected"]
     assert (re_["degenerate"], re_["reasons"], re_["ari"]["median"]) == (2, {"no_stable_partition": 2}, 0.4)
-    assert re_["clusters"][0]["mean_jaccard"] == 0.4 and re_["clusters"][0]["dissolved"]
-    assert summary["verdicts"]["dissolved"] == {"reselected": ["C1"], "at_resolution": ["C1"]}
+    assert re_["clusters"][0]["mean_jaccard"] == 0.4 and re_["clusters"][0]["dissolved_in_most"]
+    assert summary["verdicts"]["dissolved_in_most"] == {"reselected": ["C1"], "at_resolution": ["C1"]}
+
+
+# ----------------------------------------------------------------------------- summarise on synthetic records
+
+
+def _null(i, q=None, q_reason=None, width=None, n_multi=None):
+    return {"kind": "null", "index": i, "seed": i, "n_edges": 0 if q_reason == "no_edges" else 5, "scan_length": 1,
+            "capped_runs": 0, "reason": "no_edges" if q_reason == "no_edges" else (
+                None if width is not None else "no_stable_partition"), "selected": width is not None,
+            "width": width, "resolution": None if width is None else 1.0, "n_multi": n_multi, "q_envelope": q,
+            "q_fixed": q, "q_reason": q_reason, "perturbation_share": 0.6}
+
+
+def _arm(jaccard, survivors, whole, degenerate=None):
+    return {"degenerate": degenerate, "ari": None if degenerate else 0.5, "jaccard": jaccard, "whole_jaccard": whole,
+            "survivors": survivors, "retention": [None if s is None else s / 4 for s in survivors],
+            "edged_share": None if degenerate else 1.0, "resolution": None if degenerate else 1.0,
+            "n_multi": None if degenerate else 2}
+
+
+def _sub(i, jaccard, survivors=None, whole=None, degenerate=None):
+    survivors = survivors or [None if j is None else 4 for j in jaccard]
+    whole = whole or [j if j is not None else 0.0 for j in jaccard]
+    arm = _arm(jaccard, survivors, whole, degenerate)
+    return {"kind": "subsample", "index": i, "seed": i, "m": 8, "g": 2, "s": 2, "n_edges": 5, "scan_length": 1,
+            "capped_runs": 0, "arms": {"reselected": arm, "at_resolution": arm}}
+
+
+def _one_cluster():
+    return _observed([[1, 2, 3, 4]], [1, 2, 3, 4, 5], [0, 0, 0, 0, 1])  # q 0.3, width 0.5, 1 Multi-Tag Cluster
+
+
+def _cluster(records, arm="reselected"):
+    return V.summarise(_one_cluster(), records)["subsample"][arm]["clusters"][0]
+
+
+def test_zero_defined_null_q_is_undefined_not_an_error():
+    summary = V.summarise(_one_cluster(), [_null(i, q_reason="no_edges") for i in range(1, 5)])
+    null = summary["null"]
+    assert summary["verdicts"]["null_q"] == "undefined"
+    assert (null["q_defined"], null["q_undefined"], null["q_undefined_reasons"]) == (0, 4, {"no_edges": 4})
+    assert null["q"]["reach"] == 0 and null["q"]["median"] is None and null["weak"]
+
+
+def test_partly_defined_null_q_counts_over_the_defined_ones():
+    nulls = ([_null(i, q=0.1) for i in range(1, 4)] + [_null(4, q=0.35)]
+             + [_null(i, q_reason="no_edges") for i in range(5, 9)] + [_null(9, q_reason="beyond_scan")])
+    null = V.summarise(_one_cluster(), nulls)["null"]
+    assert (null["replicates"], null["q_defined"], null["q_undefined"]) == (9, 4, 5)
+    assert null["q_undefined_reasons"] == {"beyond_scan": 1, "no_edges": 4}
+    assert null["q"]["reach"] == 1 and null["weak"]  # D = 4 < R/2 = 4.5
+    summary = V.summarise(_one_cluster(), nulls)
+    assert summary["verdicts"]["null_q"] == "reached"
+    above = V.summarise(_one_cluster(), [_null(i, q=0.1) for i in range(1, 4)] + [_null(4, q_reason="no_edges")])
+    assert above["verdicts"]["null_q"] == "above_all_defined" and not above["null"]["weak"]  # D = 3 ≥ R/2 = 2
+
+
+def test_the_observed_runs_beating_the_selected_q_are_what_the_nulls_are_compared_with():
+    nulls = [_null(1, q=0.305), _null(2, q=0.1)]
+    plain = V.summarise(_one_cluster(), nulls)
+    assert (plain["null"]["q"]["observed"], plain["null"]["q"]["observed_from_runs"], plain["null"]["q"]["reach"]) == (
+        0.3, False, 1)
+    runs = V.summarise(_one_cluster(), nulls, {"q_selected": 0.3, "q_runs": 0.31})
+    q = runs["null"]["q"]
+    assert (q["observed_selected"], q["observed"], q["observed_from_runs"], q["reach"]) == (0.3, 0.31, True, 0)
+    same = V.summarise(_one_cluster(), nulls, {"q_selected": 0.3, "q_runs": 0.3})["null"]["q"]
+    assert (same["observed"], same["observed_from_runs"]) == (0.3, False)
+
+
+def test_width_ties_are_counted_apart_and_multi_tag_clusters_spread_over_the_same_nulls():
+    nulls = [_null(1, q=0.1, width=0.2, n_multi=3), _null(2, q=0.1, width=0.5, n_multi=5),
+             _null(3, q=0.1, width=0.7, n_multi=4), _null(4, q=0.1)]
+    null = V.summarise(_one_cluster(), nulls)["null"]
+    assert (null["selected"], null["width"]["wider"], null["width"]["equal"]) == (3, 1, 1)
+    assert null["width"]["median"] == 0.5 and "narrower" not in null["width"]
+    assert null["n_multi"] == {"observed": 1, "median": 4, "min": 3, "max": 5}
+
+
+def test_a_wholly_absent_cluster_is_not_assessable():
+    c = _cluster([_sub(i, [None], survivors=[0], whole=[0.0]) for i in range(1, 5)])
+    assert (c["assessable_subsamples"], c["absent"], c["assessable"]) == (0, 4, False)
+    assert (c["dissolved_in_most"], c["borderline"], c["mean_jaccard"], c["dissolution_frequency"]) == (
+        False, False, None, None)
+    assert c["mean_whole_cluster_jaccard"] == 0.0
+    summary = V.summarise(_one_cluster(), [_sub(i, [None], survivors=[0], whole=[0.0]) for i in range(1, 5)])
+    assert summary["verdicts"]["not_assessable"]["reselected"] == ["C1"]
+
+
+def test_single_tag_survival_is_unscored_by_hennig_and_scored_by_the_whole_cluster_jaccard():
+    records = [_sub(1, [0.8], survivors=[4], whole=[0.8]), _sub(2, [None], survivors=[1], whole=[0.25]),
+               _sub(3, [None], survivors=[1], whole=[0.25])]
+    c = _cluster(records)
+    assert (c["assessable_subsamples"], c["one_tag_left"], c["absent"]) == (1, 2, 0)
+    assert c["mean_jaccard"] == 0.8 and c["mean_jaccard_se"] is None  # B* < 2
+    assert c["mean_whole_cluster_jaccard"] == pytest.approx(1.3 / 3)
+    assert c["whole_cluster_jaccard_se"] == pytest.approx(statistics.stdev([0.8, 0.25, 0.25]) / 3 ** 0.5)
+    assert c["rarely_assessable"]  # B* = 1 < S/2 = 1.5
+
+
+def test_a_low_b_star_cluster_is_rarely_assessable():
+    records = [_sub(1, [0.9]), _sub(2, [0.9])] + [_sub(i, [None], survivors=[0], whole=[0.0]) for i in range(3, 7)]
+    c = _cluster(records)
+    assert (c["assessable_subsamples"], c["rarely_assessable"], c["assessable"]) == (2, True, True)
+    enough = _cluster([_sub(1, [0.9]), _sub(2, [0.9]), _sub(3, [None], survivors=[0], whole=[0.0])])
+    assert not enough["rarely_assessable"]
+
+
+def test_exactly_half_dissolved_is_not_labelled():
+    c = _cluster([_sub(1, [0.4]), _sub(2, [0.5]), _sub(3, [0.8]), _sub(4, [0.9])])
+    assert (c["at_most_half"], c["assessable_subsamples"], c["dissolution_frequency"]) == (2, 4, 0.5)
+    assert not c["dissolved_in_most"] and c["borderline"]
+    more = _cluster([_sub(1, [0.4]), _sub(2, [0.5]), _sub(3, [0.3]), _sub(4, [0.9])])
+    assert more["dissolved_in_most"]
+
+
+def test_borderline_is_a_wilson_interval_containing_a_half():
+    # 6 of 10: the Wilson interval is 31–83%, so the label holds but the Cluster is borderline.
+    six = _cluster([_sub(i, [0.3 if i <= 6 else 0.9]) for i in range(1, 11)])
+    assert six["dissolved_in_most"] and six["borderline"]
+    assert (six["wilson_low"], six["wilson_high"]) == (pytest.approx(0.3127, abs=1e-4), pytest.approx(0.8318, abs=1e-4))
+    # 19 of 20: 76–99%, labelled and not borderline.
+    many = _cluster([_sub(i, [0.3 if i <= 19 else 0.9]) for i in range(1, 21)])
+    assert many["dissolved_in_most"] and not many["borderline"]
+    assert many["wilson_low"] > 0.5
+
+
+def test_hennig_figures_recovery_and_spreads():
+    values = [0.2, 0.4, 0.6, 0.8, 0.9, 1.0]
+    c = _cluster([_sub(i, [v]) for i, v in enumerate(values, start=1)])
+    assert c["size"] == 4
+    assert c["mean_jaccard"] == pytest.approx(statistics.fmean(values))
+    assert c["mean_jaccard_se"] == pytest.approx(statistics.stdev(values) / 6 ** 0.5)
+    assert (c["jaccard_p10"], c["jaccard_p90"]) == (pytest.approx(0.3), pytest.approx(0.95))
+    assert (c["at_most_half"], c["recovered"], c["recovery_frequency"]) == (2, 3, 0.5)
+    assert c["recovery_wilson_low"] < 0.5 < c["recovery_wilson_high"]
+    assert (c["whole_cluster_p10"], c["whole_cluster_p90"]) == (pytest.approx(0.3), pytest.approx(0.95))
 
 
 def test_the_envelope_is_read_inside_the_scan_and_never_extrapolated(observed):
@@ -198,8 +336,8 @@ def test_a_stopped_validation_returns_nothing(tasks):
 
 def _summary(reach=0, dissolved=False, degenerate=1):
     cluster = {"label": "C2", "members": [1, 2, 3, 4], "mean_jaccard": 0.4 if dissolved else 0.8, "at_most_half": 3,
-               "present": 99, "mean_retention": 1.0, "absent": 0, "dissolved": dissolved}
-    others = [dict(cluster, label=f"C{i}", dissolved=False, mean_jaccard=0.9) for i in (1, 3, 4)]
+               "assessable_subsamples": 99, "mean_retention": 1.0, "absent": 0, "dissolved_in_most": dissolved}
+    others = [dict(cluster, label=f"C{i}", dissolved_in_most=False, mean_jaccard=0.9) for i in (1, 3, 4)]
     arm = lambda ari, clusters, deg: {  # noqa: E731
         "n": 100, "degenerate": deg, "reasons": {"no_stable_partition": deg} if deg else {},
         "ari": {"median": ari, "p10": ari - 0.12, "p90": min(1.0, ari + 0.17), "min": 0.2}, "clusters": clusters,
@@ -207,11 +345,11 @@ def _summary(reach=0, dissolved=False, degenerate=1):
     return {
         "resolution": 1.151,
         "null": {"replicates": 100, "selected": 79, "reasons": {},
-                 "width": {"observed": 0.158, "median": 0.03, "min": 0.01, "max": 0.1, "narrower": 79},
+                 "width": {"observed": 0.158, "median": 0.03, "min": 0.01, "max": 0.1, "wider": 79},
                  "q": {"observed": 0.067, "median": -0.015, "min": -0.021, "max": -0.012, "reach": reach}},
         "subsample": {"subsamples": 100, "m": 80, "g": 13, "s": 2,
                       "reselected": arm(0.69, [others[0], cluster, *others[1:]], degenerate),
-                      "at_resolution": arm(0.86, [others[0], dict(cluster, dissolved=False), *others[1:]], 0)},
+                      "at_resolution": arm(0.86, [others[0], dict(cluster, dissolved_in_most=False), *others[1:]], 0)},
     }
 
 

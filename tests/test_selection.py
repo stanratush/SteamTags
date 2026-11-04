@@ -66,7 +66,7 @@ def test_keys(defaults, ctx):
     assert "gamma_step" in defaults.settings_key() and "dataset" not in defaults.settings_key()
     v = defaults.validation_key("puzzle", puzzle, 14, 2)
     assert (v["g"], v["s"], v["validation_method_version"], v["trades_per_game"], v["subsample_fraction"]) == (
-        14, 2, "ps-validation-1", 10, 0.8)
+        14, 2, "ps-validation-2", 10, 0.8)
     assert v["grid_key"] == defaults.grid_key("puzzle", puzzle)
 
 

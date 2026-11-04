@@ -622,10 +622,10 @@ def cluster_table(summary: Mapping[str, Any], names: Mapping[int, str], *, tx: T
     for arm, label in (("reselected", tx("re-selected")), ("at_resolution", tx("at resolution"))):
         for c in summary["subsample"][arm]["clusters"]:
             rows.append(html.Tr([html.Td(label), html.Td(T.cluster_name(c, names)), html.Td(tx.num(c["mean_jaccard"])),
-                                 html.Td(tx("{n} of {total}", n=c["at_most_half"], total=c["present"])),
+                                 html.Td(tx("{n} of {total}", n=c["at_most_half"], total=c["assessable_subsamples"])),
                                  html.Td(tx.num(c["mean_retention"])), html.Td(str(c["absent"])),
                                  html.Td(_term(tx("Dissolved"), "selection.verdict.dissolved", tx)
-                                         if c["dissolved"] else "")]))
+                                         if c["dissolved_in_most"] else "")]))
     return html.Table(rows, className="ps-table")
 
 
@@ -794,9 +794,9 @@ def inspector(view: DatasetView, pair: tuple[int, int] | None, validation: Mappi
         v = validation["summary"]
         reselected = v["subsample"]["reselected"]["ari"]["median"]
         compact = [html.Span(_term(tx("Q not above the null"), "selection.verdict.q_not_above_null", tx)
-                             if v["verdicts"]["q_not_above_null"] else tx("Q above all null replicates"),
+                             if v["verdicts"]["null_q"] == "reached" else tx("Q above all null replicates"),
                              className="ps-badge"),
-                   html.Span(tx("Dissolved: {n}", n=len(v["verdicts"]["dissolved"]["reselected"])),
+                   html.Span(tx("Dissolved: {n}", n=len(v["verdicts"]["dissolved_in_most"]["reselected"])),
                              className="ps-badge"),
                    html.Span(" " + tx("median ARI re-selected {reselected}, at resolution {at}",
                                       reselected=tx.num(reselected),

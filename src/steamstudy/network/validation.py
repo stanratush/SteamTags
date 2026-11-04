@@ -1,14 +1,21 @@
 """Validation of one Threshold Pair: the Null Comparison and Subsample Stability.
 
-Each replicate runs the whole per-pair procedure (its own γ scan, CHAMP, γ̂ and the Selected Partition rule) plus a
-second arm at the observed Selected Resolution, read from the replicate's own CHAMP envelope. A consistent null is
-analysed identically [Karrer, Levina & Newman 2008]; Cluster-wise stability is Hennig's Jaccard [Hennig 2007 §2].
-The only verdicts are "Dissolved" (mean Jaccard ≤ 0.5) and "Q not above the null". Never mixed with the Seed-Noise
-Floor or Neighbour Agreement.
+The scope is the per-pair procedure at the same Threshold Pair (its own γ scan, CHAMP, γ̂ and the Selected Partition
+rule), not the Parameter Grid or the choice of pair. Each replicate runs that whole procedure, plus a second arm at the
+observed Selected Resolution γ_obs: the best of the replicate's own CHAMP envelope at γ_obs (never past its scan end)
+and Leiden runs at exactly γ_obs with the scan seeds, which feed nothing else. A consistent null is analysed
+identically [Karrer, Levina & Newman 2008].
+
+Cluster-wise stability is Hennig's Jaccard [Hennig 2007 §2] on the tags that survive in a subsample, beside a
+Whole-Cluster Jaccard that counts lost tags. Hennig's 0.5 applies per subsample; calling a Cluster "Dissolved in most
+subsamples" when that holds in more than half of the B* assessable subsamples is this study's rule, not Hennig's. The
+verdicts are that label (with Not assessable and borderline) and the Null Comparison's three states. The summary is
+always derived from the stored records. Never mixed with the Seed-Noise Floor or Neighbour Agreement.
 """
 
 from __future__ import annotations
 
+import math
 import random
 import statistics
 from collections import Counter
@@ -36,7 +43,9 @@ from steamstudy.network.selection import (
 from steamstudy.network.stability import TRADES_PER_GAME, curveball
 
 METHOD_VERSION = VALIDATION_METHOD_VERSION
-DISSOLVED = 0.5  # Hennig 2007 §2: mean Jaccard ≤ 0.5 = dissolved
+DISSOLVED = 0.5  # Hennig 2007 §2: J ≤ 0.5 in one subsample means the Cluster dissolved there (per subsample, not a mean)
+RECOVERED = 0.75  # Hennig 2007 §2's own example of good recovery in one subsample ("say")
+WILSON_Z = 1.96  # 95% Wilson intervals for the frequencies
 ARMS = ("reselected", "at_resolution")
 
 
@@ -331,71 +340,149 @@ def _spread(values: list[float]) -> dict[str, float | None]:
     return {"median": statistics.median(values), "min": min(values), "max": max(values)}
 
 
+def _se(values: list[float]) -> float | None:
+    """The Monte Carlo standard error of a mean, sd/√n (None under two values)."""
+    return statistics.stdev(values) / math.sqrt(len(values)) if len(values) >= 2 else None
+
+
+def _pct(values: list[float], q: float) -> float | None:
+    return float(np.percentile(values, q)) if values else None
+
+
+def wilson(k: int, n: int, z: float = WILSON_Z) -> tuple[float | None, float | None]:
+    """The Wilson score interval of k of n [Wilson 1927]; (None, None) when n = 0."""
+    if n == 0:
+        return None, None
+    p = k / n
+    denominator = 1 + z * z / n
+    centre = (p + z * z / (2 * n)) / denominator
+    half = z / denominator * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))
+    return max(0.0, centre - half), min(1.0, centre + half)
+
+
+def _cluster_summary(label: str, members: list[int], good: list[dict[str, Any]], i: int) -> dict[str, Any]:
+    """One Multi-Tag Cluster in one arm, over the S non-degenerate subsamples `good`."""
+    survivors = [x["survivors"][i] for x in good]
+    hennig = [x["jaccard"][i] for x in good if x["jaccard"][i] is not None]  # the B* subsamples with |C′| ≥ 2
+    whole = [x["whole_jaccard"][i] for x in good]
+    b = len(hennig)
+    dissolved = sum(v <= DISSOLVED for v in hennig)
+    recovered = sum(v > RECOVERED for v in hennig)
+    low, high = wilson(dissolved, b)
+    r_low, r_high = wilson(recovered, b)
+    return {
+        "label": label, "members": members, "size": len(members), "assessable_subsamples": b,
+        "one_tag_left": sum(s == 1 for s in survivors), "absent": sum(s == 0 for s in survivors),
+        "mean_retention": statistics.fmean(x["retention"][i] for x in good) if good else None,
+        "mean_jaccard": statistics.fmean(hennig) if hennig else None, "mean_jaccard_se": _se(hennig),
+        "jaccard_p10": _pct(hennig, 10), "jaccard_p90": _pct(hennig, 90),
+        "at_most_half": dissolved, "dissolution_frequency": dissolved / b if b else None,
+        "wilson_low": low, "wilson_high": high,
+        "recovered": recovered, "recovery_frequency": recovered / b if b else None,
+        "recovery_wilson_low": r_low, "recovery_wilson_high": r_high,
+        "mean_whole_cluster_jaccard": statistics.fmean(whole) if whole else None,
+        "whole_cluster_jaccard_se": _se(whole), "whole_cluster_p10": _pct(whole, 10),
+        "whole_cluster_p90": _pct(whole, 90),
+        # Statuses: Not assessable, then Dissolved in most subsamples (a strict majority of B*, on the point
+        # estimate; exactly half is not labelled), and borderline (the Wilson interval contains ½, labelled or not).
+        "assessable": b > 0, "dissolved_in_most": 2 * dissolved > b,
+        "borderline": b > 0 and low is not None and high is not None and low <= 0.5 <= high,
+        "rarely_assessable": 2 * b < len(good),  # a flag, not a status: B* < S/2
+    }
+
+
 def _arm_summary(obs: Observed, records: list[dict[str, Any]], arm: str) -> dict[str, Any]:
     rows = [r["arms"][arm] for r in records]
     good = [x for x in rows if x["degenerate"] is None]
     aris = [x["ari"] for x in good if x["ari"] is not None]
-    clusters = []
-    for i, (label, members) in enumerate(zip(obs.labels, obs.clusters)):
-        values = [x["jaccard"][i] for x in good if x["jaccard"][i] is not None]
-        mean = statistics.fmean(values) if values else None
-        clusters.append({
-            "label": label, "members": members, "mean_jaccard": mean,
-            "at_most_half": sum(v <= DISSOLVED for v in values), "present": len(values),
-            "mean_retention": statistics.fmean(x["retention"][i] for x in good) if good else None,
-            "absent": len(good) - len(values), "dissolved": mean is not None and mean <= DISSOLVED,
-        })
+    clusters = [_cluster_summary(label, members, good, i)
+                for i, (label, members) in enumerate(zip(obs.labels, obs.clusters))]
     shares = [x["edged_share"] for x in good if x["edged_share"] is not None]
     out: dict[str, Any] = {
         "n": len(rows), "degenerate": len(rows) - len(good),
         "reasons": dict(sorted(Counter(x["degenerate"] for x in rows if x["degenerate"] is not None).items())),
-        "ari": {"median": statistics.median(aris) if aris else None,
-                "p10": float(np.percentile(aris, 10)) if aris else None,
-                "p90": float(np.percentile(aris, 90)) if aris else None, "min": min(aris) if aris else None},
+        "ari": {"median": statistics.median(aris) if aris else None, "p10": _pct(aris, 10), "p90": _pct(aris, 90),
+                "min": min(aris) if aris else None},
         "clusters": clusters, "edged_share_mean": statistics.fmean(shares) if shares else None,
     }
     if arm == "reselected":
         out["resolution"] = _spread([x["resolution"] for x in good])
         out["n_multi"] = _spread([x["n_multi"] for x in good])
+    else:
+        out["changed"] = sum(bool(x.get("at_resolution_changed")) for x in good)
     return out
 
 
-def summarise(observed: Observed, records: list[dict[str, Any]]) -> dict[str, Any]:
-    """Every reported figure over non-degenerate replicates and present Clusters, plus the two verdicts."""
-    nulls = [r for r in records if r["kind"] == "null"]
-    subs = [r for r in records if r["kind"] == "subsample"]
+def _null_summary(observed: Observed, nulls: list[dict[str, Any]],
+                  observed_runs: Mapping[str, Any] | None) -> dict[str, Any]:
+    """The Null Comparison over the R nulls: Q over the D with a defined Q at γ_obs, U = R − D with its reasons, and
+    width and Multi-Tag Clusters over the K with a Selected Partition."""
     selected = [r for r in nulls if r["selected"]]
-    qs = [r["q_fixed"] for r in nulls if r["q_fixed"] is not None]
-    reach = sum(q >= observed.q for q in qs)
+    defined = [r["q_fixed"] for r in nulls if r["q_fixed"] is not None]
+    q_selected = observed.q
+    q_runs = None if observed_runs is None else observed_runs.get("q_runs")
+    from_runs = q_runs is not None and q_runs > q_selected + 1e-12 * max(1.0, abs(q_selected))
+    q_observed = q_runs if from_runs else q_selected
+    reach = sum(q >= q_observed for q in defined)  # reaching means ≥
+    undefined = Counter(r.get("q_reason") or "no_edges" for r in nulls if r["q_fixed"] is None)
     edges = [r["n_edges"] for r in nulls]
-    null = {
+    shares = [r["perturbation_share"] for r in nulls if r.get("perturbation_share") is not None]
+    return {
         "replicates": len(nulls), "selected": len(selected),
         "reasons": dict(sorted(Counter(r["reason"] for r in nulls if not r["selected"]).items())),
+        "q_defined": len(defined), "q_undefined": len(nulls) - len(defined),
+        "q_undefined_reasons": dict(sorted(undefined.items())), "weak": 2 * len(defined) < len(nulls),
         "width": {"observed": observed.width, **_spread([r["width"] for r in selected]),
-                  "narrower": sum(r["width"] < observed.width for r in selected)},
+                  "wider": sum(r["width"] < observed.width for r in selected),
+                  "equal": sum(r["width"] == observed.width for r in selected)},
         "resolution": {"observed": observed.resolution, **_spread([r["resolution"] for r in selected])},
         "n_multi": {"observed": observed.n_multi, **_spread([r["n_multi"] for r in selected])},
-        "q": {"observed": observed.q, **_spread(qs), "reach": reach},
+        "q": {"observed": q_observed, "observed_selected": q_selected, "observed_runs": q_runs,
+              "observed_from_runs": from_runs, **_spread(defined), "reach": reach},
         "edges": {"observed": observed.n_edges, "null_median": statistics.median(edges) if edges else None,
                   "ratio": observed.n_edges / statistics.median(edges) if edges and statistics.median(edges) else None},
+        "perturbation_share": _spread(shares),
         "scan_length_total": sum(r["scan_length"] for r in nulls), "capped_total": sum(r["capped_runs"] for r in nulls),
     }
+
+
+def null_state(null: Mapping[str, Any]) -> str:
+    """above_all_defined (D ≥ 1, none reaches), reached (one or more reach), undefined (D = 0)."""
+    if not null["q_defined"]:
+        return "undefined"
+    return "reached" if null["q"]["reach"] else "above_all_defined"
+
+
+def summarise(observed: Observed, records: list[dict[str, Any]],
+              observed_runs: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Every reported figure, from the records alone: the Null Comparison and, per arm and Multi-Tag Cluster, both
+    Jaccards, the frequencies with Wilson intervals and the statuses; then the verdicts."""
+    nulls = [r for r in records if r["kind"] == "null"]
+    subs = [r for r in records if r["kind"] == "subsample"]
+    null = _null_summary(observed, nulls, observed_runs)
     sub = {arm: _arm_summary(observed, subs, arm) for arm in ARMS}
     first = subs[0] if subs else {"m": None, "g": None, "s": None}
+
+    def labels(arm: str, key: str, value: bool = True) -> list[str]:
+        return [c["label"] for c in sub[arm]["clusters"] if c[key] is value]
+
     return {
         "method_version": METHOD_VERSION, "resolution": observed.resolution, "null": null,
         "subsample": {"subsamples": len(subs), "m": first["m"], "g": first["g"], "s": first["s"],
                       "scan_length_total": sum(r["scan_length"] for r in subs),
                       "capped_total": sum(r["capped_runs"] for r in subs), **sub},
-        "verdicts": {"q_not_above_null": reach >= 1,
-                     "dissolved": {arm: [c["label"] for c in sub[arm]["clusters"] if c["dissolved"]] for arm in ARMS}},
+        "verdicts": {"null_q": null_state(null),
+                     "dissolved_in_most": {arm: labels(arm, "dissolved_in_most") for arm in ARMS},
+                     "borderline": {arm: labels(arm, "borderline") for arm in ARMS},
+                     "not_assessable": {arm: labels(arm, "assessable", False) for arm in ARMS},
+                     "rarely_assessable": any(c["rarely_assessable"] for arm in ARMS for c in sub[arm]["clusters"])},
     }
 
 
 def summary_from_records(observed: GraphResult, validation: Mapping[str, Any]) -> dict[str, Any]:
     """The summary every reader shows (card, Inspector, export, report), derived from a validation file's records and
-    never stored, so a summary-only change needs no version bump."""
-    return summarise(Observed.of(observed), validation["records"])
+    observed runs, never stored, so a summary-only change needs no version bump."""
+    return summarise(Observed.of(observed), validation["records"], validation.get("observed"))
 
 
 def records_by_kind(records: list[dict[str, Any]]) -> Mapping[str, list[dict[str, Any]]]:

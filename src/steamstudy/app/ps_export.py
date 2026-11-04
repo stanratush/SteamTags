@@ -177,9 +177,9 @@ def _validation_rows(dataset: str, pair: tuple[int, int], validation: Mapping[st
         for c in summary["subsample"][arm]["clusters"]:
             clusters.append({"dataset": dataset, "g": g, "s": s, "arm": name, "cluster": c["label"],
                              "member_tag_ids": c["members"], "mean_jaccard": c["mean_jaccard"],
-                             "at_most_half": c["at_most_half"], "present": c["present"],
+                             "at_most_half": c["at_most_half"], "present": c["assessable_subsamples"],
                              "mean_retention": c["mean_retention"], "absent": c["absent"],
-                             "dissolved": c["dissolved"]})
+                             "dissolved": c["dissolved_in_most"]})
     return reps, clusters
 
 

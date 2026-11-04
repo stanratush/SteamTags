@@ -365,7 +365,7 @@ def test_the_champ_figure_and_the_links_table(ps_build):
     assert [r.children[0].children for r in table.children[1:]] == ["g+", "s+"]
 
 
-def test_the_validation_card_renders_the_block_and_dissolved_only_at_half_or_less(ps_build):
+def test_the_validation_card_renders_the_block_and_dissolved_only_in_most_subsamples(ps_build):
     ctx = load_build(ps_build)
     view = _views(ps_build)["overall"]
     chosen = view.default_choice.chosen
@@ -377,9 +377,9 @@ def test_the_validation_card_renders_the_block_and_dissolved_only_at_half_or_les
     summary = validation["summary"]
     for arm in ("reselected", "at_resolution"):
         for c in summary["subsample"][arm]["clusters"]:
-            assert c["dissolved"] == (c["mean_jaccard"] is not None and c["mean_jaccard"] <= 0.5)
+            assert c["dissolved_in_most"] == (2 * c["at_most_half"] > c["assessable_subsamples"])
     table = PV.cluster_table(summary, {}, tx=EN)
-    dissolved = sum(c["dissolved"] for arm in ("reselected", "at_resolution")
+    dissolved = sum(c["dissolved_in_most"] for arm in ("reselected", "at_resolution")
                     for c in summary["subsample"][arm]["clusters"])
     assert _text(table).count("Dissolved") == dissolved
 

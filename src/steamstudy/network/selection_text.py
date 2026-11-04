@@ -239,9 +239,9 @@ def null_sentences(summary: Any, *, tx: Text) -> list[Paragraph]:
                   "observed": tx.fixed(w["observed"], ".3g")}
         # two literal keys, not one chosen beforehand: the catalogue's parity scan reads only literals
         head += " " + (tx("{k} of {r} also have a Selected Partition, with {side} domains (median {median} against "
-                          "{observed}; wider than all {k}).", **values) if w["narrower"] == k else
+                          "{observed}; wider than all {k}).", **values) if w["wider"] == k else
                        tx("{k} of {r} also have a Selected Partition, with {side} domains (median {median} against "
-                          "{observed}; wider than {narrower} of {k}).", narrower=w["narrower"], **values))
+                          "{observed}; wider than {narrower} of {k}).", narrower=w["wider"], **values))
     else:
         head += " " + tx("None of the {r} has a Selected Partition.", r=r)
     return [[(tx("Null Comparison"), "bold"), (" " + tx("({r} shuffled networks, same g and s).", r=r) + " " + head,
@@ -275,7 +275,7 @@ def subsample_sentences(summary: Any, names: Any, *, tx: Text) -> list[Paragraph
     spans: Paragraph = [(tx("Subsample Stability"), "bold"), (text, None)]
     any_dissolved = False
     for arm in ("reselected", "at_resolution"):
-        gone = [c for c in sub[arm]["clusters"] if c["dissolved"]]
+        gone = [c for c in sub[arm]["clusters"] if c["dissolved_in_most"]]
         if gone:
             any_dissolved = True
             if arm == "reselected":
