@@ -34,5 +34,5 @@ Spec: [Validation review spec](../spec.md): "Per-Cluster figures and statuses (d
 
 - 2026-11-05 (agent): Done in f56b4da. One synthetic-record test per spec case in `tests/test_validation.py`.
 - Recount on the 9 stored ps-validation-1 runs (survivors recovered from the stored retention): 19 Cluster-runs labelled Dissolved in most subsamples and 8 borderline, matching ticket 02's 19 and 8 exactly.
-- Open for a decision (spec review): `rarely_assessable` follows the spec literally (B* < S/2), so it is also true when B* = 0. A Not assessable Cluster therefore also shows "⚑ rarely assessable (0 of S)" on the card and sets `validation_pairs.rarely_assessable`. Left as specified.
+- Open for a decision (spec review): `rarely_assessable` follows the spec literally (B* < S/2), so it is also true when B* = 0. A Not assessable Cluster therefore also shows "⚑ rarely assessable (0 of S)" on the card and sets `validation_pairs.rarely_assessable`. Decision (researcher, 2026-11-05): keep as specified.
 - Full suite: 635 passed.
