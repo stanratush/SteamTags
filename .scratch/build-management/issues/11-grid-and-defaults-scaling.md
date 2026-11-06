@@ -12,3 +12,5 @@ Decide:
 - what the menu warns about, e.g. a grid whose largest g exceeds what the list size and tags per game allow;
 - whether the Automatic Parameter Selection guide text ("tends to be higher at large g", the 80% subsample) still holds, or needs a caveat for other sizes;
 - whether one-off measurements are needed before deciding (a `task` ticket on a non-default Build).
+
+From [tags per game and list size](05-tags-per-game-and-list-size.md): list size can be as low as 10 and tags per game as low as 2 (one value per Build). Decide whether the grid needs a higher floor, or a warning, at small values.

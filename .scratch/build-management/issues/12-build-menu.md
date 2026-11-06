@@ -13,3 +13,5 @@ How the Build menu looks and behaves. The prototype goes in `prototypes/12-build
 - Editing named exclusion rules, Manual Exclusions, Exclusion Overrides and Manual Metadata Entries, with reason and evidence required.
 - Progress and failure of a running Build, sized by the [Build timings](02-build-inputs-and-timings.md), and what the user can do meanwhile.
 - English and Bulgarian (ADR 0003).
+
+From [tags per game and list size](05-tags-per-game-and-list-size.md): tags per game is one Build-wide input (an integer ≥ 2 or "all", up to 20 for Steam); list size is per dataset (≥ 10). Show each dataset's Eligible Pool size before saving.

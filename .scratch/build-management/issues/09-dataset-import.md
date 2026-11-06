@@ -15,3 +15,5 @@ On the [generic dataset contract](04-generic-dataset-contract.md), decide:
 - how the file supplies optional attribute ids, the filter field and extra numeric fields, and how its config names attributes.
 
 Already settled by the contract: item ids are positive integers; every item needs at least one attribute and, where there is a filter field, a value in it; with no score, file order ranks the items and list size still applies; the app shows the filter field's name and range in place of Months Observed, and "ID" in place of "AppID".
+
+Settled by [tags per game and list size](05-tags-per-game-and-list-size.md): an import's tags per game is 2 up to its longest list, or `all` (the default); list size is ≥ 10, and an import smaller than it fails the Build.

@@ -15,3 +15,5 @@ Decide:
 - how a `build.json` from before the change still loads in the app;
 - whether Content Flags become named rules of the same shape, since they are already tag lists;
 - the glossary entry for Exclusion.
+
+Already settled by [tags per game](05-tags-per-game-and-list-size.md): rules and Content Flags read the full displayed list, and rank limits count positions in it, independent of tags per game.
