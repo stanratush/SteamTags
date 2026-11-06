@@ -1,0 +1,76 @@
+wall: ref 90.7 s, new 1000.7 s (12 workers, all 765 pairs)
+
+## 1. Selected Partitions
+with selection: ref 764 new 764
+  new no selection: rpg 18 4 too_few_multi_tag_clusters
+differ from ref: 3
+  puzzle g=3 s=3: ref [2.694,2.951] mid 2.822 multi 23 hits 1 | new [2.448,2.660] mid 2.554 multi 20 hits 2 | ARI 0.909 | new n_admissible 78 n_stable 2
+  puzzle g=4 s=4: ref [2.148,2.362] mid 2.255 multi 16 hits 1 | new [0.064,0.367] mid 0.216 multi 3 hits 67 | ARI 0.039 | new n_admissible 62 n_stable 2
+  rpg g=3 s=3: ref [2.532,2.787] mid 2.659 multi 22 hits 2 | new [2.864,3.317] mid 3.090 multi 26 hits 1 | ARI 0.795 | new n_admissible 66 n_stable 2
+clipped_high selected: 0
+a == 0 selected: 0
+not_representable: 0
+estimate_above_range (all admissible): 0 below: 0
+admissible reasons (new): {'one_group': 765, 'None': 25517, 'not_assortative': 1267} admissible total 27549 stable 1531
+admissible total (ref): 17532 stable 1530
+stable partitions with γ̂ < 0.25: 0 in pairs: 0 | γ̂ > 3.0: 0 in pairs: 0
+max γ̂ / scan end ratio: 0.3741708143022847
+selected a < 0.25: 1 b > 3.0: 1
+vs research 16 gmK arm: identical 765, different 0
+
+## 2. Chosen pairs
+  overall ref: qualifying 149, max 1.000 at [(20, 3), (20, 9)], near-best 7, chosen g=17 s=2 NA 0.974 (n=3), multi 4, tags 29, mid 1.151 wb 1.15, floor 1.00
+  overall new: qualifying 149, max 1.000 at [(20, 3), (20, 9)], near-best 7, chosen g=17 s=2 NA 0.974 (n=3), multi 4, tags 29, mid 1.151 wb 1.15, floor 1.00
+  overall: qualifying gained [], lost []; near-best ref [(17, 2), (17, 3), (17, 12), (18, 2), (20, 3), (20, 7), (20, 9)] new [(17, 2), (17, 3), (17, 12), (18, 2), (20, 3), (20, 7), (20, 9)]
+  overall: NA changed on 0 qualifying pairs: []
+  puzzle ref: qualifying 85, max 0.980 at [(14, 2)], near-best 1, chosen g=14 s=2 NA 0.980 (n=2), multi 4, tags 31, mid 1.092 wb 1.09, floor 0.52
+  puzzle new: qualifying 85, max 0.980 at [(14, 2)], near-best 1, chosen g=14 s=2 NA 0.980 (n=2), multi 4, tags 31, mid 1.092 wb 1.09, floor 0.52
+  puzzle: qualifying gained [], lost []; near-best ref [(14, 2)] new [(14, 2)]
+  puzzle: NA changed on 5 qualifying pairs: [((3, 2), 0.576, 0.572), ((3, 3), 0.529, 0.532), ((4, 3), 0.546, 0.446), ((4, 4), 0.696, 0.003), ((5, 4), 0.694, 0.451)]
+  rpg ref: qualifying 120, max 0.822 at [(13, 12)], near-best 9, chosen g=7 s=5 NA 0.774 (n=4), multi 15, tags 71, mid 2.006 wb 2.01, floor 0.80
+  rpg new: qualifying 120, max 0.822 at [(13, 12)], near-best 9, chosen g=7 s=5 NA 0.774 (n=4), multi 15, tags 71, mid 2.006 wb 2.01, floor 0.80
+  rpg: qualifying gained [], lost []; near-best ref [(7, 5), (10, 5), (13, 12), (14, 12), (15, 11), (16, 11), (18, 2), (18, 3), (18, 9)] new [(7, 5), (10, 5), (13, 12), (14, 12), (15, 11), (16, 11), (18, 2), (18, 3), (18, 9)]
+  rpg: NA changed on 3 qualifying pairs: [((3, 2), 0.51, 0.486), ((3, 3), 0.523, 0.55), ((4, 3), 0.525, 0.55)]
+  simulation ref: qualifying 129, max 1.000 at [(17, 2), (17, 3), (17, 4)], near-best 9, chosen g=14 s=5 NA 0.981 (n=4), multi 3, tags 38, mid 0.865 wb 0.86, floor 1.00
+  simulation new: qualifying 129, max 1.000 at [(17, 2), (17, 3), (17, 4)], near-best 9, chosen g=14 s=5 NA 0.981 (n=4), multi 3, tags 38, mid 0.865 wb 0.86, floor 1.00
+  simulation: qualifying gained [], lost []; near-best ref [(14, 5), (15, 5), (15, 6), (16, 2), (16, 4), (17, 2), (17, 3), (17, 4), (17, 5)] new [(14, 5), (15, 5), (15, 6), (16, 2), (16, 4), (17, 2), (17, 3), (17, 4), (17, 5)]
+  simulation: NA changed on 0 qualifying pairs: []
+  strategy ref: qualifying 113, max 1.000 at [(14, 2)], near-best 3, chosen g=14 s=2 NA 1.000 (n=3), multi 3, tags 39, mid 1.009 wb 1.01, floor 1.00
+  strategy new: qualifying 113, max 1.000 at [(14, 2)], near-best 3, chosen g=14 s=2 NA 1.000 (n=3), multi 3, tags 39, mid 1.009 wb 1.01, floor 1.00
+  strategy: qualifying gained [], lost []; near-best ref [(14, 2), (14, 3), (14, 4)] new [(14, 2), (14, 3), (14, 4)]
+  strategy: NA changed on 0 qualifying pairs: []
+
+## 3. Workbench search (ticket 09)
+  ref: 758 of 764 reproduced; at nearest γ (any seed) 673; main seed at nearest 418; search runs 10230, capped 0, wall 6.5 s
+    not_reproduced puzzle g=5 s=3: hits 1, domain values 20, mid 1.723
+    not_reproduced rpg g=5 s=3: hits 1, domain values 31, mid 1.912
+    not_reproduced rpg g=7 s=3: hits 1, domain values 10, mid 1.537
+    not_reproduced rpg g=13 s=5: hits 1, domain values 13, mid 1.149
+    not_reproduced simulation g=3 s=2: hits 1, domain values 31, mid 1.724
+    not_reproduced strategy g=4 s=2: hits 1, domain values 20, mid 1.672
+    found γ > 3.0: 0, < 0.1: 0
+  new: 758 of 764 reproduced; at nearest γ (any seed) 673; main seed at nearest 419; search runs 10387, capped 0, wall 7.7 s
+    not_reproduced puzzle g=5 s=3: hits 1, domain values 20, mid 1.723
+    not_reproduced rpg g=5 s=3: hits 1, domain values 31, mid 1.912
+    not_reproduced rpg g=7 s=3: hits 1, domain values 10, mid 1.537
+    not_reproduced rpg g=13 s=5: hits 1, domain values 13, mid 1.149
+    not_reproduced simulation g=3 s=2: hits 1, domain values 31, mid 1.724
+    not_reproduced strategy g=4 s=2: hits 1, domain values 20, mid 1.672
+    found γ > 3.0: 1, < 0.1: 0
+  Selected Resolution > 3.0: [('rpg', 3, 3, 3.09, 2.864, 3.317)]
+  Selected Resolution < 0.1: []
+  Selected Resolution < 0.25: [('puzzle', 4, 4, 0.216)]
+  Selected Resolution range new: 0.21550977171719005 3.0903343741889344
+
+## 4. Cost
+γ values per graph: min 77 median 120 max 356 total 103280
+scan end: min 3.8 median 5.95 max 17.75
+scan runs new 1032800 ref 428400
+noise runs 7640 noise capped 0
+pass-capped scan runs: 77 in 4 graphs
+    ('simulation', 5, 5, 56, [6.2, 6.35, 6.45, 6.55, 6.6, 6.7])
+    ('simulation', 6, 5, 5, [7.25])
+    ('simulation', 7, 5, 9, [6.7])
+    ('simulation', 8, 5, 7, [6.3])
+sum scan seconds new 11920.0 ref 1014.5 | sum pair seconds new 11997.6 ref 1077.4
+slowest pairs: [('simulation', 5, 5, 843.4, 240), ('simulation', 9, 9, 462.3, 160), ('puzzle', 9, 7, 461.5, 157)]
