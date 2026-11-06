@@ -33,6 +33,7 @@ An **implementation-ready spec** (`.scratch/build-management/spec.md`) plus numb
 
 <!-- one line per resolved ticket -->
 - [Can one app process switch Builds without a restart?](issues/03-switch-builds-in-one-process.md): yes. Callbacks already read the Build per request from `build-path`, and only the server, layout and Parameter Selection stores bind it at startup. One shared job store is fine, but it must move out of the Build folder (Windows blocks Delete). Options A–E go to grilling.
+- [Where does the analysis assume Steam?](issues/01-steam-assumptions-downstream.md): the network and the app already read one seam, six `top100` columns plus the defining tag and Genre Tags. Steam-only fields (`is_free`, genres, Content Flags, the Eligible Pool) are read only by the Build-stage `analysis/`. No links out. Import blockers are the Snapshot-parent folder layout, the eight required config files and the strict header. Eight spots would change Steam bytes if generalised, the `min_months` key name first.
 
 ## Not yet specified
 
