@@ -1,0 +1,112 @@
+{
+  "snapshot": "20261005T062558Z-full",
+  "build_seconds": 98.96,
+  "write_seconds": 0.76,
+  "written_bytes": 3366245,
+  "stages": {
+    "1 pool: read_listing (/top pages)": {
+      "seconds": 3.98,
+      "calls": 1
+    },
+    "2 parse: Steam Charts histories + score": {
+      "seconds": 45.89,
+      "calls": 1
+    },
+    "3 games: store page + appdetails (read_game)": {
+      "seconds": 23.99,
+      "calls": 10973
+    },
+    "4 exclusion: content_flags": {
+      "seconds": 0.06,
+      "calls": 10973
+    },
+    "4 exclusion: evaluate": {
+      "seconds": 0.41,
+      "calls": 10973
+    },
+    "5 datasets: rank_dataset": {
+      "seconds": 0.16,
+      "calls": 5
+    },
+    "6 assemble: skipped_app_rows (re-reads listing)": {
+      "seconds": 4.07,
+      "calls": 1
+    },
+    "7 analysis: feature tables": {
+      "seconds": 8.01,
+      "calls": 1
+    },
+    "7+8 run_analysis (total)": {
+      "seconds": 19.63,
+      "calls": 1
+    },
+    "8 network:   null model (inside compute_state)": {
+      "seconds": 2.42,
+      "calls": 5
+    },
+    "8 network: compute_state (total)": {
+      "seconds": 3.04,
+      "calls": 5
+    },
+    "8 network: layout_state": {
+      "seconds": 2.94,
+      "calls": 5
+    },
+    "8 network: network_outputs (total)": {
+      "seconds": 11.62,
+      "calls": 1
+    },
+    "8 network: removal_sensitivity": {
+      "seconds": 3.81,
+      "calls": 5
+    },
+    "8 network: resolution_sweep": {
+      "seconds": 1.8,
+      "calls": 5
+    },
+    "8 network: state_tables": {
+      "seconds": 0.02,
+      "calls": 5
+    },
+    "9 reports: report_html": {
+      "seconds": 0.05,
+      "calls": 1
+    },
+    "9 reports: reports_html": {
+      "seconds": 0.0,
+      "calls": 1
+    },
+    "io: read_archive (read + gunzip)": {
+      "seconds": 19.42,
+      "calls": 37511
+    },
+    "io: requests.sqlite latest entries": {
+      "seconds": 0.19,
+      "calls": 1
+    }
+  },
+  "residual_before_analysis_seconds": 0.72,
+  "dataset_sizes": {
+    "overall": {
+      "rows": 100,
+      "eligible_pool": 8776
+    },
+    "puzzle": {
+      "rows": 100,
+      "eligible_pool": 1245
+    },
+    "rpg": {
+      "rows": 100,
+      "eligible_pool": 2583
+    },
+    "strategy": {
+      "rows": 100,
+      "eligible_pool": 3003
+    },
+    "simulation": {
+      "rows": 100,
+      "eligible_pool": 2980
+    }
+  },
+  "parse_error_count": 0
+}

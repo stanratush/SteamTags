@@ -1,0 +1,67 @@
+Bytecode compiled 8664 files in 1.60s
+{
+  "snapshot": "20261005T062558Z-full",
+  "pool_apps": 13412,
+  "scored_apps": 10973,
+  "tables": {
+    "listing": {
+      "rows": 26826,
+      "csv_bytes": 1152994,
+      "csv_gz_bytes": 492585
+    },
+    "steamcharts_outcomes": {
+      "rows": 13412,
+      "csv_bytes": 196383,
+      "csv_gz_bytes": 38041
+    },
+    "steamcharts_months_all": {
+      "rows": 643989,
+      "csv_bytes": 15947001,
+      "csv_gz_bytes": 4528353
+    },
+    "steamcharts_months_min": {
+      "rows": 396755,
+      "csv_bytes": 9940465,
+      "csv_gz_bytes": 2825502
+    },
+    "store_apps": {
+      "rows": 10973,
+      "csv_bytes": 744123,
+      "csv_gz_bytes": 209528
+    },
+    "store_tags": {
+      "rows": 185327,
+      "csv_bytes": 4707480,
+      "csv_gz_bytes": 958367
+    },
+    "store_genres": {
+      "rows": 30583,
+      "csv_bytes": 572836,
+      "csv_gz_bytes": 101324
+    },
+    "tag_vocabulary": {
+      "rows": 446,
+      "csv_bytes": 7280,
+      "csv_gz_bytes": 4042
+    },
+    "snapshot_meta.json": {
+      "rows": 1,
+      "csv_bytes": 365,
+      "csv_gz_bytes": 255
+    }
+  },
+  "snapshot_files_bytes": {
+    "raw/steam_api/GetTagList.json": 15792,
+    "raw/store/appdetails": 46266030,
+    "raw/store/page": 341718083,
+    "raw/steamcharts/app": 42673173,
+    "raw/steamcharts/top": 5871031,
+    "requests.sqlite": 10657792,
+    "snapshot.json": 20518
+  },
+  "snapshot_total_bytes": 447222419
+}
+
+real	2m4.024s
+user	0m0.000s
+sys	0m0.046s
