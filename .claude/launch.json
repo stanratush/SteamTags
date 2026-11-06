@@ -87,6 +87,22 @@
       ],
       "port": 8064,
       "url": "http://127.0.0.1:8064"
+    },
+    {
+      "name": "steamstudy-app-validation",
+      "runtimeExecutable": "C:/Users/Lenovo/Desktop/Claude/SteamTags/.venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "steamstudy.cli",
+        "--root",
+        "C:/Users/Lenovo/AppData/Local/Temp/claude/54b5dab3ec58dca5/98286c62-aec8-42b2-95fb-9323cecf0518/scratchpad/demo",
+        "app",
+        "--no-browser",
+        "--port",
+        "8055"
+      ],
+      "port": 8055,
+      "url": "http://127.0.0.1:8055"
     }
   ]
 }
