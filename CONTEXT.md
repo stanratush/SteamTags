@@ -205,14 +205,18 @@ _Avoid_: population, all games, Steam
 One of five ranked lists (Overall, Puzzle, RPG, Strategy, Simulation) of the 100 non-excluded games with the highest **Mean Monthly Players**. A game may appear in several.
 
 **Exclusion**:
-Removal of a game from all **Top-100 Datasets** because of a configured rule, recorded with every rule it matches (not only the first). Rule kinds: non-`game` Steam app type; adult sexual content (games whose content is mainly sexual, identified by Steam's own "Adult Only" marking or the Hentai tag; not mainstream games with some nudity or sex scenes); software tags; dating sims (games that are mainly dating sims, not games with a dating side-system such as Stardew Valley); store data unavailable (no tags/metadata obtainable from the Steam store, e.g. delisted, region-locked or login-only apps, and no **Manual Metadata Entry** supplied); no tags (the store page exists but displays no tags); manual (a game the researcher lists individually, with a written reason and evidence). Maturity tags (Mature, Gore, Violent, etc.), Romance, Otome and the Education tag are not exclusion grounds.
+Removal of a game from all **Top-100 Datasets** because it matches an **Exclusion Rule**, recorded with every rule it matches (not only the first); the first in order is its primary reason.
+
+**Exclusion Rule**:
+A ground for **Exclusion**. *Fixed rules*, the same in every Build: non-`game` Steam app type; store data unavailable (no tags/metadata obtainable from the Steam store, e.g. delisted, region-locked or login-only apps, and no **Manual Metadata Entry** supplied); no tags (the store page exists but displays no tags), all three checked first; and manual (a game the researcher lists individually, with a written reason and evidence), checked last. *Named rules*, set per Build and checked in order between them: a list of tags, each counting only within its rank limit, plus for Steam content descriptors and the "Adult Only" notice. The default named rules are adult sexual content (games whose content is mainly sexual, identified by Steam's own "Adult Only" marking or the Hentai tag; not mainstream games with some nudity or sex scenes), software tags, and dating sims (games that are mainly dating sims, not games with a dating side-system such as Stardew Valley). Maturity tags (Mature, Gore, Violent, etc.), Romance, Otome and the Education tag are not grounds in the default rules. A Build may have no named rules.
+_Avoid_: filter, blacklist
 
 **Exclusion Override**:
-A researcher decision, with a written reason and evidence, that a specific game is not excluded by a specific rule it matches (e.g. a farming sim whose Dating Sim tag ranks high). Published alongside the datasets.
+A researcher decision, with a written reason and evidence, that a specific game is not excluded by a specific named, app-type or no-tags **Exclusion Rule** it matches (e.g. a farming sim whose Dating Sim tag ranks high). Published alongside the datasets.
 _Avoid_: whitelist, manual inclusion
 
 **Content Flag**:
-A per-game marker for a characteristic worth reporting but not an **Exclusion** ground (e.g. Desktop Companion apps, whose always-on use inflates concurrent player counts).
+A per-game marker for a characteristic worth reporting but not an **Exclusion** ground (e.g. Desktop Companion apps, whose always-on use inflates concurrent player counts): a named tag list, matched anywhere in the displayed tags.
 _Avoid_: soft exclusion, warning
 
 **Tag-Specific Dataset**:
