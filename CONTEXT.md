@@ -242,7 +242,7 @@ A fixed set of items, each with an ordered list of attributes, supplied by the r
 _Avoid_: imported dataset, upload, external dataset
 
 **Build**:
-One deterministic derivation from one **Snapshot** and one config version: the five **Top-100 Datasets**, their reports and the feature analysis. Never contacts a source. A Snapshot can have many Builds (e.g. before and after an exclusion-list change), even two with the same settings. Never changed once written: its id, name and description are fixed then. The name is unique among the Snapshot's Builds and **Build Drafts**; the description says why the Build exists and joins the config changelog. A Build started from another Build records it as its parent, for information only; deleting a Build leaves its children as they are. A run that fails is not a Build.
+One deterministic derivation from one **Snapshot** (a Steam Build) or one **Import** (an Import Build) and one config version: its **Top-100 Datasets**, their reports and the feature analysis. An Import Build has only the reports and analysis that do not depend on Steam. Never contacts a source. A Snapshot can have many Builds (e.g. before and after an exclusion-list change), even two with the same settings. Never changed once written: its id, name and description are fixed then. The name is unique among the Snapshot's Builds and **Build Drafts**; the description says why the Build exists and joins the config changelog. A Build started from another Build records it as its parent, for information only; deleting a Build leaves its children as they are. A run that fails is not a Build.
 _Avoid_: run, analysis run
 
 **Build Draft**:
