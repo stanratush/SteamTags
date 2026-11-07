@@ -15,3 +15,5 @@ How the Build menu looks and behaves. The prototype goes in `prototypes/12-build
 - English and Bulgarian (ADR 0003).
 
 From [tags per game and list size](05-tags-per-game-and-list-size.md): tags per game is one Build-wide input (an integer ≥ 2 or "all", up to 20 for Steam); list size is per dataset (≥ 10). Show each dataset's Eligible Pool size before saving.
+
+From [switching and cache separation](10-switching-and-cache-separation.md): a switch navigates the tab to `/build/<snapshot>/<build_id>` and asks before cancelling that tab's running analysis jobs. A Build run is server-wide, one at a time, and survives a switch. Delete is refused only for the tab's own Build and warns when it will cancel a job on that Build. App Bundles show a switcher only (hidden for one Build). Show the "This Build no longer exists" page.
