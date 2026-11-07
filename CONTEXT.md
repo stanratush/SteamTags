@@ -31,7 +31,10 @@ _Avoid_: launch date, store release date (stored only as metadata)
 The number of post-release months inside the **Observation Window** that have a **Monthly Avg. Players** value. Reported for every game; no minimum is applied when ranking.
 
 **Tag**:
-A user-defined Steam tag. A game **has** a tag if the tag appears anywhere in its displayed store tag list (Steam displays at most 20), regardless of rank or votes.
+A user-defined Steam tag. A game **has** a tag if the tag is within its **Tag Depth**: among the first K tags of its displayed store list (Steam displays at most 20), whatever the votes. **Exclusions** and **Content Flags** read the whole displayed list instead.
+
+**Tag Depth**:
+How many leading tags of each game's displayed list count; a game **has** only the tags within it. One value per **Build**. For Steam 2 to 20, where 20 (the default) means all; for an **Import** any number from 2, or all (the default). Called "tags per game" in the app and the User Guide.
 
 **Genre**:
 A value of the Steam store's developer-assigned genre field (e.g. Action, RPG, Strategy). Distinct from a **Tag** with the same name.
@@ -41,7 +44,7 @@ _Avoid_: genre tag (when meaning the store field)
 A **Tag** listed in the configurable genre-tag list; can be hidden from the **Tag Network** (never from datasets).
 
 **Tag Network**:
-Weighted undirected graph built from one loaded **Top-100 Dataset**: nodes are **Tags**, edge weight is the number of games having both tags, each edge keeps its AppIDs. The edge weight is always this shared-game count, whatever the **Clustering Weight**.
+Weighted undirected graph built from one loaded **Top-N Dataset**: nodes are **Tags**, edge weight is the number of games having both tags, each edge keeps its AppIDs. The edge weight is always this shared-game count, whatever the **Clustering Weight**.
 
 **Clustering Weight**:
 The per-edge value that community detection runs on. Either the shared-game count (the default, which is the edge weight itself) or the edge's **Lift** (an optional mode). Choosing it never changes the edge weight (the shared-game count that is thresholded and inspected); edge thickness follows the Clustering Weight.
@@ -88,11 +91,11 @@ One combination of minimum games per tag (g) and minimum shared games (s), with 
 _Avoid_: configuration, cell (except when talking about the heatmap), parameter set
 
 **Parameter Grid**:
-Every **Threshold Pair** searched for one **Top-100 Dataset**: g and s each over a range set per Build (by default g from 3 to 20 and s from 2 to 12), with s ≤ g. The ranges count games, the same for every dataset of the Build whatever its size.
+Every **Threshold Pair** searched for one **Top-N Dataset**: g and s each over a range set per Build (by default g from 3 to 20 and s from 2 to 12), with s ≤ g. The ranges count games, the same for every dataset of the Build whatever its size.
 _Avoid_: multiverse (except when citing Steegen et al.), search space
 
 **Automatic Parameter Selection**:
-The procedure that picks one **Threshold Pair** and a resolution for a **Top-100 Dataset**: for every pair in the **Parameter Grid** it chooses a **Selected Partition**, and then it picks among the **Qualifying Pairs** by **Neighbour Agreement**. A choice of settings to look at, never a claim that the resulting **Clusters** are real.
+The procedure that picks one **Threshold Pair** and a resolution for a **Top-N Dataset**: for every pair in the **Parameter Grid** it chooses a **Selected Partition**, and then it picks among the **Qualifying Pairs** by **Neighbour Agreement**. A choice of settings to look at, never a claim that the resulting **Clusters** are real.
 _Avoid_: optimisation, optimal parameters, auto-tuning
 
 **Admissible Partition**:
@@ -164,14 +167,14 @@ A **Threshold Pair** that has a **Selected Partition** and a **Neighbour Agreeme
 _Avoid_: eligible pair (that word belongs to the **Eligible Pool**), valid pair, admissible pair
 
 **Lift**:
-For two tags: how often they share games, divided by how often they would if tags were assigned independently (observed ÷ expected co-occurrence), counted over the games the network is built from (the loaded **Top-100 Dataset** after the **Minimum Months Filter**). Above 1 = they occur together more than chance would predict. A frequency-corrected measure of association, not a cause.
+For two tags: how often they share games, divided by how often they would if tags were assigned independently (observed ÷ expected co-occurrence), counted over the games the network is built from (the loaded **Top-N Dataset** after the **Minimum Months Filter**). Above 1 = they occur together more than chance would predict. A frequency-corrected measure of association, not a cause.
 _Avoid_: association strength (use only when citing van Eck & Waltman), affinity
 
 **Minimum Months Filter**:
 A **Tag Network** control that drops games whose **Months Observed** is below the threshold from the loaded dataset before the network is built. It never re-ranks or backfills.
 
 **Network State**:
-Everything that fixes one **Tag Network** result: the loaded **Top-100 Dataset** and its **Build**, the **Minimum Months Filter**, the minimum games per tag and minimum shared games, the hidden and removed **Tags**, the **Clustering Weight**, the clustering algorithm, the resolution, the seed, the number of null-model replicates and the number of noise seeds. The same Network State always gives the same **Clusters** and metrics. The graph layout is not part of it.
+Everything that fixes one **Tag Network** result: the loaded **Top-N Dataset** and its **Build**, the **Minimum Months Filter**, the minimum games per tag and minimum shared games, the hidden and removed **Tags**, the **Clustering Weight**, the clustering algorithm, the resolution, the seed, the number of null-model replicates and the number of noise seeds. The same Network State always gives the same **Clusters** and metrics. The graph layout is not part of it.
 _Avoid_: view, session, configuration, state (unqualified)
 
 **Interface Language**:
@@ -194,18 +197,23 @@ _Avoid_: visualization tool, standalone app, portable version, offline bundle
 Included in all datasets; flagged with `is_free`.
 
 **Candidate Pool**:
-Every app in the full Steam Charts "Top Games" listing at collection time, with no cutoff by current players. Its size is reported, not enforced. Apps without a **Monthly Avg. Players** value in the **Observation Window** have no score and so never reach a **Top-100 Dataset**; this is not an **Exclusion**.
-_Avoid_: top-N games, scraped games
+Every app in the full Steam Charts "Top Games" listing at collection time, with no cutoff by current players. Its size is reported, not enforced. Apps without a **Monthly Avg. Players** value in the **Observation Window** have no score and so never reach a **Top-N Dataset**; this is not an **Exclusion**.
+_Avoid_: scraped games
 
 **Eligible Pool**:
-The scored, non-excluded games a **Top-100 Dataset** is drawn from: all of them for Overall, those that **have** the defining tag for a **Tag-Specific Dataset**. Serves as the baseline that Top-100 frequencies are compared against.
+The scored, non-excluded games (every non-excluded item, for an **Import**) a **Top-N Dataset** is drawn from: all of them for Overall, those that **have** the defining tag for a **Tag-Specific Dataset**. Serves as the baseline that the dataset's tag frequencies are compared against.
 _Avoid_: population, all games, Steam
 
-**Top-100 Dataset**:
-One of five ranked lists (Overall, Puzzle, RPG, Strategy, Simulation) of the 100 non-excluded games with the highest **Mean Monthly Players**. A game may appear in several.
+**Top-N Dataset**:
+One of a **Build**'s ranked lists, Overall or a **Tag-Specific Dataset**, of the N non-excluded games with the highest score, N being the dataset's **List Size**. The score is **Mean Monthly Players** in a Steam Build; in an Import Build it is the Import's score, or the file order when the Import has none. A game may appear in several.
+_Avoid_: Top-100 Dataset, top list
+
+**List Size**:
+The N of a **Top-N Dataset**: how many games it holds. Set per dataset, 100 by default. A dataset whose **Eligible Pool** holds fewer games than its List Size cannot be built.
+_Avoid_: top count, cutoff, list length
 
 **Exclusion**:
-Removal of a game from all **Top-100 Datasets** because it matches an **Exclusion Rule**, recorded with every rule it matches (not only the first); the first in order is its primary reason.
+Removal of a game from all **Top-N Datasets** because it matches an **Exclusion Rule**, recorded with every rule it matches (not only the first); the first in order is its primary reason. Rank limits count positions in the whole displayed list, whatever the **Tag Depth**.
 
 **Exclusion Rule**:
 A ground for **Exclusion**. *Fixed rules*, the same in every Build: non-`game` Steam app type; store data unavailable (no tags/metadata obtainable from the Steam store, e.g. delisted, region-locked or login-only apps, and no **Manual Metadata Entry** supplied); no tags (the store page exists but displays no tags), all three checked first; and manual (a game the researcher lists individually, with a written reason and evidence), checked last. *Named rules*, set per Build and checked in order between them: a list of tags, each counting only within its rank limit, plus for Steam content descriptors and the "Adult Only" notice. The default named rules are adult sexual content (games whose content is mainly sexual, identified by Steam's own "Adult Only" marking or the Hentai tag; not mainstream games with some nudity or sex scenes), software tags, and dating sims (games that are mainly dating sims, not games with a dating side-system such as Stardew Valley). Maturity tags (Mature, Gore, Violent, etc.), Romance, Otome and the Education tag are not grounds in the default rules. A Build may have no named rules.
@@ -220,7 +228,7 @@ A per-game marker for a characteristic worth reporting but not an **Exclusion** 
 _Avoid_: soft exclusion, warning
 
 **Tag-Specific Dataset**:
-A **Top-100 Dataset** restricted to games that **have** the exact tag (Puzzle, RPG, Strategy, Simulation); sub-genre tags (e.g. RTS, 4X) do not qualify.
+A **Top-N Dataset** restricted to games that **have** the exact tag (e.g. Puzzle, RPG); sub-genre tags (e.g. RTS, 4X) do not qualify.
 
 **Source Substitution**:
 Use of a public data source other than the named ones (Steam Charts, SteamDB). Only permitted after explicit confirmation by the researcher. Confirmed: the Steam store (store page tags and app details).
@@ -238,11 +246,11 @@ The form of a **Snapshot** that holds only what a **Build** reads from it, as ta
 _Avoid_: snapshot extract, export, light copy
 
 **Import**:
-A fixed set of items, each with an ordered list of attributes, supplied by the researcher as a file instead of collected from Steam. Plays the **Snapshot**'s role for the Builds made from it: raw, identified once, never changed afterwards; a corrected file is a new Import. One Import can define several Top-N Datasets, one per defining attribute. In the app's Steam wording, an item is a Game and an attribute is a Tag.
+A fixed set of items, each with an ordered list of attributes, supplied by the researcher as a file instead of collected from Steam. Plays the **Snapshot**'s role for the Builds made from it: raw, identified once, never changed afterwards; a corrected file is a new Import. One Import can define several **Top-N Datasets**, one per defining attribute. In the app's Steam wording, an item is a Game and an attribute is a Tag.
 _Avoid_: imported dataset, upload, external dataset
 
 **Build**:
-One deterministic derivation from one **Snapshot** (a Steam Build) or one **Import** (an Import Build) and one config version: its **Top-100 Datasets**, their reports and the feature analysis. An Import Build has only the reports and analysis that do not depend on Steam. Never contacts a source. A Snapshot can have many Builds (e.g. before and after an exclusion-list change), even two with the same settings. Never changed once written: its id, name and description are fixed then. The name is unique among the Snapshot's Builds and **Build Drafts**; the description says why the Build exists and joins the config changelog. A Build started from another Build records it as its parent, for information only; deleting a Build leaves its children as they are. A run that fails is not a Build.
+One deterministic derivation from one **Snapshot** (a Steam Build) or one **Import** (an Import Build) and one config version: its **Top-N Datasets**, their reports and the feature analysis. An Import Build has only the reports and analysis that do not depend on Steam. Never contacts a source. A Snapshot can have many Builds (e.g. before and after an exclusion-list change), even two with the same settings. Never changed once written: its id, name and description are fixed then. The name is unique among the Snapshot's Builds and **Build Drafts**; the description says why the Build exists and joins the config changelog. A Build started from another Build records it as its parent, for information only; deleting a Build leaves its children as they are. A run that fails is not a Build.
 _Avoid_: run, analysis run
 
 **Build Draft**:
