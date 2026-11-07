@@ -1,0 +1,108 @@
+{
+  "snapshot": "20261005T062558Z-full",
+  "scored_apps": 10973,
+  "light_zip_bytes": 6063902,
+  "raw_read_seconds": 116.64,
+  "load_light_seconds": {
+    "runs": [
+      2.63,
+      2.88,
+      2.8
+    ],
+    "median": 2.8
+  },
+  "matches_raw_reference": {
+    "pool_sizes": true,
+    "excluded": true,
+    "lists_sha256": true
+  },
+  "full_preview": 0.34,
+  "summary": {
+    "pool_sizes": {
+      "overall": 8776,
+      "puzzle": 1245,
+      "rpg": 2583,
+      "strategy": 3003,
+      "simulation": 2980
+    },
+    "excluded": 2197,
+    "lists_sha256": "bd28b1a6f6130d8275f6d55aaccc82a1aef0817e1142a0c61bc1a28ce7929391"
+  },
+  "stage_evaluate_all_rules": 0.1435,
+  "stage_content_flags": 0.0621,
+  "stage_rank_all_datasets": 0.1334,
+  "edits_full_recompute": {
+    "rule_tags_add_one_tag": {
+      "seconds": 0.2783,
+      "pool_sizes": {
+        "overall": 2287,
+        "puzzle": 239,
+        "rpg": 707,
+        "strategy": 810,
+        "simulation": 727
+      },
+      "entering_overall": 67
+    },
+    "global_rank_limit_minus_5": {
+      "seconds": 0.2977,
+      "pool_sizes": {
+        "overall": 3939,
+        "puzzle": 456,
+        "rpg": 1196,
+        "strategy": 1374,
+        "simulation": 1379
+      },
+      "entering_overall": 47
+    },
+    "tag_depth_10": {
+      "seconds": 0.3398,
+      "pool_sizes": {
+        "overall": 8776,
+        "puzzle": 924,
+        "rpg": 1881,
+        "strategy": 2293,
+        "simulation": 2138
+      },
+      "entering_overall": 0
+    },
+    "manual_exclusion_one_game": {
+      "seconds": 0.337,
+      "pool_sizes": {
+        "overall": 8775,
+        "puzzle": 1245,
+        "rpg": 2583,
+        "strategy": 3002,
+        "simulation": 2980
+      },
+      "entering_overall": 1
+    },
+    "override_one_game": {
+      "seconds": 0.3367,
+      "pool_sizes": {
+        "overall": 2287,
+        "puzzle": 239,
+        "rpg": 707,
+        "strategy": 810,
+        "simulation": 727
+      },
+      "entering_overall": 67
+    },
+    "list_size_500": {
+      "seconds": 0.3634,
+      "pool_sizes": {
+        "overall": 8776,
+        "puzzle": 1245,
+        "rpg": 2583,
+        "strategy": 3003,
+        "simulation": 2980
+      },
+      "entering_overall": 400
+    }
+  },
+  "edits_incremental": {
+    "manual_exclusion_one_game": 0.1531,
+    "list_size_500 (re-slice only)": 0.0,
+    "tag_depth_10 (rerank only)": 0.1521,
+    "rule_tags_add_one_tag (one rule, then rerank)": 0.1339
+  }
+}

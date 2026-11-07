@@ -1,0 +1,103 @@
+{
+  "items": 50000,
+  "attributes": 5000,
+  "csv_bytes": 8336629,
+  "mean_attributes_per_item": 15.3,
+  "read_import_seconds": {
+    "runs": [
+      2.07,
+      2.93,
+      2.42
+    ],
+    "median": 2.42
+  },
+  "full_preview": 1.2957,
+  "summary": {
+    "pool_sizes": {
+      "overall": 47674,
+      "a1": 28083,
+      "a5": 12656,
+      "a20": 4082,
+      "a100": 955
+    },
+    "excluded": 2326,
+    "lists_sha256": "0fd20a3d549130df377d2192b1cf3940269fadd297521b1f250901698c6a712a"
+  },
+  "stage_evaluate_all_rules": 0.5363,
+  "stage_content_flags": 0.0259,
+  "stage_rank_all_datasets": 0.6456,
+  "edits_full_recompute": {
+    "rule_tags_add_one_tag": {
+      "seconds": 1.2313,
+      "pool_sizes": {
+        "overall": 9272,
+        "a1": 4728,
+        "a5": 2005,
+        "a20": 651,
+        "a100": 156
+      },
+      "entering_overall": 85
+    },
+    "global_rank_limit_minus_5": {
+      "seconds": 1.0453,
+      "pool_sizes": {
+        "overall": 10955,
+        "a1": 5994,
+        "a5": 2587,
+        "a20": 854,
+        "a100": 220
+      },
+      "entering_overall": 82
+    },
+    "tag_depth_10": {
+      "seconds": 1.2302,
+      "pool_sizes": {
+        "overall": 47674,
+        "a1": 20410,
+        "a5": 7912,
+        "a20": 2438,
+        "a100": 556
+      },
+      "entering_overall": 0
+    },
+    "manual_exclusion_one_game": {
+      "seconds": 1.2278,
+      "pool_sizes": {
+        "overall": 47673,
+        "a1": 28082,
+        "a5": 12656,
+        "a20": 4082,
+        "a100": 955
+      },
+      "entering_overall": 1
+    },
+    "override_one_game": {
+      "seconds": 1.1937,
+      "pool_sizes": {
+        "overall": 9273,
+        "a1": 4729,
+        "a5": 2005,
+        "a20": 651,
+        "a100": 156
+      },
+      "entering_overall": 84
+    },
+    "list_size_500": {
+      "seconds": 1.2238,
+      "pool_sizes": {
+        "overall": 47674,
+        "a1": 28083,
+        "a5": 12656,
+        "a20": 4082,
+        "a100": 955
+      },
+      "entering_overall": 400
+    }
+  },
+  "edits_incremental": {
+    "manual_exclusion_one_game": 0.6663,
+    "list_size_500 (re-slice only)": 0.0,
+    "tag_depth_10 (rerank only)": 0.6544,
+    "rule_tags_add_one_tag (one rule, then rerank)": 0.4011
+  }
+}
