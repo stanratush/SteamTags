@@ -230,8 +230,12 @@ Tags and store details supplied by the researcher for a game the Steam store can
 _Avoid_: manual override, hand-filled data
 
 **Snapshot**:
-Everything collected in one collection: every raw response from Steam Charts and the Steam store, with a fixed collection date (the day collection starts). Fixes the **Observation Window**. Either a test Snapshot (a small subset) or a full Snapshot. Never changed after collection ends, except by a logged repair.
+Everything collected in one collection: every raw response from Steam Charts and the Steam store, with a fixed collection date (the day collection starts). Fixes the **Observation Window**. Either a test Snapshot (a small subset) or a full Snapshot. Never changed after collection ends, except by a logged repair. Comes in two forms sharing one id: the raw form (every raw response, as collected) and, once collection has ended, a **Lightweight Snapshot**. Only the raw form can be repaired.
 _Avoid_: run, scrape, crawl
+
+**Lightweight Snapshot**:
+The form of a **Snapshot** that holds only what a **Build** reads from it, as tables: the listing, every app's monthly player counts, the store fields and tags of every scored app, and the outcome of every lookup. Made from the raw form of a Snapshot after collection ends, and made again after a repair; never changed itself. A Build from it is identical to a Build from the raw form with the same settings, so it is both the form that moves between machines and the faster one to build from. Fixes the parsing in force when it was made.
+_Avoid_: snapshot extract, export, light copy
 
 **Build**:
 One deterministic derivation from one **Snapshot** and one config version: the five **Top-100 Datasets**, their reports and the feature analysis. Never contacts a source. A Snapshot can have many Builds (e.g. before and after an exclusion-list change).
