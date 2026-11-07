@@ -1,0 +1,773 @@
+<!doctype html>
+<!--
+  PROTOTYPE, throwaway (2026-11-07). Map: .scratch/build-management. Ticket: 12 Build menu.
+  Question: "How does the Build menu look and behave?"
+  Three structurally different answers over the same in-memory model, switchable with ?variant=A|B|C and the bar at the
+  bottom (or the <- -> keys when no field has focus).
+    A  Builds mode          - a fourth header mode. A list of Builds and Build Drafts on the left, the chosen one on the
+                              right: a Build's facts and actions, or a draft's long form in three sections with a fixed
+                              footer (Top-N changes, Eligible Pool sizes, Build button).
+    B  Switcher + dialog    - the Build name in the header is a dropdown (switch, new, duplicate, drafts, manage). A
+                              draft opens a full-screen stepped dialog ending in a Review step. A running Build shows as a
+                              strip under the header in every mode.
+    D  CHOSEN (2026-11-07): B, with the dropdown and Manage dialog drawn as C's lineage tree.
+    C  Lineage page        - a page before the Workbench (/builds): every Build and draft in a tree by parent; a draft
+                              opens a diff editor, one row per setting with its source value beside the draft's value,
+                              plus a pipeline view of a running Build.
+  Real data (read 2026-11-07): the three Builds on disk with their sizes, dataset sizes and Eligible Pools from
+  build.json, exclusion counts and would-be ranks from reports/exclusions.csv, config/*.toml values, bundles/ names.
+  Marked (demo): one menu-made Build and two drafts that exist only here.
+  Prototype shortcuts: Eligible Pool sizes after an edit are ESTIMATES (base pool + games the edited rules excluded,
+  overlap ignored); a Build run is simulated 8x faster than the measured 99 s raw / 24 s lightweight; nothing is
+  written anywhere; Bulgarian covers the menu chrome, not every rule label. The state box shows the full model.
+  Run: double-click.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build menu prototype</title>
+<style>
+:root{--bg:#f5f6f8;--panel:#fff;--line:#e3e6eb;--line2:#eef0f3;--ink:#1b2130;--ink2:#3d4555;--mute:#6b7280;--faint:#9aa1ad;
+ --acc:#2457d6;--acc-bg:#eef3ff;--warn:#9a5b00;--warn-bg:#fff6e5;--bad:#b42318;--bad-bg:#fef3f2;--ok:#067647;--ok-bg:#ecfdf3;
+ --topn:#7a2e98;--topn-bg:#f8efff;
+ --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--mono:ui-monospace,"Cascadia Mono",Consolas,monospace}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:13px/1.45 var(--sans);font-variant-numeric:tabular-nums}
+button,input,select,textarea{font:inherit;color:inherit}
+.mono{font-family:var(--mono);font-size:.92em}.mute{color:var(--mute)}.small{font-size:11.5px}.faint{color:var(--faint)}
+.btn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:4px 10px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:#a9b1bf}.btn.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn.danger{color:var(--bad);border-color:#f3c3be}.btn.quiet{border-color:transparent;background:none;color:var(--mute)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:#fff}
+.seg button{border:0;background:none;padding:4px 10px;cursor:pointer;color:var(--ink2)}
+.seg button+button{border-left:1px solid var(--line)}.seg button.on{background:var(--ink);color:#fff}
+input[type=text],input[type=number],input[type=date],select,textarea{border:1px solid var(--line);border-radius:6px;padding:3px 6px;background:#fff}
+input.bad,textarea.bad{border-color:var(--bad);background:var(--bad-bg)}
+textarea{width:100%;resize:vertical}
+.chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:10px;padding:0 7px;font-size:11.5px;background:#fff;white-space:nowrap}
+.chip.topn{border-color:#dcc2ea;background:var(--topn-bg);color:var(--topn)}
+.chip.run{border-color:#b9cbf5;background:var(--acc-bg);color:var(--acc)}
+.chip.fail{border-color:#f3c3be;background:var(--bad-bg);color:var(--bad)}
+.chip.ok{border-color:#abefc6;background:var(--ok-bg);color:var(--ok)}
+.chip.demo{border-color:#f5d68a;background:#fffbeb;color:#92400e}
+.chip.open{border-color:var(--ink);background:var(--ink);color:#fff}
+.err{color:var(--bad);font-size:11.5px}.warnbox{color:var(--warn);background:var(--warn-bg);border:1px solid #f0d7a6;border-radius:6px;padding:6px 9px}
+.failbox{color:var(--bad);background:var(--bad-bg);border:1px solid #f3c3be;border-radius:6px;padding:6px 9px}
+.h{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);font-weight:600;margin:16px 0 6px}
+table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:4px 6px;border-bottom:1px solid var(--line2);vertical-align:top}
+th{font-size:11px;color:var(--mute);font-weight:600}
+.field{display:grid;grid-template-columns:180px 1fr;gap:4px 12px;align-items:start;padding:6px 0;border-bottom:1px solid var(--line2)}
+.field>label{color:var(--ink2);padding-top:3px}.field .hint{grid-column:2;font-size:11.5px;color:var(--mute)}
+.field.changed>label::before{content:"●";color:var(--acc);margin-right:4px;font-size:10px}
+.rule{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:6px 0;background:#fff}
+.rule.fixed{background:#fafbfc;color:var(--mute)}
+.rule .rh{display:flex;gap:8px;align-items:center}
+.tagchip{display:inline-flex;align-items:center;gap:3px;background:#f1f3f6;border-radius:4px;padding:0 5px;margin:2px 3px 2px 0;font-size:12px}
+.tagchip button{border:0;background:none;cursor:pointer;color:var(--mute);padding:0}
+.bar{height:6px;background:var(--line2);border-radius:3px;overflow:hidden}.bar>i{display:block;height:100%;background:var(--acc)}
+/* ---------------- app frame (mock of the real header) */
+#app{position:absolute;inset:0;display:flex;flex-direction:column}
+.app-header{display:flex;align-items:center;gap:16px;padding:8px 16px;background:var(--panel);border-bottom:1px solid var(--line);position:relative;z-index:30;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:8px}.brand b{font-size:14px}
+.hdr-right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.ptag{background:#fde68a;color:#713f12;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700}
+#body{flex:1;min-height:0;position:relative;overflow:hidden}
+/* fake workbench */
+.wb{position:absolute;inset:0;display:grid;grid-template-columns:264px 1fr 300px}
+.wb .p{background:var(--panel);border-right:1px solid var(--line);padding:12px}
+.wb .g{position:relative;background:#fbfbfc;display:flex;align-items:center;justify-content:center;color:var(--faint)}
+.wb .sk{height:9px;background:#eef0f3;border-radius:4px;margin:10px 0}
+.blob{position:absolute;border-radius:50%;opacity:.35}
+/* state box */
+#state{position:fixed;left:10px;bottom:10px;z-index:60;background:#111827eb;color:#e5e7eb;font:11px/1.35 var(--mono);border-radius:8px;padding:6px 8px;max-width:420px;max-height:46vh;overflow:auto}
+#state summary{cursor:pointer;color:#fde68a}#state pre{margin:4px 0 0;white-space:pre-wrap}
+#state .ctl{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}#state button{font:11px var(--mono);background:#374151;color:#e5e7eb;border:0;border-radius:4px;padding:2px 6px;cursor:pointer}
+#state button.on{background:#fde68a;color:#111}
+/* switcher */
+#switcher{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:70;display:flex;align-items:center;gap:6px;background:#111827;color:#fff;border-radius:999px;padding:5px 8px;box-shadow:0 4px 16px #0005;font-size:12px}
+#switcher button{background:#374151;color:#fff;border:0;border-radius:50%;width:24px;height:24px;cursor:pointer}
+#switcher span{padding:0 6px;min-width:230px;text-align:center}
+/* modal + toast */
+.scrim{position:fixed;inset:0;background:#0f172a66;z-index:80;display:flex;align-items:center;justify-content:center}
+.dlg{background:#fff;border-radius:10px;box-shadow:0 12px 40px #0004;width:min(560px,92vw);max-height:86vh;overflow:auto;padding:16px 18px}
+.dlg h3{margin:0 0 8px;font-size:15px}.dlg .act{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+#toast{position:fixed;right:16px;bottom:64px;z-index:90;background:#111827;color:#fff;border-radius:8px;padding:8px 12px;max-width:360px;display:none}
+/* ---------------- Variant A */
+.A-wrap{position:absolute;inset:0;display:grid;grid-template-columns:360px 1fr}
+.A-list{background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:10px 12px 80px}
+.A-item{border:1px solid transparent;border-radius:8px;padding:7px 9px;cursor:pointer;margin:2px 0}
+.A-item:hover{background:#f7f8fa}.A-item.sel{border-color:var(--acc);background:var(--acc-bg)}
+.A-item .t{display:flex;gap:6px;align-items:center}.A-item .t b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.A-main{display:flex;flex-direction:column;min-height:0}
+.A-scroll{flex:1;overflow:auto;padding:14px 22px 30px}
+.A-nav{display:flex;gap:4px;position:sticky;top:-14px;background:var(--bg);padding:8px 0;z-index:3;border-bottom:1px solid var(--line)}
+.A-nav a{padding:3px 10px;border-radius:6px;color:var(--ink2);text-decoration:none;cursor:pointer}.A-nav a:hover{background:#fff}
+.A-sec{background:#fff;border:1px solid var(--line);border-radius:10px;padding:4px 16px 14px;margin:14px 0}
+.A-sec h2{font-size:14px;margin:12px 0 4px;display:flex;align-items:center;gap:8px}
+.A-foot{border-top:1px solid var(--line);background:#fff;padding:10px 22px 60px;display:grid;grid-template-columns:1fr auto;gap:8px 18px;align-items:start}
+.pools{display:flex;gap:6px;flex-wrap:wrap}
+.pool{border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-size:12px}
+.pool.bad{border-color:var(--bad);color:var(--bad);background:var(--bad-bg)}.pool.est{border-style:dashed}
+/* ---------------- Variant B */
+.B-trigger{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:7px;padding:3px 9px;background:#fff;cursor:pointer}
+.B-trigger:hover{border-color:#a9b1bf}
+.B-menu{position:absolute;top:44px;left:120px;width:430px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px #0002;z-index:40;padding:6px 0;max-height:78vh;overflow:auto}
+.B-menu .grp{padding:6px 14px 2px;font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.05em}
+.B-menu .it{display:flex;gap:8px;align-items:center;padding:5px 14px;cursor:pointer}.B-menu .it:hover{background:#f4f7ff}
+.B-menu .it b{font-weight:500}.B-menu hr{border:0;border-top:1px solid var(--line2);margin:5px 0}
+.B-strip{display:flex;align-items:center;gap:10px;background:var(--acc-bg);border-bottom:1px solid #c9d8fb;padding:5px 16px;font-size:12px}
+.B-strip.fail{background:var(--bad-bg);border-color:#f3c3be;color:var(--bad)}
+.B-strip.ok{background:var(--ok-bg);border-color:#abefc6;color:var(--ok)}
+.B-dlg{position:fixed;inset:24px 40px;z-index:85;background:#fff;border-radius:12px;box-shadow:0 20px 60px #0005;display:grid;grid-template-columns:220px 1fr;grid-template-rows:auto 1fr auto;overflow:hidden}
+.B-dlg .hd{grid-column:1/3;display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid var(--line)}
+.B-steps{background:#fafbfc;border-right:1px solid var(--line);padding:12px 0}
+.B-steps div{padding:7px 18px;cursor:pointer;display:flex;gap:8px;align-items:center;color:var(--ink2)}
+.B-steps div.on{background:var(--acc-bg);color:var(--acc);font-weight:600;border-right:3px solid var(--acc)}
+.B-steps .n{width:20px;height:20px;border-radius:50%;border:1px solid var(--line);display:inline-flex;align-items:center;justify-content:center;font-size:11px;background:#fff}
+.B-steps .n.done{background:var(--ok);border-color:var(--ok);color:#fff}.B-steps .n.bad{background:var(--bad);border-color:var(--bad);color:#fff}
+.B-cnt{overflow:auto;padding:14px 24px}
+.B-ft{grid-column:1/3;border-top:1px solid var(--line);padding:10px 18px;display:flex;gap:8px;align-items:center}
+.diffrow td.old{color:var(--mute);text-decoration:line-through}.diffrow td.new{color:var(--ink);font-weight:500}
+/* ---------------- Variant C */
+.C-page{position:absolute;inset:0;display:grid;grid-template-columns:minmax(420px,44%) 1fr}
+.C-tree{overflow:auto;padding:14px 16px 80px;border-right:1px solid var(--line);background:#fff}
+.C-node{display:grid;grid-template-columns:auto 1fr auto;gap:6px;align-items:center;padding:5px 6px;border-radius:6px;cursor:pointer;position:relative}
+.C-node:hover{background:#f7f8fa}.C-node.sel{background:var(--acc-bg);outline:1px solid var(--acc)}
+.C-node .ln{color:var(--faint);font-family:var(--mono);white-space:pre}
+.C-node .meta{grid-column:2/4;font-size:11.5px;color:var(--mute)}
+.C-node .acts{display:none;gap:4px}.C-node:hover .acts,.C-node.sel .acts{display:flex}
+.C-right{overflow:auto;padding:14px 20px 80px}
+.C-diff td{padding:3px 6px}.C-diff tr.chg{background:#f4f7ff}.C-diff tr.sec td{background:#f5f6f8;font-weight:600;font-size:12px;padding-top:10px}
+.C-diff td.src{color:var(--mute);font-family:var(--mono);font-size:12px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.C-diff td.cur input[type=text]{width:100%}
+.pipe{display:flex;gap:2px;margin:8px 0}.pipe div{flex:var(--w);padding:6px 6px;font-size:11.5px;background:var(--line2);border-radius:4px;position:relative;overflow:hidden;min-width:0;white-space:nowrap}
+.pipe div i{position:absolute;inset:0;width:var(--p);background:#c9d8fb;z-index:0}.pipe div span{position:relative}
+.pipe div.done{background:#c9d8fb}.pipe div.fail{background:var(--bad-bg);color:var(--bad)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast"></div>
+<details id="state"><summary>state (prototype)</summary><div class="ctl" id="statectl"></div><pre id="statepre"></pre></details>
+<div id="switcher"><button id="prev">←</button><span id="vlabel"></span><button id="next">→</button></div>
+<script>
+"use strict";
+/* ============================================================ real data (read 2026-11-07) */
+const FULL="20261005T062558Z-full", TEST="20261005T062954Z-test";
+const SNAPSHOTS=[
+ {id:FULL,mode:"full",collected:"2026-10-05",forms:["raw","lightweight"],buildSecs:{raw:99,lightweight:24}},
+ {id:TEST,mode:"test",collected:"2026-10-05",forms:["raw","lightweight"],buildSecs:{raw:6,lightweight:2}},
+];
+// would-be Overall ranks of the highest excluded games (reports/exclusions.csv of the latest full Build)
+const EXCLUDED_TOP=[
+ {appid:2923300,name:"Banana",rank:7,rules:["dating_sim_tag"]},
+ {appid:2676230,name:"FiveM",rank:8,rules:["store_data_unavailable"]},
+ {appid:3419430,name:"Bongo Cat",rank:8,rules:["software_tag"]},
+ {appid:2767030,name:"Marvel Rivals",rank:9,rules:["adult_content"]},
+ {appid:431960,name:"Wallpaper Engine",rank:17,rules:["software_tag","dating_sim_tag"]},
+ {appid:413150,name:"Stardew Valley",rank:31,rules:["dating_sim_tag"]},
+ {appid:2246340,name:"Monster Hunter Wilds",rank:33,rules:["dating_sim_tag"]},
+ {appid:2622380,name:"ELDEN RING NIGHTREIGN",rank:45,rules:["dating_sim_tag"]},
+ {appid:438100,name:"VRChat",rank:48,rules:["dating_sim_tag"]},
+ {appid:1222670,name:"The Sims 4",rank:62,rules:["dating_sim_tag"]},
+ {appid:1281930,name:"tModLoader",rank:65,rules:["app_type"]},
+ {appid:4019220,name:"Dressmaker",rank:72,rules:["software_tag"]},
+];
+// games each rule excluded in the latest full Build (primary reason), for pool estimates
+const RULE_EXCLUDED={adult_content:690,dating_sim_tag:589,software_tag:487,store_data_unavailable:566,app_type:187,no_tags:3};
+const BASE_POOL={overall:8776,puzzle:1245,rpg:2583,strategy:3003,simulation:2980};
+const TEST_POOL={overall:212,puzzle:31,rpg:58,strategy:66,simulation:61};
+const DEFAULT_SETTINGS={
+ datasets:[{key:"overall",label:"Overall",defining_tag:null,list_size:100},
+  {key:"puzzle",label:"Puzzle",defining_tag:{id:1664,name:"Puzzle"},list_size:100},
+  {key:"rpg",label:"RPG",defining_tag:{id:122,name:"RPG"},list_size:100},
+  {key:"strategy",label:"Strategy",defining_tag:{id:9,name:"Strategy"},list_size:100},
+  {key:"simulation",label:"Simulation",defining_tag:{id:599,name:"Simulation"},list_size:100}],
+ tag_depth:20, allowed_app_types:["game"],
+ rules:[
+  {code:"adult_content",label:"Adult content",tags:[{id:9130,name:"Hentai"}],name_only:[],descriptor_ids:[3],adult_only_notice:true},
+  {code:"software_tag",label:"Software tag",tags:[{id:8013,name:"Software"},{id:87,name:"Utilities"},{id:872,name:"Animation & Modeling"},{id:1027,name:"Audio Production"},{id:84,name:"Design & Illustration"},{id:809,name:"Photo Editing"},{id:784,name:"Video Production"},{id:1445,name:"Software Training"},{id:5407,name:"Benchmark"}],name_only:["GameMaker","RPGMaker","Web Publishing"],descriptor_ids:[],adult_only_notice:false},
+  {code:"dating_sim_tag",label:"Dating Sim tag",tags:[{id:9551,name:"Dating Sim"}],name_only:[],descriptor_ids:[],adult_only_notice:false}],
+ manual_exclusions:[], overrides:[], manual_metadata:[],
+ content_flags:[{code:"desktop_companion",label:"Desktop Companion",tags:[{id:1320952,name:"Desktop Companion"}],name_only:[]},
+  {code:"sexual_content_tag",label:"Sexual content tag",tags:[{id:12095,name:"Sexual Content"},{id:6650,name:"Nudity"},{id:40500,name:"Sexual Themes"}],name_only:["NSFW"]}],
+ genre_kind_count:20, max_itemset_size:3, min_support:10, release_month_check:3,
+ causal_words:["drives","leads to","makes ... successful","key to success","predicts","because","effect"],
+ resolution_sweep:[0.5,0.75,1.0,1.25,1.5],
+ genre_tags_count:11, min_games_per_tag:8, min_shared_games:8, min_months:0, hide_genre_tags:true, hide_defining_tag:true,
+ clustering_weight:"shared_games", algorithm:"louvain", resolution:1.0, seed:20261003, null_replicates:20, noise_seeds:10,
+ ps_weight:"lift", ps_g_range:[3,20], ps_s_range:[2,12], ps_null_replicates:100, ps_subsamples:100,
+};
+const clone=o=>JSON.parse(JSON.stringify(o));
+function demoTop300(){const s=clone(DEFAULT_SETTINGS);s.tag_depth=10;s.datasets.forEach(d=>d.list_size=d.key==="overall"?300:100);return s}
+function demoNoDating(){const s=clone(DEFAULT_SETTINGS);s.rules=s.rules.filter(r=>r.code!=="dating_sim_tag");
+ s.overrides=[{appid:413150,name:"Stardew Valley",rule:"adult_content",reason:"",evidence:[]}];return s}
+function demoStrict(){const s=clone(DEFAULT_SETTINGS);s.rules[1].tags.push({id:1038,name:"Game Development"});s.causal_words.push("boosts");return s}
+
+/* ============================================================ model */
+const S={
+ v:"A", lang:"en",
+ open:FULL+"/20261008T221504Z-7a23ae9f",
+ tabJobs:[{kind:"Removal Sensitivity",dataset:"Overall"}],
+ builds:[
+  {snap:FULL,id:"20261006T062622Z-7a23ae9f",name:"20261006T062622Z-7a23ae9f",desc:"CLI Build (name defaults to build_id).",parent:null,created:"2026-10-06",sizeMB:4.1,cacheMB:0,form:"raw",settings:clone(DEFAULT_SETTINGS),
+   rows:100,bundles:["tag-network-20261006T062622Z-7a23ae9f-windows-macos-linux.zip","tag-network-20261006T062622Z-7a23ae9f-windows.zip"],software:"0.1.0"},
+  {snap:FULL,id:"20261008T221504Z-7a23ae9f",name:"20261008T221504Z-7a23ae9f",desc:"CLI Build (name defaults to build_id).",parent:null,created:"2026-10-08",sizeMB:30,cacheMB:26,form:"raw",settings:clone(DEFAULT_SETTINGS),rows:100,bundles:[],software:"0.1.0",latest:true},
+  {snap:FULL,id:"20261107T101200Z-c41e09b2",name:"Top-300 Overall, 10 tags",desc:"Does a wider Overall list at a shallower Tag Depth keep the same clusters?",parent:FULL+"/20261008T221504Z-7a23ae9f",created:"2026-11-07",sizeMB:9.4,cacheMB:0,form:"lightweight",settings:demoTop300(),bundles:[],software:"0.1.0",demo:true},
+  {snap:TEST,id:"20261026T133927Z-7a23ae9f",name:"20261026T133927Z-7a23ae9f",desc:"CLI Build (name defaults to build_id).",parent:null,created:"2026-10-26",sizeMB:0.17,cacheMB:0,form:"raw",settings:clone(DEFAULT_SETTINGS),bundles:[],software:"0.1.0",latest:true},
+ ],
+ drafts:[
+  {id:"d1",snap:FULL,name:"No Dating Sim rule",desc:"",parent:FULL+"/20261008T221504Z-7a23ae9f",settings:demoNoDating(),saved:"2026-11-07 10:41",failure:null,demo:true},
+  {id:"d2",snap:FULL,name:"Stricter software rule",desc:"Adds Game Development to the Software tag rule.",parent:FULL+"/20261008T221504Z-7a23ae9f",settings:demoStrict(),saved:"2026-11-07 09:12",
+   failure:{kind:"causal",word:"boosts",sentence:"Roguelike deckbuilders boosts the Strategy cluster’s share…",file:"reports.html"},demo:true},
+ ],
+ sel:null,          // {kind:"build"|"draft", key}
+ run:null,          // {draftId, t, secs, fail}
+ nextFail:null,     // null | "parse" | "causal": what the next simulated run does
+ ui:{A:{sec:"topn"}, B:{menu:false,dlg:null,step:0,manage:false}, C:{changedOnly:false}},
+ dialog:null,
+};
+const bkey=b=>b.snap+"/"+b.id;
+const findBuild=k=>S.builds.find(b=>bkey(b)===k);
+const findDraft=id=>S.drafts.find(d=>d.id===id);
+const openBuild=()=>findBuild(S.open);
+const snapShort=s=>s.endsWith("-test")?"test · "+s.slice(0,8):"full · "+s.slice(0,8);
+
+/* ============================================================ i18n (menu chrome only; prototype) */
+const BG={
+ "Tag Network":"Мрежа от тагове","Workbench":"Работно място","Analysis Report mode":"Режим „Аналитичен доклад“","Parameter Selection":"Избор на параметри",
+ "Builds":"Компилации","Build":"Компилация","Language":"Език","Build Drafts":"Чернови на компилации","Snapshot":"Моментна снимка",
+ "New Build":"Нова компилация","Duplicate":"Дублиране","Delete":"Изтриване","Open":"Отваряне","Discard draft":"Отхвърляне на черновата",
+ "Build it":"Компилиране","Name":"Име","Description":"Описание","Parent":"Родител","Created":"Създадена","Size":"Размер",
+ "Changes the Top-N":"Променя Топ-N","Reports and analysis":"Доклади и анализ","Network defaults":"Мрежови настройки по подразбиране",
+ "Datasets":"Набори от данни","List size":"Размер на списъка","Tag Depth":"Дълбочина на таговете","Exclusion Rules":"Правила за изключване",
+ "Manual Exclusions":"Ръчни изключвания","Exclusion Overrides":"Отмени на изключвания","Manual Metadata Entries":"Ръчни записи на метаданни",
+ "Eligible Pool":"Допустим набор","reason":"причина","evidence":"доказателство","Add":"Добавяне","Remove":"Премахване",
+ "open in this tab":"отворена в този раздел","running":"изпълнява се","failed":"неуспешна","draft":"чернова","Cancel":"Отказ",
+ "Switch Build":"Смяна на компилацията","from":"от","Review":"Преглед","Start":"Начало","Back":"Назад","Next":"Напред",
+ "Manage Builds…":"Управление на компилациите…","Changed only":"Само променени","Setting":"Настройка","Source":"Източник","This draft":"Тази чернова",
+ "Back to the Workbench":"Обратно към работното място","Content Flags":"Флагове за съдържание","Saved automatically":"Запазва се автоматически",
+ "Duplicate onto Snapshot":"Дублиране върху моментна снимка","fixed rule":"фиксирано правило","all":"всички",
+ "This Build no longer exists":"Тази компилация вече не съществува","Open the latest Build":"Отваряне на последната компилация",
+};
+const T=s=>S.lang==="bg"&&BG[s]?BG[s]:s;
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ============================================================ derived: validation, Top-N changes, pools */
+const TOPN_KEYS=["datasets","tag_depth","allowed_app_types","rules","manual_exclusions","overrides","manual_metadata"];
+const REPORT_KEYS=["content_flags","genre_kind_count","max_itemset_size","min_support","release_month_check","causal_words","resolution_sweep"];
+const NET_KEYS=["genre_tags_count","min_games_per_tag","min_shared_games","min_months","hide_genre_tags","hide_defining_tag","clustering_weight","algorithm","resolution","seed","null_replicates","noise_seeds","ps_weight","ps_g_range","ps_s_range","ps_null_replicates","ps_subsamples"];
+const LABEL={datasets:"Datasets (list size, defining tag)",tag_depth:"Tag Depth",allowed_app_types:"Allowed app types",rules:"Exclusion Rules",
+ manual_exclusions:"Manual Exclusions",overrides:"Exclusion Overrides",manual_metadata:"Manual Metadata Entries",content_flags:"Content Flags",
+ genre_kind_count:"Genre-kind map",max_itemset_size:"Max itemset size",min_support:"Min support",release_month_check:"Release-month check (months)",
+ causal_words:"Causal words",resolution_sweep:"Resolution sweep",genre_tags_count:"Genre Tags",min_games_per_tag:"Min games per tag (g)",
+ min_shared_games:"Min shared games (s)",min_months:"Min months",hide_genre_tags:"Hide Genre Tags",hide_defining_tag:"Hide the defining tag",
+ clustering_weight:"Clustering Weight",algorithm:"Algorithm",resolution:"Resolution",seed:"Seed",null_replicates:"Null replicates",noise_seeds:"Noise seeds",
+ ps_weight:"Selection: Clustering Weight",ps_g_range:"Parameter Grid g",ps_s_range:"Parameter Grid s",ps_null_replicates:"Selection: null replicates (R)",ps_subsamples:"Selection: subsamples (S)"};
+function sourceSettings(d){if(!d.parent)return DEFAULT_SETTINGS;const p=findBuild(d.parent);return p?p.settings:DEFAULT_SETTINGS}
+const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+function changedKeys(d){const src=sourceSettings(d);return [...TOPN_KEYS,...REPORT_KEYS,...NET_KEYS].filter(k=>!same(d.settings[k],src[k]))}
+function pools(d){
+ const base=d.snap===TEST?TEST_POOL:BASE_POOL, ruleCodes=new Set(d.settings.rules.map(r=>r.code));
+ let extra=0;for(const c of ["adult_content","software_tag","dating_sim_tag"])if(!ruleCodes.has(c))extra+=RULE_EXCLUDED[c];
+ const added=d.settings.rules.filter(r=>!DEFAULT_SETTINGS.rules.some(x=>x.code===r.code)).length;
+ const srcRules=DEFAULT_SETTINGS.rules;let tagDelta=0;
+ d.settings.rules.forEach(r=>{const s=srcRules.find(x=>x.code===r.code);if(s)tagDelta+=r.tags.length-s.tags.length});
+ const est=extra||added||tagDelta||d.settings.manual_exclusions.length||d.settings.overrides.length||d.settings.manual_metadata.length;
+ const out={};
+ d.settings.datasets.forEach(ds=>{const b=base[ds.key]??Math.round(base.overall*0.2), f=b/base.overall;
+  let n=b+Math.round(extra*f)-Math.round(tagDelta*40*f)-Math.round(added*120*f)-d.settings.manual_exclusions.length+d.settings.overrides.length+d.settings.manual_metadata.length;
+  out[ds.key]={pool:n,list:ds.list_size,est:!!est,bad:n<ds.list_size}});
+ return out;
+}
+function entering(d){ // games that would enter the Overall list from the would-be ranks
+ const codes=new Set(d.settings.rules.map(r=>r.code)), ov=d.settings.overrides, man=new Set(d.settings.manual_exclusions.map(m=>m.appid));
+ const md=new Set(d.settings.manual_metadata.map(m=>m.appid)), n=(d.settings.datasets.find(x=>x.key==="overall")||{}).list_size||100;
+ return EXCLUDED_TOP.filter(g=>!man.has(g.appid)&&g.rank<=n&&g.rules.every(r=>
+   r==="store_data_unavailable"?md.has(g.appid):r==="app_type"?false:(!codes.has(r)||ov.some(o=>o.appid===g.appid&&o.rule===r))));
+}
+function leaving(d){return d.settings.manual_exclusions.map(m=>m.name||String(m.appid))}
+function entryErrors(e,kind,d){
+ const er=[];if(!e.appid)er.push("AppID required");if(!e.reason||!e.reason.trim())er.push("reason required");
+ if(!e.evidence||!e.evidence.length||!e.evidence.every(x=>/^https?:\/\//.test(x.url||"")&&x.retrieved))er.push("evidence: a URL and a retrieved date");
+ if(kind==="override"&&!d.settings.rules.some(r=>r.code===e.rule))er.push(`rule “${e.rule}” is not a rule of this draft`);
+ return er;
+}
+function validate(d){
+ const v={fields:{},count:0}, add=(k,m)=>{(v.fields[k]=v.fields[k]||[]).push(m);v.count++};
+ if(!d.name.trim())add("name","A name is required.");
+ const clash=[...S.builds.filter(b=>b.snap===d.snap).map(b=>b.name),...S.drafts.filter(x=>x.snap===d.snap&&x.id!==d.id).map(x=>x.name)]
+   .some(n=>n.toLowerCase()===d.name.trim().toLowerCase());
+ if(d.name.trim()&&clash)add("name","Another Build or draft of this Snapshot has this name.");
+ if(!d.desc.trim())add("desc","A description is required: it becomes this Build’s changelog entry.");
+ const td=d.settings.tag_depth;if(td!=="all"&&!(Number.isInteger(td)&&td>=2&&td<=20))add("tag_depth","An integer from 2 to 20, or all.");
+ const p=pools(d);d.settings.datasets.forEach(ds=>{if(!(ds.list_size>=10))add("ds_"+ds.key,"At least 10.");
+  else if(p[ds.key].bad)add("ds_"+ds.key,`The Eligible Pool (${p[ds.key].pool}) is smaller than ${ds.list_size}: the Build would fail.`)});
+ d.settings.rules.forEach((r,i)=>{if(!r.label.trim())add("rule_"+i,"A label is required.");if(!r.tags.length&&!r.name_only.length&&!r.descriptor_ids.length&&!r.adult_only_notice)add("rule_"+i,"The rule matches nothing.")});
+ [["manual_exclusions","exclusion"],["overrides","override"],["manual_metadata","metadata"]].forEach(([k,kind])=>d.settings[k].forEach((e,i)=>entryErrors(e,kind,d).forEach(m=>add(k+"_"+i,m))));
+ return v;
+}
+function identicalTo(d){const h=JSON.stringify(d.settings);return S.builds.find(b=>b.snap===d.snap&&JSON.stringify(b.settings)===h)}
+function fmtVal(k,v){if(v==null)return"—";if(k==="datasets")return v.map(x=>`${x.label} ${x.list_size}`).join(", ");
+ if(k==="rules"||k==="content_flags")return v.map(x=>x.label).join(", ")||"none";
+ if(Array.isArray(v)){if(v.length&&typeof v[0]==="object")return v.length?`${v.length} entr${v.length>1?"ies":"y"}`:"none";return v.length?v.join(", "):"none"}
+ return String(v)}
+
+/* ============================================================ actions */
+let toastT;function toast(m){const t=document.getElementById("toast");t.innerHTML=m;t.style.display="block";clearTimeout(toastT);toastT=setTimeout(()=>t.style.display="none",3800)}
+function slug(s){return s.toLowerCase().replace(/[^a-z0-9а-я]+/g,"-").replace(/^-|-$/g,"")}
+function newDraft(fromKey,snap){const b=fromKey?findBuild(fromKey):null;
+ const base=b?b.name:"config defaults";let name=b?`${b.name} (copy)`:"New Build",i=2;
+ while(S.drafts.some(d=>d.name===name)||S.builds.some(x=>x.name===name))name=(b?`${b.name} (copy ${i})`:`New Build ${i}`),i++;
+ const d={id:"d"+Date.now().toString(36),snap:snap||(b?b.snap:openBuild().snap),name,desc:"",parent:b?fromKey:null,settings:clone(b?b.settings:DEFAULT_SETTINGS),saved:nowStr(),failure:null};
+ S.drafts.unshift(d);S.sel={kind:"draft",key:d.id};toast(`Draft “${esc(name)}” started from ${esc(base)}. ${T("Saved automatically")}.`);return d}
+function nowStr(){const n=new Date();return n.toISOString().slice(0,10)+" "+n.toTimeString().slice(0,5)}
+function touch(d){d.saved=nowStr()}
+function askSwitch(key){if(key===S.open)return;const b=findBuild(key);
+ if(S.tabJobs.length)S.dialog={kind:"switch",key};else doSwitch(key);}
+function doSwitch(key){S.open=key;S.tabJobs=[];S.dialog=null;S.ui.B.menu=false;const b=findBuild(key);
+ toast(`Tab navigated to <span class="mono">/build/${esc(b.snap)}/${esc(b.id)}</span>. Language, mode and same-named dataset kept; Network State reset to this Build’s defaults.`);
+ if(S.v==="C")S.ui.C.page="wb";}
+function askDelete(key){S.dialog={kind:"delete",key}}
+function doDelete(key){const b=findBuild(key);S.builds=S.builds.filter(x=>x!==b);
+ if(b.latest){const rest=S.builds.filter(x=>x.snap===b.snap).sort((a,c)=>c.id.localeCompare(a.id));if(rest[0])rest[0].latest=true}
+ if(S.run&&false){}S.dialog=null;if(S.sel&&S.sel.key===key)S.sel=null;toast(`Deleted “${esc(b.name)}”: folder and app cache removed.`)}
+function discard(id){S.drafts=S.drafts.filter(d=>d.id!==id);if(S.sel&&S.sel.key===id)S.sel=null;S.dialog=null;S.ui.B.dlg=null;toast("Draft discarded (its failed/ file too).")}
+function startRun(id){const d=findDraft(id);if(S.run){toast("A Build is already running on this app process: one at a time.");return}
+ const v=validate(d);if(v.count){toast(`Fix ${v.count} problem${v.count>1?"s":""} first.`);return}
+ const sn=SNAPSHOTS.find(s=>s.id===d.snap);d.failure=null;
+ S.run={draftId:id,t:0,secs:sn.buildSecs.lightweight,form:"lightweight",fail:S.nextFail};S.nextFail=null;render();}
+const STAGES=[{k:"read",l:"Read Snapshot",w:.35},{k:"topn",l:"Exclusions + Top-N",w:.2},{k:"analysis",l:"Feature analysis",w:.18},{k:"net",l:"Network",w:.17},{k:"rep",l:"Reports",w:.1}];
+function stageAt(r){let f=r.t/r.secs,acc=0;for(let i=0;i<STAGES.length;i++){acc+=STAGES[i].w;if(f<=acc+1e-9)return{i,f}}return{i:STAGES.length-1,f:1}}
+setInterval(()=>{if(!S.run)return;const r=S.run;r.t+=0.25*8; // 8x faster: 4 ticks/s, 2 simulated s per tick
+ const failAt=r.fail==="parse"?r.secs*.3:r.fail==="causal"?r.secs*.96:null;const d=findDraft(r.draftId);
+ if(failAt&&r.t>=failAt){d.failure=r.fail==="parse"?{kind:"parse",count:3,file:`failed/${nowStr().replace(/\D/g,"").slice(0,8)}T…-parse_errors.csv`}
+   :{kind:"causal",word:"drives",sentence:"Co-op survival drives the Crafting cluster…",file:"reports.html"};d.failNew=true;S.run=null;toast(`Build of “${esc(d.name)}” failed. The draft keeps its settings.`);render();return}
+ if(r.t>=r.secs){const id=new Date().toISOString().replace(/[-:]/g,"").slice(0,15)+"Z-"+Math.random().toString(16).slice(2,10);
+   const p=pools(d);S.builds.push({snap:d.snap,id,name:d.name.trim(),desc:d.desc.trim(),parent:d.parent,created:nowStr().slice(0,10),sizeMB:8.8,cacheMB:0,form:r.form,settings:clone(d.settings),bundles:[],software:"0.1.0",demo:true,justMade:true});
+   S.builds.filter(b=>b.snap===d.snap).forEach(b=>b.latest=false);S.builds[S.builds.length-1].latest=true;
+   S.drafts=S.drafts.filter(x=>x!==d);S.run=null;S.sel={kind:"build",key:d.snap+"/"+id};S.lastMade=d.snap+"/"+id;
+   if(S.ui.B.dlg===d.id)S.ui.B.dlg=null;toast(`Built “${esc(d.name)}”. Its draft is used up.`);}
+ render();},250);
+
+/* ============================================================ shared field atoms (layouts differ per variant) */
+const errs=(v,k)=>(v.fields[k]||[]).map(m=>`<div class="err">${esc(m)}</div>`).join("");
+function ruleCard(d,r,i,v){
+ const td=(t,j)=>`<span class="tagchip">${esc(t.name)} <span class="faint mono">${t.id}</span>${t.limit?` <span class="chip">≤ ${t.limit}</span>`:""}<button data-act="rmtag" data-i="${i}" data-j="${j}" title="${T("Remove")}">×</button></span>`;
+ return `<div class="rule"><div class="rh"><span class="mono faint">${i+1}.</span>
+  <input type="text" value="${esc(r.label)}" data-bind="rules.${i}.label" class="${v.fields["rule_"+i]?"bad":""}" style="width:200px">
+  <span class="mono faint small">${esc(r.code)}</span><span style="flex:1"></span>
+  <button class="btn quiet" data-act="ruleup" data-i="${i}" ${i?"":"disabled"}>↑</button><button class="btn quiet" data-act="ruledn" data-i="${i}" ${i<d.settings.rules.length-1?"":"disabled"}>↓</button>
+  <button class="btn quiet" data-act="rmrule" data-i="${i}">${T("Remove")}</button></div>
+  <div style="margin:4px 0 0 18px"><span class="small mute">tags</span> ${r.tags.map(td).join("")}
+   <input type="text" placeholder="+ tag (name or id)" data-addtag="${i}" style="width:150px">
+   ${r.name_only.length?`<div><span class="small mute">name only</span> ${r.name_only.map(n=>`<span class="tagchip">${esc(n)}</span>`).join("")}</div>`:""}
+   ${d.snap?`<div class="small"><span class="mute">Steam:</span> content descriptor ids <input type="text" value="${r.descriptor_ids.join(", ")}" data-bind="rules.${i}.descriptor_ids" data-type="ints" style="width:70px">
+   <label><input type="checkbox" ${r.adult_only_notice?"checked":""} data-bind="rules.${i}.adult_only_notice" data-type="bool"> Adult Only notice</label>
+   <span class="mute">· excluded ${RULE_EXCLUDED[r.code]??"?"} games in the source Build</span></div>`:""}
+   ${errs(v,"rule_"+i)}</div></div>`;
+}
+function rulesBlock(d,v){
+ const fixed=t=>`<div class="rule fixed"><span class="mono faint">·</span> ${t} <span class="chip">${T("fixed rule")}</span></div>`;
+ return fixed(`App type is not <span class="mono">${d.settings.allowed_app_types.join(", ")}</span> · no store data · no tags`)+
+  d.settings.rules.map((r,i)=>ruleCard(d,r,i,v)).join("")+
+  `<button class="btn" data-act="addrule">+ ${T("Add")} rule</button>`+fixed(T("Manual Exclusions")+" (always last)");
+}
+function datasetsBlock(d,v,compact){
+ const p=pools(d);
+ return `<table><tr><th>Dataset</th><th>Defining tag</th><th>${T("List size")}</th><th>${T("Eligible Pool")}</th></tr>`+
+  d.settings.datasets.map(ds=>`<tr><td>${esc(ds.label)}</td><td>${ds.defining_tag?esc(ds.defining_tag.name)+` <span class="faint mono">${ds.defining_tag.id}</span>`:"<span class='mute'>none</span>"}</td>
+   <td><input type="number" min="10" value="${ds.list_size}" data-ds="${ds.key}" style="width:70px" class="${v.fields["ds_"+ds.key]?"bad":""}">${errs(v,"ds_"+ds.key)}</td>
+   <td>${poolChip(p[ds.key])}</td></tr>`).join("")+`</table>`;
+}
+function poolChip(x){return `<span class="pool ${x.bad?"bad":""} ${x.est?"est":""}" title="${x.est?"Estimate in this prototype; the real menu computes it from the lightweight Snapshot":"From the source Build"}">${x.est?"≈ ":""}${x.pool.toLocaleString("en")}</span>`}
+function tagDepthBlock(d,v){const td=d.settings.tag_depth;
+ return `<span class="seg"><button data-act="td" data-v="num" class="${td!=="all"?"on":""}">first</button><button data-act="td" data-v="all" class="${td==="all"?"on":""}">${T("all")}</button></span>
+  ${td!=="all"?`<input type="number" min="2" max="20" value="${td}" data-bind="tag_depth" data-type="int" style="width:60px" class="${v.fields.tag_depth?"bad":""}"> tags of each game`:"tags of each game (up to 20 on Steam)"}${errs(v,"tag_depth")}`}
+function entriesBlock(d,v,k){
+ const kind={manual_exclusions:"exclusion",overrides:"override",manual_metadata:"metadata"}[k];
+ const rows=d.settings[k].map((e,i)=>{const bad=v.fields[k+"_"+i];return `<div class="rule" style="${bad?"border-color:#f3c3be":""}">
+  <div class="rh"><input type="number" placeholder="AppID" value="${e.appid||""}" data-bind="${k}.${i}.appid" data-type="int" style="width:100px">
+  <input type="text" placeholder="name" value="${esc(e.name||"")}" data-bind="${k}.${i}.name" style="width:170px">
+  ${kind==="override"?`<select data-bind="${k}.${i}.rule">${d.settings.rules.map(r=>`<option ${r.code===e.rule?"selected":""} value="${r.code}">${esc(r.label)}</option>`).join("")}${d.settings.rules.some(r=>r.code===e.rule)?"":`<option selected value="${esc(e.rule)}">${esc(e.rule)} (missing)</option>`}</select>`:""}
+  ${kind==="metadata"?`<select data-bind="${k}.${i}.kind"><option ${e.kind==="full"?"selected":""}>full</option><option ${e.kind==="tags_only"?"selected":""}>tags_only</option></select>`:""}
+  <span style="flex:1"></span><button class="btn quiet" data-act="rmentry" data-k="${k}" data-i="${i}">${T("Remove")}</button></div>
+  <textarea rows="2" placeholder="${T("reason")} (required)" data-bind="${k}.${i}.reason" style="margin-top:4px" class="${bad&&!(e.reason||"").trim()?"bad":""}">${esc(e.reason||"")}</textarea>
+  ${(e.evidence||[]).map((x,j)=>`<div class="small" style="display:flex;gap:6px;margin-top:3px">${T("evidence")} <input type="text" placeholder="https://…" value="${esc(x.url)}" data-bind="${k}.${i}.evidence.${j}.url" style="flex:1"><input type="date" value="${x.retrieved||""}" data-bind="${k}.${i}.evidence.${j}.retrieved"></div>`).join("")}
+  <button class="btn quiet small" data-act="addev" data-k="${k}" data-i="${i}">+ ${T("evidence")}</button>
+  ${kind==="metadata"?`<div class="small mute">Each field (name, tags, app type, genres, free, release date, Adult Only) takes { value, source URL, retrieved }: collapsed in this prototype.</div>`:""}
+  ${(bad||[]).map(m=>`<div class="err">${esc(m)}</div>`).join("")}</div>`}).join("");
+ return rows+`<button class="btn" data-act="addentry" data-k="${k}">+ ${T("Add")}</button>`+
+  (k==="manual_exclusions"?` <span class="small mute">Pick from would-be top games: ${EXCLUDED_TOP.slice(0,0).length?"":""}</span>`:"");
+}
+function numField(d,k,extra=""){return `<input type="number" value="${d.settings[k]}" data-bind="${k}" data-type="num" style="width:90px" ${extra}>`}
+function selField(d,k,opts){return `<select data-bind="${k}">${opts.map(o=>`<option ${d.settings[k]===o?"selected":""}>${o}</option>`).join("")}</select>`}
+function boolField(d,k){return `<input type="checkbox" ${d.settings[k]?"checked":""} data-bind="${k}" data-type="bool">`}
+function rangeField(d,k){const r=d.settings[k];return `<input type="number" value="${r[0]}" data-bind="${k}.0" data-type="int" style="width:60px"> – <input type="number" value="${r[1]}" data-bind="${k}.1" data-type="int" style="width:60px">`}
+function fieldRow(d,k,ctl,hint){const ch=!same(d.settings[k],sourceSettings(d)[k]);
+ return `<div class="field ${ch?"changed":""}"><label>${esc(LABEL[k]||k)}</label><div>${ctl}</div>${hint?`<div class="hint">${hint}</div>`:""}</div>`}
+function reportFields(d){return fieldRow(d,"content_flags",(d.settings.content_flags.map(f=>`<span class="tagchip">${esc(f.label)}: ${f.tags.map(t=>esc(t.name)).concat(f.name_only).join(", ")}</span>`).join(" ")),"Same shape as an Exclusion Rule, but never filters.")+
+ fieldRow(d,"genre_kind_count",`<span class="mono">${d.settings.genre_kind_count}</span> store genre ids mapped <button class="btn quiet small">Edit map…</button>`)+
+ fieldRow(d,"max_itemset_size",numField(d,"max_itemset_size"))+fieldRow(d,"min_support",numField(d,"min_support"))+
+ fieldRow(d,"release_month_check",numField(d,"release_month_check"))+
+ fieldRow(d,"causal_words",`<input type="text" value="${esc(d.settings.causal_words.join("; "))}" data-bind="causal_words" data-type="list" style="width:100%">`,"The Build fails if a report uses one of these.")+
+ fieldRow(d,"resolution_sweep",`<input type="text" value="${d.settings.resolution_sweep.join(", ")}" data-bind="resolution_sweep" data-type="nums" style="width:220px">`)}
+function netFields(d){return fieldRow(d,"genre_tags_count",`<span class="mono">${d.settings.genre_tags_count}</span> tags <button class="btn quiet small">Edit…</button>`)+
+ fieldRow(d,"min_games_per_tag",numField(d,"min_games_per_tag"))+fieldRow(d,"min_shared_games",numField(d,"min_shared_games"))+fieldRow(d,"min_months",numField(d,"min_months"))+
+ fieldRow(d,"hide_genre_tags",boolField(d,"hide_genre_tags"))+fieldRow(d,"hide_defining_tag",boolField(d,"hide_defining_tag"))+
+ fieldRow(d,"clustering_weight",selField(d,"clustering_weight",["shared_games","lift"]))+fieldRow(d,"algorithm",selField(d,"algorithm",["louvain","leiden"]))+
+ fieldRow(d,"resolution",numField(d,"resolution",'step="0.05"'))+fieldRow(d,"seed",numField(d,"seed"))+fieldRow(d,"null_replicates",numField(d,"null_replicates"))+fieldRow(d,"noise_seeds",numField(d,"noise_seeds"))+
+ fieldRow(d,"ps_weight",selField(d,"ps_weight",["lift","shared_games"]))+fieldRow(d,"ps_g_range",rangeField(d,"ps_g_range"),"Whether the grid scales with list size and Tag Depth is ticket 11.")+fieldRow(d,"ps_s_range",rangeField(d,"ps_s_range"))+
+ fieldRow(d,"ps_null_replicates",numField(d,"ps_null_replicates"))+fieldRow(d,"ps_subsamples",numField(d,"ps_subsamples"))}
+function topnFields(d,v){return `<div class="h">${T("Datasets")} · ${T("List size")}</div>${datasetsBlock(d,v)}
+ <div class="h">${T("Tag Depth")}</div><div>${tagDepthBlock(d,v)}</div><div class="small mute">One value for the whole Build. Exclusions and Content Flags still read the full list.</div>
+ <div class="h">${T("Exclusion Rules")} <span class="mute" style="text-transform:none;letter-spacing:0">in order</span></div>${rulesBlock(d,v)}
+ <div class="h">${T("Manual Exclusions")}</div>${entriesBlock(d,v,"manual_exclusions")}
+ <div class="h">${T("Exclusion Overrides")}</div>${entriesBlock(d,v,"overrides")}
+ <div class="h">${T("Manual Metadata Entries")}</div>${entriesBlock(d,v,"manual_metadata")}`}
+function failureBox(d){if(!d.failure)return"";const f=d.failure;
+ return `<div class="failbox"><b>The last run failed.</b> ${f.kind==="parse"?`${f.count} parse errors · <a href="#" class="mono">${esc(f.file)}</a>`:
+  `Causal word “<b>${esc(f.word)}</b>” in ${esc(f.file)}: <i>${esc(f.sentence)}</i>`} · the draft keeps its settings; fix and build again.</div>`}
+function runBox(d){if(!S.run||S.run.draftId!==d.id)return"";const r=S.run,st=stageAt(r);
+ return `<div style="margin:6px 0"><div class="small"><span class="chip run">${T("running")}</span> ${STAGES[st.i].l} · ${Math.min(r.secs,r.t).toFixed(0)} / ~${r.secs} s from the ${r.form} Snapshot · server-wide, survives a switch or closing the tab</div>
+  <div class="bar"><i style="width:${Math.min(100,100*r.t/r.secs)}%"></i></div></div>`}
+function identWarn(d){const b=identicalTo(d);return b?`<div class="warnbox">Same Snapshot and settings as “${esc(b.name)}”; software versions are the same (${b.software}). Building again is allowed.</div>`:""}
+function lineage(k){if(!k)return `<span class="mute">config defaults</span>`;const p=findBuild(k);return p?`${T("from")} “${esc(p.name)}”`:`<span class="mute">${T("from")} a deleted Build</span>`}
+function statusChips(d){const parts=[];if(S.run&&S.run.draftId===d.id)parts.push(`<span class="chip run">${T("running")} ${Math.round(100*S.run.t/S.run.secs)}%</span>`);
+ else if(d.failure)parts.push(`<span class="chip fail">${T("failed")}</span>`);else parts.push(`<span class="chip">${T("draft")}</span>`);
+ if(d.demo)parts.push(`<span class="chip demo">demo</span>`);return parts.join(" ")}
+function buildChips(b){const p=[];if(bkey(b)===S.open)p.push(`<span class="chip open">${T("open in this tab")}</span>`);if(b.latest)p.push(`<span class="chip">latest</span>`);
+ if(b.demo)p.push(`<span class="chip demo">demo</span>`);if(b.snap===TEST)p.push(`<span class="chip" style="color:var(--warn)">test</span>`);return p.join(" ")}
+function datasetSummary(b){return b.settings.datasets.map(x=>`${x.label} ${x.list_size}`).join(" · ")+` · ${T("Tag Depth")} ${b.settings.tag_depth}`}
+
+/* ============================================================ frame */
+function header(extraMode,buildSlot){
+ const b=openBuild();
+ return `<header class="app-header"><div class="brand"><b>${T("Tag Network")}</b>${buildSlot||`<span class="mute">${esc(b.name)}</span>`}</div>
+  <div class="seg">${[["wb","Workbench"],["rep","Analysis Report mode"],["ps","Parameter Selection"],...(extraMode?[["builds","Builds"]]:[])].map(([k,l])=>
+   `<button data-act="mode" data-v="${k}" class="${(S.mode||"wb")===k?"on":""}">${T(l)}</button>`).join("")}</div>
+  <div style="display:flex;gap:6px;align-items:center"><span class="mute">${T("Language")}</span><span class="seg"><button data-act="lang" data-v="en" class="${S.lang==="en"?"on":""}">EN</button><button data-act="lang" data-v="bg" class="${S.lang==="bg"?"on":""}">BG</button></span></div>
+  <div class="hdr-right"><span class="ptag">PROTOTYPE</span><span class="small mute mono">/build/${esc(b.snap)}/${esc(b.id)}</span></div></header>`}
+function fakeWorkbench(){const b=openBuild();const cols=["#2457d6","#e76f51","#2a9d8f","#9b5de5","#f4a261"];
+ let blobs="";for(let i=0;i<14;i++){const c=cols[i%5];blobs+=`<span class="blob" style="background:${c};left:${(i*37)%80+8}%;top:${(i*53)%70+10}%;width:${30+(i*13)%50}px;height:${30+(i*13)%50}px"></span>`}
+ return `<div class="wb"><div class="p"><div class="h">Controls</div>${'<div class="sk"></div>'.repeat(9)}</div>
+  <div class="g">${blobs}<div style="position:relative;text-align:center">${S.mode==="rep"?"Analysis Report":S.mode==="ps"?"Parameter Selection":"Tag Network canvas"} of<br><b>${esc(b.name)}</b><br><span class="small">${datasetSummary(b)}</span>
+   ${S.tabJobs.length?`<div class="small" style="margin-top:8px"><span class="chip run">running</span> ${S.tabJobs.map(j=>j.kind+" · "+j.dataset).join(", ")} in this tab</div>`:""}</div></div>
+  <div class="p"><div class="h">Inspector</div>${'<div class="sk"></div>'.repeat(6)}</div></div>`}
+function dialogHtml(){const g=S.dialog;if(!g)return"";
+ if(g.kind==="switch"){const b=findBuild(g.key);return `<div class="scrim"><div class="dlg"><h3>${T("Switch Build")}: “${esc(b.name)}”?</h3>
+  <p>${S.tabJobs.length} running job${S.tabJobs.length>1?"s":""} in this tab will be cancelled (${S.tabJobs.map(j=>esc(j.kind)).join(", ")}); finished parts stay cached.</p>
+  <p class="small mute">Kept: language, mode, the dataset if it has the same name. Reset: g, s, resolution, hidden and removed tags.${S.run?" The running Build is server-wide and keeps going.":""}</p>
+  <div class="act"><button class="btn" data-act="dlgclose">${T("Cancel")}</button><button class="btn primary" data-act="doswitch" data-k="${esc(g.key)}">${T("Switch Build")}</button></div></div></div>`}
+ if(g.kind==="delete"){const b=findBuild(g.key);const own=g.key===S.open;
+  if(own)return `<div class="scrim"><div class="dlg"><h3>Can’t delete “${esc(b.name)}”</h3><p>It is open in this tab. Switch to another Build first.</p><div class="act"><button class="btn primary" data-act="dlgclose">OK</button></div></div></div>`;
+  const kids=S.builds.filter(x=>x.parent===g.key).length+S.drafts.filter(x=>x.parent===g.key).length;
+  return `<div class="scrim"><div class="dlg"><h3>${T("Delete")} “${esc(b.name)}”?</h3><p>Its folder (${b.sizeMB} MB) and app cache (${b.cacheMB} MB) are removed. This can’t be undone.</p>
+  <ul class="small">${b.bundles.length?`<li>Bundles that ship it keep working (they carry their own copy): ${b.bundles.map(x=>`<span class="mono">${esc(x)}</span>`).join(", ")}</li>`:"<li>No bundles in <span class='mono'>bundles/</span> name it.</li>"}
+   <li>Network States exported from it will no longer open here.</li>
+   ${b.latest?`<li><span class="mono">latest</span> moves to the newest remaining Build of this Snapshot.</li>`:""}
+   ${kids?`<li>${kids} Build${kids>1?"s":""} or draft${kids>1?"s":""} will show “from a deleted Build”.</li>`:""}
+   <li>If another tab has it open, that tab will show “${T("This Build no longer exists")}”.</li></ul>
+  <div class="act"><button class="btn" data-act="dlgclose">${T("Cancel")}</button><button class="btn danger" data-act="dodelete" data-k="${esc(g.key)}">${T("Delete")}</button></div></div></div>`}
+ if(g.kind==="discard"){const d=findDraft(g.id);return `<div class="scrim"><div class="dlg"><h3>${T("Discard draft")} “${esc(d.name)}”?</h3><p>Its settings are lost${d.failure?", and its failed/ file is deleted":""}.</p>
+  <div class="act"><button class="btn" data-act="dlgclose">${T("Cancel")}</button><button class="btn danger" data-act="dodiscard" data-id="${d.id}">${T("Discard draft")}</button></div></div></div>`}
+ if(g.kind==="dup"){const b=findBuild(g.key);return `<div class="scrim"><div class="dlg"><h3>${T("Duplicate")} “${esc(b.name)}”</h3>
+  <div class="field"><label>${T("Duplicate onto Snapshot")}</label><div><select id="dupsnap">${SNAPSHOTS.map(s=>`<option value="${s.id}" ${s.id===b.snap?"selected":""}>${esc(s.id)}</option>`).join("")}</select></div>
+  <div class="hint">Settings that don’t fit another Snapshot fail that Build through today’s validation.</div></div>
+  <div class="act"><button class="btn" data-act="dlgclose">${T("Cancel")}</button><button class="btn primary" data-act="dodup" data-k="${esc(g.key)}">Start draft</button></div></div></div>`}
+ return"";
+}
+
+/* ============================================================ Variant A: Builds mode */
+function renderA(){
+ const ui=S.ui.A;let body;
+ if((S.mode||"wb")!=="builds")body=fakeWorkbench();
+ else{
+  if(!S.sel)S.sel={kind:"build",key:S.open};
+  const list=SNAPSHOTS.map(sn=>{const bs=S.builds.filter(b=>b.snap===sn.id).sort((a,b)=>b.id.localeCompare(a.id));const ds=S.drafts.filter(d=>d.snap===sn.id);
+   return `<div class="h">${T("Snapshot")} <span class="mono" style="text-transform:none">${esc(sn.id)}</span></div>`+
+    bs.map(b=>`<div class="A-item ${S.sel.kind==="build"&&S.sel.key===bkey(b)?"sel":""}" data-act="sel" data-kind="build" data-k="${esc(bkey(b))}">
+     <div class="t"><b>${esc(b.name)}</b>${buildChips(b)}</div><div class="small mute">${b.name!==b.id?`<span class="mono">${b.id}</span> · `:""}${b.created} · ${b.sizeMB} MB · ${lineage(b.parent)}</div></div>`).join("")+
+    (ds.length?`<div class="small mute" style="margin:6px 0 2px 4px">${T("Build Drafts")}</div>`:"")+
+    ds.map(d=>`<div class="A-item ${S.sel.kind==="draft"&&S.sel.key===d.id?"sel":""}" data-act="sel" data-kind="draft" data-k="${d.id}">
+     <div class="t"><b>${esc(d.name)||"<i>unnamed</i>"}</b>${statusChips(d)}</div><div class="small mute">${lineage(d.parent)} · saved ${d.saved} · ${changedKeys(d).length} changed</div></div>`).join("")}).join("");
+  let main;
+  if(S.sel.kind==="build"){const b=findBuild(S.sel.key);if(!b){S.sel=null;return renderA()}
+   main=`<div class="A-scroll"><h2 style="margin:4px 0 2px">${esc(b.name)} ${buildChips(b)}</h2><div class="mono small mute">${esc(b.snap)}/${esc(b.id)} · ${b.form} Snapshot</div>
+    <p>${esc(b.desc)}</p>
+    <div style="display:flex;gap:8px;margin:10px 0"><button class="btn primary" data-act="switch" data-k="${esc(bkey(b))}" ${bkey(b)===S.open?"disabled":""}>${T("Open")}</button>
+     <button class="btn" data-act="dup" data-k="${esc(bkey(b))}">${T("Duplicate")}…</button><button class="btn danger" data-act="del" data-k="${esc(bkey(b))}">${T("Delete")}…</button></div>
+    <table style="max-width:640px"><tr><th>${T("Parent")}</th><td>${lineage(b.parent)}</td></tr><tr><th>${T("Created")}</th><td>${b.created}</td></tr>
+     <tr><th>${T("Size")}</th><td>${b.sizeMB} MB, app cache ${b.cacheMB} MB</td></tr><tr><th>Top-N</th><td>${datasetSummary(b)}</td></tr>
+     <tr><th>${T("Exclusion Rules")}</th><td>${b.settings.rules.map(r=>esc(r.label)).join(", ")}</td></tr>
+     <tr><th>Bundles</th><td>${b.bundles.length?b.bundles.map(x=>`<div class="mono small">${esc(x)}</div>`).join(""):"<span class='mute'>none</span>"}</td></tr></table>
+    <p class="small mute">A Build is immutable: to change it, duplicate it into a draft.</p></div>`}
+  else{const d=findDraft(S.sel.key);if(!d){S.sel=null;return renderA()}const v=validate(d),ch=changedKeys(d),p=pools(d);
+   const tn=ch.filter(k=>TOPN_KEYS.includes(k)),ent=entering(d),lv=leaving(d);
+   const sec=(id,title,inner,badge)=>`<div class="A-sec" id="A-${id}"><h2>${title}${badge||""}</h2>${inner}</div>`;
+   main=`<div class="A-scroll" id="A-scroll">
+    <div style="display:flex;gap:10px;align-items:center"><h2 style="margin:4px 0;flex:1">${T("draft")}: ${esc(d.name)||"<i>unnamed</i>"} ${statusChips(d)}</h2><span class="small mute">${T("Saved automatically")} ${d.saved}</span>
+     <button class="btn quiet" data-act="discard" data-id="${d.id}">${T("Discard draft")}…</button></div>
+    <div class="small mute">${lineage(d.parent)} · Snapshot <span class="mono">${esc(d.snap)}</span></div>
+    ${failureBox(d)}${runBox(d)}
+    <div class="A-nav">${[["topn",T("Changes the Top-N")],["rep",T("Reports and analysis")],["net",T("Network defaults")]].map(([k,l])=>`<a data-act="Ajump" data-v="${k}">${l}${k==="topn"&&tn.length?` <span class="chip topn">${tn.length}</span>`:""}</a>`).join("")}</div>
+    ${sec("topn",T("Changes the Top-N"),topnFields(d,v),` <span class="chip topn">needs the Snapshot</span>`)}
+    ${sec("rep",T("Reports and analysis"),reportFields(d))}
+    ${sec("net",T("Network defaults"),netFields(d))}</div>
+    <div class="A-foot"><div>
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:start;max-width:720px">
+       <label>${T("Name")}</label><div><input type="text" value="${esc(d.name)}" data-bind="name" style="width:320px" class="${v.fields.name?"bad":""}">${errs(v,"name")}</div>
+       <label>${T("Description")}</label><div><input type="text" value="${esc(d.desc)}" data-bind="desc" style="width:100%" placeholder="Why this Build exists (its changelog entry)" class="${v.fields.desc?"bad":""}">${errs(v,"desc")}</div></div>
+      <div style="margin-top:6px" class="small">${tn.length?`<span class="chip topn">${T("Changes the Top-N")}: ${tn.map(k=>esc(LABEL[k])).join(", ")}</span>`:`<span class="mute">Top-N unchanged from the source.</span>`}
+       ${ch.length-tn.length?` <span class="chip">${ch.length-tn.length} other change${ch.length-tn.length>1?"s":""}</span>`:""}
+       ${ent.length?` · enters Overall: ${ent.map(g=>`${esc(g.name)} (#${g.rank})`).join(", ")}`:""}${lv.length?` · leaves: ${lv.map(esc).join(", ")}`:""}</div>
+      <div class="pools" style="margin-top:6px"><span class="small mute">${T("Eligible Pool")}:</span>${d.settings.datasets.map(ds=>`<span class="small">${esc(ds.label)}</span>${poolChip(p[ds.key])}`).join(" ")}</div>
+      ${identWarn(d)}</div>
+     <div style="text-align:right"><button class="btn primary" data-act="run" data-id="${d.id}" ${S.run?"disabled":""}>${T("Build it")}</button>
+      <div class="small mute" style="margin-top:4px">~${SNAPSHOTS.find(s=>s.id===d.snap).buildSecs.lightweight} s from the lightweight Snapshot</div>
+      ${v.count?`<div class="err">${v.count} problem${v.count>1?"s":""} to fix</div>`:""}${S.run&&S.run.draftId!==d.id?`<div class="small mute">Another Build is running.</div>`:""}</div></div>`}
+  body=`<div class="A-wrap"><div class="A-list"><div style="display:flex;gap:6px"><button class="btn primary" data-act="new">+ ${T("New Build")}</button>
+    <span class="small mute" style="align-self:center">from config defaults</span></div>${list}
+    ${S.run?`<div class="h">Running</div><div class="small">${esc(findDraft(S.run.draftId).name)} · ${Math.round(100*S.run.t/S.run.secs)}%</div>`:""}</div>
+   <div class="A-main">${main}</div></div>`;
+ }
+ return header(true)+`<div id="body">${body}</div>`;
+}
+
+/* ============================================================ Variant B: switcher + dialog */
+const B_STEPS=[["start","Start"],["topn","Changes the Top-N"],["cur","Curation"],["rep","Reports and analysis"],["net","Network defaults"],["rev","Review"]];
+function renderB(){
+ const ui=S.ui.B,b=openBuild();
+ const trigger=`<span class="B-trigger" data-act="Bmenu"><span>${esc(b.name)}</span>${b.demo?'<span class="chip demo">demo</span>':""}<span class="faint">▾</span></span>`;
+ let menu="";
+ if(ui.menu){menu=`<div class="B-menu">`+SNAPSHOTS.map(sn=>{const bs=S.builds.filter(x=>x.snap===sn.id).sort((a,c)=>c.id.localeCompare(a.id));
+   return `<div class="grp">${T("Snapshot")} <span class="mono" style="text-transform:none">${esc(snapShort(sn.id))}</span></div>`+bs.map(x=>`<div class="it" data-act="switch" data-k="${esc(bkey(x))}">
+    <span style="width:14px">${bkey(x)===S.open?"✓":""}</span><div style="flex:1;min-width:0"><b>${esc(x.name)}</b> ${x.latest?'<span class="chip">latest</span>':""}${x.demo?' <span class="chip demo">demo</span>':""}
+    <div class="small mute">${x.created} · ${datasetSummary(x)}${x.parent?" · "+lineage(x.parent):""}</div></div></div>`).join("")}).join("")+
+   `<hr>${S.drafts.length?`<div class="grp">${T("Build Drafts")}</div>`+S.drafts.map(d=>`<div class="it" data-act="Bedit" data-id="${d.id}"><span style="width:14px">✎</span><div style="flex:1"><b>${esc(d.name)}</b> ${statusChips(d)}<div class="small mute">${lineage(d.parent)} · saved ${d.saved}</div></div></div>`).join("")+"<hr>":""}
+    <div class="it" data-act="Bnew"><span style="width:14px">+</span><b>${T("New Build")}…</b></div>
+    <div class="it" data-act="Bdup"><span style="width:14px">⧉</span><b>${T("Duplicate")} “${esc(b.name)}”…</b></div>
+    <div class="it" data-act="Bmanage"><span style="width:14px">⚙</span><b>${T("Manage Builds…")}</b></div></div>`}
+ let strip="";
+ if(S.run){const d=findDraft(S.run.draftId),st=stageAt(S.run);strip=`<div class="B-strip"><span class="chip run">${T("running")}</span> Building “${esc(d.name)}” · ${STAGES[st.i].l} · ${Math.min(S.run.secs,S.run.t).toFixed(0)}/~${S.run.secs} s
+   <div class="bar" style="width:220px"><i style="width:${100*S.run.t/S.run.secs}%"></i></div><span class="mute">Keep working: this tab’s Build is unaffected.</span></div>`}
+ else{const f=S.drafts.find(d=>d.failure&&d.failSeen!==true&&d.failNew);if(f)strip=`<div class="B-strip fail">Build of “${esc(f.name)}” failed. <a href="#" data-act="Bedit" data-id="${f.id}">Open the draft</a></div>`;
+  else if(S.lastMade&&findBuild(S.lastMade)&&S.lastMade!==S.open)strip=`<div class="B-strip ok">Built “${esc(findBuild(S.lastMade).name)}”. <a href="#" data-act="switch" data-k="${esc(S.lastMade)}">Open it in this tab</a> <button class="btn quiet small" data-act="Bdismiss">×</button></div>`}
+ let dlg="";
+ if(ui.dlg){const d=findDraft(ui.dlg);if(!d){ui.dlg=null}else{const v=validate(d),ch=changedKeys(d),p=pools(d),step=B_STEPS[ui.step][0];
+  const stepBad={start:!!(v.fields.name||v.fields.desc),topn:Object.keys(v.fields).some(k=>/^(ds_|rule_|tag_depth)/.test(k)),cur:Object.keys(v.fields).some(k=>/^(manual|overrides)/.test(k))};
+  const stepCh={topn:ch.some(k=>["datasets","tag_depth","rules","allowed_app_types"].includes(k)),cur:ch.some(k=>["manual_exclusions","overrides","manual_metadata"].includes(k)),rep:ch.some(k=>REPORT_KEYS.includes(k)),net:ch.some(k=>NET_KEYS.includes(k))};
+  let cnt="";
+  if(step==="start")cnt=`<h3>${T("Start")}</h3><div class="field"><label>${T("Name")}</label><div><input type="text" value="${esc(d.name)}" data-bind="name" style="width:340px" class="${v.fields.name?"bad":""}">${errs(v,"name")}</div><div class="hint">Unique within the Snapshot. Fixed once built.</div></div>
+    <div class="field"><label>${T("Description")}</label><div><textarea rows="3" data-bind="desc" class="${v.fields.desc?"bad":""}" placeholder="Why this Build exists">${esc(d.desc)}</textarea>${errs(v,"desc")}</div><div class="hint">Becomes this Build’s changelog entry, after the ones it inherits.</div></div>
+    <div class="field"><label>Started from</label><div>${lineage(d.parent)}</div></div>
+    <div class="field"><label>${T("Snapshot")}</label><div class="mono">${esc(d.snap)}</div></div>${failureBox(d)}`;
+  if(step==="topn")cnt=`<h3>${T("Changes the Top-N")} <span class="chip topn">needs the Snapshot</span></h3>
+    <div class="h">${T("Datasets")} · ${T("List size")}</div>${datasetsBlock(d,v)}<div class="h">${T("Tag Depth")}</div>${tagDepthBlock(d,v)}
+    <div class="h">${T("Exclusion Rules")}</div>${rulesBlock(d,v)}`;
+  if(step==="cur")cnt=`<h3>Curation <span class="chip topn">changes the Top-N</span></h3><p class="small mute">Each entry needs a reason and evidence, as today’s Build validation requires.</p>
+    <div class="h">${T("Manual Exclusions")}</div>${entriesBlock(d,v,"manual_exclusions")}
+    <div class="small mute" style="margin:4px 0">Would-be Overall ranks of excluded games: ${EXCLUDED_TOP.slice(0,6).map(g=>`<a href="#" data-act="addov" data-appid="${g.appid}">${esc(g.name)} #${g.rank}</a>`).join(", ")} (click to add an Override)</div>
+    <div class="h">${T("Exclusion Overrides")}</div>${entriesBlock(d,v,"overrides")}<div class="h">${T("Manual Metadata Entries")}</div>${entriesBlock(d,v,"manual_metadata")}`;
+  if(step==="rep")cnt=`<h3>${T("Reports and analysis")}</h3>${reportFields(d)}`;
+  if(step==="net")cnt=`<h3>${T("Network defaults")}</h3>${netFields(d)}`;
+  if(step==="rev"){const src=sourceSettings(d),ent=entering(d);
+   cnt=`<h3>${T("Review")}</h3><p>Compared with ${lineage(d.parent)}.</p>
+    ${ch.length?`<table>${ch.map(k=>`<tr class="diffrow"><td>${TOPN_KEYS.includes(k)?'<span class="chip topn">Top-N</span>':""}</td><td>${esc(LABEL[k])}</td><td class="old">${esc(fmtVal(k,src[k]))}</td><td class="new">${esc(fmtVal(k,d.settings[k]))}</td></tr>`).join("")}</table>`:`<p class="mute">No changes.</p>`}
+    <div class="h">${T("Eligible Pool")} and Top-N</div><table><tr><th>Dataset</th><th>${T("List size")}</th><th>${T("Eligible Pool")}</th></tr>${d.settings.datasets.map(ds=>`<tr><td>${esc(ds.label)}</td><td>${ds.list_size}</td><td>${poolChip(p[ds.key])}</td></tr>`).join("")}</table>
+    ${ent.length?`<p>Enters the Overall list: ${ent.map(g=>`<b>${esc(g.name)}</b> (#${g.rank})`).join(", ")}</p>`:""}
+    ${identWarn(d)}${v.count?`<div class="failbox">${v.count} problem${v.count>1?"s":""}: ${Object.values(v.fields).flat().slice(0,4).map(esc).join(" · ")}</div>`:""}${runBox(d)}`}
+  dlg=`<div class="scrim" style="background:#0f172a40"></div><div class="B-dlg"><div class="hd"><b style="font-size:15px">${esc(d.name)||"unnamed"}</b> ${statusChips(d)}<span class="small mute">${T("Saved automatically")} ${d.saved}</span><span style="flex:1"></span>
+    <button class="btn quiet" data-act="discard" data-id="${d.id}">${T("Discard draft")}…</button><button class="btn" data-act="Bclose">Close (keeps the draft)</button></div>
+   <div class="B-steps">${B_STEPS.map(([k,l],i)=>`<div data-act="Bstep" data-v="${i}" class="${i===ui.step?"on":""}"><span class="n ${stepBad[k]?"bad":stepCh[k]?"done":""}">${stepBad[k]?"!":i+1}</span>${k==="cur"?"Curation":T(l)}</div>`).join("")}
+    <div class="small mute" style="padding:10px 18px">● green: changed · red: needs a fix</div></div>
+   <div class="B-cnt">${cnt}</div>
+   <div class="B-ft"><button class="btn" data-act="Bstep" data-v="${ui.step-1}" ${ui.step?"":"disabled"}>${T("Back")}</button>
+    ${ui.step<B_STEPS.length-1?`<button class="btn" data-act="Bstep" data-v="${ui.step+1}">${T("Next")}</button>`:""}<span style="flex:1"></span>
+    <span class="small mute">${ch.length} change${ch.length===1?"":"s"}${v.count?` · <span class="err">${v.count} to fix</span>`:""}</span>
+    <button class="btn primary" data-act="run" data-id="${d.id}" ${S.run||ui.step!==B_STEPS.length-1?"disabled":""} title="Build from the Review step">${T("Build it")}</button></div></div>`}}
+ let manage="";
+ if(ui.manage){manage=`<div class="scrim"><div class="dlg" style="width:min(860px,94vw)"><h3>${T("Manage Builds…")}</h3><table><tr><th>${T("Name")}</th><th>${T("Snapshot")}</th><th>${T("Created")}</th><th>${T("Parent")}</th><th>${T("Size")}</th><th></th></tr>
+  ${S.builds.map(x=>`<tr><td><b>${esc(x.name)}</b> ${buildChips(x)}</td><td class="mono small">${esc(snapShort(x.snap))}</td><td>${x.created}</td><td class="small">${lineage(x.parent)}</td><td>${x.sizeMB} MB</td>
+   <td><button class="btn quiet" data-act="dup" data-k="${esc(bkey(x))}">${T("Duplicate")}</button><button class="btn quiet" data-act="del" data-k="${esc(bkey(x))}" ${bkey(x)===S.open?'disabled title="Open in this tab"':""}>${T("Delete")}</button></td></tr>`).join("")}</table>
+  <div class="act"><button class="btn" data-act="Bmanageclose">Close</button></div></div></div>`}
+ return header(false,trigger)+strip+`<div id="body">${fakeWorkbench()}</div>`+menu+dlg+manage;
+}
+
+/* ============================================================ Variant D: B with C's lineage tree (the chosen design) */
+// mode "menu": the header dropdown (click a Build = switch, a draft = open its dialog); "manage": the Manage dialog, with sizes.
+function lineageTree(mode){
+ const kids=k=>[...S.builds.filter(b=>b.parent===k).map(b=>({t:"b",o:b,k:bkey(b)})),...S.drafts.filter(d=>d.parent===k).map(d=>({t:"d",o:d,k:d.id}))];
+ const rootKids=sn=>[...S.builds.filter(b=>b.snap===sn&&(!b.parent||!findBuild(b.parent))).map(b=>({t:"b",o:b,k:bkey(b)})),
+  ...S.drafts.filter(d=>d.snap===sn&&(!d.parent||!findBuild(d.parent))).map(d=>({t:"d",o:d,k:d.id}))];
+ function node(n,prefix,last){const conn=prefix+(last?"└─ ":"├─ "),next=prefix+(last?"   ":"│  "),o=n.o;
+  const head=n.t==="b"?`<span style="width:12px;display:inline-block">${n.k===S.open?"✓":""}</span><b>${esc(o.name)}</b> ${buildChips(o)}`
+   :`<span style="width:12px;display:inline-block"></span>✎ <i>${esc(o.name)||"unnamed"}</i> ${statusChips(o)}`;
+  const gone=o.parent&&!findBuild(o.parent)?" · from a deleted Build":"";
+  const meta=n.t==="b"?`${o.created} · ${datasetSummary(o)}${mode==="manage"?` · ${o.sizeMB} MB, cache ${o.cacheMB} MB`:""}${gone}`
+   :`${changedKeys(o).length} changed · saved ${o.saved}${S.run&&S.run.draftId===o.id?` · building ${Math.round(100*S.run.t/S.run.secs)}%`:""}${gone}`;
+  const acts=n.t==="b"?`<button class="btn quiet small" data-act="dup" data-k="${esc(n.k)}" title="${T("Duplicate")}">⧉</button><button class="btn quiet small" data-act="del" data-k="${esc(n.k)}" title="${T("Delete")}">🗑</button>`
+   :`<button class="btn quiet small" data-act="discard" data-id="${o.id}" title="${T("Discard draft")}">×</button>`;
+  const act=n.t==="b"?`data-act="switch" data-k="${esc(n.k)}"`:`data-act="Bedit" data-id="${o.id}"`;
+  return `<div class="C-node" ${act}><span class="ln">${conn}</span><div>${head}</div><div class="acts">${acts}</div><div class="meta" style="padding-left:${conn.length*0.6}em">${meta}</div></div>`+
+   (n.t==="b"?kids(n.k):[]).map((c,i,a)=>node(c,next,i===a.length-1)).join("");}
+ return SNAPSHOTS.map(sn=>{const ks=rootKids(sn.id);return `<div class="grp">${T("Snapshot")} <span class="mono" style="text-transform:none">${esc(snapShort(sn.id))}</span></div>
+  <div class="C-node" data-act="Dnew" data-snap="${sn.id}"><span class="ln"></span><div><span class="mono">config/</span> <span class="mute">defaults · + ${T("New Build")}</span></div><div></div></div>`+
+  ks.map((c,i)=>node(c,"",i===ks.length-1)).join("")}).join("");
+}
+function renderD(){
+ // B's frame, with the dropdown and the Manage dialog drawn as the lineage tree
+ const ui=S.ui.B;const html=renderB();
+ if(!ui.menu&&!ui.manage)return html;
+ const box=document.createElement("div");box.innerHTML=html;
+ const m=box.querySelector(".B-menu");if(m)m.innerHTML=`<div style="padding:0 6px">${lineageTree("menu")}</div><hr>
+  <div class="it" data-act="Bdup"><span style="width:14px">⧉</span><b>${T("Duplicate")} “${esc(openBuild().name)}”…</b></div>
+  <div class="it" data-act="Bmanage"><span style="width:14px">⚙</span><b>${T("Manage Builds…")}</b></div>`;
+ const g=box.querySelector(".dlg h3");if(g&&ui.manage){const d=g.parentElement;d.querySelector("table").outerHTML=`<div>${lineageTree("manage")}</div>`}
+ return box.innerHTML;
+}
+
+/* ============================================================ Variant C: lineage page */
+function renderC(){
+ const ui=S.ui.C;const page=ui.page||"builds";
+ if(page==="wb"){const b=openBuild();return header(false,`<span class="mute">${esc(b.name)}</span> <button class="btn quiet" data-act="Cpage" data-v="builds">${T("Builds")} ▸</button>`)+`<div id="body">${fakeWorkbench()}</div>`}
+ // tree: roots = config defaults per snapshot
+ const kids=k=>[...S.builds.filter(b=>b.parent===k).map(b=>({t:"b",o:b,k:bkey(b)})),...S.drafts.filter(d=>d.parent===k).map(d=>({t:"d",o:d,k:d.id}))];
+ const orphans=sn=>[...S.builds.filter(b=>b.snap===sn&&b.parent&&!findBuild(b.parent)).map(b=>({t:"b",o:b,k:bkey(b)})),...S.drafts.filter(d=>d.snap===sn&&d.parent&&!findBuild(d.parent)).map(d=>({t:"d",o:d,k:d.id}))];
+ const rootKids=sn=>[...S.builds.filter(b=>b.snap===sn&&!b.parent).map(b=>({t:"b",o:b,k:bkey(b)})),...S.drafts.filter(d=>d.snap===sn&&!d.parent).map(d=>({t:"d",o:d,k:d.id})),...orphans(sn)];
+ const sel=S.sel;
+ function node(n,prefix,last){const conn=prefix+(last?"└─ ":"├─ "),next=prefix+(last?"   ":"│  ");const o=n.o,isSel=sel&&sel.key===n.k;
+  const head=n.t==="b"?`<b>${esc(o.name)}</b> ${buildChips(o)}`:`<span>✎ <i>${esc(o.name)||"unnamed"}</i></span> ${statusChips(o)}`;
+  const meta=n.t==="b"?`${o.name!==o.id?`<span class="mono">${o.id}</span> · `:""}${o.created} · ${o.sizeMB} MB · ${datasetSummary(o)}${o.parent&&!findBuild(o.parent)?" · from a deleted Build":""}`
+    :`${changedKeys(o).length} changed vs parent · saved ${o.saved}${S.run&&S.run.draftId===o.id?` · building ${Math.round(100*S.run.t/S.run.secs)}%`:""}`;
+  const acts=n.t==="b"?`<button class="btn quiet small" data-act="switch" data-k="${esc(n.k)}" ${n.k===S.open?"disabled":""}>${T("Open")}</button><button class="btn quiet small" data-act="Cdup" data-k="${esc(n.k)}">${T("Duplicate")}</button><button class="btn quiet small" data-act="del" data-k="${esc(n.k)}">${T("Delete")}</button>`:"";
+  const ch=n.t==="b"?kids(n.k):[];
+  return `<div class="C-node ${isSel?"sel":""}" data-act="sel" data-kind="${n.t==="b"?"build":"draft"}" data-k="${esc(n.k)}"><span class="ln">${conn}</span><div>${head}</div><div class="acts">${acts}</div><div class="meta" style="padding-left:${conn.length*0.6}em">${meta}</div></div>`+
+   ch.map((c,i)=>node(c,next,i===ch.length-1)).join("");}
+ const tree=SNAPSHOTS.map(sn=>{const ks=rootKids(sn.id);return `<div class="h">${T("Snapshot")} <span class="mono" style="text-transform:none">${esc(sn.id)}</span> <span style="text-transform:none;letter-spacing:0">· ${sn.forms.join(" + ")} · Build ~${sn.buildSecs.lightweight} s</span></div>
+  <div class="C-node" data-act="Cnew" data-snap="${sn.id}"><span class="ln"></span><div><span class="mono">config/</span> <span class="mute">defaults</span></div><div class="acts" style="display:flex"><button class="btn quiet small">+ ${T("New Build")}</button></div></div>`+
+  ks.map((c,i)=>node(c,"",i===ks.length-1)).join("")}).join("");
+ let right=`<div class="mute" style="margin-top:40px;text-align:center">Pick a Build or draft in the tree.</div>`;
+ if(sel&&sel.kind==="build"){const b=findBuild(sel.key);if(b){const src=b.parent?findBuild(b.parent):null;const ss=src?src.settings:DEFAULT_SETTINGS;
+  const diffs=[...TOPN_KEYS,...REPORT_KEYS,...NET_KEYS].filter(k=>!same(b.settings[k],ss[k]));
+  right=`<h2 style="margin:2px 0">${esc(b.name)} ${buildChips(b)}</h2><div class="mono small mute">${esc(b.snap)}/${esc(b.id)}</div><p>${esc(b.desc)}</p>
+   <div style="display:flex;gap:6px"><button class="btn primary" data-act="switch" data-k="${esc(sel.key)}" ${sel.key===S.open?"disabled":""}>${T("Open")}</button><button class="btn" data-act="Cdup" data-k="${esc(sel.key)}">${T("Duplicate")}</button><button class="btn danger" data-act="del" data-k="${esc(sel.key)}">${T("Delete")}…</button></div>
+   <div class="h">Differs from ${src?`“${esc(src.name)}”`:"config defaults"}</div>${diffs.length?`<table class="C-diff">${diffs.map(k=>`<tr><td>${TOPN_KEYS.includes(k)?'<span class="chip topn">Top-N</span>':""}</td><td>${esc(LABEL[k])}</td><td class="src">${esc(fmtVal(k,ss[k]))}</td><td>${esc(fmtVal(k,b.settings[k]))}</td></tr>`).join("")}</table>`:"<p class='mute'>Nothing: same settings.</p>"}
+   <div class="h">Bundles</div>${b.bundles.length?b.bundles.map(x=>`<div class="mono small">${esc(x)}</div>`).join(""):"<span class='mute'>none</span>"}`}}
+ if(sel&&sel.kind==="draft"){const d=findDraft(sel.key);if(d){const v=validate(d),src=sourceSettings(d),p=pools(d),ent=entering(d);
+  const row=(k,ctl)=>{const ch=!same(d.settings[k],src[k]);if(ui.changedOnly&&!ch)return"";
+   return `<tr class="${ch?"chg":""}"><td>${TOPN_KEYS.includes(k)?'<span class="chip topn">Top-N</span>':""}</td><td>${esc(LABEL[k])}${ch?` <button class="btn quiet small" data-act="Creset" data-key="${k}" title="Back to the source value">↺</button>`:""}</td><td class="src" title="${esc(fmtVal(k,src[k]))}">${esc(fmtVal(k,src[k]))}</td><td class="cur">${ctl}</td></tr>`};
+  const simple=k=>{const x=d.settings[k];if(typeof x==="boolean")return boolField(d,k);if(k==="clustering_weight"||k==="ps_weight")return selField(d,k,["shared_games","lift"]);if(k==="algorithm")return selField(d,k,["louvain","leiden"]);
+   if(Array.isArray(x)&&k.startsWith("ps_"))return rangeField(d,k);if(k==="causal_words")return `<input type="text" value="${esc(x.join("; "))}" data-bind="${k}" data-type="list">`;
+   if(k==="resolution_sweep")return `<input type="text" value="${x.join(", ")}" data-bind="${k}" data-type="nums">`;if(typeof x==="number")return numField(d,k);return `<span>${esc(fmtVal(k,x))}</span>`};
+  const secRow=t=>`<tr class="sec"><td colspan="4">${t}</td></tr>`;
+  const st=S.run&&S.run.draftId===d.id?stageAt(S.run):null;
+  right=`<div style="display:flex;gap:8px;align-items:center"><h2 style="margin:2px 0;flex:1">✎ ${esc(d.name)||"unnamed"} ${statusChips(d)}</h2><span class="small mute">${T("Saved automatically")} ${d.saved}</span><button class="btn quiet" data-act="discard" data-id="${d.id}">${T("Discard draft")}…</button></div>
+   <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:6px 0"><label>${T("Name")}</label><div><input type="text" value="${esc(d.name)}" data-bind="name" style="width:300px" class="${v.fields.name?"bad":""}">${errs(v,"name")}</div>
+    <label>${T("Description")}</label><div><input type="text" value="${esc(d.desc)}" data-bind="desc" style="width:100%" class="${v.fields.desc?"bad":""}" placeholder="Why this Build exists">${errs(v,"desc")}</div></div>
+   ${failureBox(d)}
+   <div class="h">Run</div>
+   <div class="pipe">${STAGES.map((s,i)=>`<div style="--w:${s.w}" class="${st?(i<st.i?"done":""):d.failure&&((d.failure.kind==="parse"&&i===0)||(d.failure.kind==="causal"&&i===4))?"fail":""}">${st&&i===st.i?`<i style="--p:${Math.round(100*((st.f-STAGES.slice(0,i).reduce((a,x)=>a+x.w,0))/s.w))}%"></i>`:""}<span>${s.l}</span></div>`).join("")}</div>
+   <div style="display:flex;gap:8px;align-items:center"><button class="btn primary" data-act="run" data-id="${d.id}" ${S.run?"disabled":""}>${T("Build it")}</button>
+    <span class="small mute">${st?`${Math.min(S.run.secs,S.run.t).toFixed(0)} / ~${S.run.secs} s · server-wide, survives switching and closing the tab`:`~${SNAPSHOTS.find(s=>s.id===d.snap).buildSecs.lightweight} s from the lightweight Snapshot (~${SNAPSHOTS.find(s=>s.id===d.snap).buildSecs.raw} s raw)`}</span>
+    ${v.count?`<span class="err">${v.count} to fix</span>`:""}</div>${identWarn(d)}
+   <div class="h">Top-N preview</div><div class="pools">${d.settings.datasets.map(ds=>`<span class="small">${esc(ds.label)} ${ds.list_size} of</span>${poolChip(p[ds.key])}`).join(" ")}</div>
+   ${ent.length?`<div class="small" style="margin-top:4px">Enters Overall: ${ent.map(g=>`<b>${esc(g.name)}</b> #${g.rank}`).join(", ")}</div>`:""}
+   <div class="h" style="display:flex;gap:8px;align-items:center">Settings vs ${lineage(d.parent)} <label style="text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" data-act="Cchanged" ${ui.changedOnly?"checked":""}> ${T("Changed only")}</label></div>
+   <table class="C-diff"><tr><th></th><th>${T("Setting")}</th><th>${T("Source")}</th><th>${T("This draft")}</th></tr>
+    ${secRow(T("Changes the Top-N"))}
+    ${row("datasets",`<div style="display:flex;flex-wrap:wrap;gap:6px">${d.settings.datasets.map(ds=>`<span class="small">${esc(ds.label)} <input type="number" min="10" value="${ds.list_size}" data-ds="${ds.key}" style="width:62px" class="${v.fields["ds_"+ds.key]?"bad":""}"></span>`).join("")}</div>${Object.keys(v.fields).filter(k=>k.startsWith("ds_")).map(k=>errs(v,k)).join("")}`)}
+    ${row("tag_depth",tagDepthBlock(d,v))}
+    ${row("rules",`<details ${same(d.settings.rules,src.rules)?"":"open"}><summary>${d.settings.rules.map(r=>esc(r.label)).join(" → ")}</summary>${rulesBlock(d,v)}</details>`)}
+    ${row("manual_exclusions",`<details ${d.settings.manual_exclusions.length?"open":""}><summary>${fmtVal("manual_exclusions",d.settings.manual_exclusions)}</summary>${entriesBlock(d,v,"manual_exclusions")}</details>`)}
+    ${row("overrides",`<details ${d.settings.overrides.length?"open":""}><summary>${fmtVal("overrides",d.settings.overrides)}</summary>${entriesBlock(d,v,"overrides")}</details>`)}
+    ${row("manual_metadata",`<details ${d.settings.manual_metadata.length?"open":""}><summary>${fmtVal("manual_metadata",d.settings.manual_metadata)}</summary>${entriesBlock(d,v,"manual_metadata")}</details>`)}
+    ${secRow(T("Reports and analysis"))}${REPORT_KEYS.map(k=>row(k,simple(k))).join("")}
+    ${secRow(T("Network defaults"))}${NET_KEYS.map(k=>row(k,simple(k))).join("")}</table>`}}
+ const b=openBuild();
+ return header(false,`<span class="mute">${T("Builds")}</span>`)+`<div id="body"><div class="C-page"><div class="C-tree">
+   <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><button class="btn" data-act="Cpage" data-v="wb">← ${T("Back to the Workbench")}</button><span class="small mute">(${esc(b.name)})</span></div>
+   ${S.run?`<div class="small"><span class="chip run">${T("running")}</span> ${esc(findDraft(S.run.draftId).name)} ${Math.round(100*S.run.t/S.run.secs)}%</div>`:""}${tree}</div>
+  <div class="C-right">${right}</div></div></div>`;
+}
+
+/* ============================================================ render + events */
+const VARIANTS={A:["Builds mode",renderA],B:["Switcher + dialog",renderB],C:["Lineage page",renderC],D:["B + lineage tree (chosen)",renderD]};
+let lastFocus=null;
+function render(){
+ const ae=document.activeElement;if(ae&&ae.dataset&&(ae.dataset.bind||ae.dataset.ds||ae.dataset.addtag)){lastFocus={b:ae.dataset.bind,ds:ae.dataset.ds,at:ae.dataset.addtag,s:ae.selectionStart}}else lastFocus=null;
+ const sc=document.querySelector(".A-scroll,.B-cnt,.C-right,.C-tree");const top=sc?sc.scrollTop:0,cls=sc?sc.className:"";
+ document.getElementById("app").innerHTML=VARIANTS[S.v][1]()+dialogHtml();
+ document.documentElement.lang=S.lang;
+ const sc2=document.querySelector("."+cls.split(" ")[0]);if(sc2&&cls)sc2.scrollTop=top;
+ if(lastFocus){const sel=lastFocus.b?`[data-bind="${lastFocus.b}"]`:lastFocus.ds?`[data-ds="${lastFocus.ds}"]`:`[data-addtag="${lastFocus.at}"]`;const el=document.querySelector(sel);
+  if(el){el.focus();try{if(lastFocus.s!=null)el.setSelectionRange(lastFocus.s,lastFocus.s)}catch(e){}}}
+ document.getElementById("vlabel").textContent=`${S.v} (${VARIANTS[S.v][0]})`;
+ const view={variant:S.v,lang:S.lang,open_build:S.open,tab_jobs:S.tabJobs,mode:S.mode||"wb",selected:S.sel,run:S.run&&{draft:S.run.draftId,t:+S.run.t.toFixed(1),secs:S.run.secs,form:S.run.form,will_fail:S.run.fail},
+  builds:S.builds.map(b=>({key:bkey(b),name:b.name,parent:b.parent,latest:!!b.latest})),
+  drafts:S.drafts.map(d=>({id:d.id,name:d.name,parent:d.parent,changed:changedKeys(d),problems:validate(d).count,failure:d.failure&&d.failure.kind,pools:Object.fromEntries(Object.entries(pools(d)).map(([k,x])=>[k,(x.est?"≈":"")+x.pool]))}))};
+ document.getElementById("statepre").textContent=JSON.stringify(view,null,1);
+ document.getElementById("statectl").innerHTML=`next run: ${[["ok",null],["parse fails","parse"],["causal fails","causal"]].map(([l,v])=>`<button data-sc="${v}" class="${S.nextFail===v?"on":""}">${l}</button>`).join("")}
+  <button data-sc2="job">${S.tabJobs.length?"stop":"start"} a tab job</button><button data-sc2="gone">open a deleted Build URL</button>`;
+}
+function draftOfView(){if((S.v==="B"||S.v==="D")&&S.ui.B.dlg)return findDraft(S.ui.B.dlg);if(S.sel&&S.sel.kind==="draft")return findDraft(S.sel.key);return null}
+function setPath(obj,path,val){const ps=path.split(".");let o=obj;for(let i=0;i<ps.length-1;i++)o=o[ps[i]];o[ps[ps.length-1]]=val}
+function parse(type,el){const x=el.value;if(type==="bool")return el.checked;if(type==="int")return x===""?null:parseInt(x,10);if(type==="num")return x===""?null:Number(x);
+ if(type==="ints")return x.split(/[,\s]+/).filter(Boolean).map(Number);if(type==="nums")return x.split(/[,;\s]+/).filter(Boolean).map(Number);if(type==="list")return x.split(";").map(s=>s.trim()).filter(Boolean);return x}
+document.addEventListener("input",e=>{const el=e.target,d=draftOfView();if(!d)return;
+ if(el.dataset.bind){const p=el.dataset.bind;const val=parse(el.dataset.type,el);
+  if(p==="name"||p==="desc")d[p]=val;else setPath(d.settings,p,val);touch(d);if(el.type==="checkbox"||el.tagName==="SELECT"){render();return}
+  clearTimeout(window._rt);window._rt=setTimeout(render,350);}
+ if(el.dataset.ds){const ds=d.settings.datasets.find(x=>x.key===el.dataset.ds);ds.list_size=el.value===""?0:parseInt(el.value,10);touch(d);clearTimeout(window._rt);window._rt=setTimeout(render,350)}});
+document.addEventListener("change",e=>{const el=e.target;if(el.dataset.act==="Cchanged"){S.ui.C.changedOnly=el.checked;render()}
+ else if(el.dataset.bind&&(el.type==="checkbox"||el.tagName==="SELECT"));});
+document.addEventListener("keydown",e=>{const el=e.target;
+ if(el.dataset&&el.dataset.addtag!=null&&e.key==="Enter"&&el.value.trim()){const d=draftOfView();const r=d.settings.rules[+el.dataset.addtag];const v=el.value.trim();
+  r.tags.push(/^\d+$/.test(v)?{id:+v,name:"tag "+v}:{id:Math.floor(Math.random()*90000)+1000,name:v});el.value="";touch(d);render();return}
+ const typing=el.closest&&el.closest("input,textarea,select,[contenteditable]");if(typing)return;
+ if(e.key==="ArrowLeft")cycle(-1);if(e.key==="ArrowRight")cycle(1);if(e.key==="Escape"){S.dialog=null;S.ui.B.menu=false;render()}});
+document.addEventListener("click",e=>{
+ const sc=e.target.closest("[data-sc],[data-sc2]");if(sc){if(sc.dataset.sc!==undefined)S.nextFail=sc.dataset.sc==="null"?null:sc.dataset.sc;
+  if(sc.dataset.sc2==="job")S.tabJobs=S.tabJobs.length?[]:[{kind:"Removal Sensitivity",dataset:"Overall"}];
+  if(sc.dataset.sc2==="gone"){document.getElementById("app").innerHTML=header(false)+`<div id="body" style="display:flex;align-items:center;justify-content:center"><div class="dlg" style="box-shadow:none;border:1px solid var(--line)"><h3>${T("This Build no longer exists")}</h3>
+   <p class="mono small">/build/${FULL}/20261001T000000Z-deadbeef</p><p>It may have been deleted from another tab.</p><button class="btn primary" data-act="noop">${T("Open the latest Build")}</button></div></div>`;return}
+  render();return}
+ const a=e.target.closest("[data-act]");if(!a)return;const act=a.dataset.act,d=draftOfView();
+ if(a.tagName==="A")e.preventDefault();
+ const go={
+  mode(){S.mode=a.dataset.v;if(S.v!=="A"&&S.mode==="builds")S.mode="wb"},lang(){S.lang=a.dataset.v},
+  sel(){if(e.target.closest("button")&&e.target.closest("button")!==a)return;S.sel={kind:a.dataset.kind,key:a.dataset.k}},
+  switch(){askSwitch(a.dataset.k)},doswitch(){doSwitch(a.dataset.k)},del(){askDelete(a.dataset.k)},dodelete(){doDelete(a.dataset.k)},
+  dup(){S.ui.B.manage=false;S.dialog={kind:"dup",key:a.dataset.k}},dodup(){const snap=document.getElementById("dupsnap").value;S.dialog=null;const nd=newDraft(a.dataset.k,snap);if(S.v==="B"||S.v==="D"){S.ui.B.dlg=nd.id;S.ui.B.step=0}if(S.v==="A")S.mode="builds"},
+  Cdup(){S.dialog={kind:"dup",key:a.dataset.k}},
+  discard(){S.dialog={kind:"discard",id:a.dataset.id}},dodiscard(){discard(a.dataset.id)},dlgclose(){S.dialog=null},
+  new(){newDraft(null,openBuild().snap)},Dnew(){S.ui.B.menu=false;S.ui.B.manage=false;const nd=newDraft(null,a.dataset.snap);S.ui.B.dlg=nd.id;S.ui.B.step=0},Cnew(){newDraft(null,a.dataset.snap)},run(){startRun(a.dataset.id)},
+  Ajump(){S.ui.A.sec=a.dataset.v;const el=document.getElementById("A-"+a.dataset.v);if(el)el.scrollIntoView({behavior:"smooth"});return "norender"},
+  Bmenu(){S.ui.B.menu=!S.ui.B.menu},Bnew(){S.ui.B.menu=false;const nd=newDraft(null,openBuild().snap);S.ui.B.dlg=nd.id;S.ui.B.step=0},
+  Bdup(){S.ui.B.menu=false;S.dialog={kind:"dup",key:S.open}},Bedit(){S.ui.B.menu=false;S.ui.B.dlg=a.dataset.id;findDraft(a.dataset.id).failNew=false;S.ui.B.step=findDraft(a.dataset.id).failure?5:0},
+  Bclose(){S.ui.B.dlg=null},Bstep(){S.ui.B.step=Math.max(0,Math.min(B_STEPS.length-1,+a.dataset.v))},Bmanage(){S.ui.B.menu=false;S.ui.B.manage=true},Bmanageclose(){S.ui.B.manage=false},
+  Bdismiss(){S.lastMade=null},Cpage(){S.ui.C.page=a.dataset.v},
+  Creset(){const k=a.dataset.key;d.settings[k]=clone(sourceSettings(d)[k]);touch(d)},
+  td(){d.settings.tag_depth=a.dataset.v==="all"?"all":20;touch(d)},
+  rmtag(){d.settings.rules[+a.dataset.i].tags.splice(+a.dataset.j,1);touch(d)},
+  ruleup(){const r=d.settings.rules,i=+a.dataset.i;[r[i-1],r[i]]=[r[i],r[i-1]];touch(d)},ruledn(){const r=d.settings.rules,i=+a.dataset.i;[r[i+1],r[i]]=[r[i],r[i+1]];touch(d)},
+  rmrule(){d.settings.rules.splice(+a.dataset.i,1);touch(d)},
+  addrule(){d.settings.rules.push({code:"rule_"+(d.settings.rules.length+1),label:"New rule",tags:[],name_only:[],descriptor_ids:[],adult_only_notice:false});touch(d)},
+  addentry(){const k=a.dataset.k;const e0={appid:null,name:"",reason:"",evidence:[{url:"",retrieved:""}]};if(k==="overrides")e0.rule=d.settings.rules[0]?.code||"";if(k==="manual_metadata")e0.kind="tags_only";d.settings[k].push(e0);touch(d)},
+  rmentry(){d.settings[a.dataset.k].splice(+a.dataset.i,1);touch(d)},addev(){d.settings[a.dataset.k][+a.dataset.i].evidence.push({url:"",retrieved:""});touch(d)},
+  addov(){const g=EXCLUDED_TOP.find(x=>x.appid==+a.dataset.appid);d.settings.overrides.push({appid:g.appid,name:g.name,rule:g.rules[0],reason:"",evidence:[{url:"",retrieved:""}]});touch(d)},
+  noop(){},
+ };
+ if(!go[act])return;if(act!=="Bmenu"&&!a.closest(".B-menu")&&S.ui.B.menu&&act!=="Bmenu")S.ui.B.menu=false;
+ if(go[act]()!=="norender")render();});
+document.addEventListener("click",e=>{if(S.ui.B.menu&&!e.target.closest(".B-menu,.B-trigger")){S.ui.B.menu=false;render()}},true);
+function cycle(n){const ks=Object.keys(VARIANTS);S.v=ks[(ks.indexOf(S.v)+n+ks.length)%ks.length];S.mode="wb";S.sel=null;
+ if(S.v==="A")S.mode="builds";const u=new URL(location);u.searchParams.set("variant",S.v);history.replaceState(null,"",u);render()}
+document.getElementById("prev").onclick=()=>cycle(-1);document.getElementById("next").onclick=()=>cycle(1);
+S.v=(new URL(location).searchParams.get("variant")||"A").toUpperCase();if(!VARIANTS[S.v])S.v="A";if(S.v==="A")S.mode="builds";
+render();
+</script>
+</body>
+</html>
