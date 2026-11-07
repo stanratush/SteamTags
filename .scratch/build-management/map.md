@@ -48,9 +48,7 @@ An **implementation-ready spec** (`.scratch/build-management/spec.md`) plus numb
 
 ## Not yet specified
 
-- **Wording:** User Guide sections for the Build menu and for imported data, and the glossary entries (Top-N Dataset, tags per game; Exclusion Rule, Lightweight Snapshot and Import are written). They follow from the tickets that define them; the wording for Top-N Dataset, List Size, Tag Depth and "has" is drafted in [What do tags per game and list size apply to?](issues/05-tags-per-game-and-list-size.md).
-- **Bundles and in-app Builds:** how the bundle maker picks Builds made in the app, and whether a Build's name and lineage (its parent Build, recorded since [Build identity](issues/07-build-identity-and-lifecycle.md)) are shown in a Bundle and its file name.
-- **Eligible Pool preview:** how fast the menu can show each dataset's Eligible Pool while a draft is edited (exclusions run on the lightweight Snapshot; a whole Build takes about 24 s from it): live, on demand, or only at Review. The prototype only estimates it ([Build menu](issues/12-build-menu.md)).
+- Nothing for now. On 2026-11-07 the three patches became tickets: wording became [the Top-N glossary ticket](issues/14-top-n-glossary.md) and [the User Guide outline](issues/15-user-guide-outline.md), Bundles became [bundles and in-app Builds](issues/16-bundles-and-in-app-builds.md), and the Eligible Pool preview became [the timing task](issues/17-eligible-pool-timing.md) followed by [the preview decision](issues/18-eligible-pool-preview.md).
 
 ## Out of scope
 
