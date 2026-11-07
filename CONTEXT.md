@@ -88,7 +88,7 @@ One combination of minimum games per tag (g) and minimum shared games (s), with 
 _Avoid_: configuration, cell (except when talking about the heatmap), parameter set
 
 **Parameter Grid**:
-Every **Threshold Pair** searched for one **Top-100 Dataset**: g from 3 to 20 and s from 2 to 12, with s ≤ g.
+Every **Threshold Pair** searched for one **Top-100 Dataset**: g and s each over a range set per Build (by default g from 3 to 20 and s from 2 to 12), with s ≤ g. The ranges count games, the same for every dataset of the Build whatever its size.
 _Avoid_: multiverse (except when citing Steegen et al.), search space
 
 **Automatic Parameter Selection**:

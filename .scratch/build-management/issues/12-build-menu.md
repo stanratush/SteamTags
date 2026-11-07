@@ -1,6 +1,6 @@
 # Build menu
 Type: prototype
-Status: open
+Status: claimed
 Blocked by: 02, 05, 06, 07, 10
 
 ## Question
