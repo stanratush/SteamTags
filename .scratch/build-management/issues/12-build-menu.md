@@ -37,4 +37,4 @@ Chosen with the researcher, 2026-11-07: **variant B (Switcher + dialog) with the
 9. **App Bundles** show the same dropdown tree with switching only (no `config/` row, drafts, Duplicate, Delete or Manage), hidden when a bundle ships one Build.
 10. **English and Bulgarian:** the menu's own words go through the bg catalogue (ADR 0003). The prototype shows the terms: Build = компилация, Snapshot = моментна снимка, Build Draft = чернова на компилация.
 
-Open, left to the implementation: how quickly the Eligible Pool can be shown during an edit. The prototype only estimates it; the real number needs exclusions run on the lightweight Snapshot (a Build takes about 24 s from it). This is on the map under "Not yet specified".
+Settled later: when and how the Eligible Pool is shown during an edit is answered in [the preview decision](18-eligible-pool-preview.md).
