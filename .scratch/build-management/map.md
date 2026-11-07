@@ -55,6 +55,8 @@ An **implementation-ready spec** (`.scratch/build-management/spec.md`) plus numb
 
 - Nothing. The way to the destination is clear: every ticket is resolved, and what is left is writing `spec.md` and its `ready-for-agent` issues. On 2026-11-07 the three patches became tickets: wording became [the Top-N glossary ticket](issues/14-top-n-glossary.md) and [the User Guide outline](issues/15-user-guide-outline.md), Bundles became [bundles and in-app Builds](issues/16-bundles-and-in-app-builds.md), and the Eligible Pool preview became [the timing task](issues/17-eligible-pool-timing.md) followed by [the preview decision](issues/18-eligible-pool-preview.md).
 
+**Destination reached (2026-11-07):** [spec.md](spec.md) and implementation issues 19–37 (`ready-for-agent`), listed at the end of the spec.
+
 ## Out of scope
 
 - App Bundles creating Builds: the Build menu is repository-only (decided while charting).
