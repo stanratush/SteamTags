@@ -51,7 +51,7 @@ PUZZLE_NOTE = "Puzzle is not a Steam store genre: the store's genre field never 
 def _feature_tables(result: Any, config: Config, dataset_rows: dict[str, list[dict[str, Any]]],
                     written: list[Any]) -> dict[str, dict[str, Any]]:
     a = config.analysis
-    flags = list(config.exclusions.content_flags)
+    flags = [f.name for f in config.exclusions.content_flags]
     tables: dict[str, list[dict[str, Any]]] = {name: [] for name in (
         "tag_frequency.csv", "genre_frequency.csv", "combinations.csv", "associations.csv", "content_flags.csv")}
     summary: dict[str, dict[str, Any]] = {}

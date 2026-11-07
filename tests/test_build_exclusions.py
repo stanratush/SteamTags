@@ -109,7 +109,9 @@ def test_manual_exclusion_entries_need_every_field(tmp_path, config_dir, missing
 
 
 def test_per_tag_rank_limit_and_near_misses(tmp_path, config_dir):
-    cfg = _config(config_dir, exclusions={"per_tag_rank_limit": {"9551": 10}})
+    rules = tomllib.loads((config_dir / "exclusions.toml").read_text(encoding="utf-8"))["rule"]
+    rules[2]["tags"][0]["rank_limit"] = 10
+    cfg = _config(config_dir, exclusions={"rule": rules})
     result = _build(tmp_path, cfg)
     reasons = _reasons(result)
     assert 413150 not in reasons and 2923300 not in reasons  # Dating Sim at 17 and 18 is beyond 10
@@ -157,7 +159,9 @@ def test_exclusion_counts_in_completeness(tmp_path, config_dir):
 
 
 def test_missing_configured_tag_id_warns(tmp_path, config_dir):
-    cfg = _config(config_dir, exclusions={"dating_sim_tag": {"tags": [{"id": 424242, "name": "Not A Tag"}]}})
+    rules = tomllib.loads((config_dir / "exclusions.toml").read_text(encoding="utf-8"))["rule"]
+    rules[2]["tags"] = [{"id": 424242, "name": "Not A Tag"}]
+    cfg = _config(config_dir, exclusions={"rule": rules})
     result = _build(tmp_path, cfg)
     assert any("424242" in w for w in result.warnings)
 

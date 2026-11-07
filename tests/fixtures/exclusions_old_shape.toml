@@ -1,0 +1,44 @@
+# Exclusion rules. Tags are matched on tag id; names are labels only.
+
+allowed_app_types = ["game"]
+
+# Global tag-rank limit: a tag counts for exclusion only within this display position (20 = anywhere).
+global_rank_limit = 20
+
+# Optional tighter per-tag limits, keyed by tag id, e.g. "9551" = 10.
+[per_tag_rank_limit]
+
+[adult_content]
+content_descriptor_ids = [3]
+tags = [{ id = 9130, name = "Hentai" }]
+
+[software_tag]
+tags = [
+    { id = 8013, name = "Software" },
+    { id = 87, name = "Utilities" },
+    { id = 872, name = "Animation & Modeling" },
+    { id = 1027, name = "Audio Production" },
+    { id = 84, name = "Design & Illustration" },
+    { id = 809, name = "Photo Editing" },
+    { id = 784, name = "Video Production" },
+    { id = 1445, name = "Software Training" },
+    { id = 5407, name = "Benchmark" },
+]
+# Not in the GetTagList vocabulary; matched by name only if seen.
+name_only = ["GameMaker", "RPGMaker", "Web Publishing"]
+
+[dating_sim_tag]
+tags = [{ id = 9551, name = "Dating Sim" }]
+
+# Content Flags never filter. Matched anywhere in the displayed 20 tags.
+[content_flags.desktop_companion]
+tags = [{ id = 1320952, name = "Desktop Companion" }]
+name_only = []
+
+[content_flags.sexual_content_tag]
+tags = [
+    { id = 12095, name = "Sexual Content" },
+    { id = 6650, name = "Nudity" },
+    { id = 40500, name = "Sexual Themes" },
+]
+name_only = ["NSFW"]

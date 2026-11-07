@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -40,6 +41,7 @@ class ConfigError(ValueError):
 class TagRef:
     id: int
     name: str
+    rank_limit: int | None = None  # exclusion rules only: a tighter display-position limit for this tag
 
 
 @dataclass(frozen=True)
@@ -106,8 +108,24 @@ class AnalysisConfig:
 
 
 @dataclass(frozen=True)
-class TagList:
-    tags: tuple[TagRef, ...]
+class ExclusionRule:
+    """One named Exclusion Rule. `name` is the code written to exclusions.csv, the impact reports and overrides."""
+
+    name: str
+    label: str
+    tags: tuple[TagRef, ...] = ()
+    name_only: tuple[str, ...] = ()
+    content_descriptor_ids: tuple[int, ...] = ()
+    adult_only_notice: bool = False
+
+
+@dataclass(frozen=True)
+class ContentFlag:
+    """A Content Flag: the same shape as a rule's tag signal, but it never filters."""
+
+    name: str
+    label: str
+    tags: tuple[TagRef, ...] = ()
     name_only: tuple[str, ...] = ()
 
 
@@ -115,12 +133,8 @@ class TagList:
 class ExclusionConfig:
     allowed_app_types: tuple[str, ...]
     global_rank_limit: int
-    per_tag_rank_limit: dict[int, int]
-    adult_descriptor_ids: tuple[int, ...]
-    adult_tags: TagList
-    software_tags: TagList
-    dating_sim_tags: TagList
-    content_flags: dict[str, TagList]
+    rules: tuple[ExclusionRule, ...]  # named rules, in evaluation order
+    content_flags: tuple[ContentFlag, ...]
 
 
 @dataclass(frozen=True)
@@ -280,13 +294,6 @@ def _tag_refs(items: Any, where: str) -> tuple[TagRef, ...]:
     return tuple(refs)
 
 
-def _tag_list(table: dict[str, Any], where: str) -> TagList:
-    name_only = table.get("name_only", [])
-    if not isinstance(name_only, list) or not all(isinstance(n, str) for n in name_only):
-        raise ConfigError(f"{where}.name_only: expected a list of strings")
-    return TagList(_tag_refs(table.get("tags", []), f"{where}.tags"), tuple(name_only))
-
-
 def _gate(table: dict[str, Any], where: str) -> GateRecord:
     return GateRecord(str(table.get("reference", "")), str(table.get("date", "")))
 
@@ -334,32 +341,137 @@ def _collection(t: dict[str, Any]) -> CollectionConfig:
     )
 
 
-def _exclusions(t: dict[str, Any]) -> ExclusionConfig:
-    w = "exclusions"
-    limit = _req(t, "global_rank_limit", int, w)
-    if not 1 <= limit <= 20:
-        raise ConfigError(f"{w}.global_rank_limit: must be between 1 and 20, got {limit}")
-    per_tag: dict[int, int] = {}
+FIXED_RULES = ("store_data_unavailable", "app_type", "no_tags", "manual")
+_OLD_RULE_TABLES = ("adult_content", "software_tag", "dating_sim_tag")
+_OLD_LABELS = {"adult_content": "Adult content", "software_tag": "Software", "dating_sim_tag": "Dating Sim"}
+
+
+def _limit_value(value: Any, where: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 20:
+        raise ConfigError(f"{where}: must be an integer between 1 and 20")
+    return value
+
+
+def _rule_tags(items: Any, where: str) -> tuple[TagRef, ...]:
+    if not isinstance(items, list):
+        raise ConfigError(f"{where}: expected a list of {{id, name}} tables")
+    out = []
+    for i, item in enumerate(items):
+        w = f"{where}[{i}]"
+        if not isinstance(item, dict):
+            raise ConfigError(f"{w}: expected {{id, name}}")
+        limit = item.get("rank_limit")
+        out.append(TagRef(_req(item, "id", int, w), _req(item, "name", str, w),
+                          None if limit is None else _limit_value(limit, f"{w}.rank_limit")))
+    return tuple(out)
+
+
+def _name_only(table: dict[str, Any], where: str) -> tuple[str, ...]:
+    value = table.get("name_only", [])
+    if not isinstance(value, list) or not all(isinstance(n, str) for n in value):
+        raise ConfigError(f"{where}.name_only: expected a list of strings")
+    return tuple(value)
+
+
+def _code(name: Any, where: str) -> str:
+    if not isinstance(name, str) or not re.fullmatch(r"[a-z0-9_]+", name):
+        raise ConfigError(f"{where}: name {name!r} must be non-empty and use only a-z, 0-9 and _")
+    return name
+
+
+def _label(item: dict[str, Any], default: str, where: str) -> str:
+    label = item.get("label", default)
+    if not isinstance(label, str) or not label.strip():
+        raise ConfigError(f"{where}.label: must not be empty")
+    return label
+
+
+def _named_rule(item: Any, where: str) -> ExclusionRule:
+    if not isinstance(item, dict):
+        raise ConfigError(f"{where}: expected a table")
+    name = _code(item.get("name"), f"{where}.name")
+    ids = item.get("content_descriptor_ids", [])
+    if not isinstance(ids, list) or not all(isinstance(i, int) and not isinstance(i, bool) for i in ids):
+        raise ConfigError(f"{where}.content_descriptor_ids: expected a list of integers")
+    notice = item.get("adult_only_notice", False)
+    if not isinstance(notice, bool):
+        raise ConfigError(f"{where}.adult_only_notice: expected true or false")
+    rule = ExclusionRule(name, _label(item, name, where), _rule_tags(item.get("tags", []), f"{where}.tags"),
+                         _name_only(item, where), tuple(ids), notice)
+    if not (rule.tags or rule.name_only or rule.content_descriptor_ids or rule.adult_only_notice):
+        raise ConfigError(f"{where} ({name}): a rule needs at least one signal (tags, name_only, "
+                          "content_descriptor_ids or adult_only_notice)")
+    return rule
+
+
+def _content_flag(name: Any, item: Any, where: str) -> ContentFlag:
+    if not isinstance(item, dict):
+        raise ConfigError(f"{where}: expected a table")
+    code = _code(name, f"{where}.name")
+    return ContentFlag(code, _label(item, code, where), _tag_refs(item.get("tags", []), f"{where}.tags"),
+                       _name_only(item, where))
+
+
+def _old_rules(t: dict[str, Any], w: str) -> tuple[ExclusionRule, ...]:
+    """Today's shape (adult_content / software_tag / dating_sim_tag tables, per_tag_rank_limit) as named rules."""
+    limits: dict[int, int] = {}
     for key, value in t.get("per_tag_rank_limit", {}).items():
         try:
             tag_id = int(key)
         except ValueError as exc:
             raise ConfigError(f"{w}.per_tag_rank_limit: key '{key}' is not a tag id") from exc
-        if not isinstance(value, int) or not 1 <= value <= 20:
-            raise ConfigError(f"{w}.per_tag_rank_limit.{key}: must be an integer between 1 and 20")
-        per_tag[tag_id] = value
-    adult = t.get("adult_content", {})
-    flags = {
-        code: _tag_list(table, f"{w}.content_flags.{code}") for code, table in t.get("content_flags", {}).items()
-    }
+        limits[tag_id] = _limit_value(value, f"{w}.per_tag_rank_limit.{key}")
+    rules = []
+    for code in _OLD_RULE_TABLES:
+        table = t.get(code, {})
+        adult = code == "adult_content"
+        tags = tuple(TagRef(r.id, r.name, limits.get(r.id))
+                     for r in _tag_refs(table.get("tags", []), f"{w}.{code}.tags"))
+        ids = tuple(int(i) for i in table.get("content_descriptor_ids", [])) if adult else ()
+        rule = ExclusionRule(code, _OLD_LABELS[code], tags, _name_only(table, f"{w}.{code}"), ids, adult)
+        if rule.tags or rule.name_only or adult:
+            rules.append(rule)
+    return tuple(rules)
+
+
+def _exclusions(t: dict[str, Any]) -> ExclusionConfig:
+    w = "exclusions"
+    limit = _req(t, "global_rank_limit", int, w)
+    if not 1 <= limit <= 20:
+        raise ConfigError(f"{w}.global_rank_limit: must be between 1 and 20, got {limit}")
+    old = [k for k in (*_OLD_RULE_TABLES, "per_tag_rank_limit") if k in t]
+    if isinstance(t.get("content_flags"), dict):
+        old.append("content_flags")
+    if old and ("rule" in t or "content_flag" in t):
+        raise ConfigError(f"{w}: mixes the old shape ({old[0]}) with [[rule]] / [[content_flag]] entries")
+    if old:
+        rules = _old_rules(t, w)
+        flags = tuple(_content_flag(code, table, f"{w}.content_flags.{code}")
+                      for code, table in t.get("content_flags", {}).items())
+    else:
+        items = t.get("rule", [])
+        if not isinstance(items, list):
+            raise ConfigError(f"{w}.rule: expected [[rule]] entries")
+        rules = tuple(_named_rule(item, f"{w}.rule[{i}]") for i, item in enumerate(items))
+        raw_flags = t.get("content_flag", [])
+        if not isinstance(raw_flags, list):
+            raise ConfigError(f"{w}.content_flag: expected [[content_flag]] entries")
+        flags = tuple(_content_flag(item.get("name") if isinstance(item, dict) else None, item,
+                                    f"{w}.content_flag[{i}]") for i, item in enumerate(raw_flags))
+    names = [r.name for r in rules]
+    for i, name in enumerate(names):
+        if name in FIXED_RULES:
+            raise ConfigError(f"{w}.rule[{i}].name: '{name}' is a fixed rule and cannot be a named rule")
+        if names.index(name) != i:
+            raise ConfigError(f"{w}.rule[{i}].name: duplicate rule name '{name}'")
+    flag_names = [f.name for f in flags]
+    for i, name in enumerate(flag_names):
+        if flag_names.index(name) != i:
+            raise ConfigError(f"{w}.content_flag[{i}].name: duplicate Content Flag '{name}'")
     return ExclusionConfig(
         allowed_app_types=tuple(_req(t, "allowed_app_types", list, w)),
         global_rank_limit=limit,
-        per_tag_rank_limit=per_tag,
-        adult_descriptor_ids=tuple(int(i) for i in adult.get("content_descriptor_ids", [])),
-        adult_tags=_tag_list(adult, f"{w}.adult_content"),
-        software_tags=_tag_list(t.get("software_tag", {}), f"{w}.software_tag"),
-        dating_sim_tags=_tag_list(t.get("dating_sim_tag", {}), f"{w}.dating_sim_tag"),
+        rules=rules,
         content_flags=flags,
     )
 

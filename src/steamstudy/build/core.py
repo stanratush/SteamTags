@@ -14,11 +14,11 @@ from steamstudy.build import assemble as A
 from steamstudy.build.assemble import GameTable
 from steamstudy.build.datasets import TOP_N, RankedDataset, rank_dataset
 from steamstudy.build.exclusion import (
-    RULES,
     ExclusionListError,
     configured_tag_ids,
     content_flags,
     evaluate,
+    rule_codes,
     validate_manual_exclusions,
     validate_overrides,
 )
@@ -117,7 +117,7 @@ def build(
     _apply_manual_metadata(config, games, result)
     try:
         manual_exclusions = validate_manual_exclusions(config.manual_exclusions)
-        overrides = validate_overrides(config.exclusion_overrides)
+        overrides = validate_overrides(config.exclusion_overrides, config.exclusions)
     except ExclusionListError as exc:
         raise BuildFailed(str(exc)) from exc
     evaluations = {a: evaluate(games[a], config.exclusions, manual_exclusions, overrides) for a in sorted(games)}
@@ -159,7 +159,7 @@ def build(
                    _steamdb_rows(snapshot, games, A.members(t), parse_errors_allowed=allow_parse_errors,
                                  warnings=result.warnings))
     completeness = _completeness(snapshot, listing, apps, window)
-    completeness += _exclusion_counts(games, evaluations)
+    completeness += _exclusion_counts(games, evaluations, config)
     completeness += A.depth_check_rows(t)
     result.add("reports/completeness.csv", S.COMPLETENESS, completeness)
 
@@ -246,12 +246,13 @@ def _check_list_names(games: dict[int, Game], ranked: dict[str, RankedDataset]) 
                 raise BuildFailed(f"appid {appid}: tag or genre name {name!r} contains ';', which the list format cannot hold")
 
 
-def _exclusion_counts(games: dict[int, Game], evaluations: dict[int, Any]) -> list[dict[str, Any]]:
+def _exclusion_counts(games: dict[int, Game], evaluations: dict[int, Any], config: Config) -> list[dict[str, Any]]:
     rows = [{"section": "scoring", "item": "scored_game_apps",
              "dataset": "", "value": sum(g.app_type == "game" for g in games.values() if g.has_data),
              "note": "scored apps whose app type is game"}]
-    overlapping = {rule: 0 for rule in RULES}
-    primary = {rule: 0 for rule in RULES}
+    codes = rule_codes(config.exclusions)
+    overlapping = {rule: 0 for rule in codes}
+    primary = {rule: 0 for rule in codes}
     for ev in evaluations.values():
         for m in ev.matches:
             overlapping[m.rule] += 1

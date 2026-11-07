@@ -1,18 +1,24 @@
 # Exclusion rules. Tags are matched on tag id; names are labels only.
+#
+# Order of evaluation: the fixed rules (store_data_unavailable, app_type, no_tags), then the
+# [[rule]] entries below in file order, then the manual exclusions. The first match is the primary reason.
 
 allowed_app_types = ["game"]
 
 # Global tag-rank limit: a tag counts for exclusion only within this display position (20 = anywhere).
+# A tag entry may carry a tighter `rank_limit` of its own, e.g. { id = 9551, name = "Dating Sim", rank_limit = 10 }.
 global_rank_limit = 20
 
-# Optional tighter per-tag limits, keyed by tag id, e.g. "9551" = 10.
-[per_tag_rank_limit]
-
-[adult_content]
+[[rule]]
+name = "adult_content"
+label = "Adult content"
 content_descriptor_ids = [3]
+adult_only_notice = true
 tags = [{ id = 9130, name = "Hentai" }]
 
-[software_tag]
+[[rule]]
+name = "software_tag"
+label = "Software"
 tags = [
     { id = 8013, name = "Software" },
     { id = 87, name = "Utilities" },
@@ -27,15 +33,20 @@ tags = [
 # Not in the GetTagList vocabulary; matched by name only if seen.
 name_only = ["GameMaker", "RPGMaker", "Web Publishing"]
 
-[dating_sim_tag]
+[[rule]]
+name = "dating_sim_tag"
+label = "Dating Sim"
 tags = [{ id = 9551, name = "Dating Sim" }]
 
 # Content Flags never filter. Matched anywhere in the displayed 20 tags.
-[content_flags.desktop_companion]
+[[content_flag]]
+name = "desktop_companion"
+label = "Desktop Companion"
 tags = [{ id = 1320952, name = "Desktop Companion" }]
-name_only = []
 
-[content_flags.sexual_content_tag]
+[[content_flag]]
+name = "sexual_content_tag"
+label = "Sexual content"
 tags = [
     { id = 12095, name = "Sexual Content" },
     { id = 6650, name = "Nudity" },

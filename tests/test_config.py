@@ -27,7 +27,7 @@ def test_shipped_config_loads_with_spec_defaults(config_dir):
     assert cfg.analysis.release_month_check == 3
     assert cfg.exclusions.allowed_app_types == ("game",)
     assert cfg.exclusions.global_rank_limit == 20
-    assert [t.id for t in cfg.exclusions.dating_sim_tags.tags] == [9551]
+    assert [t.id for t in cfg.exclusions.rules[2].tags] == [9551]
     assert len(cfg.genre_tags) == 11
     c = cfg.collection
     assert c.listing_passes == 2 and c.steamcharts_per_second == 3.0 and c.store_seconds_per_request == 2.0

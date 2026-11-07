@@ -269,8 +269,8 @@ EXCLUSIONS = declare(
     [
         C("appid", "int", "Steam AppID."),
         C("name", "str", "Game name (store, or Steam Charts listing when there is no store data)."),
-        C("reason", "str", "Matched rule: store_data_unavailable, app_type, no_tags, adult_content, software_tag, "
-                            "dating_sim_tag or manual."),
+        C("reason", "str", "Matched rule: store_data_unavailable, app_type, no_tags, a named rule of exclusions.toml "
+                            "(by default adult_content, software_tag or dating_sim_tag) or manual."),
         C("detail", "str", "What matched (the app type, the tags and positions, the adult-content signals, the manual reason)."),
         C("primary_reason", "str", "The game's first matching rule in evaluation order."),
         C("mean_monthly_players", "float6", "The game's Mean Monthly Players."),
@@ -313,13 +313,14 @@ IMPACT_NEAR_MISSES = declare(
 
 IMPACT_ADULT_SIGNALS = declare(
     "impact_adult_signals.csv",
-    "Scored games where the store's Adult Only notice and content descriptor 3 disagree.",
+    "Scored games where the store's Adult Only notice and the rule's content descriptor ids (default 3) disagree; "
+    "written for the rule named adult_content, headers only when there is none.",
     [
         C("appid", "int", "Steam AppID."),
         C("name", "str", "Game name."),
         C("adult_only_notice", "bool", "The store page shows the Adult Only notice."),
-        C("content_descriptor_3", "bool", "appdetails content_descriptors contains id 3."),
-        C("hentai_tag", "bool", "The Hentai tag is within its rank limit."),
+        C("content_descriptor_3", "bool", "appdetails content_descriptors contains one of the rule's descriptor ids (default 3)."),
+        C("hentai_tag", "bool", "One of the rule's tags (default Hentai) is within its rank limit."),
         C("excluded", "bool", "Whether the game is excluded (by any rule)."),
         *_would_be_rank_columns(),
     ],
