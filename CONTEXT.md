@@ -237,6 +237,14 @@ _Avoid_: run, scrape, crawl
 The form of a **Snapshot** that holds only what a **Build** reads from it, as tables: the listing, every app's monthly player counts, the store fields and tags of every scored app, and the outcome of every lookup. Made from the raw form of a Snapshot after collection ends, and made again after a repair; never changed itself. A Build from it is identical to a Build from the raw form with the same settings, so it is both the form that moves between machines and the faster one to build from. Fixes the parsing in force when it was made.
 _Avoid_: snapshot extract, export, light copy
 
+**Import**:
+A fixed set of items, each with an ordered list of attributes, supplied by the researcher as a file instead of collected from Steam. Plays the **Snapshot**'s role for the Builds made from it: raw, identified once, never changed afterwards; a corrected file is a new Import. One Import can define several Top-N Datasets, one per defining attribute. In the app's Steam wording, an item is a Game and an attribute is a Tag.
+_Avoid_: imported dataset, upload, external dataset
+
 **Build**:
-One deterministic derivation from one **Snapshot** and one config version: the five **Top-100 Datasets**, their reports and the feature analysis. Never contacts a source. A Snapshot can have many Builds (e.g. before and after an exclusion-list change).
+One deterministic derivation from one **Snapshot** and one config version: the five **Top-100 Datasets**, their reports and the feature analysis. Never contacts a source. A Snapshot can have many Builds (e.g. before and after an exclusion-list change), even two with the same settings. Never changed once written: its id, name and description are fixed then. The name is unique among the Snapshot's Builds and **Build Drafts**; the description says why the Build exists and joins the config changelog. A Build started from another Build records it as its parent, for information only; deleting a Build leaves its children as they are. A run that fails is not a Build.
 _Avoid_: run, analysis run
+
+**Build Draft**:
+The complete settings of a **Build** not yet made, with the name and description it will carry, kept for one **Snapshot** until it is built or discarded. Started from the default config or copied from an existing Build, then edited; a copy, so later changes to its source do not reach it. A failed run leaves the draft, with the reason it failed.
+_Avoid_: unsaved Build, pending Build, template
