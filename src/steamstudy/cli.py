@@ -1,8 +1,9 @@
-"""The `steamstudy` command line: collect, snapshot, build, app, bundle."""
+"""The `steamstudy` command line: collect, snapshot, build, import, app, bundle."""
 
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 from pathlib import Path
@@ -38,10 +39,21 @@ def _parser() -> argparse.ArgumentParser:
 
     b = sub.add_parser("build", help="derive a Build from a Snapshot (offline)")
     b.add_argument("--snapshot", help="Snapshot id (default: the latest)")
+    b.add_argument("--import", dest="import_id", metavar="IMPORT_ID",
+                   help="build an Import instead: its defaults, or the reduced config set in --config when that "
+                        "folder holds one")
     b.add_argument("--from-raw", action="store_true",
                    help="read the raw pages even when a Lightweight Snapshot is present")
     b.add_argument("--allow-parse-errors", action="store_true", help="treat parse errors as unscored (never published)")
-    b.add_argument("--dataset", help="limit what is printed to one dataset (all five are always built)")
+    b.add_argument("--dataset", help="limit what is printed to one dataset (every dataset is always built)")
+    b.add_argument("--name", help="the Build's name, unique per Snapshot ignoring case (default: its build_id)")
+
+    i = sub.add_parser("import", help="import a CSV of items with ordered attributes as a fixed Import")
+    i.add_argument("file", type=Path, help="the CSV: id,name,attributes[,score][,numeric fields...] (UTF-8)")
+    i.add_argument("--filter", help="the numeric column the app's filter slider uses (filled for every item)")
+    i.add_argument("--attributes", type=Path,
+                   help="an attributes.csv (id,name) supplying attribute ids (default: attributes.csv beside the "
+                        "file, when present)")
 
     a = sub.add_parser("app", help="open the Tag Network Workbench at http://127.0.0.1:<port>")
     a.add_argument("--build", help="Build id (default: the latest)")
@@ -64,7 +76,7 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(message)s", datefmt="%H:%M:%S")
-    handler = {"collect": _collect, "snapshot": _snapshot, "build": _build, "app": _app,
+    handler = {"collect": _collect, "snapshot": _snapshot, "build": _build, "import": _import, "app": _app,
                "bundle": _bundle}[args.command]
     return handler(args)
 
@@ -145,13 +157,15 @@ def _latest_closed_snapshot_id(base: Path) -> str | None:
 
 
 def _build(args: argparse.Namespace) -> int:
-    from steamstudy.build.core import BuildFailed, build, new_build_id
+    from steamstudy.build.core import BuildFailed, BuildIdentity, build, new_build_id
     from steamstudy.build.writer import write_build, write_failed_parse_errors
     from steamstudy.collect.run import snapshots_dir
     from steamstudy.config import ConfigError, load_config
     from steamstudy.lightweight import LightweightError, latest_source_snapshot_id, open_build_source
 
     log = logging.getLogger("steamstudy.build")
+    if args.import_id:
+        return _build_import(args, log)
     try:
         config = load_config(args.config)
     except ConfigError as exc:
@@ -171,10 +185,19 @@ def _build(args: argparse.Namespace) -> int:
     source = opened.source
     if source.form == "raw" and not source.meta.get("closed"):
         log.warning("Snapshot %s is not closed: collection has not finished", snapshot_id)
+    if args.name is not None:
+        from steamstudy.build_admin import NameClash, check_name
+
+        try:
+            check_name(args.root, snapshot_id, args.name)
+        except NameClash as exc:
+            log.error("Build refused: %s", exc)
+            return 2
     log.info("reading the %s form of Snapshot %s", source.form, snapshot_id)
     build_id = new_build_id(config)
+    identity = BuildIdentity(name=args.name.strip() if args.name else None)
     try:
-        result = build(source, config, build_id, allow_parse_errors=args.allow_parse_errors)
+        result = build(source, config, build_id, allow_parse_errors=args.allow_parse_errors, identity=identity)
     except BuildFailed as exc:
         if exc.parse_errors:
             path = write_failed_parse_errors(args.root, snapshot_id, build_id, exc.parse_errors)
@@ -191,6 +214,64 @@ def _build(args: argparse.Namespace) -> int:
             print(f"{key}: {size['rows']} games (Eligible Pool {size['eligible_pool']})")
     if args.allow_parse_errors:
         log.warning("built with --allow-parse-errors: this Build must never be published")
+    return 0
+
+
+def _build_import(args: argparse.Namespace, log: logging.Logger) -> int:
+    from steamstudy.build.core import BuildFailed, BuildIdentity, new_build_id
+    from steamstudy.build.import_build import build_import, import_defaults, open_import, read_import_config_dir
+    from steamstudy.build.writer import write_build
+    from steamstudy.build_admin import NameClash, check_name
+    from steamstudy.config import BUILD_FILES, ConfigError, canonical_json, content_hash
+
+    try:
+        source = open_import(args.root, args.import_id)
+        files = read_import_config_dir(args.config) or import_defaults(source, args.config)
+        if args.name is not None:
+            check_name(args.root, args.import_id, args.name)
+    except (FileNotFoundError, ConfigError, NameClash) as exc:
+        log.error("Build refused: %s", exc)
+        return 2
+    normalised = json.loads(canonical_json(files))
+    build_id = new_build_id(content_hash({n: normalised[n] for n in BUILD_FILES if n in normalised}))
+    try:
+        result = build_import(source, files, build_id,
+                              identity=BuildIdentity(name=args.name.strip() if args.name else None))
+    except BuildFailed as exc:
+        log.error("Build failed: %s", exc)
+        return 1
+    folder = write_build(result, args.root)
+    log.info("Build written to %s", folder)
+    for key, size in result.build_json["dataset_sizes"].items():
+        if args.dataset is None or args.dataset == key:
+            print(f"{key}: {size['rows']} items (Eligible Pool {size['eligible_pool']})")
+    return 0
+
+
+def _import(args: argparse.Namespace) -> int:
+    from collections import Counter
+
+    from steamstudy.imports import ATTRIBUTES_FILE, ImportRefused, make_import
+
+    log = logging.getLogger("steamstudy.import")
+    attributes = args.attributes
+    sibling = args.file.parent / ATTRIBUTES_FILE
+    if attributes is None and sibling.is_file() and sibling.resolve() != args.file.resolve():
+        attributes = sibling
+        log.info("using attribute ids from %s", sibling)
+    try:
+        folder = make_import(args.root, args.file, attributes_file=attributes, filter_field=args.filter)
+    except ImportRefused as exc:
+        log.error("Import refused: %s", exc)
+        for code, count in sorted(Counter(e.code for e in exc.errors).items()):
+            print(f"{code}: {count}")
+        for e in exc.errors[:20]:
+            print(f"{e.file} row {e.row or '-'} {e.column or '-'} [{e.code}] {e.value!r}: {e.message}")
+        return 2
+    except OSError as exc:
+        log.error("Import refused: %s", exc)
+        return 2
+    log.info("Import written to %s", folder)
     return 0
 
 

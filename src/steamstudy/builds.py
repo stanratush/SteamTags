@@ -5,7 +5,10 @@ Importable by the app without any pipeline module (the App Bundle installs only 
 
 from __future__ import annotations
 
+import json
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 
 def builds_dir(root: Path) -> Path:
@@ -29,3 +32,43 @@ def resolve_build(root: Path, build: str | None = None, snapshot: str | None = N
     if len(matches) != 1:
         raise FileNotFoundError(f"Build {build} not found (or ambiguous) under {base}")
     return matches[0]
+
+
+@dataclass(frozen=True)
+class BuildInfo:
+    """One Build on disk, as the Build tree and the lifecycle read it. Old `build.json` files have no name,
+    description or parent: the name reads as the `build_id`."""
+
+    source_id: str
+    build_id: str
+    path: Path
+    name: str
+    description: str | None
+    parent_build_id: str | None  # "<source_id>/<build_id>"
+    config_hash: str
+    mode: str
+    software_versions: dict[str, Any]
+
+    @property
+    def ref(self) -> str:
+        return f"{self.source_id}/{self.build_id}"
+
+
+def build_info(path: Path) -> BuildInfo:
+    path = Path(path)
+    bj = json.loads((path / "datasets" / "build.json").read_text(encoding="utf-8"))
+    return BuildInfo(
+        source_id=path.parent.name, build_id=path.name, path=path, name=bj.get("name") or path.name,
+        description=bj.get("description"), parent_build_id=bj.get("parent_build_id"),
+        config_hash=str(bj.get("build_config_hash", "")), mode=str(bj.get("mode", "")),
+        software_versions=dict(bj.get("software_versions") or {}))
+
+
+def list_builds(root: Path, source_id: str | None = None) -> list[BuildInfo]:
+    """Every Build under `builds/` (or under one source), oldest `build_id` first."""
+    base = builds_dir(root)
+    sources = [base / source_id] if source_id else sorted(p for p in base.iterdir() if p.is_dir()) \
+        if base.is_dir() else []
+    found = [build_info(p) for s in sources if s.is_dir() for p in sorted(s.iterdir())
+             if (p / "datasets" / "build.json").is_file()]
+    return sorted(found, key=lambda b: (b.build_id, b.source_id))

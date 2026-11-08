@@ -365,11 +365,14 @@ def controls(L: Labels, ctx: BuildContext, defaults: SEL.SelectionSettings) -> h
                                                                                             key=lambda x: x[1])],
                      value=list(defaults.removed_tag_ids), multi=True,
                      placeholder=L.prop("ps-s-removed", "placeholder", msg("no removed tags"))),
-        *([html.Label([L.term(msg("Minimum Months Filter"), "selection.setting.min_months")], className="l"),
+        *([html.Label([L.term(field.label, "selection.setting.min_months")], className="l"),
            dcc.Slider(id="ps-s-min-months", min=int(field.minimum), max=int(field.maximum), step=1,
                       value=defaults.min_months, marks={int(field.minimum): str(int(field.minimum)),
                                                         int(field.maximum): str(int(field.maximum))},
-                      tooltip={"placement": "bottom"})] if field else []),
+                      tooltip={"placement": "bottom"})] if field else
+          # no filter field: kept for the callbacks, hidden, so every item is kept
+          [html.Div(dcc.Slider(id="ps-s-min-months", min=0, max=1, step=1, value=defaults.min_months),
+                    style={"display": "none"})]),
         html.Label([L.term(msg("Clustering weight"), "selection.setting.weight")], className="l"),
         dcc.RadioItems(id="ps-s-weight", options=L.options("ps-s-weight", [("lift", msg("Lift")),
                                                                            ("shared_games", msg("Shared games"))]),

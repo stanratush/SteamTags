@@ -13,8 +13,7 @@ from typing import Any
 from steamstudy.config import Config, DatasetDef
 from steamstudy.network.layout import layout_state
 from steamstudy.network.defaults import default_settings
-from steamstudy.dataset import steam_games
-from steamstudy.network.model import Settings, TagContext
+from steamstudy.network.model import Game, Settings, TagContext
 from steamstudy.network.sensitivity import METHOD_VERSION, expected_chance_flags, removal_sensitivity
 from steamstudy.network.state import NetworkState, compute_state
 from steamstudy.network.sweep import resolution_sweep, sweep_grid
@@ -35,7 +34,8 @@ class NetworkOutputs:
     summary: dict[str, Any]
 
 
-def network_outputs(config: Config, build_id: str, dataset_rows: dict[str, list[dict[str, Any]]]) -> NetworkOutputs:
+def network_outputs(config: Config, build_id: str, dataset_games: dict[str, list[Game]]) -> NetworkOutputs:
+    """`dataset_games`: each dataset's items as the network reads them (Tag Depth already applied)."""
     tables: dict[str, list[dict[str, Any]]] = {}
     sweep_rows: list[dict[str, Any]] = []
     states: dict[str, NetworkState] = {}
@@ -43,7 +43,7 @@ def network_outputs(config: Config, build_id: str, dataset_rows: dict[str, list[
     grid = sweep_grid(config.network.resolution_sweep, config.network.resolution)
     for d in config.datasets:
         settings, context = report_settings(config, build_id, d)
-        state = compute_state(steam_games(dataset_rows[d.key], config.depth_cut), settings, context)
+        state = compute_state(dataset_games[d.key], settings, context)
         states[d.key] = state
         for name, rows in state_tables(state, layout_state(state)).items():
             tables.setdefault(name, []).extend(stack(rows, d.key, state.state_id))

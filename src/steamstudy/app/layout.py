@@ -248,9 +248,14 @@ def _controls(L: Labels, ctx: BuildContext) -> html.Div:
             html.Label(L.span(msg("Dataset")), htmlFor="dataset", className="l"),
             dcc.Dropdown(id="dataset", options=[{"label": d.label, "value": d.key} for d in ctx.datasets],
                          value=first, clearable=False, searchable=False)]),
-        *([_item(L, "min-months", msg("Months ≥"), str(s.min_months),
-                 _slider(L, "min-months", msg("Minimum Months Filter"), int(field.minimum), int(field.maximum), s.min_months))]
-          if field else []),
+        # Without a filter field (an Import Build) the slider stays in the page, hidden: every item is kept.
+        _item(L, "min-months", msg("Months ≥") if field is None or field.label == "Minimum Months Filter"
+              else f"{field.label} ≥", str(s.min_months),
+              _slider(L, "min-months", field.label if field else msg("Minimum Months Filter"),
+                      int(field.minimum) if field else 0, int(field.maximum) if field else 1, s.min_months))
+        if field else html.Div(_item(L, "min-months", msg("Months ≥"), str(s.min_months),
+                                     _slider(L, "min-months", msg("Minimum Months Filter"), 0, 1, s.min_months)),
+                               style={"display": "none"}),
     ])
     filters = _section(L, msg("Filters"), [
         _item(L, "min-games", msg("Min games"), str(s.min_games_per_tag),

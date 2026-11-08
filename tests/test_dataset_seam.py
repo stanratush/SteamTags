@@ -97,9 +97,9 @@ def test_default_build_states_are_unchanged_by_the_seam(tmp_path, config_dir):
         assert state.state_id == recorded[key]["state_id"]
 
 
-def test_an_import_source_has_no_adapter_yet(tmp_path, config_dir):
+def test_an_unknown_source_has_no_adapter(tmp_path, config_dir):
     ctx = load_build(_built(tmp_path, load_config(config_dir)))
-    ctx.build_json["source"] = "import"
+    ctx.build_json["source"] = "spreadsheet"
     with pytest.raises(NotImplementedError):
         read_dataset(ctx, "overall")
 

@@ -81,6 +81,7 @@ class BuildResult:
     scores: dict[int, Score] = field(default_factory=dict)
     games: dict[int, Game] = field(default_factory=dict)
     network_states: dict[str, Any] = field(default_factory=dict)
+    dataset_rows: dict[str, list[dict[str, Any]]] = field(default_factory=dict)  # the analysis reads these
     analysis_json: dict[str, Any] = field(default_factory=dict)
 
     def add(self, path: str, schema: FileSchema, rows: list[dict[str, Any]]) -> None:
@@ -90,8 +91,19 @@ class BuildResult:
         return self.tables[path][1]
 
 
+@dataclass(frozen=True)
+class BuildIdentity:
+    """What `build.json` says about a Build beside its settings; in neither `build_id` nor the config hash."""
+
+    name: str | None = None  # None: the build_id
+    description: str | None = None  # appended as the Build's own changelog entry
+    parent_build_id: str | None = None  # "<source_id>/<build_id>" of the Build it was duplicated from
+    changelog: tuple[dict[str, str], ...] | None = None  # inherited entries; None: config/CHANGELOG.md
+
+
 def build(
-    snapshot: SnapshotLike | BuildSource, config: Config, build_id: str, *, allow_parse_errors: bool = False
+    snapshot: SnapshotLike | BuildSource, config: Config, build_id: str, *, allow_parse_errors: bool = False,
+    identity: BuildIdentity | None = None,
 ) -> BuildResult:
     """The Build of a Snapshot: a raw Snapshot view, or a `BuildSource` of either form."""
     source = as_source(snapshot)
@@ -166,7 +178,8 @@ def build(
     completeness += A.depth_check_rows(t, wording(config)["top_h"])
     result.add("reports/completeness.csv", S.COMPLETENESS, completeness)
 
-    result.build_json = _build_json(source, config, build_id, allow_parse_errors, len(parse_errors))
+    result.build_json = _build_json(source, config, build_id, allow_parse_errors, len(parse_errors),
+                                    identity or BuildIdentity())
     result.build_json["manual_metadata_entries"] = [
         {"appid": a, "kind": g.manual_entry["kind"]} for a, g in sorted(games.items()) if g.manual_entry]
     result.build_json["exclusion_overrides_applied"] = [
@@ -178,6 +191,7 @@ def build(
     result.ranked = ranked
     result.scores = scores
     result.games = games
+    result.dataset_rows = {key: result.rows(f"datasets/top100_{key}.csv") for key in ranked}
 
     from steamstudy.analysis.report import report_html
     from steamstudy.analysis.run import run_analysis
@@ -357,15 +371,23 @@ def _completeness(
 
 
 def _build_json(
-    source: BuildSource, config: Config, build_id: str, allow_parse_errors: bool, n_parse_errors: int
+    source: BuildSource, config: Config, build_id: str, allow_parse_errors: bool, n_parse_errors: int,
+    identity: BuildIdentity,
 ) -> dict[str, Any]:
     meta = source.meta
     n = config.network
+    changelog = list(identity.changelog) if identity.changelog is not None else config.changelog_entries()
+    name = identity.name or build_id
+    if identity.description:
+        changelog.append({"date": build_date(build_id), "title": name, "text": identity.description})
     return {
         "snapshot_id": meta["id"],
         "snapshot_form": source.form,
         "extract_version": EXTRACT_VERSION,  # the parsers and extracted fields this software reads
         "build_id": build_id,
+        "name": name,
+        "description": identity.description,
+        "parent_build_id": identity.parent_build_id,
         "mode": meta.get("mode", ""),
         "parse_errors_allowed": allow_parse_errors,
         "parse_error_count": n_parse_errors,
@@ -376,7 +398,7 @@ def _build_json(
         "store_country": meta.get("store_country"),
         "build_config_hash": config.build_config_hash,
         "config": {name: config.files[name] for name in sorted(config.files) if name != "collection"},
-        "changelog": config.changelog_entries(),
+        "changelog": changelog,
         "source_substitutions": SOURCE_SUBSTITUTIONS,
         "attribution": ATTRIBUTION,
         "network_defaults": {
@@ -396,7 +418,14 @@ def _build_json(
     }
 
 
-def new_build_id(config: Config, now: dt.datetime | None = None) -> str:
-    """UTC timestamp + the first 8 characters of `build_config_hash`."""
+def new_build_id(config: Config | str, now: dt.datetime | None = None) -> str:
+    """UTC timestamp + the first 8 characters of `build_config_hash` (a Config, or the hash itself)."""
     now = now or dt.datetime.now(dt.UTC)
-    return f"{now.strftime('%Y%m%dT%H%M%SZ')}-{config.build_config_hash[:8]}"
+    config_hash = config if isinstance(config, str) else config.build_config_hash
+    return f"{now.strftime('%Y%m%dT%H%M%SZ')}-{config_hash[:8]}"
+
+
+def build_date(build_id: str) -> str:
+    """The UTC date a `build_id` was made, as YYYY-MM-DD."""
+    stamp = build_id.split("-", 1)[0]
+    return f"{stamp[0:4]}-{stamp[4:6]}-{stamp[6:8]}"

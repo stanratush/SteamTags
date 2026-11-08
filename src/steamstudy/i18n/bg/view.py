@@ -60,6 +60,7 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     # The tag view
     "Rank": "Ранг",
     "AppID": "AppID",
+    "ID": "ID",
     "Name": "Име",
     "Show all {n}": "Покажи всички {n}",
     "Tag": "Таг",

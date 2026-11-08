@@ -35,6 +35,13 @@ SENTENCES: dict[str, str] = {
     "summary_warning": "Warning: {text}",
     "summary_manual": "{count} Manual Metadata Entries were used (manual_metadata.csv).",
     "summary_overrides": "{count} Exclusion Overrides were applied.",
+    # reports.html of an Import Build
+    "summary_import_build": "Build {build_id} of Import {import_id}, config hash {config_hash}.",
+    "summary_import": "The Import holds {items} items with {attributes} distinct attributes (attribute ids "
+                      "{attribute_ids}); rank by {rank_by}; filter field: {filter_field}.",
+    "summary_import_warning": "Import warning {code} (row {row}): {message}",
+    "summary_import_excluded": "{excluded} items were excluded; by primary reason: {by_reason}.",
+    "summary_import_dataset": "{label}: {rows} items from an Eligible Pool of {pool}.",
     # report.html (feature analysis), per dataset
     "ds_intro": "The {label} dataset holds {n} games; its Eligible Pool holds {pool} games, so a share_ratio "
                 "cannot exceed {ceiling}.",
@@ -101,6 +108,12 @@ PARAGRAPHS: dict[str, str] = {
         "Summary of this Build's reports. Every number below is read from the files in reports/ and datasets/."
     ),
     "attribution": "Player data: Steam Charts; tags/metadata: Steam store.",
+    "attribution_import": "Data: Import {import_id}.",
+    "limitations_import": (
+        "Limitations: the {top} is a ranked selection of the Import's items, not a sample; the partition comes "
+        "from a single clustering run; every number describes the Import as it was imported, nothing beyond it. "
+        "Steam wording is kept: a game is an item and a tag is an attribute."
+    ),
     "test_mode": "This is a test Build (test Snapshot): never publish it.",
     "parse_errors_allowed": "This Build was made with --allow-parse-errors: never publish it.",
     "monthly_players": "monthly_players.csv is not published until the Steam Charts operator agrees.",

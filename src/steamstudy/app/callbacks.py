@@ -543,11 +543,13 @@ def inspector(selection, tables, rs_view, build_path, dataset, min_months, meta,
         edge = next((r for r in tables["edges"] if r["source_tag_id"] == min(u, v) and r["target_tag_id"] == max(u, v)), None)
         if edge is None:
             return [html.P(tx("This edge is not in the current network."))], hide, hide
-        c = load_build(build_path)
-        games = [{"appid": g.appid, "name": g.name, "rank": g.rank}
-                 for g in filter_games(c.games(dataset), int(min_months)) if u in g.tag_ids and v in g.tag_ids]
+        ds = load_build(build_path).read(dataset)
+        item_fields = {i.id: i.fields for i in ds.items}
+        games = [{"appid": g.appid, "name": g.name, "rank": g.rank, "fields": item_fields.get(g.appid, {})}
+                 for g in filter_games(ds.games(), int(min_months)) if u in g.tag_ids and v in g.tag_ids]
+        extra = tuple(sorted({f for i in ds.items for f in i.fields}))
         return V.edge_inspector(edge, games, tx=tx, pair=_edge_pair(edge, tables),
-                                from_pair=selection.get("from_pair")), hide, hide
+                                from_pair=selection.get("from_pair"), id_label=ds.id_label, fields=extra), hide, hide
     if selection["kind"] == "pair":
         row = next((r for r in tables["connections"] if V.pair_id(r["cluster_a"], r["cluster_b"]) == selection["id"]),
                    None)

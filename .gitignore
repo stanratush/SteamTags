@@ -31,6 +31,7 @@ desktop.ini
 # Collected data and Builds (raw responses are never redistributed)
 /snapshots/
 /builds/
+/imports/
 
 # Old pre-steamstudy scripts and outputs (a separate git repo, kept locally for reference)
 /legacy/

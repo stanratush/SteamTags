@@ -45,6 +45,8 @@ REFUSALS = {
     "unreadable_key": "the state key cannot be read: {error}",
     "build_not_found": "this Network State needs Build {build_id} (Snapshot {snapshot_id}), which is not among the "
                        "Builds in {root}; copy that Build folder there and open again",
+    "build_not_found_import": "this Network State needs Build {build_id} (Import {import_id}), which is not among the "
+                              "Builds in {root}; copy that Build folder there and open again",
 }
 
 
@@ -60,9 +62,10 @@ class OpenRefused(ValueError):
 class BuildNotFound(FileNotFoundError):
     """No Build available to the app has the export's identity (its build_id)."""
 
-    def __init__(self, build_id: str, snapshot_id: str, builds_root: Path):
-        self.reason = "build_not_found"
-        self.params = {"build_id": build_id, "snapshot_id": snapshot_id, "root": str(builds_root)}
+    def __init__(self, build_id: str, snapshot_id: str, builds_root: Path, import_id: str | None = None):
+        self.reason = "build_not_found_import" if import_id else "build_not_found"
+        self.params = ({"build_id": build_id, "import_id": import_id, "root": str(builds_root)} if import_id
+                       else {"build_id": build_id, "snapshot_id": snapshot_id, "root": str(builds_root)})
         super().__init__(REFUSALS[self.reason].format(**self.params))
         self.build_id, self.snapshot_id = build_id, snapshot_id
 
@@ -95,13 +98,15 @@ def export_zip(
     layout = layout or layout_state(state, positions=relayout_positions or None)
     tables = {**state_tables(state, layout), "cluster_games.csv": cluster_game_rows(state)}
     files: dict[str, bytes] = {}
-    for schema in S.APP_TABLES:
+    kind = S.build_kind(ctx.build_json)
+    schemas = [S.REGISTRY.variant(s, kind) or s for s in S.APP_TABLES]
+    for schema in schemas:
         if schema.name == "removal_sensitivity.csv":
             if removal_rows:
                 ordered = sorted(removal_rows, key=lambda r: r["run_order"])
                 files[schema.name] = csv_bytes(schema, ordered)
             continue
-        files[schema.name] = csv_bytes(schema, tables[schema.name])
+        files[schema.name] = csv_bytes(schema, _kind_rows(schema, tables[schema.name]))
     row_counts = {name: len(tables[name]) for name in tables}
     if removal_rows:
         row_counts["removal_sensitivity.csv"] = len(removal_rows)
@@ -118,7 +123,7 @@ def export_zip(
                   for name, data in sorted(files.items())},
         "method_constants": method_constants(state),
         "removal_sensitivity": removal_status(removal_rows, len(state.nodes)),
-        "columns": columns_block([s for s in S.APP_TABLES if s.name in files], kind=S.build_kind(ctx.build_json)),
+        "columns": columns_block([s for s in schemas if s.name in files], kind=kind),
     }
     if applied_from is not None:
         # Informational only: outside state_key, ignored by Open, never part of state_id.
@@ -129,6 +134,14 @@ def export_zip(
             zf.writestr(name, data)
         zf.writestr("export.json", json.dumps(export_json, indent=2, ensure_ascii=False).encode("utf-8"))
     return export_filename(settings.dataset, state.state_id, now), buffer.getvalue()
+
+
+def _kind_rows(schema: S.FileSchema, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Rows under an Import variant's column names (`appid` -> `id`, `appids` -> `ids`); Steam rows as they are."""
+    if schema.kind != "import":
+        return rows
+    steam = {new: old for old, new in S.IMPORT_RENAMED.items()}
+    return [{c.name: r.get(steam.get(c.name, c.name), r.get(c.name)) for c in schema.columns} for r in rows]
 
 
 def method_constants(state: NetworkState) -> dict[str, Any]:
@@ -196,7 +209,8 @@ def find_build(builds_root: str | Path, build_json: dict[str, Any]) -> Path:
             return path
     if candidates:
         raise OpenRefused("build_changed", build_id=build_id, path=str(candidates[0]))
-    raise BuildNotFound(build_id, snapshot_id, root)
+    raise BuildNotFound(build_id, snapshot_id, root,
+                        import_id=str(build_json["import_id"]) if build_json.get("source") == "import" else None)
 
 
 def open_export(data: bytes, *, builds_root: str | Path) -> OpenedState:

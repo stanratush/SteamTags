@@ -255,11 +255,16 @@ def _swatch_html(color: str) -> str:
     return f'<span class="sw" style="background:{safe}"></span>'
 
 
-def _games_table(games: list[dict[str, Any]], tx: Text, with_appid: bool = False) -> str:
-    head = (_cell(tx("Rank"), "r", "th") + (_cell(tx("AppID"), tag="th") if with_appid else "")
-            + _cell(tx("Name"), tag="th"))
+def _games_table(games: list[dict[str, Any]], tx: Text, with_appid: bool = False, id_label: str = "AppID",
+                 fields: tuple[str, ...] = ()) -> str:
+    """Rank, (id), name, then an Import's extra numeric fields (a game's `fields`; empty when it has none)."""
+    id_head = tx("ID") if id_label == "ID" else tx("AppID")  # "ID" for an Import Build's items
+    head = (_cell(tx("Rank"), "r", "th") + (_cell(id_head, tag="th") if with_appid else "")
+            + _cell(tx("Name"), tag="th") + "".join(_cell(f, "r", "th") for f in fields))
     return _table(head, [f'<tr>{_cell(g["rank"], "r mute")}{_cell(g["appid"], "mono mute") if with_appid else ""}'
-                         f'{_cell(g["name"], "name")}</tr>' for g in games])
+                         f'{_cell(g["name"], "name")}'
+                         + "".join(_cell(tx.num(g.get("fields", {}).get(f)), "r") for f in fields) + "</tr>"
+                         for g in games])
 
 
 def _show_all(games: list[dict[str, Any]], tx: Text) -> str:
@@ -348,7 +353,7 @@ def _transition(row: dict[str, Any], prefix: str, tx: Text) -> str:
 
 
 def edge_inspector(edge: dict[str, Any], games: list[dict[str, Any]], *, tx: Text, pair: str | None = None,
-                   from_pair: str | None = None) -> list[Any]:
+                   from_pair: str | None = None, id_label: str = "AppID", fields: tuple[str, ...] = ()) -> list[Any]:
     """The link view. `pair` (a link between two groups) offers "show this pair"; `from_pair` (opened from a pair's
     list of links) offers the way back to it."""
     same = edge["source_cluster"] == edge["target_cluster"]
@@ -366,7 +371,7 @@ def edge_inspector(edge: dict[str, Any], games: list[dict[str, Any]], *, tx: Tex
                else tx("Between {a} and {b}", a=edge["source_cluster"], b=edge["target_cluster"]), className="i-sub"),
         _kv([("Shared games", Markup(f"<b>{_e(edge['shared_games'])}</b>")), ("Lift", tx.num(edge["lift"]))], tx),
         html.Div([tx("Games having both tags") + " ", html.Span(str(len(games)), className="cnt")], className="i-h"),
-        _html(_games_table(games, tx, with_appid=True)),
+        _html(_games_table(games, tx, with_appid=True, id_label=id_label, fields=fields)),
     ]
 
 

@@ -12,6 +12,7 @@ from typing import Any
 from steamstudy.analysis.templates import fmt, paragraph, render_report, sentence, wording
 from steamstudy.build.summary import build_banners
 from steamstudy.config import Config
+from steamstudy.export.schema import build_kind
 
 TOP_TAGS, TOP_GENRES, TOP_PAIRS = 5, 3, 3
 
@@ -31,31 +32,36 @@ def report_html(result: Any, config: Config) -> str:
     for d in config.datasets:
         blocks += _dataset_section(result, config, d.key, d.label, a["datasets"][d.key])
     disconnected = sum(info["n_disconnected_clusters"] for info in a["datasets"].values())
+    steam = build_kind(result.build_json) == "steam"
     blocks += ["## Methods", paragraph("methods"), sentence("methods_disconnected", count=disconnected, number=w["number"]),
-               "## Limitations", paragraph("limitations", **w), paragraph("attribution")]
+               "## Limitations",
+               paragraph("limitations", **w) if steam else paragraph("limitations_import", **w),
+               paragraph("attribution") if steam else paragraph("attribution_import",
+                                                                import_id=result.build_json["import_id"])]
     return render_report(f"Feature analysis of the {w['top_h']} Datasets", blocks, config.analysis.causal_words,
                          banners=build_banners(result.build_json))
 
 
 def _dataset_section(result: Any, config: Config, key: str, label: str, info: dict[str, Any]) -> list[str]:
-    top = result.rows(f"datasets/top100_{key}.csv")
+    top = result.dataset_rows[key]
+    steam = build_kind(result.build_json) == "steam"
     n = len(top)
     blocks = [f"## {label}", sentence("ds_state", state_id=info["state_id"])]
     if n == 0:
         return blocks
     pool = info["eligible_pool"]
-    months = [r["months_observed"] for r in top]
-    blocks += [
-        sentence("ds_intro", label=label, n=n, pool=pool, ceiling=pool / n),
-        sentence("ds_months", min=min(months), max=max(months), median=statistics.median(months),
-                 short=sum(m < 12 for m in months)),
-        sentence("ds_free", count=sum(bool(r["is_free"]) for r in top), n=n),
-        "### Frequencies",
-    ]
+    blocks.append(sentence("ds_intro", label=label, n=n, pool=pool, ceiling=pool / n))
+    if steam:  # Months Observed and is_free are Steam facts
+        months = [r["months_observed"] for r in top]
+        blocks += [sentence("ds_months", min=min(months), max=max(months), median=statistics.median(months),
+                            short=sum(m < 12 for m in months)),
+                   sentence("ds_free", count=sum(bool(r["is_free"]) for r in top), n=n)]
+    blocks.append("### Frequencies")
     tags = [r for r in _of(result.rows("analysis/tag_frequency.csv"), key) if not r["defining_tag"]][:TOP_TAGS]
     blocks += ["- " + sentence("ds_tag", tag=r["tag"], count=r["count"], n=n, baseline=_pct(r["baseline_share"]))
                for r in tags]
-    genres = [r for r in _of(result.rows("analysis/genre_frequency.csv"), key) if r["kind"] == "genre"][:TOP_GENRES]
+    genres = [r for r in _of(result.rows("analysis/genre_frequency.csv"), key)
+              if r["kind"] == "genre"][:TOP_GENRES] if steam else []
     blocks += ["- " + sentence("ds_genre", genre=r["genre"], count=r["count"], n=n,
                                baseline=_pct(r["baseline_share"])) for r in genres]
     if info.get("genre_note"):

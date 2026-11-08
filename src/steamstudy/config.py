@@ -190,7 +190,7 @@ class Config:
 
     @property
     def build_config_hash(self) -> str:
-        return content_hash({name: self.files[name] for name in BUILD_FILES})
+        return content_hash({name: self.files[name] for name in BUILD_FILES if name in self.files})
 
     @property
     def depth_cut(self) -> int | None:
@@ -242,26 +242,77 @@ def load_config(directory: str | Path = "config") -> Config:
 
 
 def config_from_data(
-    files: dict[str, dict[str, Any]], *, directory: Path = Path("config"), changelog: str = ""
+    files: dict[str, dict[str, Any]], *, directory: Path = Path("config"), changelog: str = "",
+    source: str = "steam",
 ) -> Config:
-    """Validate parsed TOML contents (one dict per config file) into a `Config`."""
+    """Validate parsed TOML contents (one dict per config file) into a `Config`. `source="import"` reads the
+    settings of an Import Build once its attribute names are resolved (`steamstudy.build.import_build`): no Steam
+    cap on Tag Depth, and no global rank limit unless one is set."""
     files = json.loads(canonical_json(files))  # normalise to plain JSON data
     return Config(
         directory=directory,
         files=files,
         changelog=changelog,
         collection=_collection(_get(files, COLLECTION_FILE)),
-        exclusions=_exclusions(_get(files, "exclusions")),
+        exclusions=_exclusions(_get(files, "exclusions"), source),
         genre_tags=_tag_refs(_get(files, "genres").get("genre_tags", []), "genres.genre_tags"),
         genre_kind=_genre_kind(_get(files, "genres")),
         datasets=_datasets(_get(files, "datasets")),
-        tag_depth=_tag_depth(_get(files, "datasets")),
+        tag_depth=_tag_depth(_get(files, "datasets"), source),
         network=_network(_get(files, "network")),
         analysis=_analysis(_get(files, "analysis")),
         manual_metadata=tuple(_get(files, "manual_metadata").get("entry", [])),
         manual_exclusions=tuple(_get(files, "manual_exclusions").get("exclusion", [])),
         exclusion_overrides=tuple(_get(files, "exclusion_overrides").get("override", [])),
     )
+
+
+
+# build.json copies every file a Build reads; the collection settings are not among them.
+MINIMAL_COLLECTION: dict[str, Any] = {
+    "contact": {"user_agent": "-"}, "listing": {"passes": 1},
+    "rates": {"steamcharts_per_second": 1.0, "store_seconds_per_request": 1.0},
+    "timeouts": {"connect_seconds": 1, "read_seconds": 1},
+    "retry": {"schedule_seconds": [1], "parse_failures_in_a_row": 1},
+}
+
+
+def build_config(files: dict[str, dict[str, Any]], *, changelog: str = "") -> Config:
+    """A `Config` from a Steam Build's settings alone (a `build.json` `config` block, or a Build Draft's)."""
+    return config_from_data({**files, COLLECTION_FILE: MINIMAL_COLLECTION}, changelog=changelog)
+
+
+# An Import Build without a global rank limit: every position of an attribute list counts for its rules.
+NO_RANK_LIMIT = 1_000_000
+
+
+def exclusions_new_shape(t: dict[str, Any]) -> dict[str, Any]:
+    """`exclusions.toml` data in the named-rule shape, converting the old shape; the new shape comes back as is
+    (keys with nothing in them omitted, as the shipped file writes them)."""
+    ex = _exclusions(t)
+
+    def tags(refs: tuple[TagRef, ...]) -> list[dict[str, Any]]:
+        return [{"id": r.id, "name": r.name, **({"rank_limit": r.rank_limit} if r.rank_limit else {})}
+                for r in refs]
+
+    def signal(item: ExclusionRule | ContentFlag) -> dict[str, Any]:
+        out: dict[str, Any] = {"name": item.name, "label": item.label}
+        if isinstance(item, ExclusionRule):
+            if item.content_descriptor_ids:
+                out["content_descriptor_ids"] = list(item.content_descriptor_ids)
+            if item.adult_only_notice:
+                out["adult_only_notice"] = True
+        if item.tags:
+            out["tags"] = tags(item.tags)
+        if item.name_only:
+            out["name_only"] = list(item.name_only)
+        return out
+
+    old_keys = {*_OLD_RULE_TABLES, "per_tag_rank_limit", "content_flags", "rule", "content_flag"}
+    out = {k: v for k, v in t.items() if k not in old_keys}
+    out["rule"] = [signal(r) for r in ex.rules]
+    out["content_flag"] = [signal(f) for f in ex.content_flags]
+    return json.loads(canonical_json(out))
 
 
 # ----------------------------------------------------------------------------- helpers
@@ -442,10 +493,12 @@ def _old_rules(t: dict[str, Any], w: str) -> tuple[ExclusionRule, ...]:
     return tuple(rules)
 
 
-def _exclusions(t: dict[str, Any]) -> ExclusionConfig:
+def _exclusions(t: dict[str, Any], source: str = "steam") -> ExclusionConfig:
     w = "exclusions"
+    if source == "import" and "global_rank_limit" not in t:
+        t = {**t, "global_rank_limit": NO_RANK_LIMIT}
     limit = _req(t, "global_rank_limit", int, w)
-    if not 1 <= limit <= 20:
+    if limit != NO_RANK_LIMIT and not 1 <= limit <= 20:
         raise ConfigError(f"{w}.global_rank_limit: must be between 1 and 20, got {limit}")
     old = [k for k in (*_OLD_RULE_TABLES, "per_tag_rank_limit") if k in t]
     if isinstance(t.get("content_flags"), dict):
@@ -497,8 +550,9 @@ MIN_LIST_SIZE = 10
 STEAM_MAX_TAG_DEPTH = 20  # a Steam store page displays at most 20 tags
 
 
-def _tag_depth(t: dict[str, Any]) -> int | str:
-    """Tag Depth for a Steam Build: 2-20, or "all" (the default, the same as 20)."""
+def _tag_depth(t: dict[str, Any], source: str = "steam") -> int | str:
+    """Tag Depth: 2-20 or "all" for a Steam Build ("all" is the default and the same as 20); for an Import Build
+    2 or more (the Build checks it against the longest list), or "all"."""
     value = t.get("tag_depth", "all")
     if value == "all":
         return "all"
@@ -506,7 +560,7 @@ def _tag_depth(t: dict[str, Any]) -> int | str:
         raise ConfigError(f"datasets.tag_depth: must be an integer or the string \"all\", got {value!r}")
     if value < 2:
         raise ConfigError(f"datasets.tag_depth: must be at least 2 (or \"all\"), got {value}")
-    if value > STEAM_MAX_TAG_DEPTH:
+    if source == "steam" and value > STEAM_MAX_TAG_DEPTH:
         raise ConfigError(f"datasets.tag_depth: a Steam store page shows at most {STEAM_MAX_TAG_DEPTH} tags, "
                           f"got {value}; use \"all\"")
     return value

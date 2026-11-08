@@ -18,4 +18,8 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "copy that Build folder there and open again":
         "това състояние на мрежата изисква компилация {build_id} (моментна снимка {snapshot_id}), която не е сред "
         "компилациите в {root}; копирайте папката на тази компилация там и отворете отново",
+    "this Network State needs Build {build_id} (Import {import_id}), which is not among the Builds in {root}; "
+    "copy that Build folder there and open again":
+        "това състояние на мрежата изисква компилация {build_id} (импорт {import_id}), която не е сред "
+        "компилациите в {root}; копирайте папката на тази компилация там и отворете отново",
 }

@@ -25,7 +25,7 @@ class Game:
     appid: int
     name: str
     rank: int
-    months_observed: int
+    months_observed: float  # the filter field's value (Steam: Months Observed; an Import: its filter, or 0)
     tag_ids: tuple[int, ...]
     tags: tuple[str, ...]
 

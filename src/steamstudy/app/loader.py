@@ -12,7 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from steamstudy.config import ConfigError, DatasetDef, NetworkDefaults, TagRef, config_from_data
+from steamstudy.config import ConfigError, DatasetDef, NetworkDefaults, TagRef, build_config
+from steamstudy.config import MINIMAL_COLLECTION, config_from_data
 from steamstudy.dataset import Dataset, read_dataset
 from steamstudy.network.defaults import default_settings
 from steamstudy.network.model import Game, Settings, TagContext
@@ -77,19 +78,13 @@ def load_build(path: str | Path) -> BuildContext:
     if not bj_path.is_file():
         raise FileNotFoundError(f"not a Build folder: {path}")
     build_json = json.loads(bj_path.read_text(encoding="utf-8"))
-    files = dict(build_json["config"])
-    files["collection"] = _MINIMAL_COLLECTION
     try:
-        config = config_from_data(files)
+        if build_json.get("source") == "import":  # attribute names resolved at Build time (the Import is not shipped)
+            config = config_from_data({**build_json["resolved_config"], "collection": MINIMAL_COLLECTION,
+                                       "manual_metadata": {}}, source="import")
+        else:
+            config = build_config(dict(build_json["config"]))
     except ConfigError as exc:
         raise ValueError(f"build.json config of {path} is not readable: {exc}") from exc
     return BuildContext(path, build_json, config.network, config.datasets, config.genre_tags, config.tag_depth)
 
-
-# build.json copies every file a Build reads; the collection settings are not among them.
-_MINIMAL_COLLECTION: dict[str, Any] = {
-    "contact": {"user_agent": "-"}, "listing": {"passes": 1},
-    "rates": {"steamcharts_per_second": 1.0, "store_seconds_per_request": 1.0},
-    "timeouts": {"connect_seconds": 1, "read_seconds": 1},
-    "retry": {"schedule_seconds": [1], "parse_failures_in_a_row": 1},
-}
