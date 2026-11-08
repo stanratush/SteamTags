@@ -10,6 +10,7 @@ only the counted tags. The full list stays on the item for display.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
@@ -152,7 +153,6 @@ def _read_steam(build: BuildLike, key: str) -> Dataset:
 def _read_import(build: BuildLike, key: str) -> Dataset:
     """`topn_<key>.csv` and `item_fields.csv` of an Import Build. The filter slider takes the field's name and
     its range from the data; without a filter field it is hidden and every item is kept."""
-    import math
 
     definition = next(d for d in build.datasets if d.key == key)
     path = build.path / "datasets" / f"topn_{key}.csv"

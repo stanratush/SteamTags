@@ -498,7 +498,7 @@ def _exclusions(t: dict[str, Any], source: str = "steam") -> ExclusionConfig:
     if source == "import" and "global_rank_limit" not in t:
         t = {**t, "global_rank_limit": NO_RANK_LIMIT}
     limit = _req(t, "global_rank_limit", int, w)
-    if limit != NO_RANK_LIMIT and not 1 <= limit <= 20:
+    if not (source == "import" and limit == NO_RANK_LIMIT) and not 1 <= limit <= 20:
         raise ConfigError(f"{w}.global_rank_limit: must be between 1 and 20, got {limit}")
     old = [k for k in (*_OLD_RULE_TABLES, "per_tag_rank_limit") if k in t]
     if isinstance(t.get("content_flags"), dict):

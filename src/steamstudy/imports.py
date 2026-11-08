@@ -142,8 +142,8 @@ def _clean(text: str) -> str:
     return unicodedata.normalize("NFC", text.strip())
 
 
-def _read_csv(path: Path, label: str, errors: list[Problem]) -> list[list[str]] | None:
-    """Rows of a UTF-8, comma-delimited CSV (BOM stripped), or None after a fatal problem."""
+def _read_csv(path: Path, label: str, errors: list[Problem]) -> list[tuple[int, list[str]]] | None:
+    """(Spreadsheet row number, cells) of the non-blank rows of a UTF-8, comma-delimited CSV (BOM stripped), or None after a fatal problem."""
     data = path.read_bytes()
     try:
         text = data.decode("utf-8")
@@ -160,14 +160,16 @@ def _read_csv(path: Path, label: str, errors: list[Problem]) -> list[list[str]] 
     except csv.Error as exc:
         errors.append(Problem(label, len(rows) + 1, "", "bad_csv", "", f"{ERROR_CODES['bad_csv']} ({exc})"))
         return None
-    rows = [r for r in rows if r != []]  # blank lines carry nothing
-    if not rows:
+    # Blank lines carry nothing but keep their place: each row keeps its spreadsheet row number.
+    numbered = [(i + 1, r) for i, r in enumerate(rows) if r != []]
+    if not numbered:
         errors.append(Problem(label, None, "", "empty_file", "", ERROR_CODES["empty_file"]))
         return None
-    if len(rows[0]) == 1 and any(sep in rows[0][0] for sep in (";", "\t", "|")):
-        errors.append(Problem(label, 1, "", "not_comma_delimited", rows[0][0], ERROR_CODES["not_comma_delimited"]))
+    line, first = numbered[0]
+    if len(first) == 1 and any(sep in first[0] for sep in (";", "\t", "|")):
+        errors.append(Problem(label, line, "", "not_comma_delimited", first[0], ERROR_CODES["not_comma_delimited"]))
         return None
-    return rows
+    return numbered
 
 
 def _number(text: str) -> float | None:
@@ -208,7 +210,7 @@ def validate_import(path: Path, *, attributes_file: Path | None = None,
     rows = _read_csv(path, label, errors)
     if rows is None:
         return Validation(errors, warnings, None)
-    header = [h.strip() for h in rows[0]]
+    header = [h.strip() for h in rows[0][1]]
     for i, h in enumerate(header):
         if h in header[:i]:
             err(1, h, "duplicate_column", h)
@@ -225,8 +227,7 @@ def validate_import(path: Path, *, attributes_file: Path | None = None,
     extra = tuple(h for h in header if h not in RESERVED and h != filter_field)
     parsed: list[tuple[int, int, str, list[str], float | None, float | None, dict[str, float]]] = []
     seen_ids: dict[int, int] = {}
-    for index, cells in enumerate(rows[1:]):
-        row = index + 2
+    for row, cells in rows[1:]:
         if len(cells) != len(header):
             err(row, "", "row_length", str(len(cells)), f"({len(cells)} cells, header has {len(header)})")
             continue
@@ -324,13 +325,12 @@ def _attribute_ids(attributes_file: Path | None, used: list[str], used_set: set[
     rows = _read_csv(Path(attributes_file), label, errors)
     if rows is None:
         return "supplied", {}
-    if [h.strip() for h in rows[0]] != ["id", "name"]:
-        err(1, "", "attributes_bad_header", ",".join(rows[0]))
+    if [h.strip() for h in rows[0][1]] != ["id", "name"]:
+        err(rows[0][0], "", "attributes_bad_header", ",".join(rows[0][1]))
         return "supplied", {}
     ids: dict[str, int] = {}
     seen_ids: set[int] = set()
-    for index, cells in enumerate(rows[1:]):
-        row = index + 2
+    for row, cells in rows[1:]:
         if len(cells) != 2:
             err(row, "", "row_length", str(len(cells)))
             continue

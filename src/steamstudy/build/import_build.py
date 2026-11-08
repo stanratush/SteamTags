@@ -6,7 +6,7 @@ The settings are resolved against the Import's vocabulary into the Steam shape, 
 ranking and analysis code runs unchanged; an attribute the Import does not have fails the Build. The Eligible Pool is
 the whole Import minus its Exclusions; the rank is the Import's own (score descending, then file order).
 
-Tables are assembled under their Steam names and converted to their Import variants (`export.schema.import_variant`)
+Tables are assembled under their Steam names and converted to their Import variants (`export.schema.REGISTRY.variant`)
 at the end, so an Import Build writes exactly the files the registry lists for its kind.
 """
 
@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -97,7 +98,6 @@ def import_defaults(source: ImportSource, config_dir: Path = Path("config")) -> 
 def read_import_config_dir(directory: Path) -> dict[str, dict[str, Any]] | None:
     """The reduced config set in a folder, or None when the folder does not hold one (no `datasets.toml`, or a
     Steam config set, which has `collection.toml`)."""
-    import tomllib
 
     directory = Path(directory)
     if not (directory / "datasets.toml").is_file() or (directory / f"{COLLECTION_FILE}.toml").is_file():

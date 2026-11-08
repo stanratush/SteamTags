@@ -122,6 +122,8 @@ def test_an_import_without_score_filter_or_fields_builds_in_file_order(tmp_path)
     import_id = _import(tmp_path, _csv(score=False, filter_field=False, extra=False))
     source = open_import(tmp_path, import_id)
     folder = write_build(build_import(source, import_defaults(source, CONFIG_DIR), BUILD_ID), tmp_path)
+    again = write_build(build_import(source, import_defaults(source, CONFIG_DIR), BUILD_ID), tmp_path / "again")
+    assert _files(folder) == _files(again)
     rows = read_csv(folder / "datasets" / "topn_overall.csv")
     assert len(rows) == 60 and [r["id"] for r in rows] == [str(1000 + i) for i in range(60)]
     assert rows[0]["score"] == "" and rows[0]["filter_value"] == ""
@@ -280,3 +282,27 @@ def test_the_app_serves_an_import_build_with_and_without_a_filter_field(full, tm
     assert "min-months" in props and "ps-s-min-months" in props  # the callbacks always find the sliders
     # The range comes from the data (3 to 14.5 months); without a filter field the slider is a hidden 0-1 stub.
     assert (props["min-months"]["min"], props["min-months"]["max"]) == ((3, 15) if with_filter else (0, 1))
+
+
+def test_an_import_build_duplicates_only_within_its_import_and_a_missing_import_is_recorded(full, tmp_path):
+    from steamstudy import build_admin as BA
+
+    root = tmp_path
+    shutil.copytree(full[0] / "imports", root / "imports")
+    import_id = full[1].import_id
+    draft = BA.start_draft(root, import_id, config_dir=CONFIG_DIR, name="First")
+    BA.save_draft(root, draft)
+    folder = BA.build_draft(root, draft, now=dt.datetime(2026, 11, 8, 12, 0, tzinfo=dt.UTC))
+    ref = f"{import_id}/{folder.name}"
+    assert BA.duplicate(root, ref, import_id, name="Second").parent_build_id == ref
+    with pytest.raises(BA.WrongSource):
+        BA.duplicate(root, ref, "S1", name="Elsewhere")
+
+    draft = BA.start_draft(root, import_id, config_dir=CONFIG_DIR, name="Orphan")
+    BA.save_draft(root, draft)
+    shutil.rmtree(root / "imports" / import_id / "original")  # the Import is damaged after the draft was saved
+    (root / "imports" / import_id / "items.csv").unlink()
+    with pytest.raises(BA.BuildFailed):
+        BA.build_draft(root, draft, now=dt.datetime(2026, 11, 8, 13, 0, tzinfo=dt.UTC))
+    (kept,) = [d for d in BA.list_drafts(root, import_id) if d.name == "Orphan"]
+    assert kept.last_failure["kind"] == "message"

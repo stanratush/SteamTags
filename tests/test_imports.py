@@ -211,3 +211,11 @@ def test_the_cli_imports_and_reports_refusals(tmp_path, capsys):
     assert main(["--root", str(tmp_path), "import", str(bad)]) == 2
     out = capsys.readouterr().out
     assert "bad_id: 1" in out and "x1" in out
+
+
+def test_row_numbers_count_blank_lines_as_the_spreadsheet_does(tmp_path):
+    text = "id,name,attributes,score\n\n1,Item 1,a,1\n\nx2,Item 2,a,2\n" + "".join(
+        f"{i},Item {i},a;b,{i}\n" for i in range(3, 14))
+    result = I.validate_import(_write(tmp_path, text))
+    (bad,) = [e for e in result.errors if e.code == "bad_id"]
+    assert bad.row == 5

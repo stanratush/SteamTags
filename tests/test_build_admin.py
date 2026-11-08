@@ -11,6 +11,7 @@ import pytest
 from conftest import CONFIG_DIR
 from steamstudy import build_admin as BA
 from steamstudy.builds import list_builds
+from steamstudy.config import exclusions_new_shape
 
 T1 = dt.datetime(2026, 11, 8, 10, 0, 0, tzinfo=dt.UTC)
 T2 = dt.datetime(2026, 11, 8, 11, 0, 0, tzinfo=dt.UTC)
@@ -261,4 +262,26 @@ def test_a_draft_from_an_old_shape_build_is_converted_to_named_rules(root):
     assert ex["content_flag"] == [{"name": "desktop_companion", "label": "desktop_companion",
                                    "tags": [{"id": 1320952, "name": "Desktop Companion"}]}]
     # The shipped config converts to itself.
-    assert BA.new_shape(load_config(CONFIG_DIR).files["exclusions"]) == load_config(CONFIG_DIR).files["exclusions"]
+    assert exclusions_new_shape(load_config(CONFIG_DIR).files["exclusions"]) == load_config(CONFIG_DIR).files["exclusions"]
+
+
+def test_a_steam_build_does_not_accept_the_import_rank_limit_sentinel(root):
+    from steamstudy.config import NO_RANK_LIMIT
+
+    draft = BA.start_draft(root, "S1", config_dir=CONFIG_DIR, name="Unlimited")
+    draft.config["exclusions"]["global_rank_limit"] = NO_RANK_LIMIT
+    BA.save_draft(root, draft)
+    with pytest.raises(BA.BuildFailed, match="between 1 and 20"):
+        BA.build_draft(root, draft, now=T1)
+
+
+def test_a_missing_snapshot_is_recorded_on_the_draft(root):
+    import shutil
+
+    draft = BA.start_draft(root, "S2", config_dir=CONFIG_DIR, name="Gone")
+    BA.save_draft(root, draft)
+    shutil.rmtree(root / "snapshots" / "S2")
+    with pytest.raises(BA.BuildFailed):
+        BA.build_draft(root, draft, now=T1)
+    (kept,) = BA.list_drafts(root, "S2")
+    assert kept.last_failure["kind"] == "message"

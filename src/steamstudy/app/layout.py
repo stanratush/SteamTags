@@ -167,6 +167,11 @@ def _label(L: Labels, text_: str, key: str, *extra: Any, **kw: Any) -> html.Labe
     return html.Label([*children, *extra], className="l", **help_, **kw)
 
 
+def _steam_field(field: Any) -> bool:
+    """Whether a Dataset's filter field is Steam's Months Observed (or absent), so its labels are catalogued."""
+    return field is None or field.label == "Minimum Months Filter"
+
+
 def _slider(L: Labels, id_: str, label: str, lo: int, hi: int, value: int) -> list[Any]:
     """A slider whose label shows its value while dragging; the value itself is sent on release."""
     key = _control_key(id_)
@@ -249,9 +254,10 @@ def _controls(L: Labels, ctx: BuildContext) -> html.Div:
             dcc.Dropdown(id="dataset", options=[{"label": d.label, "value": d.key} for d in ctx.datasets],
                          value=first, clearable=False, searchable=False)]),
         # Without a filter field (an Import Build) the slider stays in the page, hidden: every item is kept.
-        _item(L, "min-months", msg("Months ≥") if field is None or field.label == "Minimum Months Filter"
-              else f"{field.label} ≥", str(s.min_months),
-              _slider(L, "min-months", field.label if field else msg("Minimum Months Filter"),
+        # A Steam Build's field is Months Observed (catalogued); an Import's is the user's own column name: data,
+        # shown as written in both languages (ADR 0003).
+        _item(L, "min-months", msg("Months ≥") if _steam_field(field) else f"{field.label} ≥", str(s.min_months),
+              _slider(L, "min-months", msg("Minimum Months Filter") if _steam_field(field) else field.label,
                       int(field.minimum) if field else 0, int(field.maximum) if field else 1, s.min_months))
         if field else html.Div(_item(L, "min-months", msg("Months ≥"), str(s.min_months),
                                      _slider(L, "min-months", msg("Minimum Months Filter"), 0, 1, s.min_months)),

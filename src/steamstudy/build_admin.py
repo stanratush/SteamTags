@@ -33,14 +33,18 @@ from steamstudy.config import (
 from steamstudy.versions import software_versions
 
 __all__ = [
-    "BuildCancelled", "BuildFailed", "DeleteRefused", "DeletionPlan", "Draft", "IdenticalBuild", "NameClash",
+    "BuildCancelled", "BuildFailed", "DeleteRefused", "DeletionPlan", "Draft", "IdenticalBuild", "NameClash", "WrongSource",
     "build_draft", "check_name", "delete_build", "deletion_plan", "discard_draft", "draft_config_hash", "duplicate",
-    "identical_builds", "list_drafts", "new_shape", "parent_name", "save_draft", "start_draft",
+    "identical_builds", "list_drafts", "parent_name", "save_draft", "start_draft",
 ]
 
 
 class NameClash(ValueError):
     """Another Build or draft of the same source already has this name (ignoring case)."""
+
+
+class WrongSource(ValueError):
+    """A Duplicate onto a source its Build cannot use: an Import Build stays within its Import."""
 
 
 class DeleteRefused(ValueError):
@@ -117,16 +121,11 @@ def _unique_name(root: Path, source_id: str, base: str) -> str:
 # ----------------------------------------------------------------------------- drafts
 
 
-def new_shape(exclusions: dict[str, Any]) -> dict[str, Any]:
-    """An `exclusions` file in the named-rule shape (old-shape Builds are converted, never rewritten)."""
-    return exclusions_new_shape(exclusions)
-
-
 def _build_settings(info: BuildInfo) -> tuple[dict[str, dict[str, Any]], list[dict[str, str]]]:
     bj = json.loads((info.path / "datasets" / "build.json").read_text(encoding="utf-8"))
     files = copy.deepcopy(dict(bj["config"]))
     if bj.get("source", "steam") == "steam":
-        files["exclusions"] = new_shape(files["exclusions"])
+        files["exclusions"] = exclusions_new_shape(files["exclusions"])
     return files, list(bj.get("changelog", []))
 
 
@@ -162,7 +161,18 @@ def start_draft(root: Path, source_id: str, from_build: str | None = None, *, co
 
 
 def duplicate(root: Path, build_ref: str, target_source_id: str, *, name: str | None = None) -> Draft:
-    """A draft from a Build's settings, on its own source or another, with the Build as parent."""
+    """A draft from a Build's settings, with the Build as parent: a Steam Build onto any Snapshot, an Import Build
+    only within its Import. Refuses any other target with `WrongSource`."""
+    from steamstudy.build.import_build import is_import
+
+    root = Path(root)
+    source_id = build_ref.split("/", 1)[0]
+    if is_import(root, source_id) and source_id != target_source_id:
+        raise WrongSource(f"{build_ref} cannot be duplicated onto {target_source_id}: Import Builds duplicate "
+                          "within their Import")
+    if not is_import(root, source_id) and is_import(root, target_source_id):
+        raise WrongSource(f"{build_ref} cannot be duplicated onto {target_source_id}: a Steam Build duplicates onto "
+                          "a Snapshot")
     return start_draft(root, target_source_id, from_build=build_ref, name=name)
 
 
@@ -250,7 +260,7 @@ def build_draft(root: Path, draft: Draft, *, on_progress: Callable[[str], None] 
             raise BuildCancelled("stopped before the Build was written")
         progress("write")
         folder = write_build(result, root)
-    except (BuildFailed, ConfigError, LightweightError) as exc:
+    except (BuildFailed, ConfigError, LightweightError, OSError) as exc:  # a missing Snapshot/Import too
         _remove_failure_file(root, draft)
         if isinstance(exc, BuildFailed) and exc.parse_errors and build_id:
             path = write_failed_parse_errors(root, draft.source_id, build_id, exc.parse_errors)
