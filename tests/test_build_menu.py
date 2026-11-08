@@ -116,7 +116,7 @@ def test_the_tree_shows_lineage_orphans_drafts_two_snapshots_and_an_import(root)
     trees = {t.source_id: t for t in build_tree(root)}
     assert set(trees) == {"S1", "S2", import_id}
     assert trees["S1"].forms == ("raw", "lightweight") and trees["S2"].forms == ("raw",)
-    assert trees[import_id].kind == "import" and trees[import_id].root_label == "Import defaults"
+    assert trees[import_id].kind == "import"
     s1 = {n.ref: (depth, n) for depth, n in walk(trees["S1"].builds)}
     assert set(s1) == {a, c} and s1[c][1].orphan == "deleted" and s1[a][1].orphan is None
     assert sum(n.latest for _, n in s1.values()) == 1 and s1[c][1].latest
@@ -128,6 +128,7 @@ def test_the_tree_shows_lineage_orphans_drafts_two_snapshots_and_an_import(root)
     view = BM.tree_view(a, EN)
     assert "from a deleted Build" in _text(view) and "✓ open in this tab" in _text(view)
     assert "from A on S1" in _text(view) and "20 tags per game" in _text(view)
+    assert "Import defaults" in _text(view) and "config/" in _text(view)  # the roots of the Import and Snapshot trees
     assert "0 changed settings" in _text(view)  # the Draft of B and From defaults, both unedited
     assert {"type": "bm-root", "source": import_id} in _ids(view)
 
@@ -173,6 +174,22 @@ def test_delete_first_stops_the_jobs_running_on_the_build(root, tmp_path, monkey
         if job.poll() is None:
             job.kill()
         job.stdout.close()
+
+
+def test_on_linux_and_macos_a_stopped_job_takes_its_worker_processes_with_it(monkeypatch):
+    import signal
+    from types import SimpleNamespace
+
+    from steamstudy.app import job_registry
+
+    children = {10: [11, 12], 11: [13]}  # the job 10, its pool 11 and 12, and 11's own child 13
+    monkeypatch.setattr(job_registry.sys, "platform", "linux")
+    monkeypatch.setattr(job_registry.subprocess, "run", lambda args, **_k: SimpleNamespace(
+        stdout="\n".join(map(str, children.get(int(args[-1]), [])))))
+    killed = []
+    monkeypatch.setattr(job_registry.os, "kill", lambda pid, sig: killed.append((pid, sig)))
+    job_registry._stop(10)
+    assert killed == [(pid, signal.SIGTERM) for pid in (10, 11, 13, 12)]
 
 
 def test_a_bundle_tree_only_switches_and_hides_for_one_build(root, tmp_path):
@@ -242,7 +259,7 @@ def test_a_build_run_completes_appears_as_latest_and_the_strip_offers_to_open_it
     draft = BA.start_draft(root, "S1", config_dir=root / "config", name="Run me")
     draft.description = "built by a run"
     BA.save_draft(root, draft)
-    build_runs.start(root, "S1", draft.stored_slug, draft.name)
+    build_runs.start(root, draft.ref, draft.name)
     assert build_runs.wait_idle()
     (view,) = [v for v in build_runs.runs() if v["name"] == "Run me"]
     assert view["status"] == "done"
@@ -258,7 +275,7 @@ def test_a_failing_run_keeps_the_draft_and_shows_the_failure(root):
     draft.description = "a causal word in the reports"
     draft.config["analysis"]["causal_words"] = ["games"]
     BA.save_draft(root, draft)
-    build_runs.start(root, "S1", draft.stored_slug, draft.name)
+    build_runs.start(root, draft.ref, draft.name)
     assert build_runs.wait_idle()
     (view,) = [v for v in build_runs.runs() if v["name"] == "Causal"]
     assert view["status"] == "failed" and "games" in view["error"]
@@ -286,12 +303,12 @@ def test_an_unexpected_error_is_kept_on_the_draft_and_a_run_builds_in_its_own_pr
     (kept,) = [d for d in BA.list_drafts(root, "S1") if d.name == "Broken"]
     assert kept.last_failure == {"kind": "message", "message": "RuntimeError: boom"}
     # The run's child process imports the Build afresh: this process's broken `build` does not reach it.
-    build_runs.start(root, "S1", kept.stored_slug, kept.name)
+    build_runs.start(root, kept.ref, kept.name)
     assert build_runs.wait_idle()
     (view,) = [v for v in build_runs.runs() if v["name"] == "Broken"]
     assert view["status"] == "done" and view["ref"].startswith("S1/")
     build_runs.dismiss(view["run_id"])
-    build_runs.start(root, "S1", "no-such-draft", "Gone")  # the idle worker has gone; a new one starts
+    build_runs.start(root, BA.DraftRef("S1", "no-such-draft"), "Gone")  # the idle worker has gone; a new one starts
     assert build_runs.wait_idle()
     (view,) = [v for v in build_runs.runs() if v["name"] == "Gone"]
     assert view["status"] == "failed" and "no longer exists" in view["error"]
@@ -308,7 +325,7 @@ def test_a_second_build_run_waits_for_the_first(root):
         BA.save_draft(root, draft)
         slugs.append((draft.stored_slug, name))
     for slug, name in slugs:
-        build_runs.start(root, "S1", slug, name)
+        build_runs.start(root, BA.DraftRef("S1", slug), name)
     assert build_runs.wait_idle()
     first, second = [next(v for v in build_runs.runs() if v["name"] == n) for n in ("First", "Second")]
     assert first["status"] == second["status"] == "done"

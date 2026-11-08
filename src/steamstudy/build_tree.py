@@ -5,7 +5,7 @@ Dash-free, read from disk on each call. One tree per source (a Snapshot or an Im
 Bundle (`bundle=True`) there is no root row and no drafts: a Build whose parent is not in the Bundle sits at the top
 "from <parent name> (not in this Bundle)".
 
-A Build whose parent was deleted sits at the root, marked `orphan="deleted"`.
+A Build whose parent is not in its tree sits at the top, marked with why (`ORPHAN_*`).
 """
 
 from __future__ import annotations
@@ -16,9 +16,13 @@ from pathlib import Path
 from typing import Any
 
 from steamstudy.build_admin import Draft, list_drafts
-from steamstudy.builds import LIGHT_SUFFIX as SUFFIX, BuildInfo, build_date, builds_dir, list_builds
+from steamstudy.builds import LIGHT_SUFFIX as SUFFIX
+from steamstudy.builds import DELETED_PARENT, BuildInfo, build_date, builds_dir, list_builds
 
-ROOT_LABELS = {"snapshot": "config/", "import": "Import defaults"}
+# Why a Build sits at the top of its tree although it has a parent.
+ORPHAN_DELETED = "deleted"  # the parent Build was deleted
+ORPHAN_OTHER_SOURCE = "another source"  # duplicated from a Build of another Snapshot (or Import)
+ORPHAN_NOT_BUNDLED = "not in this Bundle"  # an App Bundle that does not ship the parent
 
 
 @dataclass
@@ -31,7 +35,7 @@ class BuildNode:
     tag_depth: int | str  # 20, or "all"
     size_bytes: int = 0
     app_cache_bytes: int = 0
-    orphan: str | None = None  # "deleted", "another source" (duplicated onto it), or (in a Bundle) "not in this Bundle"
+    orphan: str | None = None  # one of the ORPHAN_* kinds
     parent_name: str | None = None
     children: list[BuildNode] = field(default_factory=list)
     drafts: list[Draft] = field(default_factory=list)
@@ -48,10 +52,6 @@ class SourceTree:
     forms: tuple[str, ...]  # a Snapshot's ("raw", "lightweight"); an Import's ("import",)
     builds: list[BuildNode]  # top level: children of the root (or of nothing, in a Bundle)
     drafts: list[Draft]  # drafts started from the defaults (or from a Build that is gone)
-
-    @property
-    def root_label(self) -> str:
-        return ROOT_LABELS[self.kind]
 
 
 def is_bundle(root: Path) -> bool:
@@ -126,10 +126,11 @@ def build_tree(root: Path, *, bundle: bool | None = None, sizes: bool = False) -
                 nodes[parent].children.append(node)
                 continue
             if parent in every:  # duplicated from a Build of another Snapshot (or Import)
-                node.parent_name, node.orphan = every[parent].name, "another source"
+                node.parent_name, node.orphan = every[parent].name, ORPHAN_OTHER_SOURCE
             elif parent:
                 node.parent_name = _parent_name_from_bundle(root, parent) if bundle else None
-                node.orphan = "not in this Bundle" if bundle and node.parent_name != "deleted" else "deleted"
+                shipped_elsewhere = bundle and node.parent_name != DELETED_PARENT
+                node.orphan = ORPHAN_NOT_BUNDLED if shipped_elsewhere else ORPHAN_DELETED
             top.append(node)
         root_drafts: list[Draft] = []
         if not bundle:

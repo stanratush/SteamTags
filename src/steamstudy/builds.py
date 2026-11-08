@@ -82,6 +82,21 @@ class BuildFailed(Exception):
         self.parse_errors = parse_errors or []
 
 
+# A `bundle.json` entry's `parent_name` when the parent Build was deleted before the Bundle was made.
+DELETED_PARENT = "deleted"
+
+
+def ref_of(folder: str | Path) -> str:
+    """A Build folder's ref, `<source_id>/<build_id>`."""
+    folder = Path(folder)
+    return f"{folder.parent.name}/{folder.name}"
+
+
+def source_of(ref: str) -> str:
+    """The source (Snapshot or Import) id of a ref `<source_id>/<build_id>`."""
+    return ref.split("/", 1)[0]
+
+
 def build_date(build_id: str) -> str:
     """The UTC date a `build_id` was made, as YYYY-MM-DD."""
     stamp = build_id.split("-", 1)[0]

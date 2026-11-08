@@ -21,8 +21,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from steamstudy.build_admin import DraftRef
+from steamstudy.builds import ref_of
+
 ESTIMATE_LIGHT_S = 24
 ESTIMATE_RAW_S = 99
+ESTIMATE_LIGHTEN_S = 60
+ACTIVE = ("waiting", "running")  # a run's statuses before it ends (then: done, failed or cancelled)
 
 
 @dataclass
@@ -42,12 +47,21 @@ class Run:
     error: str | None = None
     stop: threading.Event = field(default_factory=threading.Event)
 
+    @property
+    def active(self) -> bool:
+        return self.status in ACTIVE
+
+    @property
+    def draft(self) -> DraftRef:
+        return DraftRef(self.source_id, self.slug)
+
     def view(self) -> dict[str, Any]:
-        now = self.finished or time.time()
+        """The run as the strip and the tree read it (plain values: it crosses the callback boundary)."""
+        elapsed = round((self.finished or time.time()) - self.started) if self.started else 0
         return {"run_id": self.run_id, "kind": self.kind, "source_id": self.source_id, "slug": self.slug, "name": self.name,
-                "status": self.status, "stage": self.stage, "estimate_s": self.estimate_s,
-                "elapsed_s": round(now - self.started) if self.started else 0, "ref": self.ref, "error": self.error,
-                "started": self.started, "finished": self.finished}
+                "status": self.status, "active": self.active, "stage": self.stage, "estimate_s": self.estimate_s,
+                "elapsed_s": elapsed, "pct": min(99, round(100 * elapsed / max(self.estimate_s, 1))),
+                "ref": self.ref, "error": self.error, "started": self.started, "finished": self.finished}
 
 
 _LOCK = threading.Lock()
@@ -66,15 +80,15 @@ def estimate(root: Path, source_id: str) -> int:
     return ESTIMATE_RAW_S
 
 
-def start(root: Path, source_id: str, slug: str, name: str) -> int:
+def start(root: Path, draft: DraftRef, name: str) -> int:
     """Queue a draft's Build run; it starts when no other run is running. Returns its id."""
     with _LOCK:
         for run in _RUNS.values():  # the same draft is never queued twice
-            if (run.source_id, run.slug) == (source_id, slug) and run.status in ("waiting", "running"):
+            if run.draft == draft and run.active:
                 return run.run_id
         run_id = _NEXT[0]
         _NEXT[0] += 1
-        _enqueue(Run(run_id, Path(root), source_id, slug, name, estimate(Path(root), source_id)))
+        _enqueue(Run(run_id, Path(root), draft.source_id, draft.slug, name, estimate(Path(root), draft.source_id)))
     return run_id
 
 
@@ -83,7 +97,7 @@ def start_lighten(root: Path, snapshot_id: str) -> int:
     with _LOCK:
         run_id = _NEXT[0]
         _NEXT[0] += 1
-        _enqueue(Run(run_id, Path(root), snapshot_id, "", snapshot_id, 60, kind="lighten"))
+        _enqueue(Run(run_id, Path(root), snapshot_id, "", snapshot_id, ESTIMATE_LIGHTEN_S, kind="lighten"))
     return run_id
 
 
@@ -112,7 +126,7 @@ def cancel(run_id: int) -> None:
 def dismiss(run_id: int) -> None:
     with _LOCK:
         run = _RUNS.get(run_id)
-        if run is not None and run.status not in ("waiting", "running"):
+        if run is not None and not run.active:
             del _RUNS[run_id]
 
 
@@ -121,19 +135,18 @@ def runs() -> list[dict[str, Any]]:
         return [r.view() for r in sorted(_RUNS.values(), key=lambda r: r.run_id)]
 
 
-def running_draft(source_id: str, slug: str) -> dict[str, Any] | None:
+def running_draft(draft: DraftRef) -> dict[str, Any] | None:
     """The waiting or running run of a draft (the tree's "running %"), if any."""
-    for view in runs():
-        if (view["source_id"], view["slug"]) == (source_id, slug) and view["status"] in ("waiting", "running"):
-            return view
-    return None
+    with _LOCK:
+        run = next((r for r in _RUNS.values() if r.draft == draft and r.active), None)
+        return run.view() if run else None
 
 
 def wait_idle(timeout: float = 300.0) -> bool:
     """Block until no run is waiting or running (tests)."""
     end = time.time() + timeout
     while time.time() < end:
-        if not any(v["status"] in ("waiting", "running") for v in runs()):
+        if not any(v["active"] for v in runs()):
             return True
         time.sleep(0.1)
     return False
@@ -192,7 +205,7 @@ def _in_process(run: Run) -> tuple[str, str | None]:
 def run_child(kind: str, root: str, source_id: str, slug: str, name: str, messages: Any, stop: Any) -> None:
     """The child process: build the draft (or lighten the Snapshot) and report stages, then one result:
     ("done", ref), ("failed", message) or ("cancelled", None). Never raises."""
-    from steamstudy.build_admin import BuildCancelled, BuildFailed, build_draft, list_drafts
+    from steamstudy.build_admin import BuildCancelled, BuildFailed, build_draft, find_draft
 
     try:
         if kind == "lighten":
@@ -202,12 +215,12 @@ def run_child(kind: str, root: str, source_id: str, slug: str, name: str, messag
             lighten(Path(root) / "snapshots" / source_id)
             messages.put(("done", None))
             return
-        draft = next((d for d in list_drafts(Path(root), source_id) if d.stored_slug == slug), None)
+        draft = find_draft(Path(root), DraftRef(source_id, slug))
         if draft is None:
             raise BuildFailed(f"the draft {name} no longer exists")
         folder = build_draft(Path(root), draft, on_progress=lambda stage: messages.put(("stage", stage)),
                              should_stop=stop.is_set)
-        messages.put(("done", f"{folder.parent.name}/{folder.name}"))
+        messages.put(("done", ref_of(folder)))
     except BuildCancelled:
         messages.put(("cancelled", None))
     except BuildFailed as exc:

@@ -33,6 +33,7 @@ from steamstudy.app import help as H
 from steamstudy.app.build_menu import HIDDEN, editable, repo_root
 from steamstudy.app.relabel import msg
 from steamstudy.i18n import Text, lang_of, text
+from steamstudy.imports import is_import
 
 STEP_TITLES = {"start": msg("Start"), "top_n": msg("Changes the Top-N"), "curation": msg("Curation"),
                "reports": msg("Reports and analysis"), "network": msg("Network defaults"), "review": msg("Review")}
@@ -60,15 +61,29 @@ def _field(name: str) -> dict[str, str]:
 
 
 def load(root: Path, ref: dict[str, str] | None) -> BA.Draft | None:
-    if not ref:
-        return None
-    return next((d for d in BA.list_drafts(root, ref["source"]) if d.stored_slug == ref["slug"]), None)
+    """The draft the dialog's store (`draft-open`) names."""
+    return BA.find_draft(root, BA.DraftRef.from_store(ref))
 
 
-def _is_import(root: Path, draft: BA.Draft) -> bool:
-    from steamstudy.imports import is_import
+def _clicked() -> bool:
+    """Whether the callback fired for a click (not for a button just drawn, with no clicks yet)."""
+    return bool(ctx.triggered and ctx.triggered[0].get("value"))
 
-    return is_import(root, draft.source_id)
+
+def _open(ref: dict[str, str] | None, *, clicked: bool = False) -> tuple[Path, BA.Draft]:
+    """The repository root and the open draft; no update when there is none (or, with `clicked`, when no click
+    fired the callback)."""
+    root = repo_root()
+    draft = load(root, ref) if root else None
+    if root is None or draft is None or (clicked and not _clicked()):
+        raise PreventUpdate
+    return root, draft
+
+
+def _save_and_draw(root: Path, draft: BA.Draft, step: str, lang: str | None) -> list[Any]:
+    """Save a draft a button changed, and draw its dialog again on `step`."""
+    BA.save_draft(root, draft)
+    return body(draft, root, step, text(lang_of(lang)))
 
 
 # ----------------------------------------------------------------------------- layout of one draft
@@ -86,7 +101,7 @@ def _start(draft: BA.Draft, root: Path, tx: Text) -> list[Any]:
     parent = BA.parent_name(root, draft.parent_build_id) if draft.parent_build_id else None
     started = (tx("the defaults") if not draft.parent_build_id
                else parent or tx("a deleted Build ({ref})", ref=draft.parent_build_id))
-    imported = _is_import(root, draft)
+    imported = is_import(root, draft.source_id)
     source = (tx("Import {id}", id=draft.source_id) if imported else tx("Snapshot {id}", id=draft.source_id))
     out: list[Any] = [
         html.Label(tx("Name"), htmlFor="dd-name", className="l"),
@@ -239,7 +254,7 @@ def _step_body(step: str, draft: BA.Draft, root: Path, tx: Text, bad: dict[str, 
 
 
 def _step_content(step: str, draft: BA.Draft, root: Path, tx: Text, bad: dict[str, str]) -> list[Any]:
-    imported = _is_import(root, draft)
+    imported = is_import(root, draft.source_id)
     if step == "start":
         return _start(draft, root, tx)
     out: list[Any] = []
@@ -497,7 +512,7 @@ def review(root: Path, draft: BA.Draft, tx: Text, bad: dict[str, str]) -> tuple[
                                                  id={"type": "dd-step", "step": p.step, "from": "review"},
                                                  className="btn quiet small")]) for p in problems]))
     can_build = not problems and not bad and pv.buildable
-    run = build_runs.running_draft(draft.source_id, draft.stored_slug or "")
+    run = build_runs.running_draft(draft.ref)
     out.append(html.Div([html.Button(tx("Build"), id="dd-build", className="btn primary",
                                      disabled=not can_build or run is not None),
                          html.Span(tx("Building…") if run else "", className="mute small")], className="row-inline"))
@@ -542,38 +557,33 @@ def open_draft(ref, lang):
     tx = text(lang_of(lang))
     busy = None
     if not preview.is_loaded(root, draft.source_id) and preview.previewable(root, draft.source_id):
-        busy = tx("Loading Import…") if _is_import(root, draft) else tx("Loading Snapshot…")
+        busy = tx("Loading Import…") if is_import(root, draft.source_id) else tx("Loading Snapshot…")
     preview.warm(root, draft.source_id)
     return {"display": "flex"}, body(draft, root, "start", tx, busy=busy)
 
 
 def go_step(_clicks, ref, lang):
     target = ctx.triggered_id
-    if not target or not ctx.triggered or not ctx.triggered[0].get("value"):
+    if not target or not _clicked():
         raise PreventUpdate
     step = target["step"]
     set_props("dd-step-now", {"data": step})
     styles = [None if s == step else HIDDEN for s in BA.STEPS]
     classes = ["dd-step" + (" on" if s == step else "") for s in BA.STEPS]
-    if step == "review":
-        root = repo_root()
-        draft = load(root, ref) if root else None
-        if draft is not None:
-            tx = text(lang_of(lang))
-            content, marks, _ = review(root, draft, tx, {})
-            set_props("dd-review", {"children": content})
+    root = repo_root()
+    draft = load(root, ref) if root and step == "review" else None
+    if draft is not None:
+        content, _, _ = review(root, draft, text(lang_of(lang)), {})
+        set_props("dd-review", {"children": content})
     return styles, classes
 
 
 def save_fields(values, ids, ref, lang):
     """Every edit: rebuild the draft's settings from the fields and save it; refresh the markers and Review."""
-    root = repo_root()
-    draft = load(root, ref) if root else None
-    if draft is None:
-        raise PreventUpdate
+    root, draft = _open(ref)
     tx = text(lang_of(lang))
     fields = {i["name"]: v for i, v in zip(ids, values)}
-    imported = _is_import(root, draft)
+    imported = is_import(root, draft.source_id)
     config, bad = apply_fields(draft.config, {k: v for k, v in fields.items() if k not in ("name", "description")},
                                imported, preview.vocabulary(root, draft.source_id))
     draft.config = config
@@ -590,7 +600,7 @@ def save_fields(values, ids, ref, lang):
     old_slug = draft.stored_slug
     BA.save_draft(root, draft)
     if draft.stored_slug != old_slug:  # renamed: the dialog follows its new file
-        set_props("draft-open", {"data": {"source": draft.source_id, "slug": draft.stored_slug}})
+        set_props("draft-open", {"data": draft.ref.store()})
     content, marks, _ = review(root, draft, tx, bad)
     if name_problem:
         marks["start"] = "red"
@@ -609,10 +619,7 @@ def save_fields(values, ids, ref, lang):
 
 def edit_datasets(_add, _del, ref, step, lang):
     """Add a dataset (a new key) or remove one (never `overall`); the dialog is drawn again on the same step."""
-    root = repo_root()
-    draft = load(root, ref) if root else None
-    if draft is None or not ctx.triggered or not ctx.triggered[0].get("value"):
-        raise PreventUpdate
+    root, draft = _open(ref, clicked=True)
     rows = draft.config.setdefault("datasets", {}).setdefault("dataset", [])
     if ctx.triggered_id == "dd-ds-add":
         keys = {d.get("key") for d in rows}
@@ -624,17 +631,13 @@ def edit_datasets(_add, _del, ref, step, lang):
         i = int(ctx.triggered_id["i"])
         if 0 <= i < len(rows) and rows[i].get("key") != "overall":
             rows.pop(i)
-    BA.save_draft(root, draft)
-    return body(draft, root, step or "top_n", text(lang_of(lang)))
+    return _save_and_draw(root, draft, step or "top_n", lang)
 
 
 def edit_rules(_move, _del, _drop, _add, _cancel, ref, step, lang):
     """The rule cards' buttons: move a rule up or down, add one, delete one (asking first when it has Exclusion
     Overrides: they go with it, or the delete is cancelled). The dialog is drawn again on the same step."""
-    root = repo_root()
-    draft = load(root, ref) if root else None
-    if draft is None or not ctx.triggered or not ctx.triggered[0].get("value"):
-        raise PreventUpdate
+    root, draft = _open(ref, clicked=True)
     tx = text(lang_of(lang))
     trig = ctx.triggered_id
     if isinstance(trig, dict) and trig["type"] == "dd-rule-cancel":
@@ -662,8 +665,7 @@ def edit_rules(_move, _del, _drop, _add, _cancel, ref, step, lang):
         delete_rule(draft.config, i, drop_overrides=False)
     elif trig["type"] == "dd-rule-drop":
         delete_rule(draft.config, int(trig["i"]), drop_overrides=True)
-    BA.save_draft(root, draft)
-    return body(draft, root, step or "top_n", tx)
+    return _save_and_draw(root, draft, step or "top_n", lang)
 
 
 def keep_game(_clicks, ref, lang):
@@ -671,38 +673,32 @@ def keep_game(_clicks, ref, lang):
     where its reason and evidence are filled in."""
     import datetime as dt
 
-    root = repo_root()
-    draft = load(root, ref) if root else None
-    if draft is None or not ctx.triggered or not ctx.triggered[0].get("value"):
-        raise PreventUpdate
+    root, draft = _open(ref, clicked=True)
     trig = ctx.triggered_id
     add_overrides(draft.config, int(trig["appid"]), str(trig["name"]), str(trig["rules"]).split(","),
                   dt.date.today().isoformat())
-    BA.save_draft(root, draft)
     set_props("dd-step-now", {"data": "curation"})
-    return body(draft, root, "curation", text(lang_of(lang)))
+    return _save_and_draw(root, draft, "curation", lang)
 
 
 def build_now(_n, ref, shown_key):
     """Build, from Review only: the preview on screen must be the current settings' (never a stale one)."""
-    root = repo_root()
-    draft = load(root, ref) if root else None
-    if not _n or draft is None:
+    if not _n:
         raise PreventUpdate
+    root, draft = _open(ref)
     pv = preview.for_review(root, draft)
     if not pv.not_previewed and pv.key != shown_key:
         raise PreventUpdate
     if BA.draft_problems(root, draft) or not pv.buildable:
         raise PreventUpdate
-    build_runs.start(root, draft.source_id, draft.stored_slug or "", draft.name)
+    build_runs.start(root, draft.ref, draft.name)
     return HIDDEN
 
 
 def lighten_now(_n, ref):
-    root = repo_root()
-    draft = load(root, ref) if root else None
-    if not _n or draft is None:
+    if not _n:
         raise PreventUpdate
+    root, draft = _open(ref)
     build_runs.start_lighten(root, draft.source_id)
     return True
 

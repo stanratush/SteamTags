@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from steamstudy.builds import ref_of  # noqa: F401  (re-exported: the app reads it from here)
 from steamstudy.config import ConfigError, DatasetDef, NetworkDefaults, TagRef, build_config
 from steamstudy.config import MINIMAL_COLLECTION, config_from_data
 from steamstudy.dataset import Dataset, read_dataset
@@ -92,11 +93,6 @@ def build_json_hash(build_json: dict[str, Any]) -> str:
 def is_ref(value: object) -> bool:
     """Whether a value is a well-formed Build ref, `<source_id>/<build_id>` (and nothing that could climb)."""
     return isinstance(value, str) and _REF.fullmatch(value) is not None and ".." not in value
-
-
-def ref_of(path: str | Path) -> str:
-    path = Path(path)
-    return f"{path.parent.name}/{path.name}"
 
 
 def builds_root() -> Path | None:

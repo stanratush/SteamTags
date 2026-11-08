@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from steamstudy import __version__
-from steamstudy.builds import BuildInfo, build_info, list_builds, resolve_build
+from steamstudy.builds import DELETED_PARENT, BuildInfo, build_info, list_builds, ref_of, resolve_build
 from steamstudy.i18n import text
 from steamstudy.bundle import start_tag_network as launcher
 from steamstudy.bundle.wheels import PYTHONS, TARGETS, Wheel, plan, read_lock, requirements
@@ -133,7 +133,7 @@ def build_entry(root: Path, info: BuildInfo) -> dict[str, Any]:
     parent_name = None
     if info.parent_build_id:
         parent = Path(root) / "builds" / info.parent_build_id
-        parent_name = build_info(parent).name if (parent / "datasets" / "build.json").is_file() else "deleted"
+        parent_name = build_info(parent).name if (parent / "datasets" / "build.json").is_file() else DELETED_PARENT
     return {"ref": info.ref, "name": info.name, "description": info.description,
             "parent_build_id": info.parent_build_id, "parent_name": parent_name}
 
@@ -229,14 +229,14 @@ def make_bundle(root: Path, *, builds: Sequence[str] = (), targets: Sequence[str
             shutil.copytree(folder, dest, ignore=shutil.ignore_patterns("app_cache"))
             if not (dest.parent / "latest").is_file():  # a source's first named Build is its latest
                 (dest.parent / "latest").write_text(folder.name + "\n", encoding="utf-8")
-            build_ref = f"{folder.parent.name}/{folder.name}"
+            build_ref = ref_of(folder)
             if skip_parameter_selection:
                 shipped[build_ref] = "skipped"
             elif map_fn is not None:
                 shipped[build_ref] = ship_parameter_selection(folder, dest, map_fn)
             else:
                 shipped[build_ref] = _ship_with_pool(folder, dest)
-        (stage / "builds" / "latest").write_text(f"{first.parent.name}/{first.name}\n", encoding="utf-8")
+        (stage / "builds" / "latest").write_text(f"{ref_of(first)}\n", encoding="utf-8")
         shutil.copytree(repo / "docs" / "user-guide", stage / "User Guide")
         shutil.copy2(Path(launcher.__file__), stage / "start_tag_network.py")
         shutil.copy2(FILES / "Start Tag Network.bat", stage / "Start Tag Network.bat")

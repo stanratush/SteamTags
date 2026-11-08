@@ -25,7 +25,9 @@ from steamstudy import build_admin as BA
 from steamstudy.app import build_runs, job_registry
 from steamstudy.app.loader import build_folder, builds_root, ref_of
 from steamstudy.app.relabel import Labels, msg
-from steamstudy.build_tree import BuildNode, SourceTree, build_tree, is_bundle, walk
+from steamstudy.build_tree import (ORPHAN_DELETED, ORPHAN_NOT_BUNDLED, ORPHAN_OTHER_SOURCE, BuildNode, SourceTree,
+                                   build_tree, is_bundle, walk)
+from steamstudy.builds import source_of
 from steamstudy.i18n import Text, lang_of, text
 
 HIDDEN = {"display": "none"}
@@ -99,12 +101,12 @@ def _chips(node: BuildNode, open_ref: str, tx: Text) -> list[Any]:
 
 def _build_row(depth: int, node: BuildNode, open_ref: str, tx: Text, *, edit: bool, sizes: bool) -> html.Div:
     origin = []
-    if node.orphan == "deleted":
+    if node.orphan == ORPHAN_DELETED:
         origin = [html.Span(tx("from a deleted Build"), className="mute small")]
-    elif node.orphan == "another source":
+    elif node.orphan == ORPHAN_OTHER_SOURCE:
         origin = [html.Span(tx("from {name} on {source}", name=node.parent_name,
-                               source=(node.info.parent_build_id or "").split("/", 1)[0]), className="mute small")]
-    elif node.orphan:
+                               source=source_of(node.info.parent_build_id or "")), className="mute small")]
+    elif node.orphan == ORPHAN_NOT_BUNDLED:
         origin = [html.Span(tx("from {name} (not in this Bundle)", name=node.parent_name or node.info.parent_build_id),
                             className="mute small")]
     actions = []
@@ -115,8 +117,7 @@ def _build_row(depth: int, node: BuildNode, open_ref: str, tx: Text, *, edit: bo
                           cache=_size(node.app_cache_bytes, tx)), className="mute small")] if sizes else [])
     return html.Div([
         html.Button([html.B(node.info.name), *_chips(node, open_ref, tx),
-                     html.Span(node.date, className="mute small"), html.Span(" · ".join(filter(None, [node.top_n, (tx("all tags per game") if node.tag_depth == "all" else tx("{depth} tags per game", depth=node.tag_depth))])),
-                               className="mute small"),
+                     html.Span(node.date, className="mute small"), html.Span(_top_n_text(node, tx), className="mute small"),
                      *origin, *size],
                     id={"type": "bm-build", "ref": node.ref}, className="bm-row-main",
                     title=node.info.description or node.ref),
@@ -124,11 +125,16 @@ def _build_row(depth: int, node: BuildNode, open_ref: str, tx: Text, *, edit: bo
     ], className="bm-row build", style={"paddingLeft": f"{12 + depth * 18}px"})
 
 
+def _top_n_text(node: BuildNode, tx: Text) -> str:
+    """A Build row's Top-N summary: "Overall 100 · Puzzle 50 · 20 tags per game"."""
+    depth = tx("all tags per game") if node.tag_depth == "all" else tx("{depth} tags per game", depth=node.tag_depth)
+    return " · ".join(filter(None, [node.top_n, depth]))
+
+
 def _draft_row(depth: int, draft: BA.Draft, tx: Text) -> html.Div:
-    run = build_runs.running_draft(draft.source_id, draft.stored_slug or "")
+    run = build_runs.running_draft(draft.ref)
     if run:
-        status = (tx("running {pct}%", pct=min(99, round(100 * run["elapsed_s"] / max(run["estimate_s"], 1))))
-                  if run["status"] == "running" else tx("waiting"))
+        status = tx("running {pct}%", pct=run["pct"]) if run["status"] == "running" else tx("waiting")
     elif draft.last_failure:
         status = tx("failed")
     else:
@@ -144,10 +150,10 @@ def _draft_row(depth: int, draft: BA.Draft, tx: Text) -> html.Div:
     return html.Div([
         html.Button([html.I(draft.name), html.Span(status, className="bm-chip draft"), *changed,
                      html.Span(tx("last saved {when}", when=saved), className="mute small")],
-                    id={"type": "bm-draft", "source": draft.source_id, "slug": draft.stored_slug or ""},
+                    id={"type": "bm-draft", **draft.ref.store()},
                     className="bm-row-main"),
-        html.Span([html.Button(tx("Discard"), id={"type": "bm-discard", "source": draft.source_id,
-                                                  "slug": draft.stored_slug or ""}, className="btn quiet small")],
+        html.Span([html.Button(tx("Discard"), id={"type": "bm-discard", **draft.ref.store()},
+                               className="btn quiet small")],
                   className="bm-actions"),
     ], className="bm-row draft", style={"paddingLeft": f"{12 + depth * 18}px"})
 
@@ -258,12 +264,12 @@ def tree_click(_b, _r, _d, _dup, _del, _dis, build_path, lang, mode, dataset):
     if kind == "bm-root":
         draft = BA.start_draft(root, target["source"], config_dir=root / "config")
         set_props("build-menu", {"style": HIDDEN})
-        return {"source": draft.source_id, "slug": draft.stored_slug}
+        return draft.ref.store()
     if kind == "bm-draft":
         set_props("build-menu", {"style": HIDDEN})
-        return {"source": target["source"], "slug": target["slug"]}
+        return BA.DraftRef.from_store(target).store()
     if kind == "bm-discard":
-        draft = _draft(root, target["source"], target["slug"])
+        draft = BA.find_draft(root, BA.DraftRef.from_store(target))
         if draft is not None:
             BA.discard_draft(root, draft)
         _refresh(build_path, tx)
@@ -277,15 +283,11 @@ def tree_click(_b, _r, _d, _dup, _del, _dis, build_path, lang, mode, dataset):
     raise PreventUpdate
 
 
-def _draft(root: Path, source_id: str, slug: str) -> BA.Draft | None:
-    return next((d for d in BA.list_drafts(root, source_id) if d.stored_slug == slug), None)
-
-
 def _sources_for(root: Path, ref: str) -> list[str]:
     """Where a Build may be duplicated: an Import Build within its Import, a Steam Build onto any Snapshot."""
     from steamstudy.imports import is_import
 
-    source = ref.split("/", 1)[0]
+    source = source_of(ref)
     if is_import(root, source):
         return [source]
     return [t.source_id for t in build_tree(root) if t.kind == "snapshot" and t.forms]
@@ -293,7 +295,7 @@ def _sources_for(root: Path, ref: str) -> list[str]:
 
 def _ask_duplicate(root: Path, ref: str, tx: Text) -> None:
     sources = _sources_for(root, ref)
-    source = ref.split("/", 1)[0]
+    source = source_of(ref)
     _dialog(tx("Duplicate {name}", name=BA.parent_name(root, ref) or ref), [
         html.P(tx("The new draft starts from this Build's settings, with this Build as its parent.")),
         html.Label(tx("Snapshot or Import to build from"), htmlFor="bm-dup-source", className="l"),
@@ -353,7 +355,7 @@ def dialog_go(_dup, _del, _dup_open, pending, source, build_path, lang):
             raise PreventUpdate from exc
         _close_dialog()
         set_props("build-menu", {"style": HIDDEN})
-        return {"source": draft.source_id, "slug": draft.stored_slug}
+        return draft.ref.store()
     if trig == "bm-del-go" and pending.get("action") == "delete":
         try:
             BA.delete_build(root, pending["ref"], ref_of(build_folder(build_path)),
@@ -484,8 +486,8 @@ def strip(_tick, lang):
     stages = {"open": tx("opening the source"), "build": tx("building"), "write": tx("writing")}
     for v in views:
         dismiss = html.Button("×", id={"type": "strip-dismiss", "run": v["run_id"]}, className="x")
-        if v["status"] in ("waiting", "running"):
-            pct = min(99, round(100 * v["elapsed_s"] / max(v["estimate_s"], 1)))
+        if v["active"]:
+            pct = v["pct"]
             if v["status"] == "waiting":
                 label = tx("{name} waits for the Build before it", name=v["name"])
             elif v["kind"] == "lighten":
@@ -532,7 +534,7 @@ def strip_click(_o, _d, _c, _x, mode, dataset):
             if v["ref"] == target["ref"]:
                 build_runs.dismiss(v["run_id"])
     elif kind == "strip-draft":
-        return {"source": target["source"], "slug": target["slug"]}
+        return BA.DraftRef.from_store(target).store()
     elif kind == "strip-cancel":
         build_runs.cancel(int(target["run"]))
     elif kind == "strip-dismiss":

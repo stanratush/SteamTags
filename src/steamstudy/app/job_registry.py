@@ -93,10 +93,25 @@ def cancel_jobs_on(ref: str) -> int:
 
 
 def _stop(pid: int) -> None:
+    """Stop a job's process and every process under it (a Parameter Selection run's worker pool)."""
     if sys.platform == "win32":
         subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True, check=False)
         return
+    tree = [pid, *_descendants(pid)]  # found first: once the job stops, its workers are no longer its children
+    for each in tree:
+        try:
+            os.kill(each, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+
+
+def _descendants(pid: int) -> list[int]:
+    """The processes under `pid`, children before their own children (`pgrep -P`, on Linux and macOS)."""
     try:
-        os.kill(pid, signal.SIGTERM)
-    except ProcessLookupError:
-        pass
+        out = subprocess.run(["pgrep", "-P", str(pid)], capture_output=True, text=True, check=False).stdout
+    except FileNotFoundError:  # no pgrep: only the job itself is stopped
+        return []
+    found: list[int] = []
+    for child in (int(word) for word in out.split()):
+        found += [child, *_descendants(child)]
+    return found

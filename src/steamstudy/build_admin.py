@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from steamstudy.builds import BuildFailed, BuildInfo, build_info, builds_dir, list_builds
+from steamstudy.builds import BuildFailed, BuildInfo, build_info, builds_dir, list_builds, source_of
 from steamstudy.imports import is_import
 from steamstudy.config import (
     BUILD_FILES,
@@ -69,6 +69,10 @@ class Draft:
     saved_at: str | None = None
     stored_slug: str | None = field(default=None, compare=False)  # the file it was last saved as
 
+    @property
+    def ref(self) -> DraftRef:
+        return DraftRef(self.source_id, self.stored_slug or "")
+
     def to_json(self) -> dict[str, Any]:
         return {"source_id": self.source_id, "name": self.name, "description": self.description,
                 "parent_build_id": self.parent_build_id, "config": self.config, "changelog": self.changelog,
@@ -80,6 +84,29 @@ class Draft:
                    parent_build_id=data.get("parent_build_id"), config=data["config"],
                    changelog=list(data.get("changelog", [])), last_failure=data.get("last_failure"),
                    saved_at=data.get("saved_at"), stored_slug=slug)
+
+
+@dataclass(frozen=True)
+class DraftRef:
+    """Where a saved draft lives: its source and its file's slug. The app's stores and button ids carry it as
+    `{"source", "slug"}` (`store`, `from_store`)."""
+
+    source_id: str
+    slug: str
+
+    def store(self) -> dict[str, str]:
+        return {"source": self.source_id, "slug": self.slug}
+
+    @classmethod
+    def from_store(cls, data: dict[str, Any] | None) -> DraftRef | None:
+        return cls(str(data["source"]), str(data["slug"])) if data else None
+
+
+def find_draft(root: Path, ref: DraftRef | None) -> Draft | None:
+    """The saved draft a ref names, or None when it is gone."""
+    if ref is None:
+        return None
+    return next((d for d in list_drafts(root, ref.source_id) if d.stored_slug == ref.slug), None)
 
 
 # ----------------------------------------------------------------------------- names
@@ -167,7 +194,7 @@ def duplicate(root: Path, build_ref: str, target_source_id: str, *, name: str | 
     only within its Import. Refuses any other target with `WrongSource`."""
 
     root = Path(root)
-    source_id = build_ref.split("/", 1)[0]
+    source_id = source_of(build_ref)
     if is_import(root, source_id) and source_id != target_source_id:
         raise WrongSource(f"{build_ref} cannot be duplicated onto {target_source_id}: Import Builds duplicate "
                           "within their Import")

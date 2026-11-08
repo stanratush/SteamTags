@@ -346,8 +346,6 @@ def test_a_language_switch_re_renders_the_state_text_without_recomputing(app):
 def test_the_workbench_views_render_every_word_through_the_translator(tagged_build, pseudo):
     """Issue 13: the Inspector (tag, Cluster, link and missing-tag views), the Network State sentence and table, the
     summary row, the quality boxes and lines, and the search: every word bracketed; names, titles and C1… not."""
-    import json as _json
-
     from steamstudy.app import callbacks as CB
     from steamstudy.app.loader import load_build
 
