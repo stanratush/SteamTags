@@ -48,8 +48,8 @@ def _schema_tips() -> Iterable[str]:
     from steamstudy.i18n import text
 
     en = text("en")
-    return sorted({d["headerTooltip"] for grid in GRIDS.values() for d in grid(en)
-                   if "headerComponentParams" not in d})
+    return sorted({d["headerTooltip"] for grid in GRIDS.values() for kind in ("steam", "import")
+                   for d in grid(en, kind=kind) if "headerComponentParams" not in d})
 
 
 # Text that reaches `tx` as a variable, by area: the declared non-literal sources (schema descriptions shown as

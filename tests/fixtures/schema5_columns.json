@@ -1,0 +1,1315 @@
+{
+ "analysis_json_columns": {
+  "associations.csv": {
+   "dataset": {
+    "type": "str",
+    "description": "Dataset key."
+   },
+   "tag_id_a": {
+    "type": "int",
+    "description": "The lower tag id."
+   },
+   "tag_a": {
+    "type": "str",
+    "description": "Name of tag_id_a."
+   },
+   "tag_id_b": {
+    "type": "int",
+    "description": "The higher tag id."
+   },
+   "tag_b": {
+    "type": "str",
+    "description": "Name of tag_id_b."
+   },
+   "count_a": {
+    "type": "int",
+    "description": "Games with tag a."
+   },
+   "count_b": {
+    "type": "int",
+    "description": "Games with tag b."
+   },
+   "count_ab": {
+    "type": "int",
+    "description": "Games with both."
+   },
+   "phi": {
+    "type": "float",
+    "description": "Phi coefficient (-1..1; 0 = independence); empty when either tag is on every game."
+   },
+   "lift": {
+    "type": "float",
+    "description": "count_ab x N / (count_a x count_b); 1 = independence."
+   },
+   "jaccard": {
+    "type": "float",
+    "description": "count_ab / (count_a + count_b - count_ab)."
+   },
+   "fisher_p": {
+    "type": "float",
+    "description": "Two-sided Fisher exact p for the 2x2 table within this dataset."
+   },
+   "bh_q": {
+    "type": "float",
+    "description": "Benjamini-Hochberg q within this dataset: co-occurrence unlikely under independence within this dataset, not evidence about Steam in general."
+   }
+  },
+  "combinations.csv": {
+   "dataset": {
+    "type": "str",
+    "description": "Dataset key."
+   },
+   "size": {
+    "type": "int",
+    "description": "Number of tags in the combination (k)."
+   },
+   "tag_ids": {
+    "type": "int_list",
+    "description": "Member tag ids, sorted by tag_id."
+   },
+   "tags": {
+    "type": "str_list",
+    "description": "Member tag names, matching tag_ids."
+   },
+   "support_count": {
+    "type": "int",
+    "description": "Games that have every member tag."
+   },
+   "support_share": {
+    "type": "float",
+    "description": "support_count / number of games in the dataset."
+   },
+   "lift": {
+    "type": "float",
+    "description": "support_count x N^(k-1) / product of the member tags' counts; 1 = as often as independent tags would; a high triple lift may be inherited from one strong pair."
+   },
+   "confidence_a_to_b": {
+    "type": "float",
+    "description": "Pairs only: share of the first tag's games that also have the second."
+   },
+   "confidence_b_to_a": {
+    "type": "float",
+    "description": "Pairs only: share of the second tag's games that also have the first."
+   }
+  },
+  "content_flags.csv": {
+   "dataset": {
+    "type": "str",
+    "description": "Dataset key."
+   },
+   "flag": {
+    "type": "str",
+    "description": "Content Flag code."
+   },
+   "appid": {
+    "type": "int",
+    "description": "Steam AppID."
+   },
+   "name": {
+    "type": "str",
+    "description": "Game name."
+   },
+   "rank": {
+    "type": "int",
+    "description": "Rank in the dataset."
+   }
+  },
+  "genre_frequency.csv": {
+   "dataset": {
+    "type": "str",
+    "description": "Dataset key."
+   },
+   "genre_id": {
+    "type": "int",
+    "description": "Steam store genre id."
+   },
+   "genre": {
+    "type": "str",
+    "description": "Genre description."
+   },
+   "kind": {
+    "type": "str",
+    "description": "Config kind: genre, business or software (unmapped when genres.toml has no entry)."
+   },
+   "count": {
+    "type": "int",
+    "description": "Games in the Top 100 with this store genre."
+   },
+   "share": {
+    "type": "float",
+    "description": "count / number of games in the dataset."
+   },
+   "baseline_count": {
+    "type": "int",
+    "description": "Games in the Eligible Pool (Top 100 included) that have it."
+   },
+   "baseline_share": {
+    "type": "float",
+    "description": "baseline_count / Eligible Pool size."
+   },
+   "share_ratio": {
+    "type": "float",
+    "description": "share / baseline_share: over 1 = more common in the Top 100 than in its Eligible Pool; its ceiling is Eligible Pool size / 100."
+   }
+  },
+  "network_cluster_connections.csv": {
+   "dataset": {
+    "type": "str",
+    "description": "Dataset key."
+   },
+   "state_id": {
+    "type": "str",
+    "description": "Network State id (12 hex characters) of the report's state for this dataset."
+   },
+   "cluster_a": {
+    "type": "str",
+    "description": "First cluster (or one_tag_pool)."
+   },
+   "cluster_b": {
+    "type": "str",
+    "description": "Second cluster (or one_tag_pool)."
+   },
+   "edge_count": {
+    "type": "int",
+    "description": "Edges between the two."
+   },
+   "weight": {
+    "type": "float",
+    "description": "Summed active weight of those edges."
+   },
+   "shared_weight": {
+    "type": "float",
+    "description": "Summed shared-game counts of those edges (equals weight under shared games)."
+   },
+   "ratio": {
+    "type": "float",
+    "description": "Connection Ratio: weight over the weight the two groups' total link weights alone predict, in the Clustering Weight; at most γ. Empty where undefined."
+   },
+   "shared_ratio": {
+    "type": "float",
+    "description": "Connection Ratio from shared-game sums and strengths (equals ratio under shared games; under Lift not tied to the clustering). Empty where undefined."
+   },
+   "share_of_a": {
+    "type": "float",
+    "description": "Connection Share of cluster_a: weight over all of cluster_a's link weight to other groups. Empty when that is 0."
+   },
+   "share_of_b": {
+    "type": "float",
+    "description": "Connection Share of cluster_b: weight over all of cluster_b's link weight to other groups. Empty when that is 0."
+   }
+  },
+  "network_cluster_quality.csv": {
+   "dataset": {
+    "type": "str",
+    "description": "Dataset key."
+   },
+   "state_id": {
+    "type": "str",
+    "description": "Network State id (12 hex characters) of the report's state for this dataset."
+   },
+   "n_dataset_games": {
+    "type": "int",
+    "description": "N: games after the Minimum Months Filter."
+   },
+   "n_nodes": {
+    "type": "int",
+    "description": "Tags in the network."
+   },
+   "n_edges": {
+    "type": "int",
+    "description": "Edges in the network."
+   },
+   "total_weight": {
+    "type": "float",
+    "description": "Summed active weight of all edges."
+   },
+   "modularity": {
+    "type": "float",
+    "description": "Weighted modularity Q at the optimised resolution; 0 = no better than random."
+   },
+   "modularity_status": {
+    "type": "str",
+    "description": "Why modularity is empty: no_edges."
+   },
+   "q_null_mean": {
+    "type": "float",
+    "description": "Mean Q of the game-tag shuffle null networks."
+   },
+   "q_null_sd": {
+    "type": "float",
+    "description": "Sample SD of the null networks' Q."
+   },
+   "modularity_z": {
+    "type": "float",
+    "description": "(Q - q_null_mean) / q_null_sd; never read alone; empty when the SD is 0."
+   },
+   "q_excess": {
+    "type": "float",
+    "description": "Q - q_null_mean."
+   },
+   "null_n_edges_mean": {
+    "type": "float",
+    "description": "Mean edge count of the null networks (compare n_edges)."
+   },
+   "coverage": {
+    "type": "float",
+    "description": "Share of the total weight inside clusters (0..1)."
+   },
+   "inter_cluster_weight_share": {
+    "type": "float",
+    "description": "1 - coverage."
+   },
+   "n_multi_tag_clusters": {
+    "type": "int",
+    "description": "Clusters with 2+ tags (k)."
+   },
+   "n_one_tag_clusters": {
+    "type": "int",
+    "description": "One-Tag Clusters (s)."
+   },
+   "n_disconnected_clusters": {
+    "type": "int",
+    "description": "Clusters whose tags do not form one connected group."
+   },
+   "mean_silhouette": {
+    "type": "float",
+    "description": "Mean silhouette over Multi-Tag Cluster members; a descriptive diagnostic."
+   },
+   "silhouette_status": {
+    "type": "str",
+    "description": "Why silhouette is empty: fewer_than_2_multi_tag_clusters or one_tag_cluster."
+   },
+   "seed_ari_min": {
+    "type": "float",
+    "description": "Lowest ARI of a noise seed's partition against the shown one."
+   },
+   "seed_ari_mean": {
+    "type": "float",
+    "description": "Mean ARI of the noise seeds' partitions against the shown one."
+   },
+   "seed_modularity_sd": {
+    "type": "float",
+    "description": "Sample SD of Q across the noise seeds."
+   },
+   "seed_silhouette_sd": {
+    "type": "float",
+    "description": "Sample SD of mean silhouette across the noise seeds that have one."
+   },
+   "seed_silhouette_status": {
+    "type": "str",
+    "description": "Why seed_silhouette_sd is empty: fewer_than_2_seeds_with_silhouette."
+   },
+   "seed_k_min": {
+    "type": "int",
+    "description": "Fewest Multi-Tag Clusters among the noise seeds."
+   },
+   "seed_k_max": {
+    "type": "int",
+    "description": "Most Multi-Tag Clusters among the noise seeds."
+   }
+  },
+  "network_clusters.csv": {
+   "dataset": {
+    "type": "str",
+    "description": "Dataset key."
+   },
+   "state_id": {
+    "type": "str",
+    "description": "Network State id (12 hex characters) of the report's state for this dataset."
+   },
+   "cluster": {
+    "type": "str",
+    "description": "Cluster label C1…."
+   },
+   "kind": {
+    "type": "str",
+    "description": "multi_tag (2+ tags) or one_tag."
+   },
+   "size": {
+    "type": "int",
+    "description": "Number of tags."
+   },
+   "member_tag_ids": {
+    "type": "int_list",
+    "description": "Member tag ids by medoid_score, then the center tie-break."
+   },
+   "members": {
+    "type": "str_list",
+    "description": "Member tag names, matching member_tag_ids."
+   },
+   "connected": {
+    "type": "bool",
+    "description": "Whether the cluster's tags form one connected group (false: try Leiden)."
+   },
+   "internal_edges": {
+    "type": "int",
+    "description": "Edges inside the cluster."
+   },
+   "internal_weight": {
+    "type": "float",
+    "description": "Summed active weight of the edges inside the cluster."
+   },
+   "edge_density": {
+    "type": "float",
+    "description": "internal_edges / (n(n-1)/2); empty for size 1."
+   },
+   "weighted_density": {
+    "type": "float",
+    "description": "internal_weight / (n(n-1)/2); empty for size 1."
+   },
+   "cut_weight": {
+    "type": "float",
+    "description": "Summed active weight of edges leaving the cluster."
+   },
+   "conductance": {
+    "type": "float",
+    "description": "cut_weight / min(volume of cluster, volume of the rest); 0..1."
+   },
+   "conductance_status": {
+    "type": "str",
+    "description": "Why conductance is empty: isolated_tag or no_edges_outside_cluster."
+   },
+   "mean_silhouette": {
+    "type": "float",
+    "description": "Mean silhouette of the members (Multi-Tag Clusters)."
+   },
+   "silhouette_status": {
+    "type": "str",
+    "description": "Why silhouette is empty: fewer_than_2_multi_tag_clusters or one_tag_cluster."
+   },
+   "center_tag_id": {
+    "type": "int",
+    "description": "The Cluster Center's tag id (clusters of 3+ tags)."
+   },
+   "center": {
+    "type": "str",
+    "description": "The Cluster Center: the member whose games overlap most with the others' (Jaccard medoid)."
+   },
+   "center_medoid_score": {
+    "type": "float",
+    "description": "The center's medoid_score."
+   },
+   "center_status": {
+    "type": "str",
+    "description": "Why there is no center: one_tag_cluster or two_tag_cluster."
+   },
+   "top_strength_tag_id": {
+    "type": "int",
+    "description": "Tag id of the member with the highest intra-cluster strength (active weight)."
+   },
+   "top_strength_tag": {
+    "type": "str",
+    "description": "Name of top_strength_tag_id: the frequency-driven alternative to the center."
+   },
+   "center_is_top_strength": {
+    "type": "bool",
+    "description": "Whether the center and the top-strength tag are the same tag."
+   },
+   "mean_membership_stability": {
+    "type": "float",
+    "description": "Mean Membership Stability of the members; empty for isolated tags."
+   }
+  },
+  "network_edges.csv": {
+   "dataset": {
+    "type": "str",
+    "description": "Dataset key."
+   },
+   "state_id": {
+    "type": "str",
+    "description": "Network State id (12 hex characters) of the report's state for this dataset."
+   },
+   "source_tag_id": {
+    "type": "int",
+    "description": "The lower tag id of the pair."
+   },
+   "source_tag": {
+    "type": "str",
+    "description": "Name of source_tag_id."
+   },
+   "target_tag_id": {
+    "type": "int",
+    "description": "The higher tag id of the pair."
+   },
+   "target_tag": {
+    "type": "str",
+    "description": "Name of target_tag_id."
+   },
+   "shared_games": {
+    "type": "int",
+    "description": "Edge weight: games having both tags; drives thresholds."
+   },
+   "lift": {
+    "type": "float",
+    "description": "shared_games x N / (n_source x n_target); 1 = as often as independent tags would."
+   },
+   "source_cluster": {
+    "type": "str",
+    "description": "Cluster of the source tag."
+   },
+   "target_cluster": {
+    "type": "str",
+    "description": "Cluster of the target tag."
+   },
+   "is_intra_cluster": {
+    "type": "bool",
+    "description": "Whether both tags are in the same cluster."
+   },
+   "appids": {
+    "type": "int_list",
+    "description": "AppIDs of the games having both tags, in dataset rank order."
+   }
+  },
+  "network_nodes.csv": {
+   "dataset": {
+    "type": "str",
+    "description": "Dataset key."
+   },
+   "state_id": {
+    "type": "str",
+    "description": "Network State id (12 hex characters) of the report's state for this dataset."
+   },
+   "tag_id": {
+    "type": "int",
+    "description": "Steam tag id."
+   },
+   "tag": {
+    "type": "str",
+    "description": "Tag name."
+   },
+   "cluster": {
+    "type": "str",
+    "description": "Cluster label C1…, numbered by size; never a semantic name."
+   },
+   "n_games": {
+    "type": "int",
+    "description": "Games having the tag among the N games the network is built from."
+   },
+   "is_isolated": {
+    "type": "bool",
+    "description": "True when no edge reaches the minimum shared games (degree 0)."
+   },
+   "degree": {
+    "type": "int",
+    "description": "Number of edges (unweighted)."
+   },
+   "degree_intra": {
+    "type": "int",
+    "description": "Number of edges to tags in the same cluster."
+   },
+   "strength_shared": {
+    "type": "float",
+    "description": "Sum of shared-game counts over the tag's edges."
+   },
+   "strength_lift": {
+    "type": "float",
+    "description": "Sum of lift values over the tag's edges."
+   },
+   "strength_shared_intra": {
+    "type": "float",
+    "description": "strength_shared over edges inside the tag's cluster."
+   },
+   "strength_lift_intra": {
+    "type": "float",
+    "description": "strength_lift over edges inside the tag's cluster."
+   },
+   "silhouette": {
+    "type": "float",
+    "description": "Jaccard game-set silhouette of the tag (-1..1); descriptive diagnostic."
+   },
+   "silhouette_status": {
+    "type": "str",
+    "description": "Why silhouette is empty: fewer_than_2_multi_tag_clusters or one_tag_cluster."
+   },
+   "medoid_score": {
+    "type": "float",
+    "description": "Mean Jaccard distance to the other members of the cluster (0..1); empty in One-Tag Clusters."
+   },
+   "is_center": {
+    "type": "bool",
+    "description": "Whether the tag is its cluster's Cluster Center (Jaccard medoid, clusters of 3+ tags)."
+   },
+   "within_z": {
+    "type": "float",
+    "description": "Within-cluster strength z-score on the active weight (population SD); its cap in an n-tag cluster is sqrt(n-1); empty in One-Tag Clusters or when every member has the same strength."
+   },
+   "participation": {
+    "type": "float",
+    "description": "1 - sum over clusters of (strength to the cluster / total strength)^2 on the active weight; empty at zero strength."
+   },
+   "membership_stability": {
+    "type": "float",
+    "description": "Mean Jaccard overlap (0..1) of the tag's cluster across the noise seeds; empty for isolated tags."
+   },
+   "x_global": {
+    "type": "float",
+    "description": "Global layout x position (renderer units)."
+   },
+   "y_global": {
+    "type": "float",
+    "description": "Global layout y position (renderer units)."
+   },
+   "x_cluster_separated": {
+    "type": "float",
+    "description": "Cluster-separated layout x position."
+   },
+   "y_cluster_separated": {
+    "type": "float",
+    "description": "Cluster-separated layout y position."
+   }
+  },
+  "network_not_in_network.csv": {
+   "dataset": {
+    "type": "str",
+    "description": "Dataset key."
+   },
+   "state_id": {
+    "type": "str",
+    "description": "Network State id (12 hex characters) of the report's state for this dataset."
+   },
+   "tag_id": {
+    "type": "int",
+    "description": "Steam tag id."
+   },
+   "tag": {
+    "type": "str",
+    "description": "Tag name."
+   },
+   "n_games": {
+    "type": "int",
+    "description": "Games having the tag after the Minimum Months Filter (0 if emptied)."
+   },
+   "reasons": {
+    "type": "str_list",
+    "description": "removed;defining_tag_hidden;genre_tag_hidden;below_min_games, in that order."
+   }
+  },
+  "network_null_model.csv": {
+   "dataset": {
+    "type": "str",
+    "description": "Dataset key."
+   },
+   "state_id": {
+    "type": "str",
+    "description": "Network State id (12 hex characters) of the report's state for this dataset."
+   },
+   "replicate": {
+    "type": "int",
+    "description": "Replicate number, 1..R."
+   },
+   "seed": {
+    "type": "int",
+    "description": "The replicate's seed (shuffle and clustering)."
+   },
+   "modularity": {
+    "type": "float",
+    "description": "Q of the null network; empty when it has no edges."
+   },
+   "n_edges": {
+    "type": "int",
+    "description": "Edges of the null network."
+   }
+  },
+  "network_seed_noise.csv": {
+   "dataset": {
+    "type": "str",
+    "description": "Dataset key."
+   },
+   "state_id": {
+    "type": "str",
+    "description": "Network State id (12 hex characters) of the report's state for this dataset."
+   },
+   "noise_seed_index": {
+    "type": "int",
+    "description": "1..K."
+   },
+   "seed": {
+    "type": "int",
+    "description": "The noise seed."
+   },
+   "modularity": {
+    "type": "float",
+    "description": "Q of the seed's partition."
+   },
+   "silhouette": {
+    "type": "float",
+    "description": "Mean silhouette of the seed's partition."
+   },
+   "silhouette_status": {
+    "type": "str",
+    "description": "Why silhouette is empty: fewer_than_2_multi_tag_clusters or one_tag_cluster."
+   },
+   "ari_vs_main": {
+    "type": "float",
+    "description": "ARI against the shown partition (1 = identical, about 0 = chance)."
+   },
+   "n_multi_tag_clusters": {
+    "type": "int",
+    "description": "Multi-Tag Clusters in the seed's partition."
+   },
+   "n_one_tag_clusters": {
+    "type": "int",
+    "description": "One-Tag Clusters in the seed's partition."
+   }
+  },
+  "removal_sensitivity.csv": {
+   "dataset": {
+    "type": "str",
+    "description": "Dataset key."
+   },
+   "state_id": {
+    "type": "str",
+    "description": "Network State id (12 hex characters) of the report's state for this dataset."
+   },
+   "run_order": {
+    "type": "int",
+    "description": "Position in the run (active strength desc, then tag_id)."
+   },
+   "tag_id": {
+    "type": "int",
+    "description": "The removed tag."
+   },
+   "tag": {
+    "type": "str",
+    "description": "Tag name."
+   },
+   "cluster": {
+    "type": "str",
+    "description": "The tag's cluster in the shown partition."
+   },
+   "is_center": {
+    "type": "bool",
+    "description": "Whether the tag is a Cluster Center."
+   },
+   "active_strength": {
+    "type": "float",
+    "description": "The tag's strength on the active weight."
+   },
+   "rc_delta_modularity": {
+    "type": "float",
+    "description": "Reclustered: Q after - Q before (also reflects the lost edge weight)."
+   },
+   "rc_silhouette_after": {
+    "type": "float",
+    "description": "Reclustered: mean silhouette after the removal."
+   },
+   "rc_silhouette_after_status": {
+    "type": "str",
+    "description": "Why silhouette is empty: fewer_than_2_multi_tag_clusters or one_tag_cluster."
+   },
+   "rc_delta_silhouette": {
+    "type": "float",
+    "description": "Reclustered: silhouette after - before; empty when either is n/a."
+   },
+   "rc_delta_k": {
+    "type": "int",
+    "description": "Reclustered: change in the number of Multi-Tag Clusters."
+   },
+   "rc_delta_s": {
+    "type": "int",
+    "description": "Reclustered: change in the number of One-Tag Clusters."
+   },
+   "rc_ari": {
+    "type": "float",
+    "description": "Reclustered: ARI against the shown partition over the remaining tags."
+   },
+   "rc_centers_lost_tag_ids": {
+    "type": "int_list",
+    "description": "Current Cluster Centers (other than the tag) that are no longer centers."
+   },
+   "rc_centers_lost": {
+    "type": "str_list",
+    "description": "Names of rc_centers_lost_tag_ids."
+   },
+   "rc_ari_beyond_noise": {
+    "type": "bool",
+    "description": "rc_ari < seed_ari_min: a screening flag, not a significance test."
+   },
+   "fp_delta_modularity": {
+    "type": "float",
+    "description": "Partition fixed: Q after - Q before."
+   },
+   "fp_silhouette_after": {
+    "type": "float",
+    "description": "Partition fixed: mean silhouette after the removal."
+   },
+   "fp_silhouette_after_status": {
+    "type": "str",
+    "description": "Why silhouette is empty: fewer_than_2_multi_tag_clusters or one_tag_cluster."
+   },
+   "fp_delta_silhouette": {
+    "type": "float",
+    "description": "Partition fixed: silhouette after - before; empty when either is n/a."
+   }
+  },
+  "resolution_sweep.csv": {
+   "dataset": {
+    "type": "str",
+    "description": "Dataset key."
+   },
+   "resolution": {
+    "type": "float",
+    "description": "The resolution γ of this row."
+   },
+   "n_multi_tag_clusters": {
+    "type": "int",
+    "description": "Multi-Tag Clusters at this γ."
+   },
+   "n_one_tag_clusters": {
+    "type": "int",
+    "description": "One-Tag Clusters at this γ."
+   },
+   "modularity": {
+    "type": "float",
+    "description": "Q at this γ; not comparable across rows."
+   },
+   "mean_silhouette": {
+    "type": "float",
+    "description": "Mean silhouette over Multi-Tag Cluster members at this γ."
+   },
+   "silhouette_status": {
+    "type": "str",
+    "description": "Why silhouette is empty: fewer_than_2_multi_tag_clusters or one_tag_cluster."
+   },
+   "ari_vs_report": {
+    "type": "float",
+    "description": "ARI of this γ's partition against the report's partition."
+   },
+   "seed_ari_min": {
+    "type": "float",
+    "description": "Lowest noise-seed ARI at this γ."
+   },
+   "seed_ari_mean": {
+    "type": "float",
+    "description": "Mean noise-seed ARI at this γ."
+   }
+  },
+  "tag_frequency.csv": {
+   "dataset": {
+    "type": "str",
+    "description": "Dataset key."
+   },
+   "tag_id": {
+    "type": "int",
+    "description": "Steam tag id."
+   },
+   "tag": {
+    "type": "str",
+    "description": "Tag name."
+   },
+   "count": {
+    "type": "int",
+    "description": "Games in the Top 100 that have the tag (anywhere in the displayed list)."
+   },
+   "share": {
+    "type": "float",
+    "description": "count / number of games in the dataset."
+   },
+   "median_position": {
+    "type": "float",
+    "description": "Median position of the tag in the store tag list among the games that have it."
+   },
+   "defining_tag": {
+    "type": "bool",
+    "description": "Whether the tag defines the dataset (then it is on every game)."
+   },
+   "baseline_count": {
+    "type": "int",
+    "description": "Games in the Eligible Pool (Top 100 included) that have it."
+   },
+   "baseline_share": {
+    "type": "float",
+    "description": "baseline_count / Eligible Pool size."
+   },
+   "share_ratio": {
+    "type": "float",
+    "description": "share / baseline_share: over 1 = more common in the Top 100 than in its Eligible Pool; its ceiling is Eligible Pool size / 100."
+   },
+   "archived_category": {
+    "type": "str",
+    "description": "Category in the archived Steamworks tag table (' / ' between several); information only, empty when the tag has none."
+   }
+  }
+ },
+ "export_json_columns": {
+  "nodes.csv": {
+   "tag_id": {
+    "type": "int",
+    "description": "Steam tag id."
+   },
+   "tag": {
+    "type": "str",
+    "description": "Tag name."
+   },
+   "cluster": {
+    "type": "str",
+    "description": "Cluster label C1…, numbered by size; never a semantic name."
+   },
+   "n_games": {
+    "type": "int",
+    "description": "Games having the tag among the N games the network is built from."
+   },
+   "is_isolated": {
+    "type": "bool",
+    "description": "True when no edge reaches the minimum shared games (degree 0)."
+   },
+   "degree": {
+    "type": "int",
+    "description": "Number of edges (unweighted)."
+   },
+   "degree_intra": {
+    "type": "int",
+    "description": "Number of edges to tags in the same cluster."
+   },
+   "strength_shared": {
+    "type": "float",
+    "description": "Sum of shared-game counts over the tag's edges."
+   },
+   "strength_lift": {
+    "type": "float",
+    "description": "Sum of lift values over the tag's edges."
+   },
+   "strength_shared_intra": {
+    "type": "float",
+    "description": "strength_shared over edges inside the tag's cluster."
+   },
+   "strength_lift_intra": {
+    "type": "float",
+    "description": "strength_lift over edges inside the tag's cluster."
+   },
+   "silhouette": {
+    "type": "float",
+    "description": "Jaccard game-set silhouette of the tag (-1..1); descriptive diagnostic."
+   },
+   "silhouette_status": {
+    "type": "str",
+    "description": "Why silhouette is empty: fewer_than_2_multi_tag_clusters or one_tag_cluster."
+   },
+   "medoid_score": {
+    "type": "float",
+    "description": "Mean Jaccard distance to the other members of the cluster (0..1); empty in One-Tag Clusters."
+   },
+   "is_center": {
+    "type": "bool",
+    "description": "Whether the tag is its cluster's Cluster Center (Jaccard medoid, clusters of 3+ tags)."
+   },
+   "within_z": {
+    "type": "float",
+    "description": "Within-cluster strength z-score on the active weight (population SD); its cap in an n-tag cluster is sqrt(n-1); empty in One-Tag Clusters or when every member has the same strength."
+   },
+   "participation": {
+    "type": "float",
+    "description": "1 - sum over clusters of (strength to the cluster / total strength)^2 on the active weight; empty at zero strength."
+   },
+   "membership_stability": {
+    "type": "float",
+    "description": "Mean Jaccard overlap (0..1) of the tag's cluster across the noise seeds; empty for isolated tags."
+   },
+   "x_global": {
+    "type": "float",
+    "description": "Global layout x position (renderer units)."
+   },
+   "y_global": {
+    "type": "float",
+    "description": "Global layout y position (renderer units)."
+   },
+   "x_cluster_separated": {
+    "type": "float",
+    "description": "Cluster-separated layout x position."
+   },
+   "y_cluster_separated": {
+    "type": "float",
+    "description": "Cluster-separated layout y position."
+   }
+  },
+  "edges.csv": {
+   "source_tag_id": {
+    "type": "int",
+    "description": "The lower tag id of the pair."
+   },
+   "source_tag": {
+    "type": "str",
+    "description": "Name of source_tag_id."
+   },
+   "target_tag_id": {
+    "type": "int",
+    "description": "The higher tag id of the pair."
+   },
+   "target_tag": {
+    "type": "str",
+    "description": "Name of target_tag_id."
+   },
+   "shared_games": {
+    "type": "int",
+    "description": "Edge weight: games having both tags; drives thresholds."
+   },
+   "lift": {
+    "type": "float",
+    "description": "shared_games x N / (n_source x n_target); 1 = as often as independent tags would."
+   },
+   "source_cluster": {
+    "type": "str",
+    "description": "Cluster of the source tag."
+   },
+   "target_cluster": {
+    "type": "str",
+    "description": "Cluster of the target tag."
+   },
+   "is_intra_cluster": {
+    "type": "bool",
+    "description": "Whether both tags are in the same cluster."
+   },
+   "appids": {
+    "type": "int_list",
+    "description": "AppIDs of the games having both tags, in dataset rank order."
+   }
+  },
+  "clusters.csv": {
+   "cluster": {
+    "type": "str",
+    "description": "Cluster label C1…."
+   },
+   "kind": {
+    "type": "str",
+    "description": "multi_tag (2+ tags) or one_tag."
+   },
+   "size": {
+    "type": "int",
+    "description": "Number of tags."
+   },
+   "member_tag_ids": {
+    "type": "int_list",
+    "description": "Member tag ids by medoid_score, then the center tie-break."
+   },
+   "members": {
+    "type": "str_list",
+    "description": "Member tag names, matching member_tag_ids."
+   },
+   "connected": {
+    "type": "bool",
+    "description": "Whether the cluster's tags form one connected group (false: try Leiden)."
+   },
+   "internal_edges": {
+    "type": "int",
+    "description": "Edges inside the cluster."
+   },
+   "internal_weight": {
+    "type": "float",
+    "description": "Summed active weight of the edges inside the cluster."
+   },
+   "edge_density": {
+    "type": "float",
+    "description": "internal_edges / (n(n-1)/2); empty for size 1."
+   },
+   "weighted_density": {
+    "type": "float",
+    "description": "internal_weight / (n(n-1)/2); empty for size 1."
+   },
+   "cut_weight": {
+    "type": "float",
+    "description": "Summed active weight of edges leaving the cluster."
+   },
+   "conductance": {
+    "type": "float",
+    "description": "cut_weight / min(volume of cluster, volume of the rest); 0..1."
+   },
+   "conductance_status": {
+    "type": "str",
+    "description": "Why conductance is empty: isolated_tag or no_edges_outside_cluster."
+   },
+   "mean_silhouette": {
+    "type": "float",
+    "description": "Mean silhouette of the members (Multi-Tag Clusters)."
+   },
+   "silhouette_status": {
+    "type": "str",
+    "description": "Why silhouette is empty: fewer_than_2_multi_tag_clusters or one_tag_cluster."
+   },
+   "center_tag_id": {
+    "type": "int",
+    "description": "The Cluster Center's tag id (clusters of 3+ tags)."
+   },
+   "center": {
+    "type": "str",
+    "description": "The Cluster Center: the member whose games overlap most with the others' (Jaccard medoid)."
+   },
+   "center_medoid_score": {
+    "type": "float",
+    "description": "The center's medoid_score."
+   },
+   "center_status": {
+    "type": "str",
+    "description": "Why there is no center: one_tag_cluster or two_tag_cluster."
+   },
+   "top_strength_tag_id": {
+    "type": "int",
+    "description": "Tag id of the member with the highest intra-cluster strength (active weight)."
+   },
+   "top_strength_tag": {
+    "type": "str",
+    "description": "Name of top_strength_tag_id: the frequency-driven alternative to the center."
+   },
+   "center_is_top_strength": {
+    "type": "bool",
+    "description": "Whether the center and the top-strength tag are the same tag."
+   },
+   "mean_membership_stability": {
+    "type": "float",
+    "description": "Mean Membership Stability of the members; empty for isolated tags."
+   }
+  },
+  "cluster_quality.csv": {
+   "n_dataset_games": {
+    "type": "int",
+    "description": "N: games after the Minimum Months Filter."
+   },
+   "n_nodes": {
+    "type": "int",
+    "description": "Tags in the network."
+   },
+   "n_edges": {
+    "type": "int",
+    "description": "Edges in the network."
+   },
+   "total_weight": {
+    "type": "float",
+    "description": "Summed active weight of all edges."
+   },
+   "modularity": {
+    "type": "float",
+    "description": "Weighted modularity Q at the optimised resolution; 0 = no better than random."
+   },
+   "modularity_status": {
+    "type": "str",
+    "description": "Why modularity is empty: no_edges."
+   },
+   "q_null_mean": {
+    "type": "float",
+    "description": "Mean Q of the game-tag shuffle null networks."
+   },
+   "q_null_sd": {
+    "type": "float",
+    "description": "Sample SD of the null networks' Q."
+   },
+   "modularity_z": {
+    "type": "float",
+    "description": "(Q - q_null_mean) / q_null_sd; never read alone; empty when the SD is 0."
+   },
+   "q_excess": {
+    "type": "float",
+    "description": "Q - q_null_mean."
+   },
+   "null_n_edges_mean": {
+    "type": "float",
+    "description": "Mean edge count of the null networks (compare n_edges)."
+   },
+   "coverage": {
+    "type": "float",
+    "description": "Share of the total weight inside clusters (0..1)."
+   },
+   "inter_cluster_weight_share": {
+    "type": "float",
+    "description": "1 - coverage."
+   },
+   "n_multi_tag_clusters": {
+    "type": "int",
+    "description": "Clusters with 2+ tags (k)."
+   },
+   "n_one_tag_clusters": {
+    "type": "int",
+    "description": "One-Tag Clusters (s)."
+   },
+   "n_disconnected_clusters": {
+    "type": "int",
+    "description": "Clusters whose tags do not form one connected group."
+   },
+   "mean_silhouette": {
+    "type": "float",
+    "description": "Mean silhouette over Multi-Tag Cluster members; a descriptive diagnostic."
+   },
+   "silhouette_status": {
+    "type": "str",
+    "description": "Why silhouette is empty: fewer_than_2_multi_tag_clusters or one_tag_cluster."
+   },
+   "seed_ari_min": {
+    "type": "float",
+    "description": "Lowest ARI of a noise seed's partition against the shown one."
+   },
+   "seed_ari_mean": {
+    "type": "float",
+    "description": "Mean ARI of the noise seeds' partitions against the shown one."
+   },
+   "seed_modularity_sd": {
+    "type": "float",
+    "description": "Sample SD of Q across the noise seeds."
+   },
+   "seed_silhouette_sd": {
+    "type": "float",
+    "description": "Sample SD of mean silhouette across the noise seeds that have one."
+   },
+   "seed_silhouette_status": {
+    "type": "str",
+    "description": "Why seed_silhouette_sd is empty: fewer_than_2_seeds_with_silhouette."
+   },
+   "seed_k_min": {
+    "type": "int",
+    "description": "Fewest Multi-Tag Clusters among the noise seeds."
+   },
+   "seed_k_max": {
+    "type": "int",
+    "description": "Most Multi-Tag Clusters among the noise seeds."
+   }
+  },
+  "cluster_connections.csv": {
+   "cluster_a": {
+    "type": "str",
+    "description": "First cluster (or one_tag_pool)."
+   },
+   "cluster_b": {
+    "type": "str",
+    "description": "Second cluster (or one_tag_pool)."
+   },
+   "edge_count": {
+    "type": "int",
+    "description": "Edges between the two."
+   },
+   "weight": {
+    "type": "float",
+    "description": "Summed active weight of those edges."
+   },
+   "shared_weight": {
+    "type": "float",
+    "description": "Summed shared-game counts of those edges (equals weight under shared games)."
+   },
+   "ratio": {
+    "type": "float",
+    "description": "Connection Ratio: weight over the weight the two groups' total link weights alone predict, in the Clustering Weight; at most γ. Empty where undefined."
+   },
+   "shared_ratio": {
+    "type": "float",
+    "description": "Connection Ratio from shared-game sums and strengths (equals ratio under shared games; under Lift not tied to the clustering). Empty where undefined."
+   },
+   "share_of_a": {
+    "type": "float",
+    "description": "Connection Share of cluster_a: weight over all of cluster_a's link weight to other groups. Empty when that is 0."
+   },
+   "share_of_b": {
+    "type": "float",
+    "description": "Connection Share of cluster_b: weight over all of cluster_b's link weight to other groups. Empty when that is 0."
+   }
+  },
+  "cluster_games.csv": {
+   "cluster": {
+    "type": "str",
+    "description": "The Cluster (C1…)."
+   },
+   "appid": {
+    "type": "int",
+    "description": "Steam AppID of the game."
+   },
+   "name": {
+    "type": "str",
+    "description": "The game's name."
+   },
+   "rank": {
+    "type": "int",
+    "description": "The game's rank in the dataset (by Mean Monthly Players)."
+   },
+   "matched": {
+    "type": "int",
+    "description": "How many of the Cluster's tags the game has."
+   },
+   "cluster_size": {
+    "type": "int",
+    "description": "How many tags the Cluster has."
+   },
+   "network_tags": {
+    "type": "int",
+    "description": "How many of the game's tags are in the Tag Network (hidden, removed and below-minimum tags not counted)."
+   },
+   "share_of_game": {
+    "type": "float",
+    "description": "matched / network_tags: the part of the game's network tags in this Cluster."
+   },
+   "matched_tag_ids": {
+    "type": "int_list",
+    "description": "The matched tags' ids, in the Cluster's Members order."
+   },
+   "matched_tags": {
+    "type": "str_list",
+    "description": "The matched tags' names, matching matched_tag_ids."
+   }
+  },
+  "null_model.csv": {
+   "replicate": {
+    "type": "int",
+    "description": "Replicate number, 1..R."
+   },
+   "seed": {
+    "type": "int",
+    "description": "The replicate's seed (shuffle and clustering)."
+   },
+   "modularity": {
+    "type": "float",
+    "description": "Q of the null network; empty when it has no edges."
+   },
+   "n_edges": {
+    "type": "int",
+    "description": "Edges of the null network."
+   }
+  },
+  "seed_noise.csv": {
+   "noise_seed_index": {
+    "type": "int",
+    "description": "1..K."
+   },
+   "seed": {
+    "type": "int",
+    "description": "The noise seed."
+   },
+   "modularity": {
+    "type": "float",
+    "description": "Q of the seed's partition."
+   },
+   "silhouette": {
+    "type": "float",
+    "description": "Mean silhouette of the seed's partition."
+   },
+   "silhouette_status": {
+    "type": "str",
+    "description": "Why silhouette is empty: fewer_than_2_multi_tag_clusters or one_tag_cluster."
+   },
+   "ari_vs_main": {
+    "type": "float",
+    "description": "ARI against the shown partition (1 = identical, about 0 = chance)."
+   },
+   "n_multi_tag_clusters": {
+    "type": "int",
+    "description": "Multi-Tag Clusters in the seed's partition."
+   },
+   "n_one_tag_clusters": {
+    "type": "int",
+    "description": "One-Tag Clusters in the seed's partition."
+   }
+  },
+  "not_in_network.csv": {
+   "tag_id": {
+    "type": "int",
+    "description": "Steam tag id."
+   },
+   "tag": {
+    "type": "str",
+    "description": "Tag name."
+   },
+   "n_games": {
+    "type": "int",
+    "description": "Games having the tag after the Minimum Months Filter (0 if emptied)."
+   },
+   "reasons": {
+    "type": "str_list",
+    "description": "removed;defining_tag_hidden;genre_tag_hidden;below_min_games, in that order."
+   }
+  }
+ },
+ "schema_version": 5
+}

@@ -18,7 +18,8 @@ ENTRY_BY_COLUMN: dict[str, str] = {
         "tag_a", "tag_id_b", "tag_b", "genre_id", "genre", "top_strength_tag_id")},
     "avg_players": "monthly-avg-players", "peak_players": "monthly-avg-players",
     "mean_monthly_players": "mean-monthly-players", "months_observed": "months-observed",
-    "rank": "rank-and-ties", "release_month": "release-month-and-store-release-date",
+    "rank": "rank-and-ties", "score": "rank-and-ties", "filter_value": IDENTIFIERS,
+    "release_month": "release-month-and-store-release-date",
     "store_release_date": "release-month-and-store-release-date", "months_apart": "release-month-gap",
     "is_free": "store-metadata", "app_type": "store-metadata", "metadata_source": "store-metadata",
     "content_flags": "store-metadata", "top_listing_rank": "listing-rank-and-the-depth-check",
@@ -113,6 +114,10 @@ ENTRY_BY_FILE: dict[tuple[str, str], str] = {
     ("placeholder_rows.csv", "position"): "placeholder-rows",
     ("placeholder_rows.csv", "month"): "placeholder-rows",
     ("ties.csv", "position"): "rank-and-ties",
+    ("topn_<dataset>.csv", "id"): IDENTIFIERS,
+    ("item_fields.csv", "id"): IDENTIFIERS,
+    ("item_fields.csv", "field"): IDENTIFIERS,
+    ("item_fields.csv", "value"): IDENTIFIERS,
     ("impact_near_misses.csv", "position"): "impact-report",
     ("monthly_players.csv", "month"): "monthly-avg-players",
     ("completeness.csv", "value"): "completeness-counts",
@@ -158,6 +163,7 @@ APP_PANEL_BY_FILE: dict[str, str] = {
     "not_in_network.csv": "Not in network tab (Analysis Report section 2)",
     "removal_sensitivity.csv": "Removal sensitivity tab",
     "top100_<dataset>.csv": "loaded dataset (edge inspector lists its games)",
+    "topn_<dataset>.csv": "loaded dataset (edge inspector lists its games)",
 }
 APP_PANEL_BUILD_ONLY = "none (Build only)"
 

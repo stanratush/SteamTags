@@ -118,7 +118,7 @@ def export_zip(
                   for name, data in sorted(files.items())},
         "method_constants": method_constants(state),
         "removal_sensitivity": removal_status(removal_rows, len(state.nodes)),
-        "columns": columns_block([s for s in S.APP_TABLES if s.name in files]),
+        "columns": columns_block([s for s in S.APP_TABLES if s.name in files], kind=S.build_kind(ctx.build_json)),
     }
     if applied_from is not None:
         # Informational only: outside state_key, ignored by Open, never part of state_id.

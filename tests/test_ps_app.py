@@ -585,7 +585,7 @@ def test_export_tables_writes_the_record(ps_build):
     assert name == f"steamstudy_parameter-selection_{SEL.key_hash(defaults.settings_key())[:12]}_20261027T120000Z.zip"
     assert set(files) == {s.name for s in S.PS_TABLES} | {"parameter_selection.json", "selection_report.md"}
     meta = json.loads(files["parameter_selection.json"])
-    assert meta["schema_version"] == 5 and all(i["status"] == "complete" for i in meta["datasets"].values())
+    assert meta["schema_version"] == S.SCHEMA_VERSION and all(i["status"] == "complete" for i in meta["datasets"].values())
     for file, info in meta["files"].items():
         assert hashlib.sha256(files[file]).hexdigest() == info["sha256"], file
     assert len(_rows(files, "pairs.csv")) == 9 * 5 and len(_rows(files, "selection.csv")) == 5

@@ -75,11 +75,12 @@ def _screening(tx: Text) -> str:
 
 
 def column_defs(schema_key: str, columns: list[str] | None = None, *, tx: Text,
-                extra: list[dict[str, Any]] | None = None) -> list[dict]:
+                extra: list[dict[str, Any]] | None = None, kind: str = "steam") -> list[dict]:
     """ag-grid columns for a declared file. A metric column's header shows its guide entry's In short as the tooltip
     and an ⓘ that opens the entry; an identifier column's shows the schema description (translated on screen only:
     the schema and every export keep the English). Column names are never translated; numbers take the language's
-    decimal mark."""
+    decimal mark. `kind` picks the Build kind's file (`schema_key` is `<group>/<name>`)."""
+    schema_key = f"{kind}/{schema_key}"
     schema = S.file(schema_key)
     names = columns or list(schema.column_names)
     defs = []

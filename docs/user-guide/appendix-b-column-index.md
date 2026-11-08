@@ -377,12 +377,30 @@ Every exported column in alphabetical order, with the files it appears in, where
 | `workbench_ari` | `pairs.csv` (Parameter Selection export zip) | Parameter Selection: Pair Inspector | selection_report.md | [selected-partition-and-selected-resolution](03-metric-reference.md#selected-partition-and-selected-resolution) |
 | `workbench_gamma` | `pairs.csv` (Parameter Selection export zip) | Parameter Selection: Pair Inspector | selection_report.md | [selected-partition-and-selected-resolution](03-metric-reference.md#selected-partition-and-selected-resolution) |
 | `workbench_seed` | `pairs.csv` (Parameter Selection export zip) | Parameter Selection: Pair Inspector | selection_report.md | [selected-partition-and-selected-resolution](03-metric-reference.md#selected-partition-and-selected-resolution) |
-| `would_be_rank_overall` | `exclusions.csv` (Build reports/)<br>`impact_adult_signals.csv` (Build reports/)<br>`impact_near_misses.csv` (Build reports/)<br>`impact_removals.csv` (Build reports/) | none (Build only) | none; reports.html | [exclusions-and-would-be-ranks](03-metric-reference.md#exclusions-and-would-be-ranks) |
-| `would_be_rank_puzzle` | `exclusions.csv` (Build reports/)<br>`impact_adult_signals.csv` (Build reports/)<br>`impact_near_misses.csv` (Build reports/)<br>`impact_removals.csv` (Build reports/) | none (Build only) | none; reports.html | [exclusions-and-would-be-ranks](03-metric-reference.md#exclusions-and-would-be-ranks) |
-| `would_be_rank_rpg` | `exclusions.csv` (Build reports/)<br>`impact_adult_signals.csv` (Build reports/)<br>`impact_near_misses.csv` (Build reports/)<br>`impact_removals.csv` (Build reports/) | none (Build only) | none; reports.html | [exclusions-and-would-be-ranks](03-metric-reference.md#exclusions-and-would-be-ranks) |
-| `would_be_rank_simulation` | `exclusions.csv` (Build reports/)<br>`impact_adult_signals.csv` (Build reports/)<br>`impact_near_misses.csv` (Build reports/)<br>`impact_removals.csv` (Build reports/) | none (Build only) | none; reports.html | [exclusions-and-would-be-ranks](03-metric-reference.md#exclusions-and-would-be-ranks) |
-| `would_be_rank_strategy` | `exclusions.csv` (Build reports/)<br>`impact_adult_signals.csv` (Build reports/)<br>`impact_near_misses.csv` (Build reports/)<br>`impact_removals.csv` (Build reports/) | none (Build only) | none; reports.html | [exclusions-and-would-be-ranks](03-metric-reference.md#exclusions-and-would-be-ranks) |
+| `would_be_rank_<dataset>` | `exclusions.csv` (Build reports/)<br>`impact_adult_signals.csv` (Build reports/)<br>`impact_near_misses.csv` (Build reports/)<br>`impact_removals.csv` (Build reports/) | none (Build only) | none; reports.html | [exclusions-and-would-be-ranks](03-metric-reference.md#exclusions-and-would-be-ranks) |
 | `x_cluster_separated` | `network_nodes.csv` (Build analysis/)<br>`nodes.csv` (app export zip) | Nodes table; node inspector | none | [layout-positions](03-metric-reference.md#layout-positions) |
 | `x_global` | `network_nodes.csv` (Build analysis/)<br>`nodes.csv` (app export zip) | Nodes table; node inspector | none | [layout-positions](03-metric-reference.md#layout-positions) |
 | `y_cluster_separated` | `network_nodes.csv` (Build analysis/)<br>`nodes.csv` (app export zip) | Nodes table; node inspector | none | [layout-positions](03-metric-reference.md#layout-positions) |
 | `y_global` | `network_nodes.csv` (Build analysis/)<br>`nodes.csv` (app export zip) | Nodes table; node inspector | none | [layout-positions](03-metric-reference.md#layout-positions) |
+
+## Import Builds
+
+Import Builds write the files above under the same names, except the Steam-only files listed below. The columns in this table are new or renamed in Import Builds; every other column is as above.
+
+| Column | File(s) | App panel | Report section | Explained in |
+|---|---|---|---|---|
+| `dataset` | `topn_<dataset>.csv` (Build datasets/) | loaded dataset (edge inspector lists its games) | none | [identifiers-names-and-lists](03-metric-reference.md#identifiers-names-and-lists) |
+| `field` | `item_fields.csv` (Build datasets/) | none (Build only) | none | [identifiers-names-and-lists](03-metric-reference.md#identifiers-names-and-lists) |
+| `filter_value` | `topn_<dataset>.csv` (Build datasets/) | loaded dataset (edge inspector lists its games) | none | [identifiers-names-and-lists](03-metric-reference.md#identifiers-names-and-lists) |
+| `id` | `cluster_games.csv` (app export zip)<br>`content_flags.csv` (Build analysis/)<br>`exclusions.csv` (Build reports/)<br>`impact_near_misses.csv` (Build reports/)<br>`impact_removals.csv` (Build reports/)<br>`item_fields.csv` (Build datasets/)<br>`ties.csv` (Build reports/)<br>`topn_<dataset>.csv` (Build datasets/) | cluster inspector (Games); loaded dataset (edge inspector lists its games); none (Build only) | none; report.html: Frequencies; reports.html | [identifiers-names-and-lists](03-metric-reference.md#identifiers-names-and-lists) |
+| `ids` | `edges.csv` (app export zip)<br>`network_edges.csv` (Build analysis/) | Edges table; edge inspector | none | [edge-weight-shared-games](03-metric-reference.md#edge-weight-shared-games) |
+| `name` | `topn_<dataset>.csv` (Build datasets/) | loaded dataset (edge inspector lists its games) | none | [identifiers-names-and-lists](03-metric-reference.md#identifiers-names-and-lists) |
+| `rank` | `topn_<dataset>.csv` (Build datasets/) | loaded dataset (edge inspector lists its games) | none | [rank-and-ties](03-metric-reference.md#rank-and-ties) |
+| `score` | `exclusions.csv` (Build reports/)<br>`ties.csv` (Build reports/)<br>`topn_<dataset>.csv` (Build datasets/) | loaded dataset (edge inspector lists its games); none (Build only) | none; reports.html | [rank-and-ties](03-metric-reference.md#rank-and-ties) |
+| `tag_ids` | `topn_<dataset>.csv` (Build datasets/) | loaded dataset (edge inspector lists its games) | none | [identifiers-names-and-lists](03-metric-reference.md#identifiers-names-and-lists) |
+| `tags` | `topn_<dataset>.csv` (Build datasets/) | loaded dataset (edge inspector lists its games) | none | [identifiers-names-and-lists](03-metric-reference.md#identifiers-names-and-lists) |
+| `value` | `item_fields.csv` (Build datasets/) | none (Build only) | none | [identifiers-names-and-lists](03-metric-reference.md#identifiers-names-and-lists) |
+
+Steam columns absent from Import Builds: `app_type`, `archived_category`, `content_flags`, `genre_ids`, `genres`, `is_free`, `metadata_source`, `months_observed`, `release_month`, `store_release_date`, `top_listing_rank`.
+
+Steam files Import Builds do not write (`topn_<dataset>.csv` replaces `top100_<dataset>.csv`): `genre_frequency.csv`, `impact_adult_signals.csv`, `impact_unexcluded.csv`, `manual_metadata.csv`, `monthly_players.csv`, `parse_errors.csv`, `placeholder_rows.csv`, `release_month_check.csv`, `skipped_apps.csv`, `steamdb_crosscheck.csv`, `tag_vocabulary.csv`.

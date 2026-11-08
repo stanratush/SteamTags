@@ -42,7 +42,7 @@ def run_analysis(result: Any, config: Config) -> None:
             "ranges": {k: v["resolution_sweep"] for k, v in net.summary["datasets"].items()},
         },
         "removal_sensitivity": "complete table per dataset at the report's settings (removal_sensitivity.csv)",
-        "columns": columns_block(sorted(written, key=lambda s: s.name)),
+        "columns": columns_block(sorted(written, key=lambda s: s.name), kind=S.build_kind(result.build_json)),
     }
     result.analysis_json = analysis_json
     result.texts["analysis/analysis.json"] = json.dumps(analysis_json, indent=2, ensure_ascii=False) + "\n"

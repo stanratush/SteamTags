@@ -1,8 +1,13 @@
-"""The single declaration of every exported file and column.
+"""The single declaration of every exported file and column, per Build kind.
 
 Every CSV the package writes is declared here with its columns, types and one-line descriptions, and
 every writer validates against these declarations (`steamstudy.export.writer`). `export.json` and
-`analysis.json` embed a `columns` block generated from here.
+`analysis.json` embed a `columns` block generated from here, with only their Build kind's files.
+
+Files are keyed `<kind>/<group>/<name>`, the kind being `steam` or `import` (`build.json` `source`). The
+declarations below are the Steam files. Each Steam file an Import Build also writes gets an Import variant
+derived by one rule (`import_variant`); a file the rule leaves unchanged is declared once, with kind `both`.
+Import-only files are declared with kind `import`.
 
 Adding, removing or renaming a column bumps `SCHEMA_VERSION` (separate from the Network State
 `key_version`).
@@ -14,8 +19,9 @@ from dataclasses import dataclass, field, replace
 
 # 1 + the one shared bump for the ticket 25, 27 and 28 overrides (spec); 3 adds the Parameter Selection
 # export zip (`parameter_selection` group) and `applied_from` in export.json; 5 (the validation review) adds
-# validation_pairs.csv and the new validation_replicates.csv and validation_clusters.csv columns.
-SCHEMA_VERSION = 5
+# validation_pairs.csv and the new validation_replicates.csv and validation_clusters.csv columns; 6 (Build
+# management, once for the whole effort) keys the files by Build kind and adds the Import Build files.
+SCHEMA_VERSION = 6
 
 # Column types and how the writer renders them:
 #   str        as is
@@ -27,6 +33,14 @@ SCHEMA_VERSION = 5
 #   int_list   ;-separated integers
 # None is n/a and is written as an empty cell, whatever the type.
 COLUMN_TYPES = ("str", "int", "float", "float6", "bool", "str_list", "int_list")
+
+KINDS = ("steam", "import")
+BOTH = "both"  # a file that does not differ between the kinds
+
+
+def build_kind(build_json: dict) -> str:
+    """The Build kind of a `build.json`: `import` for an Import Build, else `steam` (no `source` means Steam)."""
+    return "import" if build_json.get("source") == "import" else "steam"
 
 
 @dataclass(frozen=True)
@@ -51,11 +65,18 @@ class FileSchema:
     description: str
     columns: tuple[Column, ...]
     group: str = ""  # "build_datasets", "build_reports", "analysis", "app_export", ...
+    kind: str = "steam"  # "steam", "import" or "both"
 
     def __post_init__(self) -> None:
         names = [c.name for c in self.columns]
         if len(set(names)) != len(names):
             raise ValueError(f"{self.name}: duplicate column names")
+        if self.kind not in (*KINDS, BOTH):
+            raise ValueError(f"{self.name}: unknown kind {self.kind!r}")
+
+    @property
+    def kinds(self) -> tuple[str, ...]:
+        return KINDS if self.kind == BOTH else (self.kind,)
 
     @property
     def column_names(self) -> tuple[str, ...]:
@@ -86,29 +107,116 @@ class FileSchema:
 
 @dataclass
 class Registry:
-    files: dict[str, FileSchema] = field(default_factory=dict)
+    files: dict[str, FileSchema] = field(default_factory=dict)  # <kind>/<group>/<name>; `both` under each kind
+    declared: list[FileSchema] = field(default_factory=list)  # each file once, in declaration order
 
     def declare(self, schema: FileSchema) -> FileSchema:
-        key = f"{schema.group}/{schema.name}"
-        if key in self.files:
-            raise ValueError(f"file {key} declared twice")
-        self.files[key] = schema
+        keys = [f"{kind}/{schema.group}/{schema.name}" for kind in schema.kinds]
+        for key in keys:
+            if key in self.files:
+                raise ValueError(f"file {key} declared twice")
+        for key in keys:
+            self.files[key] = schema
+        self.declared.append(schema)
         return schema
 
     def __getitem__(self, key: str) -> FileSchema:
-        """A file by `<group>/<name>`."""
-        return self.files[key]
+        """A file by `<kind>/<group>/<name>`; a bare `<group>/<name>` is the Steam file."""
+        return self.files[key if key.split("/", 1)[0] in KINDS else f"steam/{key}"]
 
     def __iter__(self):
-        return iter(self.files.values())
+        return iter(self.declared)
+
+    def of_kind(self, kind: str) -> list[FileSchema]:
+        """Every file a Build of `kind` can write, in declaration order."""
+        return [s for s in self.declared if kind in s.kinds]
+
+    def variant(self, schema: FileSchema, kind: str) -> FileSchema | None:
+        """The `kind` file of the same group and name as `schema`, or None when that kind has none."""
+        return self.files.get(f"{kind}/{schema.group}/{schema.name}")
 
 
 REGISTRY = Registry()
 
+# ----------------------------------------------------------------------------- Import variants
 
-def declare(name: str, description: str, columns: list[Column] | tuple[Column, ...], group: str = "") -> FileSchema:
-    """Declare a file; each column gets its guide entry, app panel and report section (see guide_index)."""
-    return REGISTRY.declare(FileSchema(name, description, tuple(_annotate(name, group, c) for c in columns), group))
+# The Steam files an Import Build does not write (spec, "Files an Import Build writes"); `top100_<dataset>.csv` is
+# replaced by `topn_<dataset>.csv`, and the Snapshot folder's files have no Import counterpart. Every other Steam file
+# gets an Import variant by `import_variant`.
+IMPORT_NOT_WRITTEN = ("parse_errors.csv", "placeholder_rows.csv", "tag_vocabulary.csv", "release_month_check.csv",
+                      "impact_adult_signals.csv", "impact_unexcluded.csv", "manual_metadata.csv",
+                      "steamdb_crosscheck.csv", "skipped_apps.csv", "genre_frequency.csv", "monthly_players.csv")
+_STEAM_ONLY_FILES = (*IMPORT_NOT_WRITTEN, "top100_<dataset>.csv")
+STEAM_ONLY_GROUPS = ("snapshot",)
+# The non-CSV files of an Import Build, beside the declared CSVs (`import_build_paths`).
+IMPORT_BUILD_TEXT_FILES = ("datasets/build.json", "reports/reports.html", "analysis/analysis.json",
+                           "analysis/report.html")
+# Written only under a condition.
+IMPORT_BUILD_CONDITIONS = {"reports/ties.csv": "only when the Import has a score"}
+_BUILD_FOLDERS = {"build_datasets": "datasets", "build_reports": "reports", "analysis": "analysis"}
+
+# The derivation rule: renamed columns, Steam-only columns dropped, Steam wording of identifiers made generic.
+IMPORT_RENAMED = {"appid": "id", "appids": "ids", "mean_monthly_players": "score"}
+IMPORT_DROPPED = frozenset({
+    "archived_category", "months_observed", "release_month", "store_release_date", "is_free", "app_type",
+    "genre_ids", "genres", "genre_id", "genre", "metadata_source", "top_listing_rank"})
+_RENAMED_DESCRIPTION = {"id": "Item id.", "score": "The item's score from the Import: ranks the items, highest first."}
+_RENAMED_ENTRY = {"score": "rank-and-ties"}
+_STEAM_TO_GENERIC_WORDING = (("Steam tag id.", "Attribute id."), ("AppIDs", "Item ids"), ("Steam AppID", "Item id"),
+         ("Mean Monthly Players", "score"))
+# Import-only wording of a column the rule keeps: (file, column) -> description.
+_IMPORT_DESCRIPTION = {
+    ("exclusions.csv", "name"): "Item name from the Import.",
+    ("completeness.csv", "section"):
+        "Group of the count: exclusions_overlapping, exclusions_primary, depth_check, import (items, attributes, "
+        "warnings).",
+}
+
+
+def _generic_wording(text: str) -> str:
+    for steam, generic in _STEAM_TO_GENERIC_WORDING:
+        text = text.replace(steam, generic)
+    return text
+
+
+def import_variant(steam: FileSchema) -> FileSchema:
+    """The Import Build's file derived from a Steam declaration: same file name; `appid` -> `id`, `appids` -> `ids`,
+    `mean_monthly_players` -> `score`; `tag_id`, `tag`, `tag_ids`, `tags` kept; Steam-only columns dropped; "Steam tag
+    id." reads "Attribute id."."""
+    columns = []
+    for c in steam.columns:
+        if c.name in IMPORT_DROPPED:
+            continue
+        name = IMPORT_RENAMED.get(c.name, c.name)
+        description = (_IMPORT_DESCRIPTION.get((steam.name, name)) or _RENAMED_DESCRIPTION.get(name)
+                       or _generic_wording(c.description))
+        columns.append(replace(c, name=name, description=description,
+                               guide_entry=_RENAMED_ENTRY.get(name, c.guide_entry)))
+    return replace(steam, description=_generic_wording(steam.description), columns=tuple(columns), kind="import")
+
+
+def _has_import_variant(schema: FileSchema) -> bool:
+    return schema.group not in STEAM_ONLY_GROUPS and schema.name not in _STEAM_ONLY_FILES
+
+
+def import_build_paths() -> tuple[str, ...]:
+    """Every file an Import Build writes, as `<folder>/<name>`: its declared CSVs and its text files."""
+    csvs = [f"{_BUILD_FOLDERS[s.group]}/{s.name}" for s in REGISTRY.of_kind("import") if s.group in _BUILD_FOLDERS]
+    return tuple(sorted({*csvs, *IMPORT_BUILD_TEXT_FILES}))
+
+
+def declare(name: str, description: str, columns: list[Column] | tuple[Column, ...], group: str = "",
+            kind: str = "steam") -> FileSchema:
+    """Declare a file; each column gets its guide entry, app panel and report section (see guide_index). A Steam
+    file an Import Build also writes gets its Import variant here, or is declared for both kinds when the variant
+    does not differ."""
+    schema = FileSchema(name, description, tuple(_annotate(name, group, c) for c in columns), group, kind)
+    if kind == "steam" and _has_import_variant(schema):
+        variant = import_variant(schema)
+        if variant == replace(schema, kind="import"):
+            return REGISTRY.declare(replace(schema, kind=BOTH))
+        REGISTRY.declare(variant)
+    return REGISTRY.declare(schema)
 
 
 def _annotate(file_name: str, group: str, column: Column) -> Column:
@@ -123,12 +231,17 @@ def _annotate(file_name: str, group: str, column: Column) -> Column:
 
 
 def file(key: str) -> FileSchema:
-    """A declared file by `<group>/<name>`, e.g. `app_export/nodes.csv`."""
+    """A declared file by `<kind>/<group>/<name>`, e.g. `import/app_export/nodes.csv`; `<group>/<name>` is Steam's."""
     return REGISTRY[key]
 
 
-def columns_block(schemas: list[FileSchema] | tuple[FileSchema, ...]) -> dict[str, dict[str, dict[str, str]]]:
-    """The `columns` block embedded in `export.json` / `analysis.json`: file -> column -> type/description."""
+def columns_block(schemas: list[FileSchema] | tuple[FileSchema, ...],
+                  kind: str = "steam") -> dict[str, dict[str, dict[str, str]]]:
+    """The `columns` block embedded in `export.json` / `analysis.json`: file -> column -> type/description. Every
+    file must be one a Build of `kind` writes."""
+    for s in schemas:
+        if kind not in s.kinds:
+            raise ValueError(f"{s.name} is a {s.kind} file, not one of a {kind} Build")
     return {
         s.name: {c.name: {"type": c.type, "description": c.description} for c in s.columns} for s in schemas
     }
@@ -197,10 +310,11 @@ def _would_be_rank_columns() -> list[Column]:
 
 TOP100 = declare(
     "top100_<dataset>.csv",
-    "One Top-100 Dataset: the 100 non-excluded games with the highest Mean Monthly Players. The app's loading contract.",
+    "One Top-N Dataset: the N non-excluded games with the highest Mean Monthly Players (N is the dataset's List "
+    "Size; the file name dates from when N was always 100). The app's loading contract for Steam Builds.",
     [
-        C("dataset", "str", "Dataset key: overall, puzzle, rpg, strategy or simulation."),
-        C("rank", "int", "1-100; by mean_monthly_players desc, then months_observed desc, then appid asc."),
+        C("dataset", "str", "Dataset key."),
+        C("rank", "int", "1-N; by mean_monthly_players desc, then months_observed desc, then appid asc."),
         C("appid", "int", "Steam AppID."),
         C("name", "str", "Game name from the Steam store (or the Manual Metadata Entry)."),
         C("mean_monthly_players", "float6",
@@ -220,6 +334,36 @@ TOP100 = declare(
         C("top_listing_rank", "int", "Best rank in the Steam Charts /top listing across passes; empty if not listed."),
     ],
     group="build_datasets",
+)
+
+TOPN = declare(
+    "topn_<dataset>.csv",
+    "One Top-N Dataset of an Import Build: its N highest-ranked non-excluded items (N is the dataset's List Size). "
+    "The app's loading contract for Import Builds.",
+    [
+        C("dataset", "str", "Dataset key."),
+        C("rank", "int", "1-N; by score desc, then file order (without a score: file order)."),
+        C("id", "int", "Item id."),
+        C("name", "str", "Item name from the Import."),
+        C("score", "float", "The item's score from the Import; empty when the Import has none."),
+        C("filter_value", "float", "The item's value of the Build's filter field (named in build.json); empty "
+                                   "without one."),
+        C("tag_ids", "int_list", "The item's attribute ids in the Import's order (the full list)."),
+        C("tags", "str_list", "The item's attribute names, matching tag_ids."),
+    ],
+    group="build_datasets", kind="import",
+)
+
+ITEM_FIELDS = declare(
+    "item_fields.csv",
+    "The extra numeric fields of every item in a Top-N Dataset of an Import Build, long form; no row for an empty "
+    "cell.",
+    [
+        C("id", "int", "Item id."),
+        C("field", "str", "The Import column the value comes from."),
+        C("value", "float", "The item's value in that column."),
+    ],
+    group="build_datasets", kind="import",
 )
 
 MONTHLY_PLAYERS = declare(
@@ -656,7 +800,7 @@ def _build_name(app_name: str) -> str:
     return app_name if app_name == "removal_sensitivity.csv" else f"network_{app_name}"
 
 
-STACKED = {s.name: declare(_build_name(s.name), s.description + " Five datasets stacked.",
+STACKED = {s.name: declare(_build_name(s.name), s.description + " Every dataset stacked.",
                            (*_STACK_PREFIX, *s.columns), group="analysis")
            for s in APP_TABLES if s.name not in EXPORT_ONLY}
 

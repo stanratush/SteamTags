@@ -121,16 +121,17 @@ def _edge_columns() -> list[str]:
             "target_cluster", "is_intra_cluster"]
 
 
-# grid id -> its column definitions in a language; a language switch sends them again (callbacks.py `grid_words`).
-GRIDS: dict[str, Callable[[Text], list[dict[str, Any]]]] = {
-    "nin-grid": lambda tx: column_defs("app_export/not_in_network.csv", tx=tx),
-    "connections-grid": lambda tx: column_defs("app_export/cluster_connections.csv", tx=tx),
-    "null-grid": lambda tx: column_defs("app_export/null_model.csv", tx=tx),
-    "seed-grid": lambda tx: column_defs("app_export/seed_noise.csv", tx=tx),
-    "clusters-grid": lambda tx: column_defs("app_export/clusters.csv", tx=tx),
-    "rs-grid": lambda tx: column_defs("app_export/removal_sensitivity.csv", tx=tx, extra=_rs_extra(tx)),
-    "nodes-grid": lambda tx: column_defs("app_export/nodes.csv", tx=tx),
-    "edges-grid": lambda tx: column_defs("app_export/edges.csv", _edge_columns(), tx=tx),
+# grid id -> its column definitions in a language (and Build kind, Steam by default); a language switch sends them again (callbacks.py `grid_words`).
+GRIDS: dict[str, Callable[..., list[dict[str, Any]]]] = {
+    "nin-grid": lambda tx, kind="steam": column_defs("app_export/not_in_network.csv", tx=tx, kind=kind),
+    "connections-grid": lambda tx, kind="steam": column_defs("app_export/cluster_connections.csv", tx=tx, kind=kind),
+    "null-grid": lambda tx, kind="steam": column_defs("app_export/null_model.csv", tx=tx, kind=kind),
+    "seed-grid": lambda tx, kind="steam": column_defs("app_export/seed_noise.csv", tx=tx, kind=kind),
+    "clusters-grid": lambda tx, kind="steam": column_defs("app_export/clusters.csv", tx=tx, kind=kind),
+    "rs-grid": lambda tx, kind="steam": column_defs("app_export/removal_sensitivity.csv", tx=tx, kind=kind,
+                                                    extra=_rs_extra(tx)),
+    "nodes-grid": lambda tx, kind="steam": column_defs("app_export/nodes.csv", tx=tx, kind=kind),
+    "edges-grid": lambda tx, kind="steam": column_defs("app_export/edges.csv", _edge_columns(), tx=tx, kind=kind),
 }
 
 

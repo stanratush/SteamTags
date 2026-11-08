@@ -2,6 +2,7 @@
 
 MESSAGES: dict[str, str | dict[str, str]] = {
     "1..K.": "1..K.",
+    "Attribute id.": "Идентификатор на атрибута.",
     "Cluster of the source tag.": "Клъстер на изходния таг.",
     "Cluster of the target tag.": "Клъстер на целевия таг.",
     "Current Cluster Centers (other than the tag) that are no longer centers.":

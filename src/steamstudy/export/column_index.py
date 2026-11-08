@@ -2,6 +2,10 @@
 
     uv run python -m steamstudy.export.column_index      # rewrites docs/user-guide/appendix-b-column-index.md
 
+The Steam table lists every column of a Steam Build's files (`would_be_rank_<dataset>` as one row); an *Import
+Builds* section follows with the columns Import Builds add or rename, the Steam columns they drop and the Steam files
+they do not write, all read from the schema's Build kinds.
+
 It is generated once per language in `FIXED`: the Bulgarian copy goes to `docs/user-guide/bg/`, with its fixed
 text, file-group labels and app panels in Bulgarian. Column names, file names, anchors and a report's own section names
 stay English in both. A test fails when a committed file differs from what this module generates.
@@ -15,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from steamstudy.export.guide_index import GUIDE_CHAPTER
+from steamstudy.export import schema as S
 from steamstudy.export.schema import REGISTRY
 
 INDEX_FILE = "appendix-b-column-index.md"
@@ -39,6 +44,13 @@ FIXED: dict[str, dict[str, Any]] = {
                  "it by hand.",
         "header": "| Column | File(s) | App panel | Report section | Explained in |",
         "groups": GROUP_LABEL,
+        "import_title": "## Import Builds",
+        "import_intro": "Import Builds write the files above under the same names, except the Steam-only files "
+                        "listed below. The columns in this table are new or renamed in Import Builds; every other "
+                        "column is as above.",
+        "dropped": "Steam columns absent from Import Builds:",
+        "not_written": "Steam files Import Builds do not write (`topn_<dataset>.csv` replaces "
+                       "`top100_<dataset>.csv`):",
     },
     "bg": {
         "title": "# Приложение B. Индекс на колоните {#appendix-b-column-index}",
@@ -49,6 +61,13 @@ FIXED: dict[str, dict[str, Any]] = {
                  "`steamstudy.export.schema` с `python -m steamstudy.export.column_index`; не го редактирайте "
                  "ръчно.",
         "header": "| Колона | Файл(ове) | Панел в приложението | Раздел на доклада | Обяснена в |",
+        "import_title": "## Компилации от импорт {#import-builds}",
+        "import_intro": "Компилациите от импорт записват файловете по-горе със същите имена, освен файловете само "
+                        "за Steam, изброени по-долу. Колоните в тази таблица са нови или преименувани в "
+                        "компилациите от импорт; всяка друга колона е както по-горе.",
+        "dropped": "Колони от Steam, които липсват в компилациите от импорт:",
+        "not_written": "Файлове от Steam, които компилациите от импорт не записват (`topn_<dataset>.csv` "
+                       "заменя `top100_<dataset>.csv`):",
         "groups": {
             "build_datasets": "компилация: datasets/",
             "build_reports": "компилация: reports/",
@@ -87,22 +106,58 @@ FIXED: dict[str, dict[str, Any]] = {
 }
 
 
-def render(lang: str = "en") -> str:
-    fixed = FIXED[lang]
+def _column_name(name: str) -> str:
+    """`would_be_rank_<key>` columns are one templated column, expanded once per dataset of the Build."""
+    return f"{S.WOULD_BE_RANK}<dataset>" if name.startswith(S.WOULD_BE_RANK) else name
+
+
+def _table(fixed: dict[str, Any], columns: list[tuple[S.FileSchema, S.Column]]) -> list[str]:
     rows: dict[tuple[str, str], dict[str, set[str]]] = defaultdict(lambda: {"files": set(), "panels": set(),
                                                                              "reports": set()})
-    for schema in REGISTRY:
-        for column in schema.columns:
-            entry = rows[(column.name, column.guide_entry or "")]
-            entry["files"].add(f"`{schema.name}` ({fixed['groups'].get(schema.group, schema.group)})")
-            entry["panels"].add(fixed.get("panels", {}).get(column.app_panel, column.app_panel or ""))
-            entry["reports"].add(fixed.get("reports", {}).get(column.report_section, column.report_section or ""))
-    lines = [fixed["title"], "", fixed["intro"], "", fixed["header"], "|---|---|---|---|---|"]
+    for schema, column in columns:
+        entry = rows[(_column_name(column.name), column.guide_entry or "")]
+        entry["files"].add(f"`{schema.name}` ({fixed['groups'].get(schema.group, schema.group)})")
+        entry["panels"].add(fixed.get("panels", {}).get(column.app_panel, column.app_panel or ""))
+        entry["reports"].add(fixed.get("reports", {}).get(column.report_section, column.report_section or ""))
+    lines = [fixed["header"], "|---|---|---|---|---|"]
     for (name, anchor), info in sorted(rows.items(), key=lambda kv: (kv[0][0].lower(), kv[0][1])):
         lines.append(
             f"| `{name}` | {'<br>'.join(sorted(info['files']))} | {'; '.join(sorted(p for p in info['panels'] if p))} "
             f"| {'; '.join(sorted(r for r in info['reports'] if r))} | [{anchor}]({GUIDE_CHAPTER}#{anchor}) |"
         )
+    return lines
+
+
+def _import_differences() -> tuple[list[tuple[S.FileSchema, S.Column]], list[str], list[str]]:
+    """(columns new or renamed in Import Builds, Steam columns they drop, Steam files they do not write)."""
+    new: list[tuple[S.FileSchema, S.Column]] = []
+    dropped: set[str] = set()
+    for schema in REGISTRY.of_kind("import"):
+        if schema.kind != "import":
+            continue  # declared once for both kinds
+        if schema.name == S.TOPN.name:  # replaces top100_<dataset>.csv: every column is listed
+            new += [(schema, c) for c in schema.columns]
+            dropped |= {c for c in S.TOP100.column_names if c not in schema.column_names and c not in S.IMPORT_RENAMED}
+            continue
+        steam = REGISTRY.variant(schema, "steam")
+        if steam is None:  # an Import-only file
+            new += [(schema, c) for c in schema.columns]
+            continue
+        new += [(schema, c) for c in schema.columns if c.name not in steam.column_names]
+        dropped |= {c for c in steam.column_names if c not in schema.column_names and c not in S.IMPORT_RENAMED}
+    not_written = sorted({s.name for s in REGISTRY.of_kind("steam") if s.name != S.TOP100.name
+                          and s.group not in S.STEAM_ONLY_GROUPS and REGISTRY.variant(s, "import") is None})
+    return new, sorted(dropped), not_written
+
+
+def render(lang: str = "en") -> str:
+    fixed = FIXED[lang]
+    steam = [(schema, column) for schema in REGISTRY.of_kind("steam") for column in schema.columns]
+    new, dropped, not_written = _import_differences()
+    lines = [fixed["title"], "", fixed["intro"], "", *_table(fixed, steam), "",
+             fixed["import_title"], "", fixed["import_intro"], "", *_table(fixed, new), "",
+             f"{fixed['dropped']} {', '.join(f'`{c}`' for c in dropped)}.", "",
+             f"{fixed['not_written']} {', '.join(f'`{f}`' for f in not_written)}."]
     return "\n".join(lines) + "\n"
 
 

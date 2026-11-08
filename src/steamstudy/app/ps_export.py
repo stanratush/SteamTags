@@ -309,7 +309,7 @@ def export_tables(ctx: BuildContext, settings: SEL.SelectionSettings, constraint
         "files": {**{name: {"rows": len(tables[name]), "sha256": hashlib.sha256(data).hexdigest()}
                      for name, data in sorted(files.items())},
                   "selection_report.md": {"rows": None, "sha256": hashlib.sha256(report_bytes).hexdigest()}},
-        "columns": S.columns_block(S.PS_TABLES),
+        "columns": S.columns_block(S.PS_TABLES, kind=S.build_kind(ctx.build_json)),
     }
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:

@@ -14,6 +14,14 @@ One row is one game in one Top-100 Dataset (Overall, Puzzle, RPG, Strategy or Si
 
 One row is one month of one game that is a member of any Top-100 Dataset: the Monthly Avg. Players and Peak Players behind its score (only the months the score averages; never a Placeholder Row). It joins to `top100_<dataset>.csv` by `appid` and lets anyone recompute `mean_monthly_players`. It is not published until the Steam Charts operator agrees.
 
+### `topn_<dataset>.csv`
+
+*Import Builds only.* One row is one item in one Top-N Dataset of an Import Build, in rank order: its id, name, score (empty without one), filter value (empty without a filter field) and full ordered attribute list (`tag_ids`, `tags`). It takes the place of `top100_<dataset>.csv` and is the app's input for an Import Build.
+
+### `item_fields.csv`
+
+*Import Builds only.* One row is one extra numeric field of one item in any Top-N Dataset (`id`, `field`, `value`), with no row for an empty cell. It joins to `topn_<dataset>.csv` by `id`.
+
 ## Build: reports/
 
 ### `exclusions.csv`
