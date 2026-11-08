@@ -175,7 +175,7 @@ def test_a_strip_click_switches_the_dataset_and_resets_the_pair():
 
 def test_each_controls_section_is_a_pill_with_its_section_in_the_popover(ps_build):
     ctx = load_build(ps_build)
-    items = [c for c in _walk(PV.controls(Labels(EN), ctx, PV.defaults_of(ctx)[0]))
+    items = [c for c in _walk(PV.controls(Labels(EN, build=ctx), ctx, PV.defaults_of(ctx)[0]))
              if getattr(c, "className", None) == "ctl-item"]
     assert [i.children[0].children[0].children for i in items] == ["Run", "Selection settings"]
     pops = [i.children[1] for i in items]
@@ -198,7 +198,7 @@ def test_the_mode_has_its_own_panel_toggles_all_on_at_first(ps_build):
 
 def test_the_pair_constraints_are_pills_under_the_dataset_strip(ps_build):
     ctx = load_build(ps_build)
-    layout = PV.mode_layout(ctx, Labels(EN))
+    layout = PV.mode_layout(ctx, Labels(EN, build=ctx))
     main = next(c for c in _walk(layout) if getattr(c, "id", None) == "ps-main")
     ids = [getattr(c, "id", None) for c in main.children]
     assert ids.index("ps-strip") + 1 == ids.index("ps-cbar")
@@ -222,7 +222,8 @@ def test_the_run_pill_says_not_run_on_an_empty_cache(empty_build):
 
 
 def test_the_floating_inspector_starts_closed_opens_on_a_heatmap_pick_and_closes_with_its_x(ps_build):
-    layout = PV.mode_layout(load_build(ps_build), Labels(EN))
+    ctx = load_build(ps_build)
+    layout = PV.mode_layout(ctx, Labels(EN, build=ctx))
     inspector = next(c for c in _walk(layout) if getattr(c, "id", None) == "ps-inspector")
     assert "has-sel" not in inspector.className.split()  # docked at wide; hidden at medium and narrow
     triggered("ps-heatmap.clickData")

@@ -7,12 +7,16 @@ order; `Labels(tx, prefix)` keeps two layouts' ids apart).
 
 A message is English text marked `msg("…")` where it is written, so the catalogue parity test finds it like a
 `tx("…")` literal; it is translated when the layout is built and on every switch.
+
+The registry is shared by every tab, whatever its Build (ADR 0006), so a message never closes over a Build: one that
+depends on it is a `PerBuild`, given the tab's Build when it is set again.
 """
 
 from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 from dash import html
@@ -20,8 +24,15 @@ from dash import html
 from steamstudy.app import help as H
 from steamstudy.i18n import Text
 
-# A registered message: English text for `tx`, or a function of the translator (a tooltip, a store's words).
-Message = str | Callable[[Text], Any]
+@dataclass(frozen=True)
+class PerBuild:
+    """A message that depends on the tab's Build: `fn(tx, build_context)`."""
+    fn: Callable[[Text, Any], Any]
+
+
+# A registered message: English text for `tx`, a function of the translator (a tooltip, a store's words), or a
+# function of the translator and the tab's Build.
+Message = str | Callable[[Text], Any] | PerBuild
 # json([component id, prop]) -> (component id, prop, message), in the order first registered.
 RELABEL: dict[str, tuple[Any, str, Message]] = {}
 
@@ -31,16 +42,21 @@ def msg(message: str) -> str:
     return message
 
 
-def message_value(message: Message, tx: Text) -> Any:
-    return tx(message) if isinstance(message, str) else message(tx)
+def message_value(message: Message, tx: Text, build: Any = None) -> Any:
+    if isinstance(message, str):
+        return tx(message)
+    if isinstance(message, PerBuild):
+        return message.fn(tx, build)
+    return message(tx)
 
 
 class Labels:
     """The page's translator and the relabel registry, for one build of a layout."""
 
-    def __init__(self, tx: Text, prefix: str = "i18n") -> None:
+    def __init__(self, tx: Text, prefix: str = "i18n", build: Any = None) -> None:
         self.tx = tx
         self.prefix = prefix
+        self.build = build  # the page's BuildContext, for `PerBuild` messages
         self._n = 0
 
     def new_id(self) -> str:
@@ -50,7 +66,7 @@ class Labels:
     def prop(self, id_: Any, prop: str, message: Message) -> Any:
         """A static prop of a component with an id: registered, in the page's language."""
         RELABEL.setdefault(json.dumps([id_, prop], sort_keys=True), (id_, prop, message))
-        return message_value(message, self.tx)
+        return message_value(message, self.tx, self.build)
 
     def span(self, message: Message, **kw: Any) -> html.Span:
         """A static text as a Span of its own, registered so that a language switch relabels it."""

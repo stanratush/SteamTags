@@ -74,4 +74,5 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "Run {dataset}": "Изпълни {dataset}",
     "changed": "променено",
     "Unconfirmed changes": "Непотвърдени промени",
+    "Opening {filename} in its Build…": "{filename} се отваря в своята компилация…",
 }

@@ -18,7 +18,6 @@ from steamstudy.network.model import canonical_key_json
 from steamstudy.network.sensitivity import METHOD_VERSION
 
 RESULTS_DIR = "removal_sensitivity"
-JOBS_DIR = "jobs"
 
 
 @dataclass

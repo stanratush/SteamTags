@@ -267,7 +267,7 @@ def test_parameter_selection_runs_on_an_import_build(full, tmp_path):
 
 @pytest.mark.parametrize("with_filter", [True, False])
 def test_the_app_serves_an_import_build_with_and_without_a_filter_field(full, tmp_path, with_filter):
-    from dash_http import layout_props
+    from dash_http import client_page, layout_props, start_path
     from steamstudy.app.server import create_app
 
     if with_filter:
@@ -277,8 +277,8 @@ def test_the_app_serves_an_import_build_with_and_without_a_filter_field(full, tm
         source = open_import(tmp_path, import_id)
         folder = write_build(build_import(source, import_defaults(source, CONFIG_DIR), BUILD_ID), tmp_path)
     client = create_app(folder).server.test_client()
-    assert client.get("/").status_code == 200
-    props = layout_props(json.loads(client.get("/_dash-layout").get_data(as_text=True)))
+    assert client.get("/").status_code == 302
+    props = layout_props(client_page(client, start_path(client)))
     assert "min-months" in props and "ps-s-min-months" in props  # the callbacks always find the sliders
     # The range comes from the data (3 to 14.5 months); without a filter field the slider is a hidden 0-1 stub.
     assert (props["min-months"]["min"], props["min-months"]["max"]) == ((3, 15) if with_filter else (0, 1))

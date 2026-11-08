@@ -64,7 +64,8 @@ def test_served_page_loads_nothing_from_outside_127_0_0_1(build_folder):
 
     app = create_app(build_folder)
     client = app.server.test_client()
-    page = client.get("/")
+    assert client.get("/").status_code == 302  # to the startup Build's URL
+    page = client.get(client.get("/").headers["Location"])
     assert page.status_code == 200
     html = page.get_data(as_text=True)
     urls = re.findall(r'(?:src|href)="([^"]+)"', html)
@@ -201,14 +202,14 @@ def test_open_restores_every_control(build_folder):
 
     _, data = export_zip(ctx, settings)
     contents = "data:application/zip;base64," + base64.b64encode(data).decode("ascii")
-    out = CB.do_open(contents, "x.zip", str(build_folder.parents[1]))
+    out = CB.do_open(contents, "x.zip", str(build_folder))
     values = dict(zip(["build-path", *CB.CONTROL_IDS, "removed", "relayout", "rs-view", "pending", "verify", "msg"], out))
     assert values["dataset"] == "puzzle" and values["min-games"] == 9 and values["algorithm"] == "leiden"
     assert values["gamma"] == 0.85 and values["seed"] == 7 and values["removed"] == [5001]
     assert values["genre-hidden"] == [9, 19] and values["defining-hidden"] == []
     assert values["verify"] == {"expected": read_export(data)[0]["state_id"]}
     refused = CB.do_open("data:x;base64," + base64.b64encode(b"not an export").decode("ascii"), "y.json",
-                         str(build_folder.parents[1]))
+                         str(build_folder))
     assert refused[-1].startswith("Refused")
 
 
@@ -223,7 +224,7 @@ def test_an_old_relayout_export_opens_with_every_tag_next_to_the_graph(build_fol
     old = {t: (x * 2.0, y * 2.0) for t, (x, y) in layout.positions.items()} | {far: (2600.0, -2400.0)}
     _, data = export_zip(ctx, settings, relayout_positions=old, state=state)
     out = CB.do_open("data:application/zip;base64," + base64.b64encode(data).decode("ascii"), "old.zip",
-                     str(build_folder.parents[1]))
+                     str(build_folder))
     store = out[len(CB.CONTROL_IDS) + 2]
     assert store["restore"] is True and store["positions"][str(far)] == [2600.0, -2400.0]
     meta, tables, base, *_ = _recompute(build_folder)

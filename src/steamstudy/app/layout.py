@@ -26,8 +26,8 @@ from dash import dcc, html
 
 from steamstudy.app import help as H
 from steamstudy.app.guide import LABELS
-from steamstudy.app.loader import BuildContext
-from steamstudy.app.relabel import RELABEL, Labels, Message, message_value, msg  # noqa: F401
+from steamstudy.app.loader import BuildContext, store_value
+from steamstudy.app.relabel import RELABEL, Labels, Message, PerBuild, message_value, msg  # noqa: F401
 from steamstudy.app.ps_view import mode_layout
 from steamstudy.app.renderer import graph_component, thickness_key
 from steamstudy.app.view import column_defs, metric_header
@@ -51,6 +51,10 @@ def ui_words(tx: Text) -> dict[str, Any]:
                       "lift": tx("Lift"), "shared": tx("Shared games"),
                       "of": tx("{n} of {total}", n="{n}", total="{total}")},
             "edges": edge_words(tx),
+            "switch": [tx.n(1, one="{n} running job will be cancelled; finished parts stay cached",
+                            other="{n} running jobs will be cancelled; finished parts stay cached", n="{n}"),
+                       tx.n(2, one="{n} running job will be cancelled; finished parts stay cached",
+                            other="{n} running jobs will be cancelled; finished parts stay cached", n="{n}")],
             "map": {"title": tx("Cluster map"), "pool": tx("pool"),
                     "tags": [tx.n(1, one="{n} tag", other="{n} tags", n="{n}"),
                              tx.n(2, one="{n} tag", other="{n} tags", n="{n}")],
@@ -238,9 +242,8 @@ def defining_options(defining: Any, tx: Text) -> list[dict[str, Any]]:
              "value": 1, "disabled": defining is None}]
 
 
-def _controls(L: Labels, ctx: BuildContext) -> html.Div:
+def _controls(L: Labels, ctx: BuildContext, first: str) -> html.Div:
     tx = L.tx
-    first = ctx.datasets[0].key
     s = ctx.default_settings(first)
     field = ctx.read(first).filter_field  # None: no filter field, so no slider and every item is kept
     defining = ctx.dataset(first).defining_tag
@@ -353,9 +356,21 @@ def _edge_card(L: Labels, ctx: BuildContext) -> html.Div:
         **_data(graph_overlay="bottom", graph_transient="yes"))
 
 
-def build_layout(ctx: BuildContext, lang: str = "en") -> html.Div:
-    """The page in the Interface Language `lang` (read from the cookie when it is served)."""
-    L = Labels(text(lang))
+def brand_build(tx: Text, ctx: BuildContext) -> str:
+    return tx("Build {build_id}", build_id=ctx.build_id)
+
+
+MODES = ("workbench", "report", "selection")
+
+
+def build_layout(ctx: BuildContext, lang: str = "en", *, mode: str = "workbench", dataset: str | None = None,
+                 open_token: str | None = None) -> html.Div:
+    """The page of a tab's Build in the Interface Language `lang` (read from the cookie when it is served). A switch
+    from another Build keeps the open `mode` and the `dataset` when this Build has one with the same key (else its
+    first); `open_token` names an export to reopen here (Open Network State from another Build's tab)."""
+    mode = mode if mode in MODES else "workbench"
+    first = dataset if dataset in {d.key for d in ctx.datasets} else ctx.datasets[0].key
+    L = Labels(text(lang), build=ctx)
     language = _language(L, lang)
     graph_block = html.Div([
         html.H3([L.span(msg("3 Network")), _help(L, "network")], className="section-heading"),
@@ -394,7 +409,7 @@ def build_layout(ctx: BuildContext, lang: str = "en") -> html.Div:
     rs_block = _block(L, "blk-rs", msg("5 Removal sensitivity"), [
         html.Div([_button(L, "rs-run", msg("Run"), "btn primary"),
                   html.Button(id="rs-continue", className="btn", style={"display": "none"}),
-                  _button(L, "rs-cancel", msg("Cancel")),
+                  _button(L, "rs-cancel", msg("Cancel"), disabled=True),  # enabled while a job runs
                   html.Span(id="rs-estimate", className="mute")], className="row-inline"),
         html.Progress(id="rs-progress", value="0", max="1", style={"width": "100%"}),
         html.Span(id="rs-progress-label", className="mute small"), dcc.Store(id="rs-progress-store"),
@@ -457,8 +472,10 @@ def build_layout(ctx: BuildContext, lang: str = "en") -> html.Div:
     ], id="inspector-panel", className="inspector docked", **_data(graph_overlay="right", graph_transient="yes"))
 
     stores = [
-        dcc.Store(id="build-path", data=str(ctx.path)),
-        dcc.Store(id="builds-root", data=str(ctx.path.resolve().parents[1])),  # <root>/builds: where exports' Builds are found
+        # The tab's Build: its ref, resolved under the app's builds root (never a path from the browser, ADR 0006).
+        dcc.Store(id="build-path", data=store_value(ctx)),
+        dcc.Store(id="switch-to"), dcc.Store(id="switch-done"),  # another Build's URL: the tab switches to it (assets/workbench.js `switchBuild`)
+        dcc.Store(id="open-token", data=open_token),  # an export to reopen once this page is up
         dcc.Store(id="state-meta"), dcc.Store(id="state-tables"), dcc.Store(id="elements-base"),
         dcc.Store(id="cluster-connections"),  # the Cluster map's rows (graph.js `drawMap`), written by the recompute
         dcc.Store(id="relayout"), dcc.Store(id="selection"), dcc.Store(id="floating-open", data=False),
@@ -474,11 +491,11 @@ def build_layout(ctx: BuildContext, lang: str = "en") -> html.Div:
     ]
     header = html.Header([
         html.Div([html.B(L.prop("brand-title", "children", msg("Tag Network")), id="brand-title", className="title"),
-                  html.Span(L.prop("brand-build", "children", lambda tx: tx("Build {build_id}", build_id=ctx.build_id)),
+                  html.Span(L.prop("brand-build", "children", PerBuild(brand_build)),
                             id="brand-build", className="mute")],
                  className="brand"),
         _seg("mode", L.options("mode", [("workbench", msg("Workbench")), ("report", msg("Analysis Report mode")),
-                                        ("selection", msg("Parameter Selection"))]), "workbench"),
+                                        ("selection", msg("Parameter Selection"))]), mode),
         language,
         html.Div(dcc.Dropdown(id="tag-search", options=[], searchable=True, clearable=False, className="tag-search",
                               placeholder=L.prop("tag-search", "placeholder", msg("Find a tag…")),
@@ -506,7 +523,7 @@ def build_layout(ctx: BuildContext, lang: str = "en") -> html.Div:
                           id="help-modal", className="help-modal", style={"display": "none"})
     return html.Div([
         *stores, html.Div(id="banners"), header,
-        html.Div([_controls(L, ctx), main, inspector], id="app-body", className="app-body"),
+        html.Div([_controls(L, ctx, first), main, inspector], id="app-body", className="app-body"),
         mode_layout(ctx, L),
         help_modal,
     ], id="root", className="workbench controls-on inspector-on tables-on")

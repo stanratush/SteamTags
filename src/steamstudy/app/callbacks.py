@@ -16,6 +16,7 @@ import hashlib
 import json
 import threading
 import time
+import urllib.parse
 from collections import Counter, OrderedDict
 from typing import Any
 
@@ -33,7 +34,9 @@ from steamstudy.app.guide import PANEL_SECTIONS, help_markdown_at
 from steamstudy.app.layout import (GRIDS, PILLS, RELABEL, SLIDERS, block_styles, grid_options, message_value,
                                    root_class)
 from steamstudy.app.layout import defining_options as layout_defining_options
-from steamstudy.app.loader import BuildContext, load_build
+from steamstudy.app import pending as stash_store
+from steamstudy.app.loader import BuildContext, build_folder, load_build, ref_of
+from steamstudy.app.relabel import PerBuild
 from steamstudy.app import renderer as R
 from steamstudy.app.renderer import cluster_color
 from steamstudy.network.cluster import Cluster
@@ -769,19 +772,28 @@ def do_export(_a, _b, build_path, meta, relayout_store, base, rs_view, verify=No
     return dash.dcc.send_bytes(data, filename)
 
 
-def do_open(contents, filename, builds_root, lang=None):
-    """Open Network State…: the export's Build is found by identity among the Builds this app can see."""
+def do_open(contents, filename, build_path, lang=None, mode=None):
+    """Open Network State…: the export's Build is found by identity among the Builds this app can see (beside the
+    tab's). Another Build's export switches the tab to that Build's URL, which reopens it there (`reopen`); the
+    first output is that URL, else unchanged."""
     if not contents:
         raise PreventUpdate
     tx = text(lang_of(lang))
     data = base64.b64decode(contents.split(",", 1)[1])
     nothing = [no_update] * 16
+    here = build_folder(build_path).resolve()
     try:
-        opened = open_export(data, builds_root=builds_root)
+        opened = open_export(data, builds_root=here.parents[1])
     except BuildNotFound as exc:
         return [*nothing, tx("Refused: {reason}.", reason=tx(REFUSALS[exc.reason], **exc.params))]
     except OpenRefused as exc:
         return [*nothing, tx("Refused: {reason}", reason=tx(REFUSALS[exc.reason], **exc.params))]
+    if opened.build_path.resolve() != here:
+        token = stash_store.stash(contents, filename)
+        query = urllib.parse.urlencode({"mode": mode or "workbench", "dataset": opened.settings.dataset,
+                                        "open": token})
+        return [f"/build/{ref_of(opened.build_path)}?{query}", *nothing[1:],
+                tx("Opening {filename} in its Build…", filename=filename)]
     c = load_build(opened.build_path)
     values = controls_from_settings(c, opened.settings)
     basis = [opened.settings.dataset, opened.settings.min_months, opened.settings.clustering_weight, opened.settings.seed]
@@ -794,8 +806,16 @@ def do_open(contents, filename, builds_root, lang=None):
     message = tx("Opened {filename}: Build {build_id}, state {state_id} (schema_version {version}).",
                  filename=filename, build_id=c.build_id, state_id=opened.recorded_state_id,
                  version=opened.schema_version)
-    return [str(opened.build_path), *[values[k] for k in CONTROL_IDS], values["removed"], relayout_store, rs_view,
+    return [no_update, *[values[k] for k in CONTROL_IDS], values["removed"], relayout_store, rs_view,
             pending, {"expected": opened.recorded_state_id}, message]
+
+
+def reopen(token):
+    """The page opened by a switch from Open Network State: the stashed export, as if uploaded here."""
+    stashed = stash_store.take(token)
+    if stashed is None:
+        raise PreventUpdate
+    return stashed
 
 
 def clear_cache(_n, build_path, lang=None):
@@ -841,11 +861,15 @@ def show_help(_clicks, _close, target=None, _back=None, history=None, lang=None)
             {"display": "inline-block" if len(history) > 1 else "none"})
 
 
-def relabel(lang):
-    """A language switch: every static prop the layout registered, in the new language (no recompute)."""
+def relabel(lang, build_path=None):
+    """A language switch: every static prop the layout registered, in the new language (no recompute); a message
+    that depends on the Build is given the tab's."""
     tx = text(lang_of(lang))
+    build = None
     for id_, prop, message in RELABEL.values():
-        set_props(id_, {prop: message_value(message, tx)})
+        if isinstance(message, PerBuild) and build is None:
+            build = load_build(build_path)
+        set_props(id_, {prop: message_value(message, tx, build)})
 
 
 def grid_words(lang):
@@ -1161,7 +1185,7 @@ def register(app: dash.Dash) -> None:
                             Output("lang", "data"), Input("lang-switch", "value"), prevent_initial_call=True)
     app.clientside_callback(ClientsideFunction(namespace="workbench", function_name="uiWords"),
                             Input("ui-words", "data"))
-    cb(Input("lang", "data"), prevent_initial_call=True)(relabel)
+    cb(Input("lang", "data"), State("build-path", "data"), prevent_initial_call=True)(relabel)
     cb(*[Output(i, p) for grid in GRIDS for i, p in ((grid, "columnDefs"), (grid, "dashGridOptions"))],
        Input("lang", "data"), prevent_initial_call=True)(grid_words)
     cb(*[Output(i, p, allow_duplicate=True) for i, p in STATE_VIEWS], Input("lang", "data"),
@@ -1266,12 +1290,15 @@ def register(app: dash.Dash) -> None:
        State("build-path", "data"), State("state-meta", "data"), State("relayout", "data"),
        State("elements-base", "data"), State("rs-view", "data"), State("verify", "data"),
        prevent_initial_call=True)(do_export)
-    cb(Output("build-path", "data"), *[Output(i, "value", allow_duplicate=True) for i in CONTROL_IDS],
+    cb(Output("switch-to", "data"), *[Output(i, "value", allow_duplicate=True) for i in CONTROL_IDS],
        Output("removed", "data", allow_duplicate=True), Output("relayout", "data", allow_duplicate=True),
        Output("rs-view", "data", allow_duplicate=True), Output("pending-open", "data"),
        Output("verify", "data", allow_duplicate=True), Output("open-message", "children"),
-       Input("open-upload", "contents"), State("open-upload", "filename"), State("builds-root", "data"),
-       State("lang", "data"), prevent_initial_call=True)(do_open)
+       Input("open-upload", "contents"), State("open-upload", "filename"), State("build-path", "data"),
+       State("lang", "data"), State("mode", "value"), prevent_initial_call=True)(do_open)
+    cb(Output("open-upload", "contents"), Output("open-upload", "filename"), Input("open-token", "data"))(reopen)
+    app.clientside_callback(ClientsideFunction(namespace="workbench", function_name="switchBuild"),
+                            Output("switch-done", "data"), Input("switch-to", "data"), prevent_initial_call=True)
     cb(Output("cache-message", "children"), Output("rs-view", "data", allow_duplicate=True),
        Input("clear-cache-btn", "n_clicks"), State("build-path", "data"), State("lang", "data"),
        prevent_initial_call=True)(clear_cache)

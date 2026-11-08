@@ -25,7 +25,7 @@ GUIDE_BG = REPO / "docs" / "user-guide" / "bg"
 
 # Source file (relative to src/steamstudy) -> the catalogue area its messages belong to.
 AREA_OF = {
-    "app/layout.py": "layout", "app/renderer.py": "layout",
+    "app/layout.py": "layout", "app/renderer.py": "layout", "app/server.py": "layout",
     "app/callbacks.py": "callbacks",
     "app/view.py": "view",
     "app/ps_view.py": "ps_view",

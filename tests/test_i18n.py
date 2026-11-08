@@ -140,12 +140,10 @@ def app(tagged_build):
 
 
 def _props(app, cookie: str | None = None) -> dict:
-    from dash_http import layout_props
+    from dash_http import client_page, layout_props, start_path
 
     client = app.server.test_client()
-    if cookie:
-        client.set_cookie(i18n.COOKIE, cookie)
-    return layout_props(client.get("/_dash-layout").get_json())
+    return layout_props(client_page(client, start_path(client), cookie=(i18n.COOKIE, cookie) if cookie else None))
 
 
 @pytest.mark.parametrize("cookie,lang", [(None, "en"), ("bg", "bg"), ("en", "en"), ("xx", "en")])
@@ -167,7 +165,7 @@ def test_the_switch_sits_in_the_header_beside_the_mode_switch(tagged_build):
     assert json.loads(getattr(box["lang-term"], "data-tip"))[0][0] == "in_short"
 
 
-def test_a_language_switch_relabels_every_registered_prop_and_recomputes_nothing(app, monkeypatch):
+def test_a_language_switch_relabels_every_registered_prop_and_recomputes_nothing(app, tagged_build, monkeypatch):
     from steamstudy.app import callbacks as CB
     from steamstudy.app import layout as L
 
@@ -180,7 +178,7 @@ def test_a_language_switch_relabels_every_registered_prop_and_recomputes_nothing
     set_ = {}
     monkeypatch.setattr(CB, "set_props", lambda id_, props: set_.setdefault(str(id_), {}).update(props))
     monkeypatch.setitem(i18n.catalogue("bg"), "Language", "Език")
-    CB.relabel("bg")
+    CB.relabel("bg", str(tagged_build))
     assert set(set_) == {str(id_) for id_, _, _ in L.RELABEL.values()}
     assert next(iter(L.RELABEL.values()))[:2] == ("lang-term", "data-tip")  # the switch's tooltip comes first
     assert set_["lang-term"]["children"] == "Език" and json.loads(set_["lang-term"]["data-tip"])[0][0] == "in_short"
@@ -259,15 +257,17 @@ def unbracketed(strings: list[str], names: set[str] = frozenset()) -> list[str]:
     return bad
 
 
-def test_every_registered_static_prop_passes_through_the_translator(app, pseudo):
+def test_every_registered_static_prop_passes_through_the_translator(app, pseudo, tagged_build):
     from steamstudy.app.layout import RELABEL, message_value
+    from steamstudy.app.loader import load_build
     from steamstudy.i18n import text
 
     tx = text("bg")
+    build = load_build(tagged_build)
     for id_, prop, message in RELABEL.values():
         if prop == "data-tip":  # guide text: checked by the guide's own parity test
             continue
-        value = message_value(message, tx)
+        value = message_value(message, tx, build)
         if id_ == "ui-words":
             value = {k: v for k, v in value.items() if k != "tip"}  # the tip labels are the guide's label set
             def leaves(node):  # every word, nested; the card's help is the guide's text (its own parity test)

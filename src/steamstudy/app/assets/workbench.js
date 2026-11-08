@@ -338,6 +338,36 @@
     if (data.lang) document.documentElement.lang = data.lang;
   }
 
-  window.dash_clientside = Object.assign({}, window.dash_clientside, {workbench: {pills, language, uiWords, psPanels}});
+  // ------------------------------------------------------------------ switching Builds
+
+  // A switch to another Build (ADR 0006): `to` is the other Build's URL. The tab's running Removal Sensitivity and
+  // Parameter Selection jobs (their Cancel buttons are enabled while one runs) are named in a confirmation, then
+  // cancelled through those buttons before the tab navigates; finished parts stay cached. Only this tab's jobs.
+  function runningJobs() {
+    return ["rs-cancel", "ps-cancel"].filter((id) => {
+      const b = document.getElementById(id);
+      return b && !b.disabled;  // enabled only while its job runs (callbacks.py `running`)
+    });
+  }
+
+  function switchBuild(to) {
+    if (!to) return window.dash_clientside.no_update;
+    const running = runningJobs();
+    if (running.length) {
+      const w = (words && words.switch) || ["{n} running job will be cancelled; finished parts stay cached",
+                                            "{n} running jobs will be cancelled; finished parts stay cached"];
+      if (!window.confirm(fill(w[running.length === 1 ? 0 : 1], {n: running.length}))) {
+        return window.dash_clientside.no_update;
+      }
+      running.forEach((id) => document.getElementById(id).click());
+      setTimeout(() => window.location.assign(to), 400);  // the cancel requests go out first
+    } else {
+      window.location.assign(to);
+    }
+    return window.dash_clientside.no_update;
+  }
+
+  window.dash_clientside = Object.assign({}, window.dash_clientside,
+                                         {workbench: {pills, language, uiWords, psPanels, switchBuild, runningJobs}});
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();

@@ -25,7 +25,7 @@ from steamstudy.app import help as H
 from steamstudy.app import ps_cache, ps_run
 from steamstudy.app.ps_export import constraints_for, tag_names
 from steamstudy.app.loader import BuildContext
-from steamstudy.app.relabel import Labels, msg
+from steamstudy.app.relabel import Labels, PerBuild, msg
 from steamstudy.network import selection as SEL
 from steamstudy.network import selection_text as T
 from steamstudy.network import validation as V
@@ -327,18 +327,27 @@ def inspector_form(open_: bool) -> str:
     return "inspector docked ps-inspector" + (" has-sel" if open_ else "")
 
 
+def run_one_label(tx: Text, ctx: BuildContext) -> str:
+    return tx("Run {dataset}", dataset=ctx.datasets[0].label)
+
+
+def defining_options(tx: Text, ctx: BuildContext) -> list[dict[str, Any]]:
+    defining = [d.defining_tag.name for d in ctx.datasets if d.defining_tag]
+    return [{"label": tx("hide each dataset's defining tag ({tags})", tags=", ".join(defining))
+             if defining else tx("hide each dataset's defining tag"), "value": 1}]
+
+
 def controls(L: Labels, ctx: BuildContext, defaults: SEL.SelectionSettings) -> html.Div:
     first = ctx.datasets[0].key
-    defining = [d.defining_tag.name for d in ctx.datasets if d.defining_tag]
-    first_label = ctx.dataset(first).label
     field = ctx.read(first).filter_field
     run = html.Div([
         html.H4([L.span(msg("Run")), " ", _static_help(L, "selection.run")], className="ctl-h"),
         html.Div([html.Button(L.prop("ps-run-all", "children", msg("Run all datasets")), id="ps-run-all",
                               className="btn primary"),
-                  html.Button(L.prop("ps-run-one", "children", lambda tx: tx("Run {dataset}", dataset=first_label)),
+                  html.Button(L.prop("ps-run-one", "children", PerBuild(run_one_label)),
                               id="ps-run-one", className="btn"),
-                  html.Button(L.prop("ps-cancel", "children", msg("Cancel")), id="ps-cancel", className="btn")],
+                  html.Button(L.prop("ps-cancel", "children", msg("Cancel")), id="ps-cancel", className="btn",
+                              disabled=True)],
                  className="row-inline"),
         html.Button(id="ps-continue", className="btn", style={"display": "none"}),
         html.Div(id="ps-rows", className="ps-rows"),
@@ -351,14 +360,12 @@ def controls(L: Labels, ctx: BuildContext, defaults: SEL.SelectionSettings) -> h
     ], className="ctl-section")
     genre =[{"label": t.name, "value": t.id} for t in ctx.genre_tags]
     names = tag_names(ctx)
-    defining_label = (lambda tx: [{"label": tx("hide each dataset's defining tag ({tags})", tags=", ".join(defining))
-                                   if defining else tx("hide each dataset's defining tag"), "value": 1}])
     settings = html.Div([
         html.H4([L.span(msg("Selection settings")), " ", _static_help(L, "selection.settings")], className="ctl-h"),
         html.Label([L.term(msg("Hidden Genre Tags"), "selection.setting.hidden")], className="l"),
         dcc.Checklist(id="ps-s-genre", options=genre, value=list(defaults.genre_hidden), inline=True,
                       className="chips"),
-        dcc.Checklist(id="ps-s-defining", options=L.prop("ps-s-defining", "options", defining_label),
+        dcc.Checklist(id="ps-s-defining", options=L.prop("ps-s-defining", "options", PerBuild(defining_options)),
                       value=[1] if defaults.hide_defining_tag else [], className="check"),
         html.Label([L.term(msg("Removed tags"), "selection.setting.removed")], className="l"),
         dcc.Dropdown(id="ps-s-removed", options=[{"label": n, "value": t} for t, n in sorted(names.items(),

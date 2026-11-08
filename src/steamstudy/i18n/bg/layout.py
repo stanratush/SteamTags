@@ -149,4 +149,9 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "OR": "ИЛИ",
     "Filter...": "Филтър…",
     "No Rows To Show": "Няма редове",
+    "This Build no longer exists": "Тази компилация вече не съществува",
+    "Open the latest Build": "Отвори последната компилация",
+    "{n} running job will be cancelled; finished parts stay cached": {
+        "one": "{n} изпълнявана задача ще бъде отменена; завършените части остават в кеша",
+        "other": "{n} изпълнявани задачи ще бъдат отменени; завършените части остават в кеша"},
 }

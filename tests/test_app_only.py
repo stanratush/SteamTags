@@ -68,7 +68,8 @@ def test_the_app_runs_with_every_pipeline_module_and_library_blocked(build_folde
         from steamstudy.app.export import export_zip, open_export
         from steamstudy.app.loader import load_build
         app = create_app({str(build_folder)!r})
-        assert app.server.test_client().get("/").status_code == 200
+        client = app.server.test_client()
+        assert client.get("/").status_code == 302 and client.get(client.get("/").headers["Location"]).status_code == 200
         ctx = load_build({str(build_folder)!r})
         c = CB.controls_from_settings(ctx, ctx.default_settings("overall"))
         out = CB.recompute({str(build_folder)!r}, *[c[k] for k in CB.CONTROL_IDS], c["removed"], None)
