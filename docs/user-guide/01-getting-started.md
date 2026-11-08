@@ -9,13 +9,21 @@ The Tag Network app runs on your own computer and needs no internet connection. 
 3. **The first start takes about a minute**: it sets up a private environment inside the folder from the bundled files, with no internet. Later starts take a few seconds. If you move the folder or install another Python, the next start sets it up again.
 4. The app opens in your browser at `http://127.0.0.1:8050`, or at the next free port (8051, …) if 8050 is taken. Keep the window open while you work; closing it stops the app.
 
-It opens the latest Build in the bundle; add `--build <build id>` to the start command to open another one it carries. If it refuses to start, it says why and what to do (for example "This App Bundle needs Python 3.12, 3.13 or 3.14"). The app only reads the pipeline's own Top-100 Datasets; it never loads other files. (If you run the pipeline yourself, start the app from the repository instead, as the [Running Guide](../running-guide.md#the-app) describes.)
+It opens the bundle's first Build; add `--build <build id>` to the start command to open another one it carries, or switch from the header (see [Switch Builds](#switch-builds)). If it refuses to start, it says why and what to do (for example "This App Bundle needs Python 3.12, 3.13 or 3.14"). The app only reads the pipeline's own Top-N Datasets; it never loads other files. (If you run the pipeline yourself, start the app from the repository instead, as the [Running Guide](../running-guide.md#the-app) describes.)
 
 A yellow banner at the top warns when the Build comes from a test Snapshot (`mode: test`) or was made with parse errors allowed (`parse_errors_allowed`). Never publish numbers from such a Build. Another banner appears when a library the app computes with (for example networkx or numpy) is installed at a different version from the one the Build was made with, naming each library with both versions: the numbers may then differ from the Build's own reports. An App Bundle installs exactly the Build's versions, so you should not see it there.
 
+## Switch Builds
+
+Each browser tab shows one Build, and its address names it (`…/build/<source>/<build id>`), so two tabs can show two Builds side by side and a bookmark reopens the same one. When the app carries more than one Build, the Build's name in the header opens a menu of every Build, arranged by the Snapshot or Import it was made from, with each Build under the one it was made from. Click a Build to switch this tab to it.
+
+Switching keeps the language, the mode and the dataset when the other Build has a dataset of the same key. It resets the Network State settings to the other Build's defaults, since its numbers differ. If a background job is running in this tab (a Removal Sensitivity or Parameter Selection Run), the app asks before switching, because switching cancels it. A Build that has been deleted opens as a notice with a link to the latest Build. A bundle with a single Build has no menu.
+
+If you run the app from the repository, the same menu also makes Builds; see [Making Builds in the app](07-making-builds.md).
+
 ## Load a dataset
 
-Pick one of the five Top-100 Datasets in the **Dataset** selector: Overall, Puzzle, RPG, Strategy or Simulation. The app builds the Tag Network of that dataset at the shared defaults (the same settings the feature-analysis report uses) and clusters it. Every control change recomputes the whole Network State: network, clusters, null model, Seed-Noise Floor and all metrics. At loose thresholds a change can take several seconds.
+Pick one of the Build's Top-N Datasets in the **Dataset** selector (the default Steam Build has Overall, Puzzle, RPG, Strategy and Simulation). The app builds the Tag Network of that dataset at the shared defaults (the same settings the feature-analysis report uses) and clusters it. Every control change recomputes the whole Network State: network, clusters, null model, Seed-Noise Floor and all metrics. At loose thresholds a change can take several seconds.
 
 Above the graph, the summary row shows the key numbers large: the games left after the Minimum Months Filter ("100 of 100"), tags, links, clusters ("3 + 4" multi-tag + one-tag), Q with its excess over the null model ("0.17 · excess +0.11") and the mean silhouette ("0.04 · descriptive"). Hover over any of them, or reach it with Tab, for a short explanation; click its dotted label for the full guide entry. Under it, one line states the Network State as a sentence that ends with its `state_id`; click the id to copy it.
 
@@ -35,7 +43,7 @@ The **Mode** control at the top switches between three views. The Workbench and 
 
 - **Workbench**: controls on the left, the graph in the centre with a cluster legend and the Global / Cluster-separated layout switch, the inspector on the right, and tabbed tables below (Cluster quality, Clusters, Removal sensitivity, Nodes, Edges, Not in network). Controls, Inspector and Tables collapse independently; **Graph only** switches to the narrowest form, with the controls as a pill bar, a floating inspector and the tables as a bottom sheet (see [Window width and the three forms](02-app-controls.md#window-width-and-the-three-forms)).
 - **Analysis Report mode**: one scrolling page of numbered sections over the same state: 1 Dataset · 2 Filters (every tag left out of the network, with its reasons) · 3 Network and inspector · 4 Cluster quality · 5 Removal sensitivity · 6 All nodes and edges · 7 Export. It is meant for reading one Network State top to bottom. It is not the generated feature-analysis report (`report.html`), which the Build writes.
-- **Parameter Selection**: searches the thresholds and γ for each Top-100 Dataset and chooses a Threshold Pair by fixed rules, with the evidence for and against it (see [Parameter Selection mode](02-app-controls.md#parameter-selection-mode) and [How Automatic Parameter Selection works](03-metric-reference.md#how-automatic-parameter-selection-works)). **Apply to Workbench** opens any selected pair in the Workbench.
+- **Parameter Selection**: searches the thresholds and γ for each Top-N Dataset and chooses a Threshold Pair by fixed rules, with the evidence for and against it (see [Parameter Selection mode](02-app-controls.md#parameter-selection-mode) and [How Automatic Parameter Selection works](03-metric-reference.md#how-automatic-parameter-selection-works)). **Apply to Workbench** opens any selected pair in the Workbench.
 
 ## Inspect a node, an edge or a cluster
 

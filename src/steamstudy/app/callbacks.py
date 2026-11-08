@@ -851,7 +851,7 @@ def show_help(_clicks, _close, target=None, _back=None, history=None, lang=None)
             raise PreventUpdate
         history.pop()
     elif isinstance(trigger, dict):
-        if not any(_clicks or []):
+        if not ctx.triggered or not ctx.triggered[0].get("value"):  # a `?` just rendered (a dialog), not clicked
             raise PreventUpdate
         history = ["#".join(PANEL_SECTIONS[trigger["panel"]])]
     else:  # help-close

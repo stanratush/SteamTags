@@ -155,7 +155,7 @@ MESSAGES: dict[str, str | dict[str, str]] = {
         "двойката, избрана при ограниченията по подразбиране.",
     "Not validated.": "Не е валидирано.",
     # The methods paragraph
-    "For each Top-100 Dataset we built the Tag Network at every Threshold Pair (g, s) of the Parameter Grid, "
+    "For each {top_n} Dataset we built the Tag Network at every Threshold Pair (g, s) of the Parameter Grid, "
     "{g_range} games per tag and {s_range} shared games with s ≤ g ({n_pairs} pairs), with {weight} as the "
     "Clustering Weight, a Minimum Months Filter of {min_months} and {hidden} hidden. On each distinct graph we ran "
     "Leiden (RBConfiguration, at most 1,000 passes) with {scan_seeds} seeds at every γ from 0 to Gibson and "
@@ -190,7 +190,7 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "the B* subsamples (the per-subsample cut is Hennig's, the majority our rule); the 0.6, 0.75 and 0.85 bands of the "
     "fpc package refer to the bootstrap and are not applied. The pair was chosen on the same data, so Subsample "
     "Stability may be slightly optimistic.":
-        "За всеки набор Топ-100 изградихме мрежата от тагове при всяка двойка прагове (g, s) от решетката на "
+        "За всеки набор {top_n} изградихме мрежата от тагове при всяка двойка прагове (g, s) от решетката на "
         "параметрите, {g_range} игри на таг и {s_range} общи игри, с s ≤ g (двойки: {n_pairs}), с тегло за "
         "клъстеризация {weight}, филтър за минимум месеци {min_months} и скрити {hidden}. Върху всеки различен граф "
         "изпълнихме Leiden (RBConfiguration, най-много 1000 прохода) с начални числа: {scan_seeds}, при всяко γ от 0 "

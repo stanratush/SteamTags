@@ -76,6 +76,28 @@ It refetches the app's Steam Charts page and, if the app is scored, its store pa
 uv run steamstudy collect steamdb --build 20261005T120000Z-abcdef12
 ```
 
+## Lightweight Snapshots
+
+A Snapshot has two forms with one `snapshot_id`. The **raw** form is the folder of pages, the request log and `snapshot.json`. The **lightweight** form is `snapshots/<snapshot_id>.light.zip`, about 6 MB: the parsed tables a Build reads, with a `meta.json` that records the extract version, the raw form's repair count and each table's sha256 (checked on open). A Build from the lightweight form is byte-identical to one from the raw form, apart from `build.json`'s `snapshot_form`, and takes about 24 s instead of about 99 s.
+
+Collect makes the lightweight form automatically when it closes a Snapshot, and again after every `--repair` (about 80 s). To make it yourself:
+
+```bash
+uv run steamstudy snapshot lighten
+```
+
+lightens the latest closed Snapshot (name another as an argument). It is never changed afterwards: collect, repair and SteamDB batches act on the raw form only, and lightening again replaces the zip. To check the guarantee on a real Snapshot:
+
+```bash
+uv run steamstudy snapshot verify-light 20261005T120000Z
+```
+
+builds from both forms with one `build_id` and compares every file.
+
+**Which form a Build reads.** When both forms are present, the lightweight one; `steamstudy build --from-raw` forces the raw pages. The lightweight form is **stale** when its extract version is older than the code's (a parser or the extracted fields changed) or when its repair count is behind the raw form's. A stale zip is not used: the Build reads the raw form and warns you to lighten again, and refuses, naming the gap, when the raw form is absent.
+
+**Moving a Snapshot.** The zip alone is enough to build from, so to move a Snapshot to another computer, copy its `.light.zip` into that computer's `snapshots/`. Keep the raw folder where it was made: repairs and SteamDB batches need it.
+
 ## The test Snapshot
 
 `--mode test` collects the first 4 listing pages of one pass (100 apps) plus the edge-case AppIDs listed in `collection.toml`: placeholder rows, missing histories, Early Access, Desktop Companion, Dating Sim, Adult Only and software cases. It may run before the operator replies. Its Builds carry `mode: test` in `snapshot.json` and `build.json`, and the app shows a banner. Never publish them.
@@ -103,15 +125,37 @@ Both records are copied into `snapshot.json`. If the operator objects, do not st
 uv run steamstudy build
 ```
 
-derives a new Build from the latest Snapshot (`--snapshot <id>` picks one) without contacting any source. It writes `builds/<snapshot_id>/<build_id>/` with `datasets/`, `reports/` and `analysis/` (the files are described in [chapter 4 of the User Guide](user-guide/04-files.md)), never overwrites an earlier Build, and updates the `latest` pointers. All five datasets are always built; `--dataset` only limits what is printed.
+derives a new Build from the latest Snapshot (`--snapshot <id>` picks one) without contacting any source. It writes `builds/<snapshot_id>/<build_id>/` with `datasets/`, `reports/` and `analysis/` (the files are described in [chapter 4 of the User Guide](user-guide/04-files.md)), never overwrites an earlier Build, and updates the `latest` pointers. Every dataset in `config/datasets.toml` is always built; `--dataset` only limits what is printed. Options:
 
-Every dataset of a full Build holds exactly the 100 highest-ranked games of its Eligible Pool; if a pool has fewer than 100 games, the Build fails. A test Build may be shorter, with a warning. The Build fails (exit code 1) on any parse error, writing the errors to `builds/<snapshot_id>/failed/<build_id>-parse_errors.csv`. It also fails on an invalid Manual Metadata Entry or exclusion-list entry, a `;` in a tag or genre name, or a causal word in a generated report.
+- `--name <name>` names the Build (unique per Snapshot, ignoring case; default: its `build_id`). The name is what the app's Build menu, citations and bundles show.
+- `--from-raw` reads the raw pages even when a Lightweight Snapshot is present.
+- `--import <import_id>` builds an Import instead (see [Import](#import)).
+
+The datasets, their List Sizes (default 100) and the Tags per game (Tag Depth) come from `config/datasets.toml`. Every dataset of a full Build holds exactly its List Size of highest-ranked games from its Eligible Pool; if a pool is smaller than its List Size, the Build fails. A test Build may be shorter, with a warning. Builds can also be made from the app's Build menu, through a draft (see [chapter 7 of the User Guide](user-guide/07-making-builds.md)). The Build fails (exit code 1) on any parse error, writing the errors to `builds/<snapshot_id>/failed/<build_id>-parse_errors.csv`. It also fails on an invalid Manual Metadata Entry or exclusion-list entry, a `;` in a tag or genre name, or a causal word in a generated report.
 
 ```bash
 uv run steamstudy build --allow-parse-errors
 ```
 
 treats the affected apps as unscored (or without store data), sets `parse_errors_allowed: true` with the count in `build.json`, and makes the app show a banner. Such Builds are for diagnosis only and are **never published**.
+
+## Import
+
+An **Import** plays the Snapshot's role for data that does not come from Steam: one wide UTF-8 CSV of items, `id,name,attributes[,score][,numeric fields…]`, where `attributes` holds names separated by `;`, most important first. The file format, every refusal code and what changes in an Import Build are in [chapter 8 of the User Guide](user-guide/08-imported-data.md).
+
+```bash
+uv run steamstudy import items.csv --filter months
+```
+
+validates the whole file in one pass. When it is valid, the command stores it as `imports/<import_id>/` (`import_id` = UTC timestamp plus a slug of the file name). The Import holds the original file verbatim, its sha256, the normalised tables and `import.json`, and it is never changed: a corrected file is a new Import, and a byte-identical re-import is refused, naming the existing one. `--filter <column>` names the numeric column the app's filter slider uses; it must be filled for every item. `--attributes <file>` supplies attribute ids (`id,name`). By default, `attributes.csv` beside the file is used when present. Without one, attributes are numbered in name order.
+
+When the file is refused, nothing is stored. The command prints counts per code and the first 20 problems, and writes the full list to `imports/failed/<attempt_id>/errors.csv` beside a copy of the input.
+
+```bash
+uv run steamstudy build --import 20261101T090000Z-items --name "Items, first look"
+```
+
+builds an Import with the Import defaults, or with the reduced config set in `--config <dir>` when that folder holds one. It writes `builds/<import_id>/<build_id>/`. The app's **Import data…** in the Build menu does the same import from a file upload.
 
 ## Folder layouts
 
@@ -123,19 +167,24 @@ snapshots/<snapshot_id>/          one Snapshot (never published)
   requests.sqlite                 the request log and checkpoint (URL, status, final URL, time, sha256, outcome)
   snapshot.json                   collection metadata
   skipped_apps.csv                apps skipped because their Steam Charts page kept failing (if any)
-builds/latest                     <snapshot_id>/<build_id> of the newest Build
+snapshots/<snapshot_id>.light.zip the lightweight form of that Snapshot (never published)
+imports/<import_id>/              one Import: the original file, its sha256, normalised tables, import.json
+imports/failed/<attempt_id>/      a refused import: errors.csv and a copy of the input
+builds/latest                     <source_id>/<build_id> of the newest Build
 builds/<snapshot_id>/latest       the newest Build of that Snapshot
+builds/<snapshot_id>/drafts/      Build Drafts of that Snapshot, one <name-slug>.json each
+builds/<snapshot_id>/failed/      the parse errors of a Build that failed on them
 bundles/                          App Bundle zips and their wheel cache (steamstudy bundle)
 builds/<snapshot_id>/<build_id>/  one Build
-  datasets/                       top100_<dataset>.csv ×5, monthly_players.csv, build.json
+  datasets/                       top100_<dataset>.csv per dataset, monthly_players.csv, build.json
   reports/                        exclusions, completeness, impact, ties, diagnostics, reports.html
   analysis/                       feature analysis, network tables, removal_sensitivity.csv,
                                   resolution_sweep.csv, analysis.json, report.html
-  app_cache/                      the app's Removal Sensitivity and Parameter Selection results and its job
-                                  store (regenerable)
+  app_cache/                      the app's Removal Sensitivity and Parameter Selection results (regenerable)
+builds/<import_id>/…              Import Builds, with the same layout (latest, drafts/, <build_id>/)
 ```
 
-`snapshots/`, `builds/` and `bundles/` are git-ignored. Only the derived Top-100 exports, reports and analysis are published; `monthly_players.csv` waits for the operator's agreement.
+`top100_<dataset>.csv` keeps its name whatever the List Size. The app's running job store is no longer in `app_cache/`: each app process keeps it in a temporary folder of the operating system and deletes it on exit. `snapshots/`, `imports/`, `builds/` and `bundles/` are git-ignored. Only the derived Top-100 exports, reports and analysis are published; `monthly_players.csv` waits for the operator's agreement.
 
 ## The app
 
@@ -143,7 +192,7 @@ builds/<snapshot_id>/<build_id>/  one Build
 uv run steamstudy app
 ```
 
-opens the latest Build (`--build <id>` picks another, `--port` changes the port, `--no-browser` skips opening the browser). The app listens only on `127.0.0.1` and loads nothing from the internet. Removal Sensitivity and Parameter Selection results are cached in the Build's `app_cache/`, never evicted automatically. Clear them with the app's **Clear app cache** button or:
+opens the latest Build (`--build <id>` picks another, `--port` changes the port, `--no-browser` skips opening the browser). The app listens only on `127.0.0.1` and loads nothing from the internet. Each tab shows one Build, named in its URL (`/build/<source_id>/<build_id>`), so two tabs can compare two Builds. Run from the repository, the **Build menu** (click the Build's name in the header) switches Builds, starts and edits drafts, runs Builds, deletes them and makes Imports; [chapter 7 of the User Guide](user-guide/07-making-builds.md) walks through it. Removal Sensitivity and Parameter Selection results are cached in the Build's `app_cache/`, never evicted automatically. Clear them with the app's **Clear app cache** button or:
 
 ```bash
 uv run steamstudy app --clear-cache
@@ -158,21 +207,22 @@ When a library the app computes with is installed at another version than the on
 An App Bundle lets a researcher run the Tag Network app on another computer that has only Python 3.12–3.14 (not 3.14.1): no uv, no repository, no internet. It never collects or builds; it opens only the Builds it carries. See [ADR 0001](adr/0001-app-bundle-wheels-not-frozen.md) for why it ships wheels and a launcher rather than a frozen executable. To release a bundle after a code update, follow [Releasing an updated App Bundle](releasing-an-app-bundle.md).
 
 ```bash
-uv run steamstudy bundle
+uv run steamstudy bundle --build "Overall, first release"
 ```
 
-writes `bundles/tag-network-<build_id>-<targets>.zip` for this computer's operating system, with the latest Build. Options:
+writes `bundles/tag-network-<build_id>-<targets>.zip` for this computer's operating system, with the Builds you name. Options:
 
-- `--build <id>` (repeatable) also includes another Build; the latest is always included and opens by default.
+- `--build` (required, repeatable) names a Build: its `build_id`, `<source_id>/<build_id>`, its name, or `<source_id>/<name>` (names ignore case; an ambiguous name is refused, listing the matches). `--build latest` is the newest Build. The first one named opens by default.
+- `--allow-test` allows Builds of test Snapshots (test bundles only).
 - `--target windows|macos|linux` (repeatable) makes it for those systems instead (Windows x64, macOS on Apple silicon, Linux x86_64 with glibc 2.28 or newer). Intel Macs and ARM Linux are not supported.
 - `--out <folder>` writes the zip elsewhere.
 - `--skip-parameter-selection` ships no Parameter Selection results. It is for quick test bundles only, never for a release.
 
 ```bash
-uv run steamstudy bundle --target windows --target macos --target linux
+uv run steamstudy bundle --target windows --target macos --target linux --build latest
 ```
 
-makes one zip for all three. What goes in: the launcher `start_tag_network.py` (standard library only) with `Start Tag Network.bat` and `Start Tag Network.command`; `READ ME FIRST.txt`; the User Guide; the app-only `steamstudy` wheel; every dependency wheel each target needs for Python 3.12, 3.13 and 3.14, pinned exactly to `uv.lock` and checked against its hashes (pure-Python wheels stored once); per-target requirement files with those hashes; the Build folders with `latest` pointers, without your own `app_cache/` but each with freshly computed Parameter Selection results (every dataset's grid and the validation of its default-constraint pair, under the default Selection Settings, about 8½ minutes per Build on 12 workers); and `bundle.json` (format version, `steamstudy` version, `uv.lock` hash, targets, Python versions, Builds, date, and the shipped Parameter Selection keys or `"skipped"`). None of the pipeline's libraries are installed, except `requests`: dash itself declares it, so it comes along, but the app never imports it. Each target adds about 220 MB. The command refuses, writing nothing, when a selected Build does not exist or when `uv.lock` has no wheel for some package on some target and Python.
+makes one zip for all three. What goes in: the launcher `start_tag_network.py` (standard library only) with `Start Tag Network.bat` and `Start Tag Network.command`; `READ ME FIRST.txt`; the User Guide; the app-only `steamstudy` wheel; every dependency wheel each target needs for Python 3.12, 3.13 and 3.14, pinned exactly to `uv.lock` and checked against its hashes (pure-Python wheels stored once); per-target requirement files with those hashes; the Build folders with `latest` pointers, without your own `app_cache/` but each with freshly computed Parameter Selection results (every dataset's grid and the validation of its default-constraint pair, under the default Selection Settings, about 8½ minutes per Build on 12 workers); and `bundle.json` (format version, `steamstudy` version, `uv.lock` hash, targets, Python versions, Builds with their names, descriptions and parents, date, and the shipped Parameter Selection keys or `"skipped"`). Import Builds bundle like Steam ones; `imports/` is never shipped. None of the pipeline's libraries are installed, except `requests`: dash itself declares it, so it comes along, but the app never imports it. Each target adds about 220 MB. The command refuses, writing nothing, when a selected Build does not exist or when `uv.lock` has no wheel for some package on some target and Python.
 
 **Making a bundle needs internet** (it downloads the wheels from PyPI into `bundles/.cache/`, and later runs reuse them); **using one never does**. On the target computer the launcher installs the wheels into a private `environment/` folder inside the bundle with no package index, and rebuilds it when the folder moved, the Python changed or the bundle changed. It opens the app on port 8050 or the next free one.
 

@@ -415,7 +415,7 @@ def validation_block(summary: Any, pair: tuple[int, int], chosen_pair: tuple[int
 # ----------------------------------------------------------------------------- the methods paragraph
 
 
-METHODS_FIELDS = ("g_range", "s_range", "n_pairs", "weight", "min_months", "hidden", "scan_seeds", "gamma_step",
+METHODS_FIELDS = ("top_n", "g_range", "s_range", "n_pairs", "weight", "min_months", "hidden", "scan_seeds", "gamma_step",
                   "min_multi", "tolerance", "constraints", "replicates", "subsamples")
 
 
@@ -424,7 +424,7 @@ def methods_paragraph(tx: Text, values: dict[str, Any] | None = None) -> str:
     equal), filled with a run's values, or with ‹placeholders›."""
     values = values or {name: f"‹{name}›" for name in METHODS_FIELDS}
     return tx(
-        "For each Top-100 Dataset we built the Tag Network at every Threshold Pair (g, s) of the Parameter Grid, "
+        "For each {top_n} Dataset we built the Tag Network at every Threshold Pair (g, s) of the Parameter Grid, "
         "{g_range} games per tag and {s_range} shared games with s ≤ g ({n_pairs} pairs), with {weight} as the "
         "Clustering Weight, a Minimum Months Filter of {min_months} and {hidden} hidden. On each distinct graph we ran "
         "Leiden (RBConfiguration, at most 1,000 passes) with {scan_seeds} seeds at every γ from 0 to Gibson and "
@@ -462,12 +462,13 @@ def methods_paragraph(tx: Text, values: dict[str, Any] | None = None) -> str:
         "applied. The pair was chosen on the same data, so Subsample Stability may be slightly optimistic.", **values)
 
 
-def methods_values(settings: Any, constraints: Any, *, tx: Text) -> dict[str, Any]:
+def methods_values(settings: Any, constraints: Any, *, tx: Text, top_n: str = "Top-100") -> dict[str, Any]:
+    """`top_n` is the Build-output wording: "Top-100" when every List Size is 100, else "Top-N"."""
     weight = tx("Lift") if settings.clustering_weight == "lift" else tx("shared games")
     n_hidden = len(settings.genre_hidden)
     hidden = (tx("{n} Genre Tags and each dataset's defining tag", n=n_hidden) if settings.hide_defining_tag
               else tx("{n} Genre Tags", n=n_hidden))
-    return {"g_range": f"{settings.g_range[0]}–{settings.g_range[1]}",
+    return {"top_n": top_n, "g_range": f"{settings.g_range[0]}–{settings.g_range[1]}",
             "s_range": f"{settings.s_range[0]}–{settings.s_range[1]}", "n_pairs": len(settings.pairs()),
             "weight": weight, "min_months": settings.min_months, "hidden": hidden, "scan_seeds": settings.scan_seeds,
             "gamma_step": tx.fixed(settings.gamma_step, "g"), "min_multi": settings.min_multi_tag_clusters,

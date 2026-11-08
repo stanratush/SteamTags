@@ -61,10 +61,10 @@ git diff --stat <previous-commit> HEAD -- src/steamstudy/build src/steamstudy/an
 ```
 
 ```bash
-uv run steamstudy build --snapshot <snapshot_id>
+uv run steamstudy build --snapshot <snapshot_id> --name "<name>"
 ```
 
-makes the new Build and makes it `latest`. Always name the Snapshot: without `--snapshot` the Build uses the newest one, which may be a test Snapshot made after the full one (`snapshot.json` says `mode: test`), and a bundle must never carry a test Build. It never touches the old Build, and its new `build_id` also gives the zip a new name.
+makes the new Build and makes it `latest`. Give it a name researchers will recognise: the bundle's Build menu, `READ ME FIRST.txt` and citations show it beside the `build_id`. Always name the Snapshot: without `--snapshot` the Build uses the newest one, which may be a test Snapshot made after the full one (`snapshot.json` says `mode: test`), and a bundle must never carry a test Build. It never touches the old Build, and its new `build_id` also gives the zip a new name.
 
 **Keep the previous Build in the bundle** when researchers may have exported Network States from it: **Open Network State…** only opens an export whose Build (by `build_id` and `build.json` hash) is in the bundle. Add it with `--build` in the next step.
 
@@ -73,12 +73,16 @@ makes the new Build and makes it `latest`. Always name the Snapshot: without `--
 Write each release to its own folder named after the commit, so it never replaces an earlier zip:
 
 ```bash
-uv run steamstudy bundle --target windows --target macos --target linux --out bundles/<commit>
+uv run steamstudy bundle --target windows --target macos --target linux --build "<name>" --build "<older name>" --out bundles/<commit>
 ```
 
-Drop the `--target` options to make it for this computer's system only (about 220 MB per target). Add `--build <build_id>` for each extra Build to carry; the latest Build is always included and opens by default.
+Drop the `--target` options to make it for this computer's system only (about 220 MB per target). Name every Build to carry with `--build`, by name or id (`<source_id>/<name>` or `<source_id>/<build_id>` when a name is used on two sources; an ambiguous name is refused, listing the matches). At least one is required, and nothing is included implicitly; `--build latest` names the newest Build. **The first Build named opens by default** and is the bundle's `latest`.
+
+A Build of a test Snapshot is refused unless you pass `--allow-test`. Use it for test bundles only, never for a release. When two named Builds have identical settings on the same source, the command logs a warning naming both: check that you meant to carry both, because they hold the same results.
 
 The command needs internet only for wheels it has not cached yet: they go to `bundles/<commit>/.cache/wheels/` when you use `--out`, so copy `bundles/.cache/` there first to avoid downloading them again. It refuses, writing nothing, if a Build does not exist or `uv.lock` lacks a wheel for some target and Python. When it finishes it logs the zip's path and size.
+
+**What the bundle shows of names and lineage.** `bundle.json` records each Build's name, description, parent and the parent's name at the time you make the bundle. `READ ME FIRST.txt` lists each name beside its id. In the bundled app, the Build menu only switches Builds: one top-level row per source, with each Build under its parent when the parent is in the bundle. Otherwise the row reads "from <parent name> (not in this Bundle)", or "from a deleted Build" when the parent no longer existed. A bundle with a single Build shows no menu.
 
 **Making a bundle runs Parameter Selection for every Build it carries.** It recomputes each dataset's grid and the validation of its default-constraint pair, under the shipped code's default Selection Settings, into the bundle's copy of the Build. That takes about 8½ minutes per Build on 12 workers (`[parameter_selection] workers` in `config/network.toml`), so a two-Build bundle needs about 17 minutes more than before. It logs one line per Build, dataset and phase as each finishes, for example `Build 20261008T221504Z-7a23ae9f, puzzle: grid 153 of 153 pairs, about 6 min left`.
 
@@ -99,7 +103,7 @@ python -m zipfile -e bundles/<commit>/tag-network-<build_id>-<targets>.zip ../bu
 Then double-click `Start Tag Network.bat` in the extracted folder (or run `py -3 start_tag_network.py` there). Check that:
 
 - the first start sets up the environment and opens the app in the browser;
-- `READ ME FIRST.txt` lists the Builds and systems you meant, and the right Build opens;
+- `READ ME FIRST.txt` lists the Builds (by name and id) and systems you meant, and the first Build you named opens;
 - no library-version banner appears (one means the Build was made with other library versions: go back to step 3);
 - the update itself is visible (look for the change you are releasing);
 - if you included an older Build, an export made from it opens with **Open Network State…**;
@@ -134,4 +138,4 @@ uv run steamstudy build --snapshot 20261005T062558Z-full
 uv run steamstudy bundle --target windows --target macos --target linux --build 20261006T062622Z-7a23ae9f --out bundles/0e37893
 ```
 
-The result is `bundles/0e37893/tag-network-20261008T221504Z-7a23ae9f-windows-macos-linux.zip` (655 MB), carrying Build `20261008T221504Z-7a23ae9f` (opens by default) and `20261006T062622Z-7a23ae9f`. The tests passed except `test_shipped_config_loads_with_spec_defaults`, which failed only because of an uncommitted local edit to `config/collection.toml`; that file reaches neither a Build nor a bundle. Started from a short path with Python 3.13, the bundle set up its environment, opened both Builds without a banner and showed the update (Tidy, "Edge thickness: shared games" in the key).
+(At the time the latest Build was always included and `--build` only added Builds. Today the same bundle names both: `--build 20261008T221504Z-7a23ae9f --build 20261006T062622Z-7a23ae9f`.) The result is `bundles/0e37893/tag-network-20261008T221504Z-7a23ae9f-windows-macos-linux.zip` (655 MB), carrying Build `20261008T221504Z-7a23ae9f` (opens by default) and `20261006T062622Z-7a23ae9f`. The tests passed except `test_shipped_config_loads_with_spec_defaults`, which failed only because of an uncommitted local edit to `config/collection.toml`; that file reaches neither a Build nor a bundle. Started from a short path with Python 3.13, the bundle set up its environment, opened both Builds without a banner and showed the update (Tidy, "Edge thickness: shared games" in the key).

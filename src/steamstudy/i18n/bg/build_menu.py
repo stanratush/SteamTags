@@ -47,6 +47,8 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "This deletes the Build folder {ref} ({size}, of which app cache {cache}). It cannot be undone.":
         "Това изтрива папката на компилацията {ref} ({size}, от които кеш на приложението {cache}). "
         "Действието е необратимо.",
+    "Exports made from it will no longer open with Open Network State…":
+        "Експортите, направени от нея, вече няма да се отварят с „Отвори състояние на мрежата…“.",
     "Other tabs on this Build will show that it no longer exists.":
         "Другите раздели с тази компилация ще покажат, че тя вече не съществува.",
     "Delete the Build": "Изтрий компилацията",
@@ -82,6 +84,7 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "The Build of {name} was cancelled.": "Компилирането на {name} е отменено.",
     "Open the draft": "Отвори черновата",
     # the draft dialog
+    "Open the User Guide section": "Отвори раздела от ръководството",
     "Start": "Начало",
     "Changes the Top-N": "Промени в Топ-N",
     "Curation": "Курация",
@@ -107,7 +110,7 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "Builds from": "Компилира се от",
     "This Snapshot has only its raw form: the Eligible Pool is not previewed and a Build takes about 99 s. A "
     "lightweight form makes both fast.":
-        "Тази моментна снимка има само сурова форма: допустимият набор не се преглежда предварително и "
+        "Тази моментна снимка има само сурова форма: пулът на годните игри не се преглежда предварително и "
         "компилирането отнема около 99 s. Олекотената форма ускорява и двете.",
     "Make lightweight Snapshot": "Създай олекотена моментна снимка",
     "The last Build run failed: {n} pages did not parse; they are listed in {path}.":
@@ -121,7 +124,7 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "Label": "Етикет",
     "Defining tag": "Определящ таг",
     "List Size": "Размер на списъка",
-    "Eligible Pool": "Допустим набор",
+    "Eligible Pool": "Пул на годните игри",
     "Datasets": "Набори от данни",
     "Add a dataset": "Добави набор",
     "Tags per game (Tag Depth)": "Тагове на игра (дълбочина на таговете)",
@@ -155,14 +158,14 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "Building…": "Компилира се…",
     # the Eligible Pool preview and the grid warnings
     "Not previewed": "Без предварителен преглед",
-    "{n} eligible": "{n} допустими",
-    "Eligible Pools": "Допустими набори",
+    "{n} eligible": "{n} годни",
+    "Eligible Pools": "Пулове на годните игри",
     "Not previewed: this Snapshot has no lightweight form. The Build checks each List Size itself (about 99 s from "
     "raw).":
         "Без предварителен преглед: тази моментна снимка няма олекотена форма. Компилацията сама проверява всеки "
         "размер на списъка (около 99 s от суровата форма).",
     "— Cannot preview: {reason}": "— Не може да се прегледа предварително: {reason}",
-    "{key}: {n} eligible, List Size {size}": "{key}: {n} допустими, размер на списъка {size}",
+    "{key}: {n} eligible, List Size {size}": "{key}: {n} годни, размер на списъка {size}",
     "Compared with {name}: {a} games enter Overall and {b} leave it.":
         "Спрямо {name}: {a} игри влизат в Overall и {b} излизат от него.",
     "Enter: ": "Влизат: ",

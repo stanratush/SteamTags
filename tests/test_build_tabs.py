@@ -32,7 +32,7 @@ def tabs(tagged_build, tmp_path_factory):
     shutil.copytree(tagged_build, b, ignore=skip)
     bj = b / "datasets" / "build.json"
     data = json.loads(bj.read_text(encoding="utf-8"))
-    data["build_id"] = B_ID
+    data["build_id"], data["name"] = B_ID, "Copy B"
     bj.write_text(json.dumps(data, indent=2), encoding="utf-8")
     app = create_app(a)
     return app, a, b
@@ -54,13 +54,13 @@ def test_two_tabs_on_two_builds_keep_their_own_dataset_header_and_selection_keys
     assert pa["build-path"]["data"] == f"S1/{a.name}" and pb["build-path"]["data"] == f"S2/{B_ID}"
     assert pa["dataset"]["value"] == "puzzle" and pb["dataset"]["value"] == "overall"
     assert pa["mode"]["value"] == "report" and pb["mode"]["value"] == "workbench"
-    assert pa["brand-build"]["children"] == f"Build {a.name}" and pb["brand-build"]["children"] == f"Build {B_ID}"
+    assert pa["brand-build"]["children"] == f"Build {a.name}" and pb["brand-build"]["children"] == "Build Copy B"
     assert B_ID in json.dumps(pb["ps-active"]["data"]) and B_ID not in json.dumps(pa["ps-active"]["data"])
     # A language switch in B's tab relabels the header from B, though A's page filled the registry first.
     set_ = {}
     monkeypatch.setattr(CB, "set_props", lambda id_, props: set_.setdefault(str(id_), {}).update(props))
     CB.relabel("bg", f"S2/{B_ID}")
-    assert B_ID in set_["brand-build"]["children"]
+    assert set_["brand-build"]["children"] == "Компилация Copy B"
     # A key unknown to the Build falls back to its first dataset.
     assert _page(app, f"/build/S2/{B_ID}", "?dataset=nonesuch")["dataset"]["value"] == "overall"
 

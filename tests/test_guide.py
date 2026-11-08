@@ -141,7 +141,7 @@ def test_known_limitations_chapter_holds_the_full_list():
     """English only (docs/user-guide/*.md, never bg/)."""
     text = _text("06-known-limitations.md")
     for item in ("current snapshot", "ranked selection", "coverage gaps", "Delisted games", "under 10,000",
-                 "Ties at rank 100", "joke votes", "ids 3 and 4", "Dating Sim rank", "country", "allow-parse-errors",
+                 "Ties at the last rank", "joke votes", "ids 3 and 4", "Dating Sim rank", "country", "allow-parse-errors",
                  "pre-launch", "Early Access", "not optimised", "screening aid", "single run", "K = 10",
                  "fixed γ grid", "Neighbour Agreement tends to be higher at large g", "count-only thresholds",
                  "Lift has no likelihood", "no_qualifying_pair"):
@@ -359,3 +359,34 @@ def test_the_renamed_edge_thickness_anchor_still_resolves():
     assert in_short_at("en", "02-app-controls.md", "edge-thickness") == in_short_at("en", "02-app-controls.md",
                                                                                     "edge-appearance")
     assert "](#edge-thickness)" in _text("02-app-controls.md")  # an old in-guide link, kept on purpose
+
+
+def test_every_draft_step_has_a_help_anchor_in_chapter_7():
+    from steamstudy.build_admin import STEPS
+
+    anchors = _anchors("07-making-builds.md")
+    for step in STEPS:
+        file, anchor = PANEL_SECTIONS[f"draft-{step}"]
+        assert file == "07-making-builds.md" and anchor in anchors, step
+        assert help_markdown("en", f"draft-{step}").startswith("#")
+
+
+def test_the_refusal_table_covers_every_import_code():
+    from steamstudy.imports import ERROR_CODES, WARNING_CODES
+
+    for name in ("08-imported-data.md", "bg/08-imported-data.md"):
+        text = _text(name)
+        listed = set(re.findall(r"^\| `([a-z_0-9]+)` \|", text, flags=re.M))
+        assert listed == set(ERROR_CODES) | set(WARNING_CODES), name
+
+
+def test_chapter_7_has_no_in_short_blocks_and_chapter_8_opens_with_the_reading_note():
+    assert "**In short.**" not in _text("07-making-builds.md")
+    assert "read **game** as *item* and **tag** as *attribute*" in _text("08-imported-data.md")
+
+
+def test_the_draft_dialog_settings_open_their_chapter_3_entries():
+    from steamstudy.app.help import DRAFT_HELP
+
+    anchors = _anchors("03-metric-reference.md")
+    assert all(file == "03-metric-reference.md" and anchor in anchors for file, anchor in DRAFT_HELP.values())

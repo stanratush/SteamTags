@@ -21,7 +21,7 @@ BG = EN / "bg"
 
 # An entry's markers, by kind: how each language writes it (guide.MARKERS) inside the entry's own text.
 MARKER_FORMS = {"why": "*{}.*", "exact": "**{}:**", "example": "*{}.*", "bounds": "*{}.*", "compare": "*{}.*",
-                "caution": "*{}.*", "shown": "{}"}
+                "caution": "*{}.*", "shown": "{}", "steam_only": "*{}.*"}
 
 
 def _own(markdown: str, anchor: str) -> str:

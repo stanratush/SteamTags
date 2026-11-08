@@ -1,6 +1,6 @@
 # Bulgarian term table
 
-Every Bulgarian text in the Tag Network app and the Bulgarian User Guide (`docs/user-guide/bg/`) follows this table. The English domain terms are defined in [CONTEXT.md](../../CONTEXT.md). This file only says how each one is written in Bulgarian. Agreed with the researcher on 2026-10-27 ([Bulgarian terminology](../../.scratch/bilingual-cluster-views/issues/03-bulgarian-terminology.md)); the terms of the Edge appearance card, the Connections views and the Games section on 2026-10-28 ([issue 22](../../.scratch/bilingual-cluster-views/issues/22-new-terms-and-superseded-scan.md)); every term proposed by the slices A1–A4 and G1 accepted in the calibration review on 2026-10-29 ([issue 28](../../.scratch/bilingual-cluster-views/issues/28-r1-calibration-review.md)); every term proposed by the slices G2–G10 accepted in the final review on 2026-10-29 ([issue 39](../../.scratch/bilingual-cluster-views/issues/39-r2-final-review.md)).
+Every Bulgarian text in the Tag Network app and the Bulgarian User Guide (`docs/user-guide/bg/`) follows this table. The English domain terms are defined in [CONTEXT.md](../../CONTEXT.md). This file only says how each one is written in Bulgarian. Agreed with the researcher on 2026-10-27 ([Bulgarian terminology](../../.scratch/bilingual-cluster-views/issues/03-bulgarian-terminology.md)); the terms of the Edge appearance card, the Connections views and the Games section on 2026-10-28 ([issue 22](../../.scratch/bilingual-cluster-views/issues/22-new-terms-and-superseded-scan.md)); every term proposed by the slices A1–A4 and G1 accepted in the calibration review on 2026-10-29 ([issue 28](../../.scratch/bilingual-cluster-views/issues/28-r1-calibration-review.md)); every term proposed by the slices G2–G10 accepted in the final review on 2026-10-29 ([issue 39](../../.scratch/bilingual-cluster-views/issues/39-r2-final-review.md)); the Build-management terms (Top-N, List Size, Tag Depth, Import, drafts, Snapshot forms) from its spec on 2026-11-08 ([spec](../../.scratch/build-management/spec.md#documentation)).
 
 This file sits outside `docs/user-guide/`, so the guide parser never reads it. Two tests do: the superseded-word scan reads the table at the end, and a guide test checks `guide.LABELS` and `guide.MARKERS` against the Guide labels.
 
@@ -123,7 +123,14 @@ This file sits outside `docs/user-guide/`, so the guide parser never reads it. T
 | Free-to-Play Game | безплатна игра (Free-to-Play) | — |
 | Candidate Pool | пул от кандидати | топ-N игри, изтеглени игри |
 | Eligible Pool | пул на годните игри | допустим (that word is Admissible), популация, всички игри |
-| Top-100 Dataset | набор Топ-100 | — |
+| Top-N Dataset | набор Топ-N (the default Steam Build's are the Топ-100) | — |
+| List Size | размер на списъка | праг, граница |
+| Tag Depth / tags per game | дълбочина на таговете / тагове на игра | — |
+| Import | импорт (pl. импорти) | внос |
+| Import Build | компилация от импорт | — |
+| Build Draft | чернова на компилация | — |
+| raw / lightweight Snapshot | сурова / олекотена моментна снимка | пълна (моментна снимка) |
+| item / attribute (an Import's game and tag) | елемент / атрибут | — |
 | Tag-Specific Dataset | набор по таг | — |
 | Exclusion | изключване | — |
 | Exclusion Override | отмяна на изключване | бял списък, ръчно включване |
@@ -233,6 +240,7 @@ The label set that `in_short()` reads for Bulgarian.
 | Bounds | Граници |
 | Compare with | Сравнете с |
 | Shown in the app as | В приложението се показва като |
+| Steam Builds only (the marker under an entry's heading) | Само за компилации от Steam |
 
 **References (Appendix C).** The bibliographic entries stay as published. Only the guide's own locators are Bulgarian: резюме, табл., ур., фиг., с., теорема, лема, следствие, твърдение, деф. The methods paragraph uses the same locators. Quotations from the literature (Appendix A) are translated, in „…“, with the Bulgarian number format.
 
@@ -279,3 +287,4 @@ This list is short and deliberate, unlike the **Avoid** column: an Avoid word su
 | Лайден | — |
 | сийд | — |
 | билд | — |
+| внос | — |

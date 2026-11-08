@@ -27,6 +27,15 @@ PANEL_SECTIONS: dict[str, tuple[str, str]] = {
     "nodes": ("04-files.md", "nodescsv"),
     "edges": ("04-files.md", "edgescsv"),
     "export": ("05-citing-and-reproducing.md", "citing-and-reproducing-a-network-state"),
+    # The Build menu and the draft dialog (repository only): each draft step's `?` opens its chapter-7 section.
+    "build-menu": ("07-making-builds.md", "the-build-tree"),
+    "import": ("08-imported-data.md", "making-an-import"),
+    "draft-start": ("07-making-builds.md", "draft-start"),
+    "draft-top_n": ("07-making-builds.md", "draft-top-n"),
+    "draft-curation": ("07-making-builds.md", "draft-curation"),
+    "draft-reports": ("07-making-builds.md", "draft-reports"),
+    "draft-network": ("07-making-builds.md", "draft-network-defaults"),
+    "draft-review": ("07-making-builds.md", "draft-review"),
 }
 
 
@@ -210,9 +219,11 @@ LABELS: dict[str, dict[str, str]] = {
 }
 MARKERS: dict[str, dict[str, str]] = {
     "en": {"why": "Why it matters here", "exact": "Exact definition", "example": "Example", "bounds": "Bounds",
-           "compare": "Compare with", "caution": "Caution", "shown": "Shown in the app as"},
+           "compare": "Compare with", "caution": "Caution", "shown": "Shown in the app as",
+           "steam_only": "Steam Builds only"},
     "bg": {"why": "Защо има значение тук", "exact": "Точна дефиниция", "example": "Пример", "bounds": "Граници",
-           "compare": "Сравнете с", "caution": "Внимание", "shown": "В приложението се показва като"},
+           "compare": "Сравнете с", "caution": "Внимание", "shown": "В приложението се показва като",
+           "steam_only": "Само за компилации от Steam"},
 }
 _ORDER = {"in_short": 0, "higher": 1, "lower": 1, "raising": 1, "here": 2, "caution": 3}
 IN_SHORT_LABELS = tuple(LABELS["en"][kind] for kind in IN_SHORT_KINDS)
@@ -232,6 +243,10 @@ def _in_short(entry: str, kinds: dict[str, str]) -> list[tuple[str, str]]:
     lines = entry.splitlines()[1:]
     while lines and not lines[0].strip():
         lines.pop(0)
+    if lines and re.fullmatch(r"\*[^*]+\.\*", lines[0].strip()):  # a line such as "*Steam Builds only.*"
+        lines.pop(0)
+        while lines and not lines[0].strip():
+            lines.pop(0)
     quote = []
     for line in lines:
         if not line.startswith(">"):

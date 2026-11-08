@@ -959,7 +959,8 @@ def test_every_help_target_in_the_app_opens_an_entry_with_in_short_and_why_it_ma
     targets = _help_targets([build_layout(load_build(build_folder)), list(out),
                              V._kv([(label, "x") for label in V.INSPECTOR_LABELS], EN)])
     # every help key is on a surface of the app (Parameter Selection's: test_ps_app)
-    assert {H.target(key) for key in H.HELP if key not in H.SELECTION_HELP} <= set(targets)
+    assert {H.target(key) for key in H.HELP if key not in H.SELECTION_HELP and key not in H.DRAFT_HELP} <= set(targets)
+    targets += [H.target(key) for key in H.DRAFT_HELP]  # the draft dialog's (test_guide checks they are on it)
     assert {H.column_help(columns, EN)[1] for columns in V.INSPECTOR_LABELS.values()} <= set(targets)
     for target in set(targets):
         file, anchor = target.split("#")

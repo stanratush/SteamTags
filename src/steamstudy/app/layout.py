@@ -366,6 +366,10 @@ def _edge_card(L: Labels, ctx: BuildContext) -> html.Div:
 
 
 def brand_build(tx: Text, ctx: BuildContext) -> str:
+    """The header's Build: its name, or its `build_id` for a Build made before names existed."""
+    name = ctx.build_json.get("name")
+    if name and name != ctx.build_id:
+        return tx("Build {name}", name=name)
     return tx("Build {build_id}", build_id=ctx.build_id)
 
 

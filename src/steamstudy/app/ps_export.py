@@ -284,7 +284,8 @@ def export_tables(ctx: BuildContext, settings: SEL.SelectionSettings, constraint
         datasets[d.key] = info
     files = {schema.name: csv_bytes(schema, tables[schema.name]) for schema in S.PS_TABLES}
     shared = constraints_for(constraints_store, "", default_constraints)
-    report.append("## Methods\n\n" + T.methods_paragraph(en, T.methods_values(settings, shared, tx=en)))
+    report.append("## Methods\n\n" + T.methods_paragraph(en, T.methods_values(
+        settings, shared, tx=en, top_n="Top-100" if {d.list_size for d in ctx.datasets} == {100} else "Top-N")))
     report_bytes = ("\n\n".join(report) + "\n").encode("utf-8")
     meta = {
         "schema_version": S.SCHEMA_VERSION, "settings_key": settings.settings_key(),

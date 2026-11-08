@@ -4,6 +4,7 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     # The header, the modes and the panels
     "Tag Network": "Мрежа от тагове",
     "Build {build_id}": "Компилация {build_id}",
+    "Build {name}": "Компилация {name}",
     "Workbench": "Работно място",
     "Analysis Report mode": "Режим „Аналитичен доклад“",
     "Parameter Selection": "Избор на параметри",

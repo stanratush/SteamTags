@@ -28,6 +28,7 @@ from dash.exceptions import PreventUpdate
 from steamstudy import build_admin as BA
 from steamstudy import toml_text
 from steamstudy.app import build_runs, preview
+from steamstudy.app import help as H
 from steamstudy.app.build_menu import HIDDEN, editable, repo_root
 from steamstudy.app.relabel import msg
 from steamstudy.i18n import Text, lang_of, text
@@ -124,20 +125,21 @@ def _datasets(draft: BA.Draft, tx: Text, imported: bool) -> list[Any]:
             html.Td(html.Button("×", id={"type": "dd-ds-del", "i": i}, className="x", disabled=overall,
                                 title=tx("Remove this dataset"))),
         ]))
-    head = html.Tr([html.Th(h) for h in (tx("Dataset key"), tx("Label"), tx("Defining tag"), tx("List Size"),
-                                         tx("Eligible Pool"), "")])
+    head = html.Tr([html.Th(h) for h in (tx("Dataset key"), tx("Label"), _term(tx("Defining tag"), "draft.defining_tag", tx),
+                                         _term(tx("List Size"), "draft.list_size", tx),
+                                         _term(tx("Eligible Pool"), "draft.eligible_pool", tx), "")])
     depth = ds.get("tag_depth", "all" if imported else 20)
     ex = draft.config.get("exclusions", {})
     out: list[Any] = [
         html.H4(tx("Datasets")),
         html.Table([head, *rows], className="dd-table"),
         html.Button(tx("Add a dataset"), id="dd-ds-add", className="btn small"),
-        html.H4(tx("Tags per game (Tag Depth)")),
+        html.H4(_term(tx("Tags per game (Tag Depth)"), "draft.tag_depth", tx)),
         html.Div([dcc.Input(id=_field("tag_depth"), value=None if depth == "all" else depth, type="number", min=2,
                             debounce=0.6),
                   dcc.Checklist(id=_field("tag_depth_all"), options=[{"label": tx("all"), "value": "all"}],
                                 value=["all"] if depth == "all" else [], inline=True)], className="row-inline"),
-        html.H4(tx("Global rank limit")),
+        html.H4(_term(tx("Global rank limit"), "draft.exclusions", tx)),
         dcc.Input(id=_field("global_rank_limit"), value=ex.get("global_rank_limit"), type="number", min=1, max=20,
                   debounce=0.6, placeholder=tx("none") if imported else ""),
     ]
@@ -145,7 +147,7 @@ def _datasets(draft: BA.Draft, tx: Text, imported: bool) -> list[Any]:
         out += [html.H4(tx("App types")),
                 dcc.Checklist(id=_field("app_types"), options=[{"label": t, "value": t} for t in APP_TYPES],
                               value=list(ex.get("allowed_app_types", ["game"])), inline=True, className="chips")]
-    out += [html.H4(tx("Exclusion rules")),
+    out += [html.H4(_term(tx("Exclusion rules"), "draft.exclusions", tx)),
             html.P(tx("The fixed rules run first ({before}), then the named rules below in order, then {after}. "
                       "Edit the named rules ([[rule]]) and Content Flags ([[content_flag]]) here.",
                       before=", ".join(tx(t) for t in FIXED_BEFORE), after=", ".join(tx(t) for t in FIXED_AFTER)),
@@ -162,7 +164,22 @@ def _toml_box(draft: BA.Draft, file: str, tx: Text, bad: dict[str, str]) -> list
                          spellCheck=False)]
 
 
+def _term(label: str, key: str, tx: Text) -> html.Span:
+    """A setting's label with both help layers: hover shows its chapter-3 In short, a click opens the entry."""
+    return html.Span(label, className="term", tabIndex="0", **H.attrs(key, tx))
+
+
+def _help(step: str, tx: Text) -> html.Button:
+    """The step's `?`: opens its section of chapter 7 (guide.PANEL_SECTIONS)."""
+    return html.Button("?", id={"type": "help", "panel": f"draft-{step}"}, className="help dd-help",
+                       title=tx("Open the User Guide section"))
+
+
 def _step_body(step: str, draft: BA.Draft, root: Path, tx: Text, bad: dict[str, str]) -> list[Any]:
+    return [_help(step, tx), *_step_content(step, draft, root, tx, bad)]
+
+
+def _step_content(step: str, draft: BA.Draft, root: Path, tx: Text, bad: dict[str, str]) -> list[Any]:
     imported = _is_import(root, draft)
     if step == "start":
         return _start(draft, root, tx)

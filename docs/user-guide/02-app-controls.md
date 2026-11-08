@@ -6,7 +6,8 @@ Each control below either sets a field of the Network State key (and so changes 
 
 | Control | What it does | Range and default | Network State field | Which numbers change |
 |---|---|---|---|---|
-| Dataset | Loads one Top-100 Dataset of the Build | Overall, Puzzle, RPG, Strategy, Simulation; Overall | `dataset` | All |
+| Build | The Build's name in the header: switches this tab to another Build ([Switch Builds](01-getting-started.md#switch-builds)) | The Builds the app can see; the one the tab opened | `build_id` | All |
+| Dataset | Loads one Top-N Dataset of the Build | The Build's datasets (the default Steam Build: Overall, Puzzle, RPG, Strategy, Simulation); Overall | `dataset` | All |
 | [Minimum games per tag](#minimum-games-per-tag) | A tag becomes a node only if at least this many of the N games have it | 1–40; 8 | `min_games_per_tag` | Node set, and so everything in the network |
 | [Minimum shared games](#minimum-shared-games) | An edge exists only if the two tags share at least this many games | 1–30; 8 | `min_shared_games` | Edge set, isolated tags (One-Tag Clusters), everything after |
 | [Minimum Months Filter](#minimum-months-filter) | Drops games with fewer Months Observed before the network is built; never re-ranks or backfills | 0–60; 0 (off) | `min_months` | N, every `n_games`, every `lift`, the Global layout, everything after |
@@ -72,11 +73,13 @@ Each control below changes the Network State, and so the `state_id` and the numb
 
 Range 0–60 months; default 0 (off). Network State field: `min_months`.
 
-Games are ranked by Mean Monthly Players over the months they were observed, so a game released shortly before the Snapshot is ranked on its launch months, when player counts are usually highest. Raising the filter drops such games from the loaded Top-100 Dataset before anything is counted: N falls, every tag's game count and every lift is recounted over the remaining games, and the Global layout is redone. Lowering it back to 0 uses every game of the dataset. The Games number in the summary row shows how many games pass ("91 of 100").
+Games are ranked by Mean Monthly Players over the months they were observed, so a game released shortly before the Snapshot is ranked on its launch months, when player counts are usually highest. Raising the filter drops such games from the loaded Top-N Dataset before anything is counted: N falls, every tag's game count and every lift is recounted over the remaining games, and the Global layout is redone. Lowering it back to 0 uses every game of the dataset. The Games number in the summary row shows how many games pass ("91 of 100").
 
 *Why it matters here.* The study asks which characteristics recur among the most-played commercial games. A cluster that appears only while recent releases are included may reflect a few new games rather than a combination that holds over a longer player record; one that stays when the filter is raised rests on games with a long player record.
 
-*Caution.* The filter never fills the gap with the next-ranked games, so a raised filter means a smaller network, not a different Top 100. With fewer games, fewer tags reach the minimum games per tag and fewer pairs reach the minimum shared games, so compare Network States at the same thresholds and expect the numbers to shift with N alone. The feature analysis ignores the filter.
+*Caution.* The filter never fills the gap with the next-ranked games, so a raised filter means a smaller network, not a different Top N. With fewer games, fewer tags reach the minimum games per tag and fewer pairs reach the minimum shared games, so compare Network States at the same thresholds and expect the numbers to shift with N alone. The feature analysis ignores the filter.
+
+In an Import Build the slider carries the name of the Import's filter field and takes its range from the data; an Import without a filter field has no slider (see [What changes in an Import Build](08-imported-data.md#what-changes-in-an-import-build)).
 
 *Example.* Months ≥ 12 drops every game with fewer than 12 observed months; the summary row then reads, for example, "91 of 100" Games.
 

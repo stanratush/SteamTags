@@ -311,6 +311,7 @@ def _ask_delete(root: Path, ref: str, build_path: str, tx: Text) -> None:
         html.P(tx("This deletes the Build folder {ref} ({size}, of which app cache {cache}). It cannot be undone.",
                   ref=plan.ref, size=_size(plan.size_bytes, tx), cache=_size(plan.app_cache_bytes, tx))),
         html.Ul([*moves, *orphans, *bundles]),
+        html.P(tx("Exports made from it will no longer open with Open Network State…"), className="mute small"),
         html.P(tx("Other tabs on this Build will show that it no longer exists."), className="mute small"),
         html.Div(html.Button(tx("Delete the Build"), id="bm-del-go", className="btn primary danger"),
                  className="row-inline"),

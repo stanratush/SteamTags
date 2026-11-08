@@ -2,17 +2,17 @@
 
 Every CSV is UTF-8 with a byte-order mark, comma-separated, with one header row and no metadata rows. Booleans are `true` / `false`, lists are `;`-separated (an id list always comes with the matching name list), and an empty cell means n/a. Each column's meaning is in the [metric reference](03-metric-reference.md) and the [column index](appendix-b-column-index.md).
 
-A Build folder (`builds/<snapshot_id>/<build_id>/`) holds `datasets/`, `reports/` and `analysis/`. The app's export zip holds one Network State's tables plus `export.json`.
+A Build folder (`builds/<snapshot_id>/<build_id>/`, or `builds/<import_id>/<build_id>/` for an Import Build) holds `datasets/`, `reports/` and `analysis/`. The app's export zip holds one Network State's tables plus `export.json`.
 
 ## Build: datasets/
 
 ### `top100_<dataset>.csv`
 
-One row is one game in one Top-100 Dataset (Overall, Puzzle, RPG, Strategy or Simulation), in rank order: its score, months observed, Release Month, store details, displayed tags and genres, Content Flags and best listing rank. It joins to every other file by `appid`, and to the network files through its tags (`tag_ids`). It is the published dataset and the app's only input.
+One row is one game in one Top-N Dataset (the default Steam Build has Overall, Puzzle, RPG, Strategy and Simulation), in rank order: its score, months observed, Release Month, store details, displayed tags and genres, Content Flags and best listing rank. It joins to every other file by `appid`, and to the network files through its tags (`tag_ids`). It is the published dataset and the app's only input. The file name dates from when every list held 100 games; it is kept whatever the List Size.
 
 ### `monthly_players.csv`
 
-One row is one month of one game that is a member of any Top-100 Dataset: the Monthly Avg. Players and Peak Players behind its score (only the months the score averages; never a Placeholder Row). It joins to `top100_<dataset>.csv` by `appid` and lets anyone recompute `mean_monthly_players`. It is not published until the Steam Charts operator agrees.
+One row is one month of one game that is a member of any Top-N Dataset: the Monthly Avg. Players and Peak Players behind its score (only the months the score averages; never a Placeholder Row). It joins to `top100_<dataset>.csv` by `appid` and lets anyone recompute `mean_monthly_players`. It is not published until the Steam Charts operator agrees.
 
 ### `topn_<dataset>.csv`
 
@@ -26,11 +26,11 @@ One row is one month of one game that is a member of any Top-100 Dataset: the Mo
 
 ### `exclusions.csv`
 
-One row is one excluded game and one exclusion rule it matched, with the rule's detail, the game's primary reason and the rank it would have taken in each dataset. It joins to the datasets by `appid`. It documents every Exclusion, and it doubles as the list of excluded games that would have scored inside a Top 100.
+One row is one excluded game and one exclusion rule it matched, with the rule's detail, the game's primary reason and the rank it would have taken in each dataset. It joins to the datasets by `appid`. It documents every Exclusion, and it doubles as the list of excluded games that would have scored inside a Top N.
 
 ### `completeness.csv`
 
-One row is one count: listing rows and passes, Candidate Pool size, scored and unscored apps by reason, Placeholder Rows, exclusion counts (overlapping and by primary reason) and the depth check per dataset. It joins to nothing; it is the evidence of what the Top 100 was drawn from.
+One row is one count: listing rows and passes, Candidate Pool size, scored and unscored apps by reason, Placeholder Rows, exclusion counts (overlapping and by primary reason) and the depth check per dataset. It joins to nothing; it is the evidence of what the Top N was drawn from.
 
 ### `placeholder_rows.csv`
 
@@ -38,7 +38,7 @@ One row is one Placeholder Row (Avg. 0.00 and Peak 0) of one app in the Candidat
 
 ### `ties.csv`
 
-One row is one game outside a Top 100 whose score equals rank 100's, with the position it takes after the tie-break. It joins to `top100_<dataset>.csv` by `dataset`. It shows how the cut at rank 100 falls.
+One row is one game outside a Top N whose score equals the last rank's (rank 100 with the default List Size), with the position it takes after the tie-break. It joins to `top100_<dataset>.csv` by `dataset`. It shows how the cut at rank 100 falls.
 
 ### `skipped_apps.csv`
 
@@ -50,7 +50,7 @@ One row is one response a parser could not read: which app, which kind of page, 
 
 ### `release_month_check.csv`
 
-One row is one Top-100 game whose Release Month and store release date are more than the configured number of months apart, or whose store date cannot be read. It joins by `appid`. It is a diagnostic for checking histories by hand and never changes a score.
+One row is one Top-N game whose Release Month and store release date are more than the configured number of months apart, or whose store date cannot be read. It joins by `appid`. It is a diagnostic for checking histories by hand and never changes a score.
 
 ### `tag_vocabulary.csv`
 
@@ -70,7 +70,7 @@ One row is one scored game where Steam's Adult Only notice and content descripto
 
 ### `impact_unexcluded.csv`
 
-One row is one Top-100 member and one signal worth a second look although no rule excluded the game: content descriptor 1 or 4, a software store genre or a Content Flag. It joins to `top100_<dataset>.csv` by `dataset` and `appid`. It is a review list.
+One row is one Top-N member and one signal worth a second look although no rule excluded the game: content descriptor 1 or 4, a software store genre or a Content Flag. It joins to `top100_<dataset>.csv` by `dataset` and `appid`. It is a review list.
 
 ### `manual_metadata.csv`
 
@@ -78,7 +78,7 @@ One row is one field of one Manual Metadata Entry, with the supplied value, its 
 
 ### `steamdb_crosscheck.csv`
 
-One row is one Top-100 game with a SteamDB page in the Snapshot, comparing its store tags with the SteamDB tags. It exists only after a permitted SteamDB batch, joins by `appid`, and is a cross-check only: SteamDB values never enter a dataset.
+One row is one Top-N game with a SteamDB page in the Snapshot, comparing its store tags with the SteamDB tags. It exists only after a permitted SteamDB batch, joins by `appid`, and is a cross-check only: SteamDB values never enter a dataset.
 
 ### `reports.html`
 
@@ -86,11 +86,11 @@ A one-page summary of the reports above, rendered only from fixed sentence templ
 
 ## Build: analysis/
 
-The feature-analysis and network files stack the five datasets, with `dataset` as the first column. The network files also carry the `state_id` of the report's Network State for each dataset, so each block can be reopened in the app at the same settings.
+The feature-analysis and network files stack the Build's datasets, with `dataset` as the first column. The network files also carry the `state_id` of the report's Network State for each dataset, so each block can be reopened in the app at the same settings.
 
 ### `tag_frequency.csv`
 
-One row is one tag on at least one game of a full Top-100 Dataset: its count and share, median display position, whether it is the defining tag, its Eligible Pool baseline and share ratio, and its archived category. It joins to `top100_<dataset>.csv` through `tag_id`. It answers which tags recur among the top games.
+One row is one tag on at least one game of a full Top-N Dataset: its count and share, median display position, whether it is the defining tag, its Eligible Pool baseline and share ratio, and its archived category. It joins to `top100_<dataset>.csv` through `tag_id`. It answers which tags recur among the top games.
 
 ### `genre_frequency.csv`
 
@@ -240,6 +240,26 @@ The zip's metadata, mirroring `export.json`: `schema_version`, the settings key 
 
 A short report: per dataset, the selection explanation with its caveats and the validation sentences, then the methods paragraph with citations. Every sentence comes from the same templates as the app.
 
+## Import Builds
+
+A Build made from an Import ([Imported data](08-imported-data.md)) has the same folders and writes the files above under the same names, with three differences.
+
+- **Its datasets are `topn_<dataset>.csv`** with an `item_fields.csv` beside them, in place of `top100_<dataset>.csv` and `monthly_players.csv`.
+- **Columns follow one renaming rule:** `appid` becomes `id`, `appids` becomes `ids` and `mean_monthly_players` becomes `score`; tag columns (`tag_id`, `tag`, `tag_ids`, `tags`) keep their names and hold attributes; and the Steam-only columns (Release Month, months observed, store and genre fields, listing rank, archived category) are dropped. The [column index](appendix-b-column-index.md#import-builds) lists every new, renamed and absent column.
+- **It writes none of the Steam-only files:** `monthly_players.csv`, `placeholder_rows.csv`, `skipped_apps.csv`, `parse_errors.csv`, `release_month_check.csv`, `tag_vocabulary.csv`, `impact_adult_signals.csv`, `impact_unexcluded.csv`, `manual_metadata.csv`, `steamdb_crosscheck.csv` and `genre_frequency.csv`. `ties.csv` is written only when the Import has a score.
+
+## Import folder
+
+An Import is stored in `imports/<import_id>/`: the original file exactly as given, the normalised tables (`items.csv`, `item_attributes.csv`, `attributes.csv`, `item_fields.csv`) and `import.json`. A refused file leaves `imports/failed/<attempt_id>/` with `errors.csv` and a copy of the input. None of these is published; cite an Import by its id and sha256 ([Cite an Import Build](05-citing-and-reproducing.md#cite-an-import-build)).
+
+### `import.json`
+
+In `imports/<import_id>/`: the `import_id`, the source file name, its `sha256` (and that of `attributes.csv`, if given), when it was imported, the numbers of items and attributes, how attribute ids were assigned, the longest attribute list, whether a score is present, the filter field (or null), the extra numeric fields, and the warnings the import raised.
+
+### `errors.csv`
+
+In `imports/failed/<attempt_id>/`: one row per problem that refused an import, with `file`, `row` (the spreadsheet row number), `column`, `code`, `value` and `message`. [When an Import is refused](08-imported-data.md#when-an-import-is-refused) explains every code.
+
 ## Metadata files
 
 ### `snapshot.json`
@@ -248,7 +268,7 @@ In `snapshots/<snapshot_id>/`: what was collected and how. The id and mode, coll
 
 ### `build.json`
 
-In a Build's `datasets/`: the Snapshot id and `build_id`, the build config hash with a copy of every config file the Build read and the config changelog, the Source Substitutions used, the attribution line, the network defaults and seed, software versions, the mode, whether parse errors were allowed (and how many), the Manual Metadata Entries and Exclusion Overrides used, dataset sizes and any warnings.
+In a Build's `datasets/`: the Snapshot id and `build_id`, the Build's `name`, `description` and `parent_build_id` (the Build it was made from, or null), the `snapshot_form` it was built from (`raw` or `lightweight`) with the extract version, the build config hash with a copy of every config file the Build read and the config changelog, the Source Substitutions used, the attribution line, the network defaults and seed, software versions, the mode, whether parse errors were allowed (and how many), the Manual Metadata Entries and Exclusion Overrides used, dataset sizes and any warnings. An Import Build's `build.json` has `source: "import"`, the `import_id` and `import_sha256` in place of the Snapshot id, the `filter_field` (or null), `score_present` and the `extra_fields`, and none of the collection date, Observation Window, store country, tag-list hash, Manual Metadata Entries or Source Substitutions.
 
 ### `analysis.json`
 

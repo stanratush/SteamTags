@@ -128,6 +128,15 @@ SELECTION_HELP: dict[str, tuple[str, str]] = {
     "selection.subsample": (METRIC_REFERENCE, "subsample-stability"),
 }
 HELP.update(SELECTION_HELP)
+# The draft dialog's settings (repository only): hover shows the chapter-3 entry's In short, a click opens it.
+DRAFT_HELP: dict[str, tuple[str, str]] = {
+    "draft.list_size": (METRIC_REFERENCE, "list-size"),
+    "draft.tag_depth": (METRIC_REFERENCE, "tags-per-game-tag-depth"),
+    "draft.defining_tag": (METRIC_REFERENCE, "defining-tag"),
+    "draft.eligible_pool": (METRIC_REFERENCE, "eligible-pool-baseline"),
+    "draft.exclusions": (METRIC_REFERENCE, "exclusions-and-would-be-ranks"),
+}
+HELP.update(DRAFT_HELP)
 
 # (declared file, column name), as in `view.INSPECTOR_LABELS`
 Columns = Iterable[tuple[str, str]]

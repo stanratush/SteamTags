@@ -10,7 +10,7 @@ The guide never says that a value is "good", "strong" or "stable". Published rul
 
 - its **bounds** (what is possible);
 - its **reference points**: lift 1 and phi 0 mean independence; an ARI of 1 means identical partitions and an ARI near 0 means chance agreement; Q 0 means no better than random;
-- the project's own **comparisons**: the null model (what tag frequencies alone produce), the Seed-Noise Floor (what another random seed produces) and the Eligible Pool (what the games the Top 100 was drawn from look like).
+- the project's own **comparisons**: the null model (what tag frequencies alone produce), the Seed-Noise Floor (what another random seed produces) and the Eligible Pool (what the games the Top N was drawn from look like).
 
 An empty cell is "n/a". Where the reason can vary, a `<metric>_status` column names it; otherwise the reason follows from other columns and is given in the entry. Citations in parentheses refer to [Appendix C](appendix-c-references.md).
 
@@ -21,7 +21,9 @@ These are inputs, not metrics. Values are the shipped defaults.
 | Setting | Default | Set in | What it changes |
 |---|---|---|---|
 | Snapshot collection date (Observation Window) | the latest 60 complete months | fixed per Snapshot | Every score, rank and dataset |
-| Exclusion rules, rank limits, overrides, Manual Metadata Entries | see `exclusions.toml` | config, per Build | Which games enter the Top-100 Datasets and the Eligible Pools |
+| Named Exclusion Rules, rank limits, overrides, Manual Metadata Entries | see `exclusions.toml` | config, per Build | Which games enter the Top-N Datasets and the Eligible Pools |
+| [List Size](#list-size) | 100 per dataset | `datasets.toml`, per Build | N: which games are in the dataset, and every number computed over them |
+| [Tags per game (Tag Depth)](#tags-per-game-tag-depth) | 20 (all) | `datasets.toml`, per Build | What "has" means: every tag count, share, combination and network number; not Exclusions or Content Flags |
 | `max_itemset_size`, `min_support` | 3, 10 games | `analysis.toml` | Which rows `combinations.csv` and `associations.csv` list; `min_support` also sets how many pairs are tested, and so every `bh_q` |
 | Minimum Months Filter (`min_months`) | 0 (off) | app, `network.toml` | N, every `n_games` and edge `lift`, every network number. The feature analysis ignores it |
 | Minimum games per tag, minimum shared games | 8, 8 | app, `network.toml` | Which tags are nodes, which edges exist, which tags are isolated |
@@ -58,6 +60,8 @@ These columns identify rows. A game is identified by its Steam AppID; a tag by i
 
 ### Monthly Avg. Players
 
+*Steam Builds only.*
+
 > **In short.** Steam Charts' figure for one month: how many people played a game at the same moment, averaged over the month.
 >
 > **Higher →** more people playing at once.
@@ -68,9 +72,9 @@ These columns identify rows. A game is identified by its Steam AppID; a tag by i
 
 Columns: `avg_players`, `peak_players`, `month` in `monthly_players.csv`.
 
-Steam Charts' figure for one game in one month: the mean number of people playing at the same moment (concurrent players), averaged over the month. Peak Players is the single highest moment of the month; it is stored but never used for ranking. It is not a count of different people and not sales. A missing month means Steam Charts did not track the game that month, not that nobody played, and it is never filled with zero. Concurrent players favour games played in long sessions or left running (idle games, Desktop Companion apps, which carry a Content Flag). `monthly_players.csv` holds exactly the months each Top-100 game's score averages, and is not published until the Steam Charts operator agrees.
+Steam Charts' figure for one game in one month: the mean number of people playing at the same moment (concurrent players), averaged over the month. Peak Players is the single highest moment of the month; it is stored but never used for ranking. It is not a count of different people and not sales. A missing month means Steam Charts did not track the game that month, not that nobody played, and it is never filled with zero. Concurrent players favour games played in long sessions or left running (idle games, Desktop Companion apps, which carry a Content Flag). `monthly_players.csv` holds exactly the months each Top-N game's score averages, and is not published until the Steam Charts operator agrees.
 
-*Why it matters here.* Every Top-100 Dataset rests on these monthly figures, so what they measure sets what "most-played" means in this study: how many people play at once, not how many own or buy a game. Games played in long sessions or left running, such as Desktop Companion apps, score higher on this measure than their number of players suggests; the Content Flags mark them.
+*Why it matters here.* Every Top-N Dataset rests on these monthly figures, so what they measure sets what "most-played" means in this study: how many people play at once, not how many own or buy a game. Games played in long sessions or left running, such as Desktop Companion apps, score higher on this measure than their number of players suggests; the Content Flags mark them.
 
 *Example.* A row `2024-03, 30.0, 50` means that in March 2024 an average of 30 people were playing at any moment, and at most 50 at once.
 
@@ -82,11 +86,13 @@ Steam Charts' figure for one game in one month: the mean number of people playin
 
 ### Mean Monthly Players
 
+*Steam Builds only.*
+
 > **In short.** The score that ranks games: the mean of a game's Monthly Avg. Players over its observed months in the Observation Window.
 >
 > **Higher →** more people playing at once, on average.
 >
-> **Here:** decides which games are the most-played ones in each Top-100 Dataset.
+> **Here:** decides which games are the most-played ones in each Top-N Dataset.
 >
 > **Caution:** recent releases are averaged over their launch months, when counts are usually highest; read it with Months Observed.
 
@@ -105,6 +111,8 @@ The study's success score, one number per game: the mean of its Monthly Avg. Pla
 **Exact definition:** mean of Monthly Avg. Players over the months m with Release Month ≤ m, m inside the Observation Window and a non-placeholder row, rounded to 6 decimals.
 
 ### Months Observed
+
+*Steam Builds only.*
 
 > **In short.** How many months a game's Mean Monthly Players averages, out of the 60-month Observation Window.
 >
@@ -130,29 +138,75 @@ How many months the score averages. Close to 60 means the score covers a long st
 
 ### Rank and ties
 
-> **In short.** A game's position in one Top-100 Dataset by Mean Monthly Players; 1 is the highest.
+> **In short.** A game's position in one Top-N Dataset by Mean Monthly Players; 1 is the highest.
 >
 > **Lower →** a higher score in that dataset.
 >
-> **Here:** decides which games are among the most-played; ties at rank 100 are listed so the cut is visible.
+> **Here:** decides which games are among the most-played; ties at the last rank are listed so the cut is visible.
 >
 > **Caution:** ranks are ordinal and not comparable across datasets; the feature analysis never weights games by rank.
 
 Columns: `rank` in `top100_<dataset>.csv`; `position`, `mean_monthly_players`, `months_observed` in `ties.csv`.
 
-A game's position in one Top-100 Dataset, 1 being the highest score. Ranks are ordinal: the gap between ranks 1 and 2 can be far larger than between ranks 50 and 51. A rank in one dataset is not comparable with a rank in another, since each dataset has its own Eligible Pool. The feature analysis counts every game once; it never weights a game by its rank. Games outside the 100 whose score equals rank 100's are listed in `ties.csv` with the position they take after the tie-break.
+A game's position in one Top-N Dataset, 1 being the highest score. Ranks are ordinal: the gap between ranks 1 and 2 can be far larger than between ranks 50 and 51. A rank in one dataset is not comparable with a rank in another, since each dataset has its own Eligible Pool. The feature analysis counts every game once; it never weights a game by its rank. Games outside the list whose score equals the last rank's are listed in `ties.csv` with the position they take after the tie-break. In an Import Build the score is the Import's `score` column; an Import without one is ranked in file order, and has no ties.
 
-*Why it matters here.* The study treats the Top 100 as a group: every game counts once, whatever its rank. The rank matters for who is in the group, which is why games tied with rank 100 are listed in `ties.csv` with the tie-break that decided them.
+*Why it matters here.* The study treats the Top N as a group: every game counts once, whatever its rank. The rank matters for who is in the group, which is why games tied with the last rank are listed in `ties.csv` with the tie-break that decided them.
 
 *Example.* Two games tie on score at ranks 99–100; the one with more `months_observed` takes rank 99. A third game with the same score but fewer months is listed in `ties.csv` at position 101.
 
-*Bounds.* 1–100. Every dataset of a full Build has exactly 100 rows; a Build whose Eligible Pool is too small fails. Only a test Build may be shorter, with a warning.
+*Bounds.* 1 to the [List Size](#list-size) (100 by default). Every dataset of a full Build has exactly its List Size of rows; a Build whose Eligible Pool is too small fails. Only a test Build may be shorter, with a warning.
 
-*Compare with.* `ties.csv` for the cut at 100.
+*Compare with.* `ties.csv` for the cut at the List Size.
 
-**Exact definition:** sort the Eligible Pool by `mean_monthly_players` descending, then `months_observed` descending, then AppID ascending; `rank` = position; ties = games after position 100 with the score of position 100.
+**Exact definition:** sort the Eligible Pool by `mean_monthly_players` descending, then `months_observed` descending, then AppID ascending; `rank` = position; ties = games after position N (the List Size) with the score of position N.
+
+### List Size
+
+> **In short.** How many games a Top-N Dataset holds: its N, set per dataset in the Build (100 by default).
+>
+> **Raising it →** the dataset reaches further down the ranking.
+>
+> **Here:** decides where "the most-played games" stop; every dataset number is computed over these N.
+>
+> **Caution:** another List Size is another dataset; compare numbers only at the same List Size.
+
+Each dataset in `config/datasets.toml`, or in a draft's Changes the Top-N step, has a List Size N. The Build ranks the dataset's Eligible Pool and keeps the first N games; games tied with the last of them are listed in `ties.csv`. A full Build fails when an Eligible Pool holds fewer games than its List Size; a test Build only warns. The file `top100_<dataset>.csv` keeps its name whatever N is, and the Build's reports say "Top 100" when every dataset has the default List Size of 100 and "Top-N" otherwise.
+
+*Why it matters here.* The study is about the most-played games, and the List Size is where "most-played" stops. A smaller N keeps only the head of the ranking; a larger one reaches games with far fewer players. The network thresholds count games, so they mean something else at another N; the draft dialog warns when a grid or default value is above N.
+
+*Example.* With the default List Size of 100, the Puzzle dataset holds the 100 highest-ranked games with the Puzzle tag. With a List Size of 50 it holds the first 50 of the same ranking: no rank changes, only the cut.
+
+*Bounds.* At least 1; in a full Build at most the size of the dataset's Eligible Pool. The default is 100.
+
+*Compare with.* [Rank and ties](#rank-and-ties) for the cut, and the [Eligible Pool baseline](#eligible-pool-baseline) for the games below it.
+
+**Exact definition:** the dataset's members = the first `list_size` games of its Eligible Pool in the order of [Rank and ties](#rank-and-ties).
+
+### Tags per game (Tag Depth)
+
+> **In short.** How many of each game's tags count, in display order: a game **has** a tag when the tag is among its first Tag Depth tags.
+>
+> **Raising it →** games carry more tags, so tag counts and links grow.
+>
+> **Here:** defines "has" for every tag count, share, combination and network number.
+>
+> **Caution:** Exclusions and Content Flags read every tag, whatever the Tag Depth.
+
+Steam shows up to 20 tags per game, most-applied first. The Tag Depth, set once per Build (`tag_depth` in `datasets.toml`), cuts each game's list at that position before anything is counted: the feature analysis, the Tag Network and every tag count in this chapter read only the first Tag Depth tags. The default of 20 keeps them all. Exclusion rules and Content Flags always read the full list, with their own rank limits. In an Import Build the cut applies to each item's attribute list in file order; "all" keeps every attribute.
+
+*Why it matters here.* A tag far down a game's list was applied by few players and says less about the game. A smaller Tag Depth keeps the tags that characterise each game but counts fewer of them, so the networks of Builds with different Tag Depths are not comparable.
+
+*Example.* A game's tags are Puzzle, Casual, Relaxing, …, with Pixel Graphics at position 14. With the default Tag Depth of 20 the game has Pixel Graphics; with a Tag Depth of 10 it does not, and no longer counts towards Pixel Graphics' share or links.
+
+*Bounds.* Steam: 2–20 (20 = all). An Import: 2 to its longest attribute list, or all.
+
+*Compare with.* [Median tag position](#median-tag-position), how deep a tag usually sits; [Exclusions and would-be ranks](#exclusions-and-would-be-ranks), which ignore the Tag Depth.
+
+**Exact definition:** a game has tag t ⇔ t is among the first `tag_depth` entries of its displayed tag list (every entry when `tag_depth` is all).
 
 ### Release Month and store release date
+
+*Steam Builds only.*
 
 > **In short.** The first month Steam Charts has real data for a game, beside the store's own release date, which is stored but not used.
 >
@@ -176,7 +230,9 @@ The Release Month is the first month for which Steam Charts has real data for th
 
 ### Release-month gap
 
-> **In short.** Top-100 games whose Release Month and store release date are more than a set number of months apart (default 3).
+*Steam Builds only.*
+
+> **In short.** Top-N games whose Release Month and store release date are more than a set number of months apart (default 3).
 >
 > **Here:** points to unusual histories worth checking by hand before a game's score is used.
 >
@@ -184,7 +240,7 @@ The Release Month is the first month for which Steam Charts has real data for th
 
 Columns: `months_apart`, `release_month`, `store_release_date` in `release_month_check.csv`.
 
-A diagnostic list, never a rule: Top-100 games whose Release Month and store release date are more than the configured number of months apart (default 3), plus games whose store date cannot be read (empty `months_apart`). It helps to check unusual histories by hand. It is noisy for Early Access games.
+A diagnostic list, never a rule: Top-N games whose Release Month and store release date are more than the configured number of months apart (default 3), plus games whose store date cannot be read (empty `months_apart`). It helps to check unusual histories by hand. It is noisy for Early Access games.
 
 *Why it matters here.* Large gaps usually mean Early Access or a long beta, so the score includes months before the official launch. Checking the listed games confirms that each score covers the history the researcher expects.
 
@@ -197,6 +253,8 @@ A diagnostic list, never a rule: Top-100 games whose Release Month and store rel
 **Exact definition:** `months_apart` = (year × 12 + month) of the store date − (year × 12 + month) of the Release Month; positive = the store date is later.
 
 ### Placeholder Rows
+
+*Steam Builds only.*
 
 > **In short.** Steam Charts month rows with 0.00 average and 0 peak players, which are not data and are treated as absent.
 >
@@ -220,6 +278,8 @@ A Steam Charts month row with Avg. Players 0.00 and Peak Players 0 is a Placehol
 
 ### Store metadata
 
+*Steam Builds only.*
+
 > **In short.** Facts from the Steam store: the free-to-play flag, the app type, where the tags come from, and the game's Content Flags.
 >
 > **Here:** shows which of the most-played games are free to play and whose tags come from manual entries.
@@ -242,6 +302,8 @@ Facts about each game from the Steam store: `is_free` is the store's free-to-pla
 
 ### Listing rank and the depth check
 
+*Steam Builds only.*
+
 > **In short.** Where a game stood in Steam Charts' Top Games listing, by current players, on the collection date.
 >
 > **Higher →** fewer current players: the game has declined since its busiest months.
@@ -252,9 +314,9 @@ Facts about each game from the Steam store: `is_free` is the store's free-to-pla
 
 Column: `top_listing_rank` in `top100_<dataset>.csv`; the depth-check rows in `completeness.csv`.
 
-Where the game stood in Steam Charts' "Top Games" listing, which is sorted by *current* players, on the collection date: the best rank across the listing passes. A large number for a Top-100 member means the game scores high on Mean Monthly Players but had few players at collection time, so it has declined. The depth check in `completeness.csv` (deepest and median listing rank of each dataset's members, members beyond ranks 1,000, 5,000 and 10,000) shows that declined games were caught. Empty for test-mode edge cases added outside the listing.
+Where the game stood in Steam Charts' "Top Games" listing, which is sorted by *current* players, on the collection date: the best rank across the listing passes. A large number for a Top-N member means the game scores high on Mean Monthly Players but had few players at collection time, so it has declined. The depth check in `completeness.csv` (deepest and median listing rank of each dataset's members, members beyond ranks 1,000, 5,000 and 10,000) shows that declined games were caught. Empty for test-mode edge cases added outside the listing.
 
-*Why it matters here.* The Top 100 is chosen by mean players over five years, not by who is playing today. Members found far down the current listing show that the collection reached deep enough to include games that were among the most-played earlier in the Observation Window and have since declined.
+*Why it matters here.* The Top N is chosen by mean players over five years, not by who is playing today. Members found far down the current listing show that the collection reached deep enough to include games that were among the most-played earlier in the Observation Window and have since declined.
 
 *Example.* A member with `top_listing_rank` 7,412 had few current players but enough earlier in the window to rank.
 
@@ -266,7 +328,7 @@ Where the game stood in Steam Charts' "Top Games" listing, which is sorted by *c
 
 ### Completeness counts
 
-> **In short.** One count per row: how many apps were listed, scored and excluded, and why the rest did not reach the Top 100.
+> **In short.** One count per row: how many apps were listed, scored and excluded, and why the rest did not reach the Top N.
 >
 > **Here:** shows what the most-played games were drawn from and that no large group was lost on the way.
 >
@@ -274,9 +336,9 @@ Where the game stood in Steam Charts' "Top Games" listing, which is sorted by *c
 
 Columns: `section`, `item`, `dataset`, `value`, `note` in `completeness.csv`.
 
-One count per row, showing what the Top 100 was drawn from and why the rest did not reach it: listing rows per pass and AppIDs seen in only one pass; the Candidate Pool size; scored apps and scored apps of type `game`; unscored apps split into no month rows, only Placeholder Rows, or month rows but none in the window (plus Steam Charts 404s and skipped pages); the Placeholder Row count; exclusion counts per rule, overlapping and partitioned by primary reason; and the depth check. Large unscored counts are expected, since the listing includes demos, tools and long-dead apps.
+One count per row, showing what the Top N was drawn from and why the rest did not reach it: listing rows per pass and AppIDs seen in only one pass; the Candidate Pool size; scored apps and scored apps of type `game`; unscored apps split into no month rows, only Placeholder Rows, or month rows but none in the window (plus Steam Charts 404s and skipped pages); the Placeholder Row count; exclusion counts per rule, overlapping and partitioned by primary reason; and the depth check. Large unscored counts are expected, since the listing includes demos, tools and long-dead apps.
 
-*Why it matters here.* A Top-100 Dataset is only as complete as the pool it was drawn from. These counts show how big that pool was, how many apps could not be scored and why, and how many each exclusion rule removed, so the coverage of the study can be reported.
+*Why it matters here.* A Top-N Dataset is only as complete as the pool it was drawn from. These counts show how big that pool was, how many apps could not be scored and why, and how many each exclusion rule removed, so the coverage of the study can be reported.
 
 *Example.* `scoring, unscored_only_placeholder_rows, , 37` means 37 apps in the pool have nothing but Placeholder Rows.
 
@@ -296,9 +358,9 @@ One count per row, showing what the Top 100 was drawn from and why the rest did 
 
 Columns: `reason`, `detail`, `primary_reason`, `would_be_rank_<dataset>` in `exclusions.csv`.
 
-One row per excluded game and matched rule, so a game matching several rules appears once per rule. Rules are evaluated in a fixed order: `store_data_unavailable`, `app_type`, `no_tags`, `adult_content`, `software_tag`, `dating_sim_tag`, `manual`. The first two stop the evaluation, because nothing else can be checked. `primary_reason` is the first match. `detail` says what matched: the app type, the tags with their display positions, the adult-content signals (Adult Only notice, content descriptor 3, the Hentai tag), or the manual reason. The would-be ranks show which excluded games would otherwise be in a Top 100, so the cost of each rule is visible.
+One row per excluded game and matched rule, so a game matching several rules appears once per rule. Rules are evaluated in a fixed order: `store_data_unavailable`, `app_type`, `no_tags`, `adult_content`, `software_tag`, `dating_sim_tag`, `manual`. The first two stop the evaluation, because nothing else can be checked. `primary_reason` is the first match. `detail` says what matched: the app type, the tags with their display positions, the adult-content signals (Adult Only notice, content descriptor 3, the Hentai tag), or the manual reason. The would-be ranks show which excluded games would otherwise be in a Top N, so the cost of each rule is visible.
 
-*Why it matters here.* Exclusions decide which apps count as commercial games for this study. The would-be ranks make each decision visible: a rule that removes a game at rank 1 changes the Top 100 far more than one that removes games far below it, and an Exclusion Override can keep a game in.
+*Why it matters here.* Exclusions decide which apps count as commercial games for this study. The would-be ranks make each decision visible: a rule that removes a game at rank 1 changes the Top N far more than one that removes games far below it, and an Exclusion Override can keep a game in.
 
 *Example.* A farming game with Dating Sim at display position 17 is excluded by `dating_sim_tag` at the default rank limit, with `would_be_rank_overall` 1: it would otherwise top the Overall dataset. An Exclusion Override can keep it in.
 
@@ -318,7 +380,7 @@ One row per excluded game and matched rule, so a game matching several rules app
 
 Columns: `rule`, `signal`, `is_primary_reason`, `rank_limit`, `position`, `excluded`, `adult_only_notice`, `content_descriptor_3`, `hentai_tag`, `rank` (impact) in the `impact_*.csv` files.
 
-The impact report lets the researcher review each rule before the lists are frozen. `impact_removals.csv` lists every removal per rule and per tag or signal, with would-be ranks. `impact_near_misses.csv` lists exclusion tags present on a scored game beyond their rank limit (so they did not exclude it), with the tag's `position` and the `rank_limit` that applied, and whether another rule excluded the game anyway. `impact_adult_signals.csv` lists games where the Adult Only notice and content descriptor 3 disagree. `impact_unexcluded.csv` lists Top-100 members that no rule excluded but that carry content descriptor 1 or 4, a software store genre or a Content Flag.
+The impact report lets the researcher review each rule before the lists are frozen. `impact_removals.csv` lists every removal per rule and per tag or signal, with would-be ranks. `impact_near_misses.csv` lists exclusion tags present on a scored game beyond their rank limit (so they did not exclude it), with the tag's `position` and the `rank_limit` that applied, and whether another rule excluded the game anyway. `impact_adult_signals.csv` lists games where the Adult Only notice and content descriptor 3 disagree. `impact_unexcluded.csv` lists Top-N members that no rule excluded but that carry content descriptor 1 or 4, a software store genre or a Content Flag.
 
 *Why it matters here.* The exclusion rules shape which games are in the study, and tag-based rules can misfire. The impact report shows each rule's effect from both sides, the games it removed and the ones it nearly removed, so the researcher can adjust rank limits or add an Exclusion Override with the evidence in hand.
 
@@ -342,7 +404,7 @@ Columns: `source`, `request_key`, `error` (`parse_errors.csv`); `url`, `reason`,
 
 Files that document how the data was read rather than describing games. `skipped_apps.csv` lists the apps whose Steam Charts page kept failing to load or parse during collection: they were skipped so that collection could go on, and they have no score. `parse_errors.csv` lists every response the parsers could not read; any row fails the Build unless `--allow-parse-errors` was given, and such Builds are never published. `tag_vocabulary.csv` lists every tag and store genre seen, with how many scored apps show it and, for tags, whether the id is in the `GetTagList` snapshot. `manual_metadata.csv` copies the source and retrieval date of every field of every Manual Metadata Entry. `steamdb_crosscheck.csv` compares store tags with SteamDB tags per game when a permitted SteamDB batch exists; SteamDB values never enter a dataset.
 
-*Why it matters here.* These files show where the data is incomplete or comes from a manual source: an app skipped during collection cannot be in any Top 100, and a tag missing from the vocabulary would point to a reading problem. They let a reviewer check that the data behind the most-played games was read in full.
+*Why it matters here.* These files show where the data is incomplete or comes from a manual source: an app skipped during collection cannot be in any Top N, and a tag missing from the vocabulary would point to a reading problem. They let a reviewer check that the data behind the most-played games was read in full.
 
 *Example.* A `tag_vocabulary.csv` row `tag, 19, Action, 812, true` means 812 scored apps show the Action tag.
 
@@ -354,11 +416,11 @@ Files that document how the data was read rather than describing games. `skipped
 
 ## Feature analysis
 
-Every table here uses the **full** Top-100 Dataset: the Minimum Months Filter does not apply, N = 100, and every game counts once, never weighted by its score. A game **has** a tag if the tag appears anywhere in its displayed store tag list (at most 20 tags). In the four Tag-Specific Datasets the defining tag is on every game; it is listed in the frequency table at 100% and left out of combinations, associations and clusters.
+Every table here uses the **full** Top-N Dataset: the Minimum Months Filter does not apply, N is the [List Size](#list-size) (100 by default), and every game counts once, never weighted by its score. A game **has** a tag if the tag is among the first [Tags per game](#tags-per-game-tag-depth) of its displayed store tag list (with the default of 20, anywhere in it). In the four Tag-Specific Datasets the defining tag is on every game; it is listed in the frequency table at 100% and left out of combinations, associations and clusters.
 
 ### Tag count and share
 
-> **In short.** How many of the 100 games have the tag, and that as a share.
+> **In short.** How many of the N games have the tag, and that as a share.
 >
 > **Higher →** a characteristic that more of the most-played games carry.
 >
@@ -368,9 +430,9 @@ Every table here uses the **full** Top-100 Dataset: the Minimum Months Filter do
 
 Columns: `count`, `share` in `tag_frequency.csv` and `genre_frequency.csv`.
 
-How many of the 100 games have the tag, and that as a share. This is the most direct answer to "which tags recur among the games with the highest Mean Monthly Players?". Generic tags such as Singleplayer are common in any group of games, so a high share alone does not mark the Top 100 as special; read it with the [share ratio](#share-ratio). Tags are community-voted and reflect the store page at collection time, not at release.
+How many of the N games have the tag, and that as a share. This is the most direct answer to "which tags recur among the games with the highest Mean Monthly Players?". Generic tags such as Singleplayer are common in any group of games, so a high share alone does not mark the Top N as special; read it with the [share ratio](#share-ratio). Tags are community-voted and reflect the store page at collection time, not at release.
 
-*Why it matters here.* This is the plainest description of the Top 100: which characteristics most of these games carry. A share of 0.63 means 63 of the 100 games show the tag on their store page. Whether that is more than among the games they were drawn from is the share ratio's question.
+*Why it matters here.* This is the plainest description of the Top N: which characteristics most of these games carry. A share of 0.63 means 63 of the 100 games show the tag on their store page. Whether that is more than among the games they were drawn from is the share ratio's question.
 
 *Example.* A tag on 63 of the 100 games: `count` 63, `share` 0.63.
 
@@ -428,7 +490,7 @@ Marks the tag that defines a Tag-Specific Dataset (Puzzle, RPG, Strategy or Simu
 
 ### Eligible Pool baseline
 
-> **In short.** How common the tag is among all the games the Top 100 was drawn from.
+> **In short.** How common the tag is among all the games the Top N was drawn from.
 >
 > **Here:** the reference that shows whether a characteristic is more common among the most-played games than among the games they were drawn from.
 >
@@ -436,7 +498,7 @@ Marks the tag that defines a Tag-Specific Dataset (Puzzle, RPG, Strategy or Simu
 
 Columns: `baseline_count`, `baseline_share` in `tag_frequency.csv` and `genre_frequency.csv`; the Eligible Pool size in `analysis.json`.
 
-How common the tag (or genre) is among all the games the Top 100 was drawn from: every scored, non-excluded game for Overall, and those with the defining tag for a Tag-Specific Dataset. The Top 100 itself is part of the Eligible Pool. The baseline is the share one would expect if the Top 100 looked like its pool. The pool includes many games with very few players; it is not "all of Steam".
+How common the tag (or genre) is among all the games the Top N was drawn from: every scored, non-excluded game for Overall, and those with the defining tag for a Tag-Specific Dataset. The Top N itself is part of the Eligible Pool. In an Import Build the Eligible Pool is every item the exclusion rules keep (with the defining attribute, for a dataset that has one), and the baseline counts attributes the same way. The baseline is the share one would expect if the Top N looked like its pool. The pool includes many games with very few players; it is not "all of Steam".
 
 *Why it matters here.* A tag on 63 of the 100 games stands out only if it is less common in the pool; Singleplayer, for example, is common everywhere. The baseline gives that reference share, and the share ratio compares the two.
 
@@ -450,17 +512,17 @@ How common the tag (or genre) is among all the games the Top 100 was drawn from:
 
 ### Share ratio
 
-> **In short.** A tag's share in the Top 100 divided by its share in the Eligible Pool.
+> **In short.** A tag's share in the Top N divided by its share in the Eligible Pool.
 >
 > **Higher →** above 1: more common among the most-played games than in their pool.
 >
 > **Here:** points to characteristics that set the most-played games apart from their pool.
 >
-> **Caution:** pulled towards 1, since the Top 100 is part of its pool; read it with the count.
+> **Caution:** pulled towards 1, since the Top N is part of its pool; read it with the count.
 
 Column: `share_ratio` in `tag_frequency.csv` and `genre_frequency.csv`.
 
-How over- or under-represented a tag is in the Top 100 compared with its Eligible Pool: above 1 means more common among the top games. Because the Top 100 is inside its own baseline, the ratio is pulled towards 1, more so the smaller the pool, and it cannot exceed (Eligible Pool size) / 100; the report prints the pool size so this ceiling is visible. A tag on 2 Top-100 games can show a large ratio by chance; always read it with `count`. Over-representation is a description: games may share a tag because of their genre, their era or Steam's recommendation system.
+How over- or under-represented a tag is in the Top N compared with its Eligible Pool: above 1 means more common among the top games. Because the Top N is inside its own baseline, the ratio is pulled towards 1, more so the smaller the pool, and it cannot exceed (Eligible Pool size) / 100; the report prints the pool size so this ceiling is visible. A tag on 2 Top-N games can show a large ratio by chance; always read it with `count`. Over-representation is a description: games may share a tag because of their genre, their era or Steam's recommendation system.
 
 *Why it matters here.* It is the study's main comparison for single characteristics: a share ratio of 3 means the tag is three times as common among the most-played games as among all eligible games. It describes and does not explain: games may share a tag because of their genre, their era or Steam's recommendations.
 
@@ -473,6 +535,8 @@ How over- or under-represented a tag is in the Top 100 compared with its Eligibl
 **Exact definition:** `share_ratio` = `share` / `baseline_share`.
 
 ### Archived tag category
+
+*Steam Builds only.*
 
 > **In short.** The category the tag had in Steam's archived tag table, such as Genres, Themes & Moods or Features.
 >
@@ -495,6 +559,8 @@ An information column: the category the tag had in Steam's archived Steamworks t
 **Exact definition:** the category list for the tag's name in the archived table (see research note 04 of the planning effort).
 
 ### Genre frequency
+
+*Steam Builds only.*
 
 > **In short.** Count, share, baseline and share ratio for the store's developer-assigned Genre field, not the tags of the same name.
 >
@@ -600,7 +666,7 @@ Columns: `count_a`, `count_b`, `count_ab` in `associations.csv`.
 
 Games with tag A, with tag B, and with both. Every pair of tags that each reach `min_support` games is listed, including pairs that never co-occur (`count_ab` = 0). These are the raw numbers behind phi, lift, Jaccard and Fisher p; check them before trusting a striking measure.
 
-*Why it matters here.* Every association measure is computed from these three counts and the 100 games. A lift of 5 from 2 shared games and one from 30 shared games say very different things about the most-played games; the counts show which is which.
+*Why it matters here.* Every association measure is computed from these three counts and the N games. A lift of 5 from 2 shared games and one from 30 shared games say very different things about the most-played games; the counts show which is which.
 
 *Example.* A on 20 games, B on 30, both on 12.
 
@@ -622,7 +688,7 @@ Games with tag A, with tag B, and with both. Every pair of tags that each reach 
 
 Column: `phi` in `associations.csv` (the table is sorted by |phi|, empty values last).
 
-The correlation between two yes/no variables, "has tag A" and "has tag B", over the 100 games. Positive means the tags co-occur more than independence predicts, negative that they tend to exclude each other. It uses all four cells of the table (both, only A, only B, neither). Its reachable maximum depends on how common each tag is: a rare tag tied to a common one looks weak. With N = 100, one or two games can move it noticeably. It is empty when either tag is on all 100 games (then the row keeps lift 1, a defined Jaccard and Fisher p 1).
+The correlation between two yes/no variables, "has tag A" and "has tag B", over the N games. Positive means the tags co-occur more than independence predicts, negative that they tend to exclude each other. It uses all four cells of the table (both, only A, only B, neither). Its reachable maximum depends on how common each tag is: a rare tag tied to a common one looks weak. With N = 100, one or two games can move it noticeably. It is empty when either tag is on all 100 games (then the row keeps lift 1, a defined Jaccard and Fisher p 1).
 
 *Why it matters here.* Phi is the association table's sort order, so it decides which pairs of characteristics of the most-played games come first. Because it favours pairs of similar frequency, a niche tag that always comes with a common one can rank low; read lift and Jaccard beside it.
 
@@ -640,7 +706,7 @@ The correlation between two yes/no variables, "has tag A" and "has tag B", over 
 >
 > **Higher →** above 1: together more often than chance; 1: as chance predicts.
 >
-> **Here:** the same measure as the network's lift weight, over the full Top 100.
+> **Here:** the same measure as the network's lift weight, over the full Top N.
 >
 > **Caution:** rare pairs change a lot with one extra shared game; it ignores games with neither tag.
 
@@ -688,15 +754,15 @@ The overlap of the two tags' game sets (Jaccard 1912, p. 39): 1 means exactly th
 >
 > **Lower →** this much (or this little) co-occurrence is more unusual under independence.
 >
-> **Here:** a screen for pairs whose co-occurrence among these 100 games is unlikely by chance.
+> **Here:** a screen for pairs whose co-occurrence among these N games is unlikely by chance.
 >
 > **Caution:** hundreds of pairs are tested, so read `bh_q`; it says nothing beyond these 100 games.
 
 Column: `fisher_p` in `associations.csv`.
 
-How surprising the observed co-occurrence would be if the two tags had been placed on games independently, given how many games carry each: the two-sided Fisher exact test on the 2 × 2 table. Small means this much (or this little) co-occurrence would be unusual under independence **within these 100 games**. The Top 100 is not a random sample of anything, so p says nothing about Steam games in general. Hundreds of pairs are tested, so small p values appear by chance; read `bh_q` instead. With N = 100 the test is discrete. The study never calls a result significant.
+How surprising the observed co-occurrence would be if the two tags had been placed on games independently, given how many games carry each: the two-sided Fisher exact test on the 2 × 2 table. Small means this much (or this little) co-occurrence would be unusual under independence **within these N games**. The Top N is not a random sample of anything, so p says nothing about Steam games in general. Hundreds of pairs are tested, so small p values appear by chance; read `bh_q` instead. With N = 100 the test is discrete. The study never calls a result significant.
 
-*Why it matters here.* Some pairs of characteristics co-occur among the most-played games by chance. Fisher p measures how surprising each pair would be under independence within these 100 games; because the Top 100 is not a random sample, it describes this group of games and does not generalise to others.
+*Why it matters here.* Some pairs of characteristics co-occur among the most-played games by chance. Fisher p measures how surprising each pair would be under independence within these N games; because the Top N is not a random sample, it describes this group of games and does not generalise to others.
 
 *Example.* A on 20 games, B on 30, both on 12: p = 0.002.
 
@@ -732,7 +798,7 @@ Each pair's p value adjusted for the number of pairs tested in that dataset, by 
 
 ### Content Flag counts
 
-> **In short.** How many Top-100 games carry each Content Flag, such as Desktop Companion.
+> **In short.** How many Top-N games carry each Content Flag, such as Desktop Companion.
 >
 > **Here:** reports characteristics of the most-played games that may affect their scores, without removing them.
 >
@@ -740,11 +806,11 @@ Each pair's p value adjusted for the number of pairs tested in that dataset, by 
 
 Columns: `flag`, `rank` in `content_flags.csv`; per-flag counts in `analysis.json`.
 
-How many Top-100 games carry each Content Flag (`desktop_companion`, `sexual_content_tag`), and which ones. A flag marks a characteristic worth reporting, such as Desktop Companion apps whose always-on use inflates concurrent players. It is never an Exclusion: flagged games are in every other analysis as normal.
+How many Top-N games carry each Content Flag (`desktop_companion`, `sexual_content_tag`), and which ones. A flag marks a characteristic worth reporting, such as Desktop Companion apps whose always-on use inflates concurrent players. It is never an Exclusion: flagged games are in every other analysis as normal.
 
 *Why it matters here.* Desktop Companion apps run in the background for hours, which inflates concurrent players and so Mean Monthly Players. Flagging such games instead of excluding them keeps them in the study while making their number visible, so a reader can judge how much they shape the results.
 
-*Example.* `desktop_companion: 2 games` means two Top-100 games carry the Desktop Companion tag.
+*Example.* `desktop_companion: 2 games` means two Top-N games carry the Desktop Companion tag.
 
 *Bounds.* 0–100.
 
@@ -754,7 +820,7 @@ How many Top-100 games carry each Content Flag (`desktop_companion`, `sexual_con
 
 ## The Tag Network
 
-The Tag Network has one node per tag and an edge between two tags when enough games have both. N is the number of games in the loaded Top-100 Dataset after the Minimum Months Filter. A tag's **game set** is the set of those games that have it. The **Jaccard distance** between two tags is 1 − the [Jaccard index](#jaccard-index) of their game sets: 0 for the same games, 1 for none in common. Silhouette, `medoid_score` and the Cluster Center use it; it does not depend on edges, thresholds or the Clustering Weight.
+The Tag Network has one node per tag and an edge between two tags when enough games have both. N is the number of games in the loaded Top-N Dataset after the Minimum Months Filter. A tag's **game set** is the set of those games that have it. The **Jaccard distance** between two tags is 1 − the [Jaccard index](#jaccard-index) of their game sets: 0 for the same games, 1 for none in common. Silhouette, `medoid_score` and the Cluster Center use it; it does not depend on edges, thresholds or the Clustering Weight.
 
 ### Edge weight (shared games)
 
@@ -772,7 +838,7 @@ Shown in the app as “Shared games” (Inspector; tables and exports keep the c
 
 How many games have both tags: the network's basic fact. An edge exists only if it reaches the minimum shared games (default 8). The thresholds and the edge inspector always use this count, whatever the Clustering Weight; edge thickness shows it under the Shared games weight, or under Lift when the legend's switch asks for it. `appids` lists the games having both tags, in dataset rank order. The count is dominated by frequent tags: two tags each on 80 of 100 games share at least 60 even if unrelated, which is why clusters on the default weight tend to gather around generic tags. A missing edge does not mean "never together"; the pair may simply be below the threshold.
 
-*Why it matters here.* Shared games is the closest the network comes to the raw data: 12 shared games means that 12 of the network's games carry both tags, and the edge inspector lists them. It answers which characteristics the most-played games actually combine, counted in games. Because a tag on most of the Top 100 shares many games with almost every other tag, a large count alone does not show that two tags belong together; the edge's lift corrects for that.
+*Why it matters here.* Shared games is the closest the network comes to the raw data: 12 shared games means that 12 of the network's games carry both tags, and the edge inspector lists them. It answers which characteristics the most-played games actually combine, counted in games. Because a tag on most of the Top N shares many games with almost every other tag, a large count alone does not show that two tags belong together; the edge's lift corrects for that.
 
 *Example.* Two tags shared by 12 games, with a threshold of 8: an edge of weight 12. `is_intra_cluster` is true when both ends are in the same cluster.
 
@@ -798,7 +864,7 @@ Shown in the app as “Lift” (Inspector; tables and exports keep the column na
 
 Observed ÷ expected shared games for the pair over the N games. It equals the pair lift in `associations.csv` when the Minimum Months Filter is 0. Hiding or removing tags does not change it. Edges with lift below 1 that pass the shared-games threshold are kept, with their lift as weight. Clusters found on lift answer a different question from clusters on shared games: "which tags go together more than their frequency predicts?" rather than "which tags share the most games?".
 
-*Why it matters here.* Two tags can share many games simply because both are on most of the Top 100. Lift divides that out: a lift of 2.0 means the pair occurs twice as often as the two tags' frequencies predict if they were unrelated. That makes it the closer reading of "which characteristics do the most-played games combine?" beyond popularity. Read it beside the shared-games count: a lift of 3 from 4 games rests on far fewer games than a lift of 1.5 from 30.
+*Why it matters here.* Two tags can share many games simply because both are on most of the Top N. Lift divides that out: a lift of 2.0 means the pair occurs twice as often as the two tags' frequencies predict if they were unrelated. That makes it the closer reading of "which characteristics do the most-played games combine?" beyond popularity. Read it beside the shared-games count: a lift of 3 from 4 games rests on far fewer games than a lift of 1.5 from 30.
 
 *Example.* 12 shared games, tags on 20 and 30 of N = 100: 12 × 100 / (20 × 30) = 2.0.
 
@@ -1082,7 +1148,7 @@ Columns: `reasons` (with `tag_id`, `tag`, `n_games`) in `not_in_network.csv`.
 
 Every tag on at least one game of the loaded dataset that is not a node, with every reason why, so that nothing disappears unexplained. Reasons appear in a fixed order: `removed` (removed in the app), `defining_tag_hidden`, `genre_tag_hidden`, `below_min_games`. A tag below the threshold can still be very common in another dataset; check the frequency table.
 
-*Why it matters here.* The network describes only the tags it contains. A characteristic that only a handful of the Top 100 share falls below the minimum games per tag and cannot appear in any cluster; hidden and removed tags are left out by choice. Before writing that a characteristic is missing from the clusters, check here whether it was in the network at all.
+*Why it matters here.* The network describes only the tags it contains. A characteristic that only a handful of the Top N share falls below the minimum games per tag and cannot appear in any cluster; hidden and removed tags are left out by choice. Before writing that a characteristic is missing from the clusters, check here whether it was in the network at all.
 
 *Example.* The Puzzle tag in the Puzzle dataset: `defining_tag_hidden;genre_tag_hidden` (it is both the defining tag and a Genre Tag).
 
@@ -1146,7 +1212,7 @@ Shown in the app as “Games”, “Tags”, “Links” (summary row above the 
 
 Context for every other number: N (games after the Minimum Months Filter), the number of tags and edges, and the sum of the active Clustering Weight over all edges. Denser networks behave differently (see the null model). `total_weight` is in shared games or in summed lift, depending on the Clustering Weight, and the two are not comparable.
 
-*Why it matters here.* Every pattern the network shows is a pattern among these N games and these tags only. "100 of 100" games means the whole Top-100 Dataset is in the network; a lower N (from the Minimum Months Filter) means the clusters describe only the games tracked long enough. Tags below the minimum games per tag are left out entirely, so a characteristic shared by only a handful of the most-played games cannot appear in any cluster; the Not in network table lists them.
+*Why it matters here.* Every pattern the network shows is a pattern among these N games and these tags only. "100 of 100" games means the whole Top-N Dataset is in the network; a lower N (from the Minimum Months Filter) means the clusters describe only the games tracked long enough. Tags below the minimum games per tag are left out entirely, so a characteristic shared by only a handful of the most-played games cannot appear in any cluster; the Not in network table lists them.
 
 *Example.* 100 games, 54 tags, 312 edges, total weight 4,120 shared games.
 
@@ -1862,7 +1928,7 @@ A screening flag, not a significance test: true when the reclustered ARI is belo
 
 > **In short.** Automatic Parameter Selection: for each dataset, a search over the thresholds that picks a Threshold Pair and a resolution γ by fixed, published rules.
 >
-> **Here:** gives each Top-100 Dataset a defensible starting point instead of the shared defaults.
+> **Here:** gives each Top-N Dataset a defensible starting point instead of the shared defaults.
 >
 > **Caution:** a choice of settings to look at, not a claim that the Clusters are real.
 
@@ -1874,7 +1940,7 @@ A screening flag, not a significance test: true when the reclustered ARI is belo
 >
 > **Caution:** each step has its own entry; read the caveats there.
 
-The Parameter Selection mode runs the same procedure for each Top-100 Dataset, one dataset at a time.
+The Parameter Selection mode runs the same procedure for each Top-N Dataset, one dataset at a time.
 
 1. **Grid.** It builds the Tag Network at every [Threshold Pair](#threshold-pair-and-parameter-grid) of the Parameter Grid (g 3–20, s 2–12, s ≤ g: 153 pairs), under one set of Selection Settings.
 2. **γ scan.** On each distinct graph it runs Leiden with 10 seeds at every γ from 0 to Gibson and Mucha's bound, in steps of 0.05 (see [Admissible Partition and Optimality Domain](#admissible-partition-and-optimality-domain)).
@@ -1885,7 +1951,7 @@ The Parameter Selection mode runs the same procedure for each Top-100 Dataset, o
 7. **Constraints and choice.** Among the pairs that meet the Pair Constraints ([Information Retention](#information-retention), [Isolated share and LCC share](#isolated-share-and-lcc-share)), it chooses by Neighbour Agreement ([Pair Constraints, Qualifying Pair and the selection rule](#pair-constraints-qualifying-pair-and-the-selection-rule)).
 8. **Validation.** It compares the chosen pair with shuffled networks ([Null Comparison](#null-comparison)) and with 80% subsets of the games ([Subsample Stability](#subsample-stability)).
 
-Each dataset is selected on its own, from its own games and tags. Different pairs in different datasets are expected and are not a disagreement: the same pair builds networks of different sizes in different datasets.
+Each dataset is selected on its own, from its own games and tags. Different pairs in different datasets are expected and are not a disagreement: the same pair builds networks of different sizes in different datasets. The default Parameter Grid and network defaults were chosen for a Top 100 at 20 tags per game; for another [List Size](#list-size) or [Tags per game](#tags-per-game-tag-depth), review them in the Build menu's draft before building.
 
 *Why it matters here.* The thresholds and γ decide which tags are nodes and how finely they are grouped, and the shared defaults were not chosen per dataset. The procedure replaces a hand choice with rules that can be stated, rerun and checked, and it shows every number behind its choice. What it gives is a defensible choice, not the true structure: the three kinds of stability it reports (see [Three kinds of stability](#three-kinds-of-stability)) and the Null Comparison each answer a narrower question.
 
@@ -2133,7 +2199,7 @@ Each shuffled network also records its **Perturbation Share**: the share of the 
 >
 > **Higher →** the Clusters depend less on which games are in the dataset.
 >
-> **Here:** separates Clusters the whole Top 100 carries from those a few games create.
+> **Here:** separates Clusters the whole Top N carries from those a few games create.
 >
 > **Caution:** not evidence that the Clusters are real; slightly optimistic for a pair chosen on the same data.
 
@@ -2143,13 +2209,13 @@ Each of S = 100 subsamples draws m = ⌊0.8·n⌋ of the n games without replace
 
 Both arms compare the subsample with the Selected Partition on the tags in both networks with an edge in either: by ARI, shown with the share of the edged tags it covers, and per Multi-Tag Cluster by two Jaccards (Hennig 2007, §2). **Hennig's Jaccard** is the best overlap with any subsample Cluster on the Cluster's surviving tags. It needs at least two surviving tags, and losing tags does not lower it. **Whole-Cluster Jaccard** counts lost tags as not recovered. It is never higher than Hennig's Jaccard, equals it when no tag is lost, and is 0 when no tag survives. The export also gives each Cluster's mean retention share (the part of its tags that survive) and the number of subsamples where none survives.
 
-Hennig's Jaccard is summarised over the B* subsamples in which the Cluster keeps at least two tags. The summary gives its mean with the Monte Carlo standard error, the 10th–90th percentile spread, and two frequencies with 95% Wilson intervals (Wilson 1927): ≤ 0.5 (dissolution) and > 0.75 (good recovery, Hennig's own example). The Whole-Cluster Jaccard is summarised over every non-degenerate subsample, as a mean with its standard error and the spread only, with no frequencies and no label: Hennig's 0.5 argument assumes a common tag set, which only Hennig's Jaccard has. The standard error and the Wilson interval describe the Monte Carlo error from S subsamples, and the spread describes how much the Cluster varies between subsamples. Neither is a confidence interval: the Top 100 is not a sample.
+Hennig's Jaccard is summarised over the B* subsamples in which the Cluster keeps at least two tags. The summary gives its mean with the Monte Carlo standard error, the 10th–90th percentile spread, and two frequencies with 95% Wilson intervals (Wilson 1927): ≤ 0.5 (dissolution) and > 0.75 (good recovery, Hennig's own example). The Whole-Cluster Jaccard is summarised over every non-degenerate subsample, as a mean with its standard error and the spread only, with no frequencies and no label: Hennig's 0.5 argument assumes a common tag set, which only Hennig's Jaccard has. The standard error and the Wilson interval describe the Monte Carlo error from S subsamples, and the spread describes how much the Cluster varies between subsamples. Neither is a confidence interval: the Top N is not a sample.
 
 A Cluster gets one label at most, **Dissolved in most subsamples**: Hennig's Jaccard ≤ 0.5 in more than half of B* (exactly half is not labelled). The 0.5 cut per subsample is Hennig's; the majority is this study's rule (see [Appendix A](appendix-a-rules-of-thumb.md#cluster-wise-jaccard-stability)). A Cluster is **borderline** when the Wilson interval of its dissolution frequency contains ½, labelled or not. It is **Not assessable** when B* = 0, that is, when fewer than 2 of its tags survive in every subsample. "Rarely assessable" is flagged beside its mean when B* is under half of the non-degenerate subsamples. Recovery is only ever a frequency, never a label. Clusters of 2–3 tags can take only a few Jaccard values, and they drop sharply when they lose or move one tag; no Cluster is left out for its size.
 
 *Caution.* The pair was chosen on the same data, so Subsample Stability may be slightly optimistic. Q played no part in the choice, so the Null Comparison is barely affected.
 
-*Why it matters here.* The Top 100 is one ranked list; a few games more or less should not redraw a combination of characteristics that many games share. A Cluster that dissolves without 20% of the games rests on few of them. The Whole-Cluster Jaccard adds what Hennig's leaves out: a Cluster whose tags drop out of the network is not recovered, even if the tags that are left still group together.
+*Why it matters here.* The Top N is one ranked list; a few games more or less should not redraw a combination of characteristics that many games share. A Cluster that dissolves without 20% of the games rests on few of them. The Whole-Cluster Jaccard adds what Hennig's leaves out: a Cluster whose tags drop out of the network is not recovered, even if the tags that are left still group together.
 
 *Example.* At Overall g = 17, s = 2, re-selected: median ARI 0.78 over 100 of 100 subsamples. C4 (4 tags) has Hennig's Jaccard ≤ 0.5 in 70 of 100 subsamples (95% Wilson interval 0.60 to 0.78) and a mean of 0.45, so it is Dissolved in most subsamples, re-selected only: at resolution it is ≤ 0.5 in 24 of 100. C1–C3 (7–9 tags) are above 0.75 in 41 to 92 of 100.
 

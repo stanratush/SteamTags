@@ -4,7 +4,7 @@ Three rules hold for every number in this study. Read them before anything else.
 
 ## No number shows a cause
 
-A tag that is common among the most-played games, or two tags that occur together more often than chance, are not shown to *make* games successful. The Top 100 is a ranked selection, not a random sample, and nothing in the study compares top games with games that rank low. Frequencies, co-occurrences, associations and clusters describe what the top games have in common. They do not explain why those games are popular.
+A tag that is common among the most-played games, or two tags that occur together more often than chance, are not shown to *make* games successful. The Top N is a ranked selection, not a random sample, and nothing in the study compares top games with games that rank low. Frequencies, co-occurrences, associations and clusters describe what the top games have in common. They do not explain why those games are popular.
 
 ## Clusters carry no meaning
 
