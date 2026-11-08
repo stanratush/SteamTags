@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from steamstudy.build.parse import ParseError, parse_top_page
+from steamstudy.build.source import ListingPage, RawSource, SkippedEntry
 from steamstudy.snapshot import LogEntry, StoredResponse
-
-_PASS_KEY = re.compile(r"^steamcharts/top/pass-(\d+)/p-(\d+)\.html\.gz$")
 
 
 class SnapshotLike(Protocol):
@@ -37,27 +34,23 @@ class Listing:
 
 
 def read_listing(snapshot: SnapshotLike) -> Listing:
+    return listing_from_pages(RawSource(snapshot).listing_pages())
+
+
+def listing_from_pages(pages: list[ListingPage]) -> Listing:
+    """The Candidate Pool's listing from its pages, in key order: best rank across passes, first-seen name."""
     listing = Listing()
-    for key in snapshot.keys("steamcharts/top/"):
-        m = _PASS_KEY.match(key)
-        resp = snapshot.response(key)
-        if not m or resp is None:
-            continue
-        n = int(m.group(1))
+    for page in pages:
+        n = page.pass_n
         listing.rows_per_pass.setdefault(n, 0)
         listing.appids_per_pass.setdefault(n, set())
-        if resp.outcome == "parse_failure":
-            listing.parse_errors.append((key, "listing page structure not readable"))
+        if page.error is not None:
+            listing.parse_errors.append((page.key, page.error))
             continue
-        if resp.outcome != "ok":
+        if page.outcome != "ok":
             continue
-        try:
-            rows = parse_top_page(resp.body or b"")
-        except ParseError as exc:
-            listing.parse_errors.append((key, str(exc)))
-            continue
-        listing.rows_per_pass[n] += len(rows)
-        for row in rows:
+        listing.rows_per_pass[n] += len(page.rows)
+        for row in page.rows:
             listing.appids_per_pass[n].add(row.appid)
             listing.names.setdefault(row.appid, row.name)
             if row.appid not in listing.best_rank or row.rank < listing.best_rank[row.appid]:
@@ -73,13 +66,11 @@ def pool_appids(snapshot: SnapshotLike) -> list[int]:
 
 def skipped_app_rows(snapshot: SnapshotLike) -> list[dict[str, Any]]:
     """Steam Charts app pages that kept failing to load or parse, and were skipped (outcome `skipped`)."""
-    names = read_listing(snapshot).names
-    rows = []
-    for key in snapshot.keys("steamcharts/app/"):
-        entry = snapshot.entry(key)
-        if entry is None or entry.outcome != "skipped":
-            continue
-        appid = int(key.rsplit("/", 1)[1].split(".", 1)[0])
-        rows.append({"appid": appid, "name": names.get(appid), "url": entry.url, "reason": entry.detail,
-                     "last_status": entry.status, "timestamp": entry.timestamp})
+    return skipped_rows(RawSource(snapshot).skipped(), read_listing(snapshot).names)
+
+
+def skipped_rows(entries: list[SkippedEntry], names: dict[int, str]) -> list[dict[str, Any]]:
+    """`skipped_apps.csv` rows from the skipped apps' log entries and the listing names."""
+    rows = [{"appid": e.appid, "name": names.get(e.appid), "url": e.url, "reason": e.detail,
+             "last_status": e.status, "timestamp": e.timestamp} for e in entries]
     return sorted(rows, key=lambda r: r["appid"])

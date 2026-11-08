@@ -50,6 +50,19 @@ def test_repair_refetches_one_app_and_is_logged(tmp_path, config):
     assert repair["batch"] == "repair-1" and meta["closed"] is True
 
 
+def test_collect_lightens_the_snapshot_it_closes_and_repair_lightens_it_again(tmp_path, config):
+    from steamstudy import lightweight as L
+
+    sid = _closed_snapshot(tmp_path, config)
+    snapshots = tmp_path / "snapshots"
+    light = L.light_path(snapshots, sid)
+    assert light.is_file() and L.read_light_meta(light)["raw_counts"]["repairs"] == 0
+    run_repair(tmp_path, _test_cfg(config), 10, "page changed after collection", snapshot_id=sid,
+               transport=FakeTransport(_world()), clock=FakeClock())
+    assert L.read_light_meta(light)["raw_counts"]["repairs"] == 1
+    assert L.open_build_source(snapshots, sid).source.form == "lightweight"
+
+
 def test_repair_needs_a_reason_a_closed_snapshot_and_a_pool_app(tmp_path, config):
     sid = _closed_snapshot(tmp_path, config)
     with pytest.raises(CollectRefused, match="reason"):

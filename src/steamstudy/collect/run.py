@@ -154,7 +154,24 @@ def run_collect(
         ctx.save()
         write_skipped_report(store)
         store.close()
+    if meta.get("closed") and stage is None:
+        _lighten(store.path)
     return str(meta["id"])
+
+
+def _lighten(snapshot_path: Path) -> None:
+    """Make the Lightweight Snapshot of a closed Snapshot (after collect closes it and after every repair). A
+    failure leaves Builds reading the raw form: an older zip is then stale by its repair count."""
+    from steamstudy.lightweight import LightweightError, lighten
+
+    log.info("Making the Lightweight Snapshot of %s", snapshot_path.name)
+    try:
+        path = lighten(snapshot_path)
+    except (LightweightError, ValueError) as exc:
+        log.warning("Lightweight Snapshot not made: %s. Builds read the raw form; run steamstudy snapshot lighten "
+                    "%s to retry", exc, snapshot_path.name)
+        return
+    log.info("Lightweight Snapshot written to %s", path)
 
 
 def write_skipped_report(store: SnapshotStore) -> Path | None:
@@ -496,9 +513,10 @@ def run_repair(
         meta["repairs"].append(repair)
         store.save_meta(meta)
         write_skipped_report(store)
-        return repair
     finally:
         store.close()
+    _lighten(store.path)
+    return repair
 
 
 # ----------------------------------------------------------------------------- SteamDB cross-check

@@ -1,6 +1,7 @@
 """`build(snapshot, config, build_id) -> BuildResult`: one deterministic derivation, never contacting a source.
 
-The only inputs are the read-only Snapshot and the config (plus the `build_id` the caller chose).
+The only inputs are the read-only Snapshot, in either form (`steamstudy.build.source`), and the config (plus the
+`build_id` the caller chose).
 `steamstudy.build.writer` lays the result out as a Build folder.
 """
 
@@ -31,14 +32,9 @@ from steamstudy.build.games import (
     read_vocabulary,
     validate_manual_entries,
 )
-from steamstudy.build.parse import (
-    MonthlyHistory,
-    ParseError,
-    TagVocabulary,
-    parse_steamcharts_app,
-    parse_steamdb_app,
-)
-from steamstudy.build.pool import Listing, SnapshotLike, read_listing, skipped_app_rows
+from steamstudy.build.parse import MonthlyHistory, TagVocabulary
+from steamstudy.build.pool import Listing, SnapshotLike, listing_from_pages, skipped_rows
+from steamstudy.build.source import EXTRACT_VERSION, MISSING, BuildSource, as_source
 from steamstudy.build.score import Score, Window, placeholder_rows, score, unscored_reason
 from steamstudy.config import Config
 from steamstudy.export import schema as S
@@ -95,25 +91,27 @@ class BuildResult:
 
 
 def build(
-    snapshot: SnapshotLike, config: Config, build_id: str, *, allow_parse_errors: bool = False
+    snapshot: SnapshotLike | BuildSource, config: Config, build_id: str, *, allow_parse_errors: bool = False
 ) -> BuildResult:
-    meta = snapshot.meta
+    """The Build of a Snapshot: a raw Snapshot view, or a `BuildSource` of either form."""
+    source = as_source(snapshot)
+    meta = source.meta
     window = Window(meta["observation_window"]["first"], meta["observation_window"]["last"])
     result = BuildResult(snapshot_id=str(meta["id"]), build_id=build_id)
     parse_errors: list[dict[str, Any]] = []
 
-    listing = read_listing(snapshot)
+    listing = listing_from_pages(source.listing_pages())
     for key, error in listing.parse_errors:
         parse_errors.append({"appid": None, "source": "top_page", "request_key": key, "error": error})
 
-    apps = _read_histories(snapshot, listing, window, parse_errors)
+    apps = _read_histories(source, listing, window, parse_errors)
     scores = {a: r.score for a, r in apps.items() if r.score is not None}
-    games = {a: read_game(snapshot, a, apps[a].listing_name or "", parse_errors) for a in scores}
+    games = {a: read_game(source, a, apps[a].listing_name or "", parse_errors) for a in scores}
 
     if parse_errors and not allow_parse_errors:
         raise BuildFailed(f"{len(parse_errors)} parse error(s); see parse_errors.csv", parse_errors)
 
-    vocabulary = read_vocabulary(snapshot)
+    vocabulary = read_vocabulary(source)
     result.warnings += _vocabulary_warnings(config, vocabulary)
     _apply_manual_metadata(config, games, result)
     try:
@@ -158,17 +156,17 @@ def build(
     result.add("reports/release_month_check.csv", S.RELEASE_MONTH_CHECK,
                A.release_month_check_rows(t, config.analysis.release_month_check))
     result.add("reports/manual_metadata.csv", S.MANUAL_METADATA, A.manual_metadata_rows(games))
-    result.add("reports/skipped_apps.csv", S.SKIPPED_APPS, skipped_app_rows(snapshot))
-    if snapshot.keys("steamdb/"):
+    result.add("reports/skipped_apps.csv", S.SKIPPED_APPS, skipped_rows(source.skipped(), listing.names))
+    if source.has_steamdb():
         result.add("reports/steamdb_crosscheck.csv", S.STEAMDB_CROSSCHECK,
-                   _steamdb_rows(snapshot, games, A.members(t), parse_errors_allowed=allow_parse_errors,
+                   _steamdb_rows(source, games, A.members(t), parse_errors_allowed=allow_parse_errors,
                                  warnings=result.warnings))
-    completeness = _completeness(snapshot, listing, apps, window)
+    completeness = _completeness(source, listing, apps, window)
     completeness += _exclusion_counts(games, evaluations, config)
     completeness += A.depth_check_rows(t, wording(config)["top_h"])
     result.add("reports/completeness.csv", S.COMPLETENESS, completeness)
 
-    result.build_json = _build_json(snapshot, config, build_id, allow_parse_errors, len(parse_errors))
+    result.build_json = _build_json(source, config, build_id, allow_parse_errors, len(parse_errors))
     result.build_json["manual_metadata_entries"] = [
         {"appid": a, "kind": g.manual_entry["kind"]} for a, g in sorted(games.items()) if g.manual_entry]
     result.build_json["exclusion_overrides_applied"] = [
@@ -195,23 +193,21 @@ def build(
     return result
 
 
-def _steamdb_rows(snapshot: SnapshotLike, games: dict[int, Game], members: list[int], *,
+def _steamdb_rows(source: BuildSource, games: dict[int, Game], members: list[int], *,
                   parse_errors_allowed: bool, warnings: list[str]) -> list[dict[str, Any]]:
     rows = []
     for appid in members:
-        resp = snapshot.response(f"steamdb/app/{appid}.html.gz")
-        if resp is None or resp.outcome != "ok":
+        read = source.steamdb(appid)
+        if read is None or read.outcome != "ok":
             continue
-        try:
-            steamdb = parse_steamdb_app(resp.body or b"")
-        except ParseError as exc:
-            warnings.append(f"SteamDB page for appid {appid} not readable: {exc}")
+        if read.tags is None:
+            warnings.append(f"SteamDB page for appid {appid} not readable: {read.error}")
             continue
+        steamdb = read.tags
         store_ids = [t.tag_id for t in games[appid].tags]
         steamdb_ids = [t for t, _ in steamdb]
-        entry = snapshot.entry(f"steamdb/app/{appid}.html.gz")
         rows.append({
-            "appid": appid, "name": games[appid].name, "steamdb_batch": entry.batch if entry else "",
+            "appid": appid, "name": games[appid].name, "steamdb_batch": read.batch,
             "store_tag_ids": store_ids, "steamdb_tag_ids": steamdb_ids, "steamdb_tags": [n for _, n in steamdb],
             "only_store_tag_ids": [t for t in store_ids if t not in steamdb_ids],
             "only_steamdb_tag_ids": [t for t in steamdb_ids if t not in store_ids],
@@ -276,44 +272,30 @@ def _exclusion_counts(games: dict[int, Game], evaluations: dict[int, Any], confi
 
 
 def _read_histories(
-    snapshot: SnapshotLike, listing: Listing, window: Window, parse_errors: list[dict[str, Any]]
+    source: BuildSource, listing: Listing, window: Window, parse_errors: list[dict[str, Any]]
 ) -> dict[int, AppRecord]:
-    extra = {int(a) for a in snapshot.meta.get("extra_appids", [])}
+    extra = {int(a) for a in source.meta.get("extra_appids", [])}
     apps: dict[int, AppRecord] = {}
     for appid in sorted(set(listing.best_rank) | extra):
         record = AppRecord(appid, listing.names.get(appid), listing.best_rank.get(appid), "missing")
         apps[appid] = record
         key = f"steamcharts/app/{appid}.html.gz"
-        resp = snapshot.response(key)
-        if resp is None:
+        read = source.charts(appid)
+        if read.outcome == MISSING:
             continue
-        if resp.outcome == "not_found":
-            record.history_outcome = "not_found"
+        if read.outcome in ("not_found", "skipped"):
+            record.history_outcome = read.outcome
             continue
-        if resp.outcome == "skipped":
-            record.history_outcome = "skipped"
-            continue
-        if resp.outcome == "parse_failure":
+        if read.errors:
             record.history_outcome = "parse_error"
-            parse_errors.append({"appid": appid, "source": "steamcharts_app", "request_key": key,
-                                 "error": "page structure not readable"})
-            continue
-        if resp.outcome != "ok":
-            continue
-        try:
-            history = parse_steamcharts_app(resp.body or b"", last_month=window.last)
-        except ParseError as exc:
-            record.history_outcome = "parse_error"
-            parse_errors.append({"appid": appid, "source": "steamcharts_app", "request_key": key, "error": str(exc)})
-            continue
-        if history.errors:
-            record.history_outcome = "parse_error"
-            for error in history.errors:
+            for error in read.errors:
                 parse_errors.append({"appid": appid, "source": "steamcharts_app", "request_key": key, "error": error})
             continue
+        if read.outcome != "ok" or read.history is None:
+            continue
         record.history_outcome = "ok"
-        record.history = history
-        record.score = score(history, window)
+        record.history = read.history
+        record.score = score(read.history, window)
     return apps
 
 
@@ -328,7 +310,7 @@ def _placeholder_rows(apps: dict[int, AppRecord]) -> list[dict[str, Any]]:
 
 
 def _completeness(
-    snapshot: SnapshotLike, listing: Listing, apps: dict[int, AppRecord], window: Window
+    source: BuildSource, listing: Listing, apps: dict[int, AppRecord], window: Window
 ) -> list[dict[str, Any]]:
     def row(section: str, item: str, value: int, note: str, dataset: str = "") -> dict[str, Any]:
         return {"section": section, "item": item, "dataset": dataset, "value": value, "note": note}
@@ -343,7 +325,7 @@ def _completeness(
         once = sum(1 for a in union if sum(a in s for s in sets) == 1)
         rows.append(row("listing", "one_pass_only_appids", once, "AppIDs seen in only one pass"))
     rows.append(row("listing", "listing_appids", len(listing.best_rank), "distinct AppIDs across passes"))
-    extra = len(snapshot.meta.get("extra_appids", []))
+    extra = len(source.meta.get("extra_appids", []))
     if extra:
         rows.append(row("listing", "extra_appids", extra, "test-mode edge-case AppIDs added to the pool"))
     rows.append(row("listing", "candidate_pool", len(apps), "Candidate Pool size (reported, not enforced)"))
@@ -375,12 +357,14 @@ def _completeness(
 
 
 def _build_json(
-    snapshot: SnapshotLike, config: Config, build_id: str, allow_parse_errors: bool, n_parse_errors: int
+    source: BuildSource, config: Config, build_id: str, allow_parse_errors: bool, n_parse_errors: int
 ) -> dict[str, Any]:
-    meta = snapshot.meta
+    meta = source.meta
     n = config.network
     return {
         "snapshot_id": meta["id"],
+        "snapshot_form": source.form,
+        "extract_version": EXTRACT_VERSION,  # the parsers and extracted fields this software reads
         "build_id": build_id,
         "mode": meta.get("mode", ""),
         "parse_errors_allowed": allow_parse_errors,

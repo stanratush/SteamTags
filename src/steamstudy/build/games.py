@@ -6,18 +6,8 @@ from dataclasses import dataclass, field
 from collections.abc import Sequence
 from typing import Any
 
-from steamstudy.build.parse import (
-    AppDetails,
-    Genre,
-    ParseError,
-    StorePage,
-    StoreTag,
-    TagVocabulary,
-    parse_appdetails,
-    parse_store_page,
-    parse_tag_list,
-)
-from steamstudy.build.pool import SnapshotLike
+from steamstudy.build.parse import AppDetails, Genre, StorePage, StoreTag, TagVocabulary
+from steamstudy.build.source import BuildSource
 
 MANUAL_FULL_FIELDS = ("tags", "app_type", "genres", "is_free", "release_date", "adult_only")
 MANUAL_OPTIONAL_FIELDS = ("name",)
@@ -78,34 +68,22 @@ def counted_tags(tags: Sequence[Any], depth: int | None) -> Sequence[Any]:
     return tags if depth is None else tags[:depth]
 
 
-def read_vocabulary(snapshot: SnapshotLike) -> TagVocabulary | None:
-    resp = snapshot.response("steam_api/GetTagList.json")
-    if resp is None or resp.outcome != "ok" or not resp.body:
-        return None
-    return parse_tag_list(resp.body)
+def read_vocabulary(source: BuildSource) -> TagVocabulary | None:
+    return source.vocabulary()
 
 
-def read_game(snapshot: SnapshotLike, appid: int, fallback_name: str, parse_errors: list[dict[str, Any]]) -> Game:
+def read_game(source: BuildSource, appid: int, fallback_name: str, parse_errors: list[dict[str, Any]]) -> Game:
     page_key, details_key = f"store/page/{appid}.html.gz", f"store/appdetails/{appid}.json.gz"
-    page_resp, details_resp = snapshot.response(page_key), snapshot.response(details_key)
-    game = Game(appid, fallback_name, page_resp.outcome if page_resp else "missing",
-                details_resp.outcome if details_resp else "missing")
-    if page_resp is not None and page_resp.outcome == "ok":
-        try:
-            game.page = parse_store_page(page_resp.body or b"")
-        except ParseError as exc:
-            game.page_outcome = "parse_error"
-            parse_errors.append({"appid": appid, "source": "store_page", "request_key": page_key, "error": str(exc)})
-    elif page_resp is not None and page_resp.outcome == "parse_failure":
+    read = source.store(appid)
+    game = Game(appid, fallback_name, read.page_outcome, read.details_outcome, page=read.page, details=read.details)
+    if read.page_error is not None:
         game.page_outcome = "parse_error"
         parse_errors.append({"appid": appid, "source": "store_page", "request_key": page_key,
-                             "error": "page structure not readable"})
-    if details_resp is not None and details_resp.outcome == "ok":
-        try:
-            game.details = parse_appdetails(details_resp.body or b"", appid)
-        except ParseError as exc:
-            game.details_outcome = "parse_error"
-            parse_errors.append({"appid": appid, "source": "appdetails", "request_key": details_key, "error": str(exc)})
+                             "error": read.page_error})
+    if read.details_error is not None:
+        game.details_outcome = "parse_error"
+        parse_errors.append({"appid": appid, "source": "appdetails", "request_key": details_key,
+                             "error": read.details_error})
     if game.page is not None:
         game.tags = game.page.tags
         game.adult_only = game.page.adult_only
