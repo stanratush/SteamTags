@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from steamstudy import __version__
-from steamstudy.builds import resolve_build
+from steamstudy.builds import BuildInfo, build_info, list_builds, resolve_build
 from steamstudy.i18n import text
 from steamstudy.bundle import start_tag_network as launcher
 from steamstudy.bundle.wheels import PYTHONS, TARGETS, Wheel, plan, read_lock, requirements
@@ -108,6 +108,36 @@ def ship_parameter_selection(source: Path, staged: Path, map_fn: Callable[..., I
     return {"settings_key_hash": SEL.key_hash(settings.settings_key()), "grids": grids, "validations": validations}
 
 
+def resolve_bundle_build(root: Path, spec: str) -> BuildInfo:
+    """A `--build`: `latest`, a `build_id`, `<source_id>/<build_id>`, a name or `<source_id>/<name>` (names are
+    case-insensitive). An ambiguous name is refused, listing the matches."""
+    if spec.strip().casefold() == "latest":
+        try:
+            return build_info(resolve_build(root))
+        except FileNotFoundError as exc:
+            raise BundleError(str(exc)) from exc
+    every = list_builds(root) if (Path(root) / "builds").is_dir() else []
+    source, _, wanted = spec.rpartition("/")
+    pool = [b for b in every if not source or b.source_id == source]
+    matches = [b for b in pool if b.build_id == wanted] or [b for b in pool if b.name.casefold() == wanted.casefold()]
+    if not matches:
+        raise BundleError(f"no Build {spec!r} under {Path(root) / 'builds'}")
+    if len(matches) > 1:
+        listed = "; ".join(f"{b.ref} ({b.name})" for b in matches)
+        raise BundleError(f"the Build name {spec!r} is ambiguous: {listed}. Name it as <source_id>/<build_id>")
+    return matches[0]
+
+
+def build_entry(root: Path, info: BuildInfo) -> dict[str, Any]:
+    """A Build's `bundle.json` entry: its name, description and parent, with the parent's name as of now."""
+    parent_name = None
+    if info.parent_build_id:
+        parent = Path(root) / "builds" / info.parent_build_id
+        parent_name = build_info(parent).name if (parent / "datasets" / "build.json").is_file() else "deleted"
+    return {"ref": info.ref, "name": info.name, "description": info.description,
+            "parent_build_id": info.parent_build_id, "parent_name": parent_name}
+
+
 def current_target() -> str:
     target = launcher.target_name(platform.system(), platform.machine())
     if target is None:
@@ -147,20 +177,30 @@ def make_bundle(root: Path, *, builds: Sequence[str] = (), targets: Sequence[str
                 repo: Path = REPO, lock_path: Path | None = None, cache: Path | None = None,
                 fetch: Callable[[Wheel, Path], Path] = fetch_wheel,
                 build_wheel: Callable[[Path, Path], Path] = build_steamstudy_wheel,
-                now: dt.datetime | None = None, skip_parameter_selection: bool = False,
+                now: dt.datetime | None = None, skip_parameter_selection: bool = False, allow_test: bool = False,
                 map_fn: Callable[..., Iterable[Any]] | None = None) -> Path:
-    """Write `<out>/tag-network-<build_id>-<targets>.zip` and return its path. `skip_parameter_selection` makes a
-    bundle without Parameter Selection results (test bundles only, never a release); `map_fn` replaces the worker
-    pool (tests)."""
+    """Write `<out>/tag-network-<build_id>-<targets>.zip` and return its path. `builds` names at least one Build (see
+    `resolve_bundle_build`); the first is the Bundle's `latest` and opens by default. A Build of a test Snapshot needs
+    `allow_test`. `skip_parameter_selection` makes a bundle without Parameter Selection results (test bundles only,
+    never a release); `map_fn` replaces the worker pool (tests)."""
     root = Path(root)
     targets = list(dict.fromkeys(targets or [current_target()]))
     for name in targets:
         if name not in TARGETS:
             raise BundleError(f"unknown target {name!r} (choose from {', '.join(TARGETS)})")
-    try:
-        folders = list(dict.fromkeys([resolve_build(root)] + [resolve_build(root, b) for b in builds]))
-    except FileNotFoundError as exc:
-        raise BundleError(str(exc)) from exc
+    if not builds:
+        raise BundleError("name at least one Build with --build (an id, a name, <source_id>/…, or latest)")
+    infos = list({i.ref: i for i in reversed([resolve_bundle_build(root, b) for b in builds])}.values())[::-1]
+    tests = [i for i in infos if i.mode == "test"]
+    if tests and not allow_test:
+        listed = ", ".join(f"{i.name} ({i.ref})" for i in tests)
+        raise BundleError(f"{listed}: a Build of a test Snapshot; pass --allow-test to bundle it")
+    for n, a in enumerate(infos):
+        for b in infos[n + 1:]:
+            if a.config_hash and (a.source_id, a.config_hash) == (b.source_id, b.config_hash):
+                log.warning("%s (%s) and %s (%s) have identical settings on the same source", a.name, a.ref,
+                            b.name, b.ref)
+    folders = [i.path for i in infos]
     lock_path = lock_path or repo / "uv.lock"
     wheel_plan = plan(read_lock(lock_path), targets)
     if not wheel_plan.complete:
@@ -187,7 +227,8 @@ def make_bundle(root: Path, *, builds: Sequence[str] = (), targets: Sequence[str
         for folder in folders:
             dest = stage / "builds" / folder.parent.name / folder.name
             shutil.copytree(folder, dest, ignore=shutil.ignore_patterns("app_cache"))
-            (dest.parent / "latest").write_text(folder.name + "\n", encoding="utf-8")
+            if not (dest.parent / "latest").is_file():  # a source's first named Build is its latest
+                (dest.parent / "latest").write_text(folder.name + "\n", encoding="utf-8")
             build_ref = f"{folder.parent.name}/{folder.name}"
             if skip_parameter_selection:
                 shipped[build_ref] = "skipped"
@@ -196,7 +237,6 @@ def make_bundle(root: Path, *, builds: Sequence[str] = (), targets: Sequence[str
             else:
                 shipped[build_ref] = _ship_with_pool(folder, dest)
         (stage / "builds" / "latest").write_text(f"{first.parent.name}/{first.name}\n", encoding="utf-8")
-        (stage / "builds" / first.parent.name / "latest").write_text(first.name + "\n", encoding="utf-8")
         shutil.copytree(repo / "docs" / "user-guide", stage / "User Guide")
         shutil.copy2(Path(launcher.__file__), stage / "start_tag_network.py")
         shutil.copy2(FILES / "Start Tag Network.bat", stage / "Start Tag Network.bat")
@@ -206,13 +246,14 @@ def make_bundle(root: Path, *, builds: Sequence[str] = (), targets: Sequence[str
             "bundle_format": BUNDLE_FORMAT, "steamstudy_version": __version__,
             "uv_lock_sha256": hashlib.sha256(lock_path.read_bytes()).hexdigest(), "targets": targets,
             "python_versions": [f"{a}.{b}" for a, b in PYTHONS], "excluded_python_versions": ["3.14.1"],
-            "builds": [f"{f.parent.name}/{f.name}" for f in folders], "latest_build": first.name,
+            "builds": [i.ref for i in infos], "latest_build": first.name,
+            "build_entries": [build_entry(root, i) for i in infos],
             "created_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "parameter_selection": shipped,
         }
         (stage / "bundle.json").write_text(json.dumps(manifest, indent=1), encoding="utf-8")
         readme = (FILES / "READ ME FIRST.txt").read_text(encoding="utf-8").format(
-            builds="\n".join(f"  {f.parent.name}/{f.name}" + ("  (opens by default)" if i == 0 else "")
-                             for i, f in enumerate(folders)),
+            builds="\n".join(f"  {b.name}  ({b.ref})" + ("  (opens by default)" if n == 0 else "")
+                             for n, b in enumerate(infos)),
             targets=", ".join(TARGETS[t].label() for t in targets), created=now.strftime("%Y-%m-%d"),
             version=__version__)
         (stage / "READ ME FIRST.txt").write_text(readme, encoding="utf-8")

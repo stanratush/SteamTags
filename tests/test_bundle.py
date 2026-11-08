@@ -72,15 +72,16 @@ def test_a_missing_wheel_writes_nothing(tmp_path, monkeypatch):
     monkeypatch.setattr("steamstudy.bundle.make.read_lock", lambda _path: broken)
     root = tmp_path / "root"
     (root / "builds" / "s" / "b" / "datasets").mkdir(parents=True)
+    (root / "builds" / "s" / "b" / "datasets" / "build.json").write_text("{}")
     (root / "builds" / "latest").write_text("s/b\n")
     with pytest.raises(BundleError, match="numpy .* for linux / Python 3.13"):
-        make_bundle(root, targets=["linux"], out=tmp_path / "out")
+        make_bundle(root, builds=["latest"], targets=["linux"], out=tmp_path / "out")
     assert not (tmp_path / "out").exists()
 
 
 def test_a_missing_build_writes_nothing(tmp_path):
     with pytest.raises(BundleError):
-        make_bundle(tmp_path, targets=["linux"], out=tmp_path / "out")
+        make_bundle(tmp_path, builds=["latest"], targets=["linux"], out=tmp_path / "out")
     assert not (tmp_path / "out").exists()
 
 
@@ -120,7 +121,7 @@ def test_a_failed_zip_write_leaves_no_partial_file(tmp_path, monkeypatch):
             raise OSError("disk full")
     monkeypatch.setattr("steamstudy.bundle.make.zipfile.ZipFile", Broken)
     with pytest.raises(OSError):
-        make_bundle(root, targets=["windows"], out=tmp_path / "out", lock_path=REPO / "uv.lock",
+        make_bundle(root, builds=["latest"], targets=["windows"], out=tmp_path / "out", lock_path=REPO / "uv.lock",
                     build_wheel=lambda _repo, _out: wheel, skip_parameter_selection=True)  # a stub Build
     assert list((tmp_path / "out").glob("*")) == []
 
@@ -156,6 +157,8 @@ def _ps_bundle(root, tmp_path, monkeypatch, **kw):
                         lambda _path: {"package": [{"name": "steamstudy", "version": "0.1.0", "dependencies": []}]})
     wheel = tmp_path / "steamstudy-0.1.0-py3-none-any.whl"
     wheel.write_bytes(b"x")
+    kw.setdefault("builds", ["latest"])
+    kw.setdefault("allow_test", True)
     path = make_bundle(root, targets=["windows"], out=tmp_path / "out", lock_path=REPO / "uv.lock",
                        build_wheel=lambda _repo, _out: wheel, map_fn=map, **kw)
     extracted = tmp_path / "x"
@@ -244,7 +247,7 @@ def test_a_path_too_long_for_windows_explorer_writes_nothing(tmp_path, monkeypat
     wheel = tmp_path / "steamstudy-0.1.0-py3-none-any.whl"
     wheel.write_bytes(b"x")
     with pytest.raises(BundleError, match="Windows Explorer could not open the bundle"):
-        make_bundle(root, targets=["windows"], out=tmp_path / "out", lock_path=REPO / "uv.lock",
+        make_bundle(root, builds=["latest"], targets=["windows"], out=tmp_path / "out", lock_path=REPO / "uv.lock",
                     build_wheel=lambda _repo, _out: wheel, skip_parameter_selection=True)
     assert not (tmp_path / "out").exists()
 
@@ -299,3 +302,137 @@ def test_a_partial_grid_in_the_maker_cache_is_not_called_stale(tmp_path):
     assert stale_files(tmp_path / "fresh", tmp_path / "maker") == []
     (maker / "graphs" / "h.json").write_text(json.dumps({"n_tags": 4}))
     assert stale_files(tmp_path / "fresh", tmp_path / "maker") == ["grids/k/graphs/h.json"]
+
+
+# ----------------------------------------------------------------------------- Bundles of named Builds (issue 34)
+
+
+@pytest.fixture(scope="module")
+def named_root(tmp_path_factory):
+    """Named Builds on two test Snapshots: A → B → C on S1, an orphan E (its parent X deleted), "A" again on S2."""
+    import shutil
+
+    from conftest import CONFIG_DIR
+    from steamstudy import build_admin as BA
+    from test_build_network import tagged_world
+
+    root = tmp_path_factory.mktemp("named")
+    shutil.copytree(CONFIG_DIR, root / "config")
+    for sid in ("S1", "S2"):
+        tagged_world().snapshot(root / "snapshots" / sid)
+
+    def built(name, source="S1", parent=None, list_size=None):
+        draft = (BA.duplicate(root, parent, source, name=name) if parent
+                 else BA.start_draft(root, source, config_dir=root / "config", name=name))
+        draft.description = f"why {name}"
+        if list_size:
+            draft.config["datasets"]["dataset"][0]["list_size"] = list_size
+        BA.save_draft(root, draft)
+        folder = BA.build_draft(root, draft)
+        return f"{folder.parent.name}/{folder.name}"
+
+    refs = {"A": built("A")}
+    refs["B"] = built("B", parent=refs["A"], list_size=90)
+    refs["C"] = built("C", parent=refs["B"], list_size=80)
+    refs["X"] = built("X", parent=refs["A"], list_size=70)
+    refs["E"] = built("E", parent=refs["X"], list_size=60)
+    BA.delete_build(root, refs["X"], open_build=refs["A"])
+    refs["A2"] = built("A", source="S2")
+    return root, refs
+
+
+def _named_bundle(root, tmp_path, monkeypatch, builds, **kw):
+    kw.setdefault("allow_test", True)
+    return _ps_bundle(root, tmp_path, monkeypatch, builds=builds, skip_parameter_selection=True, **kw)
+
+
+def test_a_build_resolves_by_id_ref_name_or_source_and_name(named_root):
+    from steamstudy.bundle.make import resolve_bundle_build
+
+    root, refs = named_root
+    b = refs["B"]
+    for spec in (b.split("/")[1], b, "b", "S1/B", "s1/b".replace("s1", "S1")):
+        assert resolve_bundle_build(root, spec).ref == b
+    assert resolve_bundle_build(root, "S2/a").ref == refs["A2"]
+    with pytest.raises(BundleError, match="ambiguous") as exc:
+        resolve_bundle_build(root, "a")
+    assert refs["A"] in str(exc.value) and refs["A2"] in str(exc.value)
+    with pytest.raises(BundleError, match="no Build"):
+        resolve_bundle_build(root, "nothing")
+
+
+def test_the_first_build_named_is_the_bundles_latest(named_root, tmp_path, monkeypatch):
+    import json
+
+    root, refs = named_root
+    bundle = _named_bundle(root, tmp_path, monkeypatch, ["C", "S1/B"])
+    assert (bundle / "builds" / "latest").read_text(encoding="utf-8").strip() == refs["C"]
+    assert (bundle / "builds" / "S1" / "latest").read_text(encoding="utf-8").strip() == refs["C"].split("/")[1]
+    manifest = json.loads((bundle / "bundle.json").read_text(encoding="utf-8"))
+    assert manifest["builds"] == [refs["C"], refs["B"]]
+    entry = manifest["build_entries"][0]
+    assert (entry["name"], entry["description"], entry["parent_build_id"], entry["parent_name"]) == (
+        "C", "why C", refs["B"], "B")
+    readme = (bundle / "READ ME FIRST.txt").read_text(encoding="utf-8")
+    assert f"C  ({refs['C']})  (opens by default)" in readme and f"B  ({refs['B']})" in readme
+    with pytest.raises(BundleError, match="at least one Build"):
+        make_bundle(root, targets=["windows"], out=tmp_path / "none")
+
+
+def test_the_bundled_tree_labels_parents_inside_outside_and_deleted(named_root, tmp_path, monkeypatch):
+    from steamstudy.build_tree import build_tree, walk
+
+    root, refs = named_root
+    bundle = _named_bundle(root, tmp_path, monkeypatch, ["B", "C", "E"])
+    (tree,) = build_tree(bundle)
+    rows = {n.info.name: (depth, n) for depth, n in walk(tree.builds)}
+    assert rows["C"][0] == 1 and rows["C"][1].orphan is None  # nested under B, which is in the Bundle
+    assert rows["B"][0] == 0 and rows["B"][1].orphan == "not in this Bundle" and rows["B"][1].parent_name == "A"
+    assert rows["E"][0] == 0 and rows["E"][1].orphan == "deleted"
+    assert tree.drafts == []
+
+
+def test_a_test_build_needs_allow_test_and_identical_settings_warn(named_root, tmp_path, monkeypatch, caplog):
+    import logging
+
+    from steamstudy import build_admin as BA
+
+    root, refs = named_root
+    for sub in ("t", "w"):
+        (tmp_path / sub).mkdir()
+    with pytest.raises(BundleError, match="--allow-test"):
+        _named_bundle(root, tmp_path / "t", monkeypatch, ["B"], allow_test=False)
+    same = BA.duplicate(root, refs["A"], "S1", name="A again")
+    same.description = "same settings"
+    BA.save_draft(root, same)
+    folder = BA.build_draft(root, same)
+    try:
+        with caplog.at_level(logging.WARNING, logger="steamstudy.bundle"):
+            _named_bundle(root, tmp_path / "w", monkeypatch, ["S1/A", "A again"])
+        assert any("identical settings" in r.message and "A again" in r.message for r in caplog.records)
+    finally:
+        import shutil
+
+        shutil.rmtree(folder)
+
+
+def test_a_bundle_with_an_import_build_opens_it(tmp_path, monkeypatch):
+    import shutil
+
+    from conftest import CONFIG_DIR
+    from steamstudy import build_admin as BA
+    from steamstudy.app.loader import load_build
+    from test_import_builds import _csv, _import
+
+    root = tmp_path / "root"
+    shutil.copytree(CONFIG_DIR, root / "config")
+    import_id = _import(root, _csv())
+    draft = BA.start_draft(root, import_id, config_dir=root / "config", name="Items")
+    draft.description = "an Import Build"
+    BA.save_draft(root, draft)
+    BA.build_draft(root, draft)
+    bundle = _ps_bundle(root, tmp_path, monkeypatch, builds=["Items"], allow_test=False)
+    ref = (bundle / "builds" / "latest").read_text(encoding="utf-8").strip()
+    assert ref.startswith(import_id + "/") and not (bundle / "imports").exists()
+    ctx = load_build(bundle / "builds" / ref)
+    assert ctx.build_json["name"] == "Items" and (bundle / "builds" / ref / "app_cache").is_dir()

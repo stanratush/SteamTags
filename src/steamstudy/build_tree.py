@@ -126,9 +126,8 @@ def build_tree(root: Path, *, bundle: bool | None = None, sizes: bool = False) -
                 nodes[parent].children.append(node)
                 continue
             if parent:
-                node.orphan = "not in this Bundle" if bundle else "deleted"
-                if bundle:
-                    node.parent_name = _parent_name_from_bundle(root, parent)
+                node.parent_name = _parent_name_from_bundle(root, parent) if bundle else None
+                node.orphan = "not in this Bundle" if bundle and node.parent_name != "deleted" else "deleted"
             top.append(node)
         root_drafts: list[Draft] = []
         if not bundle:
