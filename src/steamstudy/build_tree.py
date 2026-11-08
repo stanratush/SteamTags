@@ -15,9 +15,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from steamstudy.build.core import build_date
 from steamstudy.build_admin import Draft, list_drafts
-from steamstudy.builds import BuildInfo, builds_dir, list_builds
+from steamstudy.builds import LIGHT_SUFFIX as SUFFIX, BuildInfo, build_date, builds_dir, list_builds
 
 ROOT_LABELS = {"snapshot": "config/", "import": "Import defaults"}
 
@@ -28,10 +27,11 @@ class BuildNode:
     latest: bool
     test: bool
     date: str
-    top_n: str  # "Overall 100 · Puzzle 50 · 20 tags per game"
+    top_n: str  # "Overall 100 · Puzzle 50"
+    tag_depth: int | str  # 20, or "all"
     size_bytes: int = 0
     app_cache_bytes: int = 0
-    orphan: str | None = None  # "deleted", or (in a Bundle) "not in this Bundle"
+    orphan: str | None = None  # "deleted", "another source" (duplicated onto it), or (in a Bundle) "not in this Bundle"
     parent_name: str | None = None
     children: list[BuildNode] = field(default_factory=list)
     drafts: list[Draft] = field(default_factory=list)
@@ -63,12 +63,12 @@ def folder_bytes(path: Path) -> int:
     return sum(p.stat().st_size for p in path.rglob("*") if p.is_file()) if path.is_dir() else 0
 
 
-def _top_n(build_json: dict[str, Any]) -> str:
+def _top_n(build_json: dict[str, Any]) -> tuple[str, int | str]:
+    """The Build's datasets with their List Sizes ("Overall 100 · Puzzle 50"), and its Tag Depth."""
     config = build_json.get("resolved_config") or build_json.get("config") or {}
     datasets = (config.get("datasets") or {})
     parts = [f"{d.get('label', d.get('key'))} {d.get('list_size', 100)}" for d in datasets.get("dataset", [])]
-    depth = datasets.get("tag_depth", "all" if build_json.get("source") == "import" else 20)
-    return " · ".join([*parts, f"{depth} tags per game"]) if parts else ""
+    return " · ".join(parts), datasets.get("tag_depth", "all" if build_json.get("source") == "import" else 20)
 
 
 def _pointer(path: Path) -> str | None:
@@ -77,7 +77,6 @@ def _pointer(path: Path) -> str | None:
 
 def _sources(root: Path, bundle: bool) -> list[tuple[str, str, tuple[str, ...]]]:
     from steamstudy.imports import imports_dir
-    from steamstudy.lightweight import SUFFIX
 
     found: dict[str, tuple[str, tuple[str, ...]]] = {}
     base = builds_dir(root)
@@ -114,9 +113,10 @@ def build_tree(root: Path, *, bundle: bool | None = None, sizes: bool = False) -
         nodes: dict[str, BuildNode] = {}
         for info in sorted((b for b in every.values() if b.source_id == source_id), key=lambda b: b.build_id):
             bj = json.loads((info.path / "datasets" / "build.json").read_text(encoding="utf-8"))
+            top_n, depth = _top_n(bj)
             nodes[info.ref] = BuildNode(
                 info=info, latest=info.build_id == latest or info.ref == root_latest, test=info.mode == "test",
-                date=build_date(info.build_id), top_n=_top_n(bj),
+                date=build_date(info.build_id), top_n=top_n, tag_depth=depth,
                 size_bytes=folder_bytes(info.path) if sizes else 0,
                 app_cache_bytes=folder_bytes(info.path / "app_cache") if sizes else 0)
         top: list[BuildNode] = []
@@ -125,7 +125,9 @@ def build_tree(root: Path, *, bundle: bool | None = None, sizes: bool = False) -
             if parent and parent in nodes:
                 nodes[parent].children.append(node)
                 continue
-            if parent:
+            if parent in every:  # duplicated from a Build of another Snapshot (or Import)
+                node.parent_name, node.orphan = every[parent].name, "another source"
+            elif parent:
                 node.parent_name = _parent_name_from_bundle(root, parent) if bundle else None
                 node.orphan = "not in this Bundle" if bundle and node.parent_name != "deleted" else "deleted"
             top.append(node)

@@ -65,7 +65,7 @@ def _comparison(root: Path, draft: Draft) -> tuple[list[int] | None, str | None]
 def for_review(root: Path, draft: Draft) -> PP.PoolPreview:
     loaded = records(root, draft.source_id)
     if loaded is None:
-        from steamstudy.build.import_build import is_import
+        from steamstudy.imports import is_import
 
         missing = not is_import(root, draft.source_id) and not (root / "snapshots" / draft.source_id).is_dir()
         return PP.PoolPreview("", not_previewed=not missing,

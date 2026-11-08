@@ -190,7 +190,7 @@ def make_bundle(root: Path, *, builds: Sequence[str] = (), targets: Sequence[str
             raise BundleError(f"unknown target {name!r} (choose from {', '.join(TARGETS)})")
     if not builds:
         raise BundleError("name at least one Build with --build (an id, a name, <source_id>/…, or latest)")
-    infos = list({i.ref: i for i in reversed([resolve_bundle_build(root, b) for b in builds])}.values())[::-1]
+    infos = list({i.ref: i for i in (resolve_bundle_build(root, b) for b in builds)}.values())  # first mention wins
     tests = [i for i in infos if i.mode == "test"]
     if tests and not allow_test:
         listed = ", ".join(f"{i.name} ({i.ref})" for i in tests)

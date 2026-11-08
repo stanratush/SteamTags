@@ -72,3 +72,25 @@ def list_builds(root: Path, source_id: str | None = None) -> list[BuildInfo]:
     found = [build_info(p) for s in sources if s.is_dir() for p in sorted(s.iterdir())
              if (p / "datasets" / "build.json").is_file()]
     return sorted(found, key=lambda b: (b.build_id, b.source_id))
+
+
+class BuildFailed(Exception):
+    """The Build must not be written (parse errors without --allow-parse-errors, invalid config entries, ...)."""
+
+    def __init__(self, message: str, parse_errors: list[dict[str, Any]] | None = None):
+        super().__init__(message)
+        self.parse_errors = parse_errors or []
+
+
+def build_date(build_id: str) -> str:
+    """The UTC date a `build_id` was made, as YYYY-MM-DD."""
+    stamp = build_id.split("-", 1)[0]
+    return f"{stamp[0:4]}-{stamp[4:6]}-{stamp[6:8]}"
+
+
+LIGHT_SUFFIX = ".light.zip"
+
+
+def light_path(snapshots_root: Path, snapshot_id: str) -> Path:
+    """Where a Snapshot's lightweight form lives (`steamstudy.lightweight` makes and reads it)."""
+    return Path(snapshots_root) / f"{snapshot_id}{LIGHT_SUFFIX}"

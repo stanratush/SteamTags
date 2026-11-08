@@ -60,7 +60,7 @@ def load(root: Path, ref: dict[str, str] | None) -> BA.Draft | None:
 
 
 def _is_import(root: Path, draft: BA.Draft) -> bool:
-    from steamstudy.build.import_build import is_import
+    from steamstudy.imports import is_import
 
     return is_import(root, draft.source_id)
 
@@ -75,7 +75,7 @@ def layout() -> html.Div:
 
 
 def _start(draft: BA.Draft, root: Path, tx: Text) -> list[Any]:
-    from steamstudy.lightweight import light_path
+    from steamstudy.builds import light_path
 
     parent = BA.parent_name(root, draft.parent_build_id) if draft.parent_build_id else None
     started = (tx("the defaults") if not draft.parent_build_id

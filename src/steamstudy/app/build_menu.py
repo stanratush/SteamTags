@@ -101,6 +101,9 @@ def _build_row(depth: int, node: BuildNode, open_ref: str, tx: Text, *, edit: bo
     origin = []
     if node.orphan == "deleted":
         origin = [html.Span(tx("from a deleted Build"), className="mute small")]
+    elif node.orphan == "another source":
+        origin = [html.Span(tx("from {name} on {source}", name=node.parent_name,
+                               source=(node.info.parent_build_id or "").split("/", 1)[0]), className="mute small")]
     elif node.orphan:
         origin = [html.Span(tx("from {name} (not in this Bundle)", name=node.parent_name or node.info.parent_build_id),
                             className="mute small")]
@@ -112,7 +115,8 @@ def _build_row(depth: int, node: BuildNode, open_ref: str, tx: Text, *, edit: bo
                           cache=_size(node.app_cache_bytes, tx)), className="mute small")] if sizes else [])
     return html.Div([
         html.Button([html.B(node.info.name), *_chips(node, open_ref, tx),
-                     html.Span(node.date, className="mute small"), html.Span(node.top_n, className="mute small"),
+                     html.Span(node.date, className="mute small"), html.Span(" · ".join(filter(None, [node.top_n, (tx("all tags per game") if node.tag_depth == "all" else tx("{depth} tags per game", depth=node.tag_depth))])),
+                               className="mute small"),
                      *origin, *size],
                     id={"type": "bm-build", "ref": node.ref}, className="bm-row-main",
                     title=node.info.description or node.ref),
@@ -130,8 +134,15 @@ def _draft_row(depth: int, draft: BA.Draft, tx: Text) -> html.Div:
     else:
         status = tx("draft")
     saved = (draft.saved_at or "").replace("T", " ").rstrip("Z")
+    root = repo_root()
+    try:
+        n = len(BA.changed_settings(BA.draft_base(root, draft, root / "config"), draft.config)) if root else None
+    except Exception:  # noqa: BLE001 - a source or config that no longer opens: the row still lists the draft
+        n = None
+    changed = ([html.Span(tx.n(n, one="{n} changed setting", other="{n} changed settings"), className="mute small")]
+               if n is not None else [])
     return html.Div([
-        html.Button([html.I(draft.name), html.Span(status, className="bm-chip draft"),
+        html.Button([html.I(draft.name), html.Span(status, className="bm-chip draft"), *changed,
                      html.Span(tx("last saved {when}", when=saved), className="mute small")],
                     id={"type": "bm-draft", "source": draft.source_id, "slug": draft.stored_slug or ""},
                     className="bm-row-main"),
@@ -272,7 +283,7 @@ def _draft(root: Path, source_id: str, slug: str) -> BA.Draft | None:
 
 def _sources_for(root: Path, ref: str) -> list[str]:
     """Where a Build may be duplicated: an Import Build within its Import, a Steam Build onto any Snapshot."""
-    from steamstudy.build.import_build import is_import
+    from steamstudy.imports import is_import
 
     source = ref.split("/", 1)[0]
     if is_import(root, source):
@@ -469,15 +480,29 @@ def strip(_tick, lang):
         return HIDDEN, []
     tx = text(lang_of(lang))
     rows = []
+    stages = {"open": tx("opening the source"), "build": tx("building"), "write": tx("writing")}
     for v in views:
+        dismiss = html.Button("×", id={"type": "strip-dismiss", "run": v["run_id"]}, className="x")
         if v["status"] in ("waiting", "running"):
             pct = min(99, round(100 * v["elapsed_s"] / max(v["estimate_s"], 1)))
-            label = (tx("Building {name}: {stage}, {s} s of about {est} s", name=v["name"],
-                        stage=v["stage"] or tx("starting"), s=v["elapsed_s"], est=v["estimate_s"])
-                     if v["status"] == "running" else tx("{name} waits for the Build before it", name=v["name"]))
+            if v["status"] == "waiting":
+                label = tx("{name} waits for the Build before it", name=v["name"])
+            elif v["kind"] == "lighten":
+                label = tx("Making the lightweight Snapshot {name}: {s} s of about {est} s", name=v["name"],
+                           s=v["elapsed_s"], est=v["estimate_s"])
+            else:
+                label = tx("Building {name}: {stage}, {s} s of about {est} s", name=v["name"],
+                           stage=stages.get(v["stage"], tx("starting")), s=v["elapsed_s"], est=v["estimate_s"])
             rows.append(html.Div([html.Span(label), html.Progress(value=str(pct), max="100"),
                                   html.Button(tx("Cancel"), id={"type": "strip-cancel", "run": v["run_id"]},
                                               className="btn small")], className="strip-row"))
+        elif v["kind"] == "lighten":
+            text_ = {"done": tx("Made the lightweight Snapshot {name}.", name=v["name"]),
+                     "failed": tx("Making the lightweight Snapshot {name} failed: {error}", name=v["name"],
+                                  error=v["error"] or ""),
+                     }.get(v["status"], tx("Making the lightweight Snapshot {name} was cancelled.", name=v["name"]))
+            rows.append(html.Div([html.Span(text_, className="error" if v["status"] == "failed" else ""), dismiss],
+                                 className="strip-row"))
         elif v["status"] == "done":
             rows.append(html.Div([html.Span(tx("Built {name}.", name=v["name"])),
                                   html.Button(tx("Open it in this tab"), id={"type": "strip-open", "ref": v["ref"]},

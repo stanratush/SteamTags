@@ -38,6 +38,7 @@ from steamstudy.build.parse import MonthlyHistory, TagVocabulary
 from steamstudy.build.pool import Listing, SnapshotLike, listing_from_pages, skipped_rows
 from steamstudy.build.source import EXTRACT_VERSION, MISSING, BuildSource, as_source
 from steamstudy.build.score import Score, Window, placeholder_rows, score, unscored_reason
+from steamstudy.builds import BuildFailed, build_date  # noqa: F401  (re-exported: the pipeline's names)
 from steamstudy.config import Config
 from steamstudy.export import schema as S
 from steamstudy.export.schema import FileSchema
@@ -50,14 +51,6 @@ SOURCE_SUBSTITUTIONS = [
      "confirmed": "2026-10-03"},
     {"source": "Steam Web API IStoreService/GetTagList (tag vocabulary)", "confirmed": "2026-10-03"},
 ]
-
-
-class BuildFailed(Exception):
-    """The Build must not be written (parse errors without --allow-parse-errors, invalid config entries, ...)."""
-
-    def __init__(self, message: str, parse_errors: list[dict[str, Any]] | None = None):
-        super().__init__(message)
-        self.parse_errors = parse_errors or []
 
 
 @dataclass
@@ -459,9 +452,3 @@ def new_build_id(config: Config | str, now: dt.datetime | None = None) -> str:
     now = now or dt.datetime.now(dt.UTC)
     config_hash = config if isinstance(config, str) else config.build_config_hash
     return f"{now.strftime('%Y%m%dT%H%M%SZ')}-{config_hash[:8]}"
-
-
-def build_date(build_id: str) -> str:
-    """The UTC date a `build_id` was made, as YYYY-MM-DD."""
-    stamp = build_id.split("-", 1)[0]
-    return f"{stamp[0:4]}-{stamp[4:6]}-{stamp[6:8]}"

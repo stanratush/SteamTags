@@ -55,8 +55,8 @@ _NEXT = [1]
 
 
 def estimate(root: Path, source_id: str) -> int:
-    from steamstudy.build.import_build import is_import
-    from steamstudy.lightweight import light_path
+    from steamstudy.imports import is_import
+    from steamstudy.builds import light_path
 
     if is_import(root, source_id) or light_path(root / "snapshots", source_id).is_file():
         return ESTIMATE_LIGHT_S
@@ -65,33 +65,33 @@ def estimate(root: Path, source_id: str) -> int:
 
 def start(root: Path, source_id: str, slug: str, name: str) -> int:
     """Queue a draft's Build run; it starts when no other run is running. Returns its id."""
-    global _WORKER
     with _LOCK:
         for run in _RUNS.values():  # the same draft is never queued twice
             if (run.source_id, run.slug) == (source_id, slug) and run.status in ("waiting", "running"):
                 return run.run_id
         run_id = _NEXT[0]
         _NEXT[0] += 1
-        _RUNS[run_id] = Run(run_id, Path(root), source_id, slug, name, estimate(Path(root), source_id))
-        _QUEUE.append(run_id)
-        if _WORKER is None or not _WORKER.is_alive():
-            _WORKER = threading.Thread(target=_work, name="build-runs", daemon=True)
-            _WORKER.start()
+        _enqueue(Run(run_id, Path(root), source_id, slug, name, estimate(Path(root), source_id)))
     return run_id
 
 
 def start_lighten(root: Path, snapshot_id: str) -> int:
     """Queue Make lightweight Snapshot (a server job like a Build run, shown on the same strip)."""
-    global _WORKER
     with _LOCK:
         run_id = _NEXT[0]
         _NEXT[0] += 1
-        _RUNS[run_id] = Run(run_id, Path(root), snapshot_id, "", f"lightweight {snapshot_id}", 60, kind="lighten")
-        _QUEUE.append(run_id)
-        if _WORKER is None or not _WORKER.is_alive():
-            _WORKER = threading.Thread(target=_work, name="build-runs", daemon=True)
-            _WORKER.start()
+        _enqueue(Run(run_id, Path(root), snapshot_id, "", snapshot_id, 60, kind="lighten"))
     return run_id
+
+
+def _enqueue(run: Run) -> None:
+    """Queue a run and start the worker if none is working (call with `_LOCK` held)."""
+    global _WORKER
+    _RUNS[run.run_id] = run
+    _QUEUE.append(run.run_id)
+    if _WORKER is None:  # the worker clears it, under the lock, when it finds the queue empty
+        _WORKER = threading.Thread(target=_work, name="build-runs", daemon=True)
+        _WORKER.start()
 
 
 def cancel(run_id: int) -> None:
@@ -137,11 +137,13 @@ def wait_idle(timeout: float = 300.0) -> bool:
 
 
 def _work() -> None:
+    global _WORKER
     from steamstudy.build_admin import BuildCancelled, BuildFailed, build_draft, list_drafts
 
     while True:
         with _LOCK:
             if not _QUEUE:
+                _WORKER = None  # a run queued from now on starts a new worker
                 return
             run = _RUNS[_QUEUE.popleft()]
             run.status, run.started = "running", time.time()

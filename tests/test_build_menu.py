@@ -109,7 +109,7 @@ def test_the_tree_shows_lineage_orphans_drafts_two_snapshots_and_an_import(root)
     c = _built(root, "C", from_build=b)
     child_draft = BA.duplicate(root, b, "S1", name="Draft of B")
     BA.start_draft(root, "S1", config_dir=root / "config", name="From defaults")
-    _built(root, "Other", source="S2")
+    other = _built(root, "Other", source="S2", from_build=a)  # duplicated onto another Snapshot
     import_id = _import(root, _csv())
     BA.delete_build(root, b, open_build=a)  # C and the draft of B lose their parent
 
@@ -122,9 +122,13 @@ def test_the_tree_shows_lineage_orphans_drafts_two_snapshots_and_an_import(root)
     assert sum(n.latest for _, n in s1.values()) == 1 and s1[c][1].latest
     assert {d.name for d in trees["S1"].drafts} == {"Draft of B", "From defaults"}
     assert child_draft.parent_build_id == b
-    assert "Overall 100" in s1[a][1].top_n
+    assert "Overall 100" in s1[a][1].top_n and s1[a][1].tag_depth == 20
+    s2 = {n.ref: n for _, n in walk(trees["S2"].builds)}
+    assert s2[other].orphan == "another source" and s2[other].parent_name == "A"
     view = BM.tree_view(a, EN)
     assert "from a deleted Build" in _text(view) and "✓ open in this tab" in _text(view)
+    assert "from A on S1" in _text(view) and "20 tags per game" in _text(view)
+    assert "0 changed settings" in _text(view)  # the Draft of B and From defaults, both unedited
     assert {"type": "bm-root", "source": import_id} in _ids(view)
 
 
@@ -230,6 +234,32 @@ def test_a_failing_run_keeps_the_draft_and_shows_the_failure(root):
     assert "The last Build run failed" in _text(DD.body(kept, root, "start", EN))
     _, rows = BM.strip(1, "en")
     assert {"type": "strip-draft", "source": "S1", "slug": kept.stored_slug} in _ids(rows)
+    build_runs.dismiss(view["run_id"])
+
+
+def test_an_unexpected_error_is_kept_on_the_draft_and_the_next_run_still_starts(root, monkeypatch):
+    import steamstudy.build.core as core
+
+    draft = BA.start_draft(root, "S1", config_dir=root / "config", name="Broken")
+    draft.description = "a bug in the Build"
+    BA.save_draft(root, draft)
+
+    def boom(*_a, **_k):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(core, "build", boom)
+    build_runs.start(root, "S1", draft.stored_slug, draft.name)
+    assert build_runs.wait_idle()
+    (view,) = [v for v in build_runs.runs() if v["name"] == "Broken"]
+    assert view["status"] == "failed" and view["error"] == "RuntimeError: boom"
+    (kept,) = [d for d in BA.list_drafts(root, "S1") if d.name == "Broken"]
+    assert kept.last_failure == {"kind": "message", "message": "RuntimeError: boom"}
+    build_runs.dismiss(view["run_id"])
+    monkeypatch.undo()
+    build_runs.start(root, "S1", kept.stored_slug, kept.name)  # the idle worker has gone; a new one starts
+    assert build_runs.wait_idle()
+    (view,) = [v for v in build_runs.runs() if v["name"] == "Broken"]
+    assert view["status"] == "done"
     build_runs.dismiss(view["run_id"])
 
 

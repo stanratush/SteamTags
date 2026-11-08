@@ -365,7 +365,7 @@ def test_the_first_build_named_is_the_bundles_latest(named_root, tmp_path, monke
     import json
 
     root, refs = named_root
-    bundle = _named_bundle(root, tmp_path, monkeypatch, ["C", "S1/B"])
+    bundle = _named_bundle(root, tmp_path, monkeypatch, ["C", "S1/B", "C"])  # named twice: its first place counts
     assert (bundle / "builds" / "latest").read_text(encoding="utf-8").strip() == refs["C"]
     assert (bundle / "builds" / "S1" / "latest").read_text(encoding="utf-8").strip() == refs["C"].split("/")[1]
     manifest = json.loads((bundle / "bundle.json").read_text(encoding="utf-8"))

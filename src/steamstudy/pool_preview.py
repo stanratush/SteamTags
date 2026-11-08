@@ -65,8 +65,9 @@ def preview_key(settings: dict[str, Any], source_id: str, version: str) -> str:
 
 def source_version(root: Path, source_id: str) -> tuple[str, str] | None:
     """(kind, version) of a source with a previewable form; None for a raw-only Snapshot or a missing source."""
-    from steamstudy.build.import_build import is_import
-    from steamstudy.lightweight import light_path, read_light_meta
+    from steamstudy.imports import is_import
+    from steamstudy.builds import light_path
+    from steamstudy.lightweight import read_light_meta
 
     if is_import(root, source_id):
         import json

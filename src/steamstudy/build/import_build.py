@@ -38,7 +38,7 @@ from steamstudy.config import (
 )
 from steamstudy.export import schema as S
 from steamstudy.export.schema import FileSchema
-from steamstudy.imports import ImportTables, imports_dir, load_import
+from steamstudy.imports import ImportTables, imports_dir, is_import, load_import  # noqa: F401  (is_import re-exported)
 from steamstudy.versions import software_versions
 
 IMPORT_FILES = ("datasets", "exclusions", "exclusion_overrides", "manual_exclusions", "genres", "analysis", "network")
@@ -69,10 +69,6 @@ def open_import(root: Path, import_id: str) -> ImportSource:
         raise FileNotFoundError(f"Import {import_id} not found under {imports_dir(root)}")
     meta = json.loads((folder / "import.json").read_text(encoding="utf-8"))
     return ImportSource(import_id, meta, load_import(folder))
-
-
-def is_import(root: Path, source_id: str) -> bool:
-    return (imports_dir(root) / source_id / "import.json").is_file()
 
 
 # ----------------------------------------------------------------------------- settings

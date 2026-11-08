@@ -11,6 +11,10 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "✓ open in this tab": "✓ отворена в този раздел",
     "latest": "последна",
     "test": "тестова",
+    "from {name} on {source}": "от {name} в {source}",
+    "{depth} tags per game": "{depth} тага на игра",
+    "all tags per game": "всички тагове на игра",
+    "{n} changed setting": {"one": "{n} променена настройка", "other": "{n} променени настройки"},
     "from a deleted Build": "от изтрита компилация",
     "from {name} (not in this Bundle)": "от {name} (не е в този пакет)",
     "Duplicate": "Дублирай",
@@ -77,6 +81,16 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     # the Build run strip
     "Building {name}: {stage}, {s} s of about {est} s": "Компилира се {name}: {stage}, {s} s от около {est} s",
     "starting": "стартиране",
+    "opening the source": "отваряне на източника",
+    "building": "компилиране",
+    "writing": "записване",
+    "Making the lightweight Snapshot {name}: {s} s of about {est} s":
+        "Създава се олекотената моментна снимка {name}: {s} s от около {est} s",
+    "Made the lightweight Snapshot {name}.": "Олекотената моментна снимка {name} е създадена.",
+    "Making the lightweight Snapshot {name} failed: {error}":
+        "Създаването на олекотената моментна снимка {name} е неуспешно: {error}",
+    "Making the lightweight Snapshot {name} was cancelled.":
+        "Създаването на олекотената моментна снимка {name} е отменено.",
     "{name} waits for the Build before it": "{name} чака предходната компилация",
     "Built {name}.": "{name} е компилирана.",
     "Open it in this tab": "Отвори я в този раздел",

@@ -364,6 +364,11 @@ def imports_dir(root: Path) -> Path:
     return Path(root) / "imports"
 
 
+def is_import(root: Path, source_id: str) -> bool:
+    """Whether `source_id` names an Import (else a Snapshot)."""
+    return (imports_dir(root) / source_id / "import.json").is_file()
+
+
 def sha256_file(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 

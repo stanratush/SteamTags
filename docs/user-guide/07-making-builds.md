@@ -6,9 +6,9 @@ This chapter is for researchers who run the app from the repository (`uv run ste
 
 Click the Build's name in the header to open the Build menu. It shows one tree per Snapshot and per Import, with the forms the Snapshot has (raw, lightweight) beside its id. Each tree starts at its root row: `config/` for a Snapshot (the defaults in the repository's `config/` folder) or **Import defaults** for an Import.
 
-Under the root are the Builds, each under the Build it was made from. A Build row shows its name, chips (**✓ open in this tab**, **latest**, **test**), its date and a short summary of its Top-N (for example "Overall 100 · Puzzle 100"). A Build whose parent was deleted sits at the top level and reads "from a deleted Build".
+Under the root are the Builds, each under the Build it was made from. A Build row shows its name, chips (**✓ open in this tab**, **latest**, **test**), its date and a short summary of its Top-N (for example "Overall 100 · Puzzle 100"). A Build whose parent was deleted sits at the top level and reads "from a deleted Build"; a Build duplicated from another Snapshot's Build sits at the top level of its own tree and names that Build and Snapshot.
 
-Draft rows sit under the Build they started from (or under the root) and show their state: **draft**, **running %** while a Build run is working on them, or **failed** after a failed run.
+Draft rows sit under the Build they started from (or under the root) and show their state: **draft**, **running %** while a Build run is working on them, or **failed** after a failed run. They also show how many settings differ from where the draft started, and when it was last saved.
 
 Click a Build to switch this tab to it ([Switch Builds](01-getting-started.md#switch-builds)). Click the root row to start a draft from the defaults, and a draft row to open it.
 

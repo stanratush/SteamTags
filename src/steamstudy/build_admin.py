@@ -19,8 +19,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from steamstudy.build.core import BuildFailed, BuildIdentity, build, new_build_id
-from steamstudy.builds import BuildInfo, build_info, builds_dir, list_builds
+from steamstudy.builds import BuildFailed, BuildInfo, build_info, builds_dir, list_builds
+from steamstudy.imports import is_import
 from steamstudy.config import (
     BUILD_FILES,
     COLLECTION_FILE,
@@ -142,7 +142,7 @@ def start_draft(root: Path, source_id: str, from_build: str | None = None, *, co
                 name: str | None = None) -> Draft:
     """A saved draft of complete settings: copied from `config/`, or from a Build (`<source_id>/<build_id>`),
     which becomes its parent."""
-    from steamstudy.build.import_build import import_defaults, is_import, open_import
+    from steamstudy.build.import_build import import_defaults, open_import
 
     if from_build is None and is_import(root, source_id):
         files = import_defaults(open_import(root, source_id), config_dir)
@@ -165,7 +165,6 @@ def start_draft(root: Path, source_id: str, from_build: str | None = None, *, co
 def duplicate(root: Path, build_ref: str, target_source_id: str, *, name: str | None = None) -> Draft:
     """A draft from a Build's settings, with the Build as parent: a Steam Build onto any Snapshot, an Import Build
     only within its Import. Refuses any other target with `WrongSource`."""
-    from steamstudy.build.import_build import is_import
 
     root = Path(root)
     source_id = build_ref.split("/", 1)[0]
@@ -228,12 +227,12 @@ def build_draft(root: Path, draft: Draft, *, on_progress: Callable[[str], None] 
                 from_raw: bool = False) -> Path:
     """Build the draft. Success: the Build is written (and becomes `latest`), the draft and its old `failed/` file
     are removed. Failure: `BuildFailed` is raised and the draft keeps it as `last_failure`."""
+    from steamstudy.build.core import BuildIdentity, build, new_build_id
     from steamstudy.build.writer import write_build, write_failed_parse_errors
     from steamstudy.collect.run import snapshots_dir
     from steamstudy.config import ConfigError
+    from steamstudy.build.import_build import build_import, open_import
     from steamstudy.lightweight import LightweightError, open_build_source
-
-    from steamstudy.build.import_build import build_import, is_import, open_import
 
     progress = on_progress or (lambda stage: None)
     stop = should_stop or (lambda: False)
@@ -262,18 +261,21 @@ def build_draft(root: Path, draft: Draft, *, on_progress: Callable[[str], None] 
             raise BuildCancelled("stopped before the Build was written")
         progress("write")
         folder = write_build(result, root)
-    except (BuildFailed, ConfigError, LightweightError, OSError) as exc:  # a missing Snapshot/Import too
+    except BuildCancelled:
+        raise
+    except Exception as exc:  # BuildFailed, ConfigError, LightweightError, OSError (a missing source), or a bug
         _remove_failure_file(root, draft)
         if isinstance(exc, BuildFailed) and exc.parse_errors and build_id:
             path = write_failed_parse_errors(root, draft.source_id, build_id, exc.parse_errors)
             draft.last_failure = {"kind": "parse_errors", "count": len(exc.parse_errors),
                                   "path": path.relative_to(root).as_posix(), "message": str(exc)}
         else:
-            draft.last_failure = {"kind": "message", "message": str(exc)}
+            known = isinstance(exc, (BuildFailed, ConfigError, LightweightError, OSError))
+            draft.last_failure = {"kind": "message", "message": str(exc) if known else f"{type(exc).__name__}: {exc}"}
         save_draft(root, draft)
         if isinstance(exc, BuildFailed):
             raise
-        raise BuildFailed(str(exc)) from exc
+        raise BuildFailed(draft.last_failure["message"]) from exc
     discard_draft(root, draft)
     return folder
 
@@ -410,7 +412,7 @@ class Problem:
 def draft_base(root: Path, draft: Draft, config_dir: Path = Path("config")) -> dict[str, dict[str, Any]]:
     """The settings the draft started from: its parent Build's when that Build still exists, else the defaults
     (`config/`, or an Import's defaults)."""
-    from steamstudy.build.import_build import import_defaults, is_import, open_import
+    from steamstudy.build.import_build import import_defaults, open_import
 
     if draft.parent_build_id:
         try:
@@ -447,7 +449,7 @@ def draft_problems(root: Path, draft: Draft) -> list[Problem]:
     """What still stops the draft from building, each on the step that fixes it: the name and description (Start)
     and the settings as the Build validates them."""
     from steamstudy.build.exclusion import ExclusionListError, validate_manual_exclusions
-    from steamstudy.build.import_build import import_config, is_import, open_import
+    from steamstudy.build.import_build import import_config, open_import
 
     problems = []
     if not draft.name.strip():

@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from steamstudy.builds import LIGHT_SUFFIX, light_path  # noqa: F401  (light_path re-exported)
 from steamstudy.build.parse import (
     AppDetails,
     Genre,
@@ -48,7 +49,7 @@ from steamstudy.build.source import (
 
 FORMAT_VERSION = 1
 # EXTRACT_VERSION (re-exported from steamstudy.build.source): bump whenever a parser or the extracted field set changes.
-SUFFIX = ".light.zip"
+SUFFIX = LIGHT_SUFFIX
 # The `snapshot.json` keys a Build reads.
 SNAPSHOT_KEYS = ("id", "mode", "observation_window", "collection_date", "collection_config_hash",
                  "taglist_version_hash", "store_country", "extra_appids")
@@ -74,10 +75,6 @@ TABLES: dict[str, tuple[str, ...]] = {
 
 class LightweightError(Exception):
     """A Lightweight Snapshot cannot be made or used (not closed, tampered, stale with no raw form, ...)."""
-
-
-def light_path(snapshots_root: Path, snapshot_id: str) -> Path:
-    return Path(snapshots_root) / f"{snapshot_id}{SUFFIX}"
 
 
 def raw_counts(meta: dict[str, Any]) -> dict[str, int]:
