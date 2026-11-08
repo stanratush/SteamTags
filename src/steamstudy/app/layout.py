@@ -28,6 +28,8 @@ from steamstudy.app import help as H
 from steamstudy.app.guide import LABELS
 from steamstudy.app.loader import BuildContext, store_value
 from steamstudy.app.relabel import RELABEL, Labels, Message, PerBuild, message_value, msg  # noqa: F401
+from steamstudy.app import build_menu as BM
+from steamstudy.app import draft_dialog as DD
 from steamstudy.app.ps_view import mode_layout
 from steamstudy.app.renderer import graph_component, thickness_key
 from steamstudy.app.view import column_defs, metric_header
@@ -171,6 +173,13 @@ def _label(L: Labels, text_: str, key: str, *extra: Any, **kw: Any) -> html.Labe
     return html.Label([*children, *extra], className="l", **help_, **kw)
 
 
+def slider_tops(ctx: BuildContext) -> tuple[int, int]:
+    """The g and s sliders' tops: 40 and 30, raised only to the Build's largest configured value (its network
+    default or the top of its Parameter Grid range)."""
+    n, ps = ctx.network, ctx.network.parameter_selection
+    return (max(40, n.min_games_per_tag, ps.g_range[1]), max(30, n.min_shared_games, ps.s_range[1]))
+
+
 def _steam_field(field: Any) -> bool:
     """Whether a Dataset's filter field is Steam's Months Observed (or absent), so its labels are catalogued."""
     return field is None or field.label == "Minimum Months Filter"
@@ -268,9 +277,9 @@ def _controls(L: Labels, ctx: BuildContext, first: str) -> html.Div:
     ])
     filters = _section(L, msg("Filters"), [
         _item(L, "min-games", msg("Min games"), str(s.min_games_per_tag),
-              _slider(L, "min-games", msg("Minimum games per tag"), 1, 40, s.min_games_per_tag)),
+              _slider(L, "min-games", msg("Minimum games per tag"), 1, slider_tops(ctx)[0], s.min_games_per_tag)),
         _item(L, "min-shared", msg("Min shared"), str(s.min_shared_games),
-              _slider(L, "min-shared", msg("Minimum shared games"), 1, 30, s.min_shared_games)),
+              _slider(L, "min-shared", msg("Minimum shared games"), 1, slider_tops(ctx)[1], s.min_shared_games)),
         _item(L, "hidden", msg("Hidden"), tx("{hidden} + defining", hidden=hidden_pill) if hides_defining else hidden_pill, [
             html.Label([L.span(msg("Hidden Genre Tags")), " ",
                         html.Span(tx("{n} of {total}", n=len(hidden), total=len(genre_ids)), id="genre-count",
@@ -491,8 +500,8 @@ def build_layout(ctx: BuildContext, lang: str = "en", *, mode: str = "workbench"
     ]
     header = html.Header([
         html.Div([html.B(L.prop("brand-title", "children", msg("Tag Network")), id="brand-title", className="title"),
-                  html.Span(L.prop("brand-build", "children", PerBuild(brand_build)),
-                            id="brand-build", className="mute")],
+                  BM.header_button(L, html.Span(L.prop("brand-build", "children", PerBuild(brand_build)),
+                                                id="brand-build", className="mute"))],
                  className="brand"),
         _seg("mode", L.options("mode", [("workbench", msg("Workbench")), ("report", msg("Analysis Report mode")),
                                         ("selection", msg("Parameter Selection"))]), mode),
@@ -522,7 +531,7 @@ def build_layout(ctx: BuildContext, lang: str = "en", *, mode: str = "workbench"
                            html.Div(dcc.Markdown(id="help-body", link_target="_blank"), className="help-scroll")],
                           id="help-modal", className="help-modal", style={"display": "none"})
     return html.Div([
-        *stores, html.Div(id="banners"), header,
+        *stores, html.Div(id="banners"), header, *BM.layout(L), DD.layout(),
         html.Div([_controls(L, ctx, first), main, inspector], id="app-body", className="app-body"),
         mode_layout(ctx, L),
         help_modal,

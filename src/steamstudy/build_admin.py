@@ -24,6 +24,7 @@ from steamstudy.builds import BuildInfo, build_info, builds_dir, list_builds
 from steamstudy.config import (
     BUILD_FILES,
     COLLECTION_FILE,
+    ConfigError,
     build_config,
     canonical_json,
     content_hash,
@@ -35,7 +36,8 @@ from steamstudy.versions import software_versions
 __all__ = [
     "BuildCancelled", "BuildFailed", "DeleteRefused", "DeletionPlan", "Draft", "IdenticalBuild", "NameClash", "WrongSource",
     "build_draft", "check_name", "delete_build", "deletion_plan", "discard_draft", "draft_config_hash", "duplicate",
-    "identical_builds", "list_drafts", "parent_name", "save_draft", "start_draft",
+    "identical_builds", "list_drafts", "parent_name", "Change", "Problem", "STEPS", "changed_settings",
+    "draft_base", "draft_problems", "save_draft", "start_draft",
 ]
 
 
@@ -369,3 +371,109 @@ def delete_build(root: Path, ref: str, open_build: str | None) -> DeletionPlan:
         else:
             pointer.write_text((target if where == "root" else target.split("/", 1)[1]) + "\n", encoding="utf-8")
     return plan
+
+
+# ----------------------------------------------------------------------------- the draft dialog's reading of a draft
+
+# A draft dialog's steps, and which settings files each edits (`exclusions` holds both the named rules, step 2,
+# and the Content Flags, step 4; a problem in it is shown on step 2).
+STEPS = ("start", "top_n", "curation", "reports", "network", "review")
+STEP_OF_FILE = {"datasets": "top_n", "exclusions": "top_n", "manual_exclusions": "curation",
+                "exclusion_overrides": "curation", "manual_metadata": "curation", "genres": "reports",
+                "analysis": "reports", "network": "network"}
+# The settings that change which games are in a Top-N (Review badges them).
+TOP_N_FILES = ("datasets", "exclusions", "manual_exclusions", "exclusion_overrides", "manual_metadata")
+
+
+@dataclass(frozen=True)
+class Change:
+    file: str
+    key: str  # a dotted path inside the file ("" for the whole file)
+    before: Any
+    after: Any
+
+    @property
+    def step(self) -> str:
+        return STEP_OF_FILE.get(self.file, "top_n")
+
+    @property
+    def top_n(self) -> bool:
+        return self.file in TOP_N_FILES and not self.key.startswith("content_flag")
+
+
+@dataclass(frozen=True)
+class Problem:
+    step: str
+    message: str
+
+
+def draft_base(root: Path, draft: Draft, config_dir: Path = Path("config")) -> dict[str, dict[str, Any]]:
+    """The settings the draft started from: its parent Build's when that Build still exists, else the defaults
+    (`config/`, or an Import's defaults)."""
+    from steamstudy.build.import_build import import_defaults, is_import, open_import
+
+    if draft.parent_build_id:
+        try:
+            return _build_settings(_info(root, draft.parent_build_id))[0]
+        except FileNotFoundError:
+            pass
+    if is_import(root, draft.source_id):
+        return import_defaults(open_import(root, draft.source_id), config_dir)
+    config = load_config(config_dir)
+    return {k: copy.deepcopy(v) for k, v in config.files.items() if k != COLLECTION_FILE}
+
+
+def _leaves(value: Any, prefix: str = "") -> dict[str, Any]:
+    if isinstance(value, dict) and value:
+        out: dict[str, Any] = {}
+        for k, v in value.items():
+            out.update(_leaves(v, f"{prefix}.{k}" if prefix else str(k)))
+        return out
+    return {prefix: value}  # a list is compared whole
+
+
+def changed_settings(base: dict[str, dict[str, Any]], config: dict[str, dict[str, Any]]) -> list[Change]:
+    """Every setting whose value differs, file by file, as dotted keys (a list is one setting)."""
+    changes = []
+    for file in sorted(set(base) | set(config)):
+        before, after = _leaves(base.get(file, {})), _leaves(config.get(file, {}))
+        for key in sorted(set(before) | set(after)):
+            if json.dumps(before.get(key), sort_keys=True) != json.dumps(after.get(key), sort_keys=True):
+                changes.append(Change(file, key, before.get(key), after.get(key)))
+    return changes
+
+
+def draft_problems(root: Path, draft: Draft) -> list[Problem]:
+    """What still stops the draft from building, each on the step that fixes it: the name and description (Start)
+    and the settings as the Build validates them."""
+    from steamstudy.build.exclusion import ExclusionListError, validate_manual_exclusions
+    from steamstudy.build.import_build import import_config, is_import, open_import
+
+    problems = []
+    if not draft.name.strip():
+        problems.append(Problem("start", "The draft needs a name"))
+    else:
+        try:
+            check_name(root, draft.source_id, draft.name, ignore_slug=draft.stored_slug)
+        except NameClash as exc:
+            problems.append(Problem("start", str(exc)))
+    if not draft.description.strip():
+        problems.append(Problem("start", "The draft needs a description (it becomes its changelog entry)"))
+    try:
+        if is_import(root, draft.source_id):
+            config = import_config(draft.config, open_import(root, draft.source_id))
+        else:
+            config = build_config(draft.config)
+        validate_manual_exclusions(config.manual_exclusions)
+    except (ConfigError, ExclusionListError, ValueError) as exc:
+        message = str(exc)
+        file = message.split(".", 1)[0].split(":", 1)[0].split("[", 1)[0].strip()
+        problems.append(Problem(STEP_OF_FILE.get(file, "top_n"), message))
+    except FileNotFoundError as exc:
+        problems.append(Problem("start", f"The source is missing: {exc}"))
+    ps = draft.config.get("network", {}).get("parameter_selection", {})
+    g_range, s_range = ps.get("g_range", [3, 20]), ps.get("s_range", [2, 12])
+    if g_range and s_range and s_range[0] > g_range[-1]:  # the catalogued wording replaces the config layer's
+        problems = [p for p in problems if "no (g, s) pairs" not in p.message]
+        problems.append(Problem("network", "The Parameter Grid has no pairs: s starts above the largest g"))
+    return problems

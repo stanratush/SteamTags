@@ -4,25 +4,31 @@
 
 **Blocked by:** 24, 27
 
-**Status:** ready-for-agent
+**Status:** done
 
 Spec: [Build management spec](../spec.md): "The Build menu" (tree, Manage Builds, Duplicate, Delete), "Build identity and lifecycle" (Delete). Decision ticket: [Build menu](12-build-menu.md); [prototype](../prototypes/12-build-menu/PROTOTYPE-build-menu.html), variant D.
 
-- [ ] Tree rows as in the spec:
+- [x] Tree rows as in the spec:
   - Build rows: name, chips (✓ open in this tab, latest, test), date, Top-N summary.
   - Draft rows: status, number of changed settings, last saved.
   - Root rows. Each Snapshot shows its forms (raw, lightweight).
   - A Build whose parent is gone sits at the root with "from a deleted Build".
-- [ ] Clicking a Build switches (issue 27). Clicking the root starts a draft (issue 24), and clicking a draft opens it (an empty dialog stub until issue 29).
-- [ ] Hover actions: Duplicate and Delete on Builds, Discard on drafts. Below the tree: Duplicate the open Build, Import data… (a stub until issue 33), Manage Builds….
-- [ ] Duplicate asks for the Snapshot (default: the parent's; Import Builds stay within their Import).
-- [ ] Delete shows `delete_build`'s confirmation data, refuses the tab's own Build ("switch to another Build first"), and cancels jobs on that Build first.
-- [ ] Manage Builds… shows the same tree with folder and app-cache sizes.
-- [ ] The menu appears only when the app runs from the repository. App Bundles show the tree with switching only (no root row, drafts, Duplicate, Delete, Manage or Import), hidden for a single-Build bundle.
-- [ ] bg entries for every string. Terms: Build = компилация, Snapshot = моментна снимка, Build Draft = чернова на компилация.
-- [ ] Tests:
+- [x] Clicking a Build switches (issue 27). Clicking the root starts a draft (issue 24), and clicking a draft opens it (an empty dialog stub until issue 29).
+- [x] Hover actions: Duplicate and Delete on Builds, Discard on drafts. Below the tree: Duplicate the open Build, Import data… (a stub until issue 33), Manage Builds….
+- [x] Duplicate asks for the Snapshot (default: the parent's; Import Builds stay within their Import).
+- [x] Delete shows `delete_build`'s confirmation data, refuses the tab's own Build ("switch to another Build first"), and cancels jobs on that Build first.
+- [x] Manage Builds… shows the same tree with folder and app-cache sizes.
+- [x] The menu appears only when the app runs from the repository. App Bundles show the tree with switching only (no root row, drafts, Duplicate, Delete, Manage or Import), hidden for a single-Build bundle.
+- [x] bg entries for every string. Terms: Build = компилация, Snapshot = моментна снимка, Build Draft = чернова на компилация.
+- [x] Tests:
   - The tree's structure for a fixture builds root (parents, orphans, drafts, two Snapshots, an Import).
   - Delete refuses the open Build and deletes another.
   - A bundle layout hides the editing actions.
 
 ## Comments
+
+## Implementation note
+
+`build_tree.py` (Dash-free: `build_tree`, `walk`, `BuildNode`, `SourceTree`, `is_bundle`) feeds `app/build_menu.py` (header button, tree, hover actions, Duplicate/Delete/Discard dialogs, Manage Builds… with folder and app-cache sizes). `editable()` hides every editing control in an App Bundle; `menu_visible()` hides the menu for a single-Build bundle. bg strings are in `i18n/bg/build_menu.py`. Tests are in `tests/test_build_menu.py` (tree lineage/orphans/drafts/two Snapshots/Import, Delete refuses the open Build, a bundle tree only switches).
+
+Deviation: Delete refuses the tab's own Build, but it does not cancel jobs that *other* tabs run on the deleted Build. Those jobs fail when they next read the folder.

@@ -22,7 +22,7 @@ from typing import Any
 from steamstudy.analysis.templates import wording
 from steamstudy.build import assemble as A
 from steamstudy.build.assemble import GameTable
-from steamstudy.build.core import BuildFailed, BuildIdentity, BuildResult, build_date
+from steamstudy.build.core import BuildFailed, BuildIdentity, BuildResult, build_date, select_datasets
 from steamstudy.build.datasets import RankedDataset, rank_pool, slice_top
 from steamstudy.build.exclusion import ExclusionListError, content_flags, evaluate, validate_manual_exclusions
 from steamstudy.build.games import Game
@@ -257,6 +257,24 @@ def import_games(tables: ImportTables) -> dict[int, Game]:
     return games
 
 
+def import_records(source: ImportSource) -> tuple[dict[int, Game], dict[int, ImportScore]]:
+    """An Import's items as the Build stage reads them: games (attributes as tags) and their scores."""
+    t = source.tables
+    return import_games(t), {i.id: ImportScore(i.score, i.filter_value, i.rank) for i in t.items}
+
+
+def import_lists(config: Config) -> tuple[dict[int, Any], dict[tuple[int, str], Any]]:
+    """An Import Build's Manual Exclusions and Exclusion Overrides, validated; BuildFailed when they are not."""
+    from steamstudy.build.exclusion import _validate_list
+
+    try:
+        manual = validate_manual_exclusions(config.manual_exclusions)
+        _validate_list(config.exclusion_overrides, "exclusion_overrides.toml")
+    except ExclusionListError as exc:
+        raise BuildFailed(str(exc)) from exc
+    return manual, {(e["appid"], e["rule"]): e for e in config.exclusion_overrides}
+
+
 def build_import(source: ImportSource, files: dict[str, dict[str, Any]], build_id: str, *,
                  identity: BuildIdentity | None = None) -> BuildResult:
     try:
@@ -265,27 +283,14 @@ def build_import(source: ImportSource, files: dict[str, dict[str, Any]], build_i
         raise BuildFailed(str(exc)) from exc
     t = source.tables
     result = BuildResult(snapshot_id=source.import_id, build_id=build_id)
-    games = import_games(t)
-    scores = {i.id: ImportScore(i.score, i.filter_value, i.rank) for i in t.items}
-    try:
-        manual = validate_manual_exclusions(config.manual_exclusions)
-        overrides = {(e["appid"], e["rule"]): e for e in config.exclusion_overrides}
-    except ExclusionListError as exc:
-        raise BuildFailed(str(exc)) from exc
-    from steamstudy.build.exclusion import _validate_list
-
-    try:
-        _validate_list(config.exclusion_overrides, "exclusion_overrides.toml")
-    except ExclusionListError as exc:
-        raise BuildFailed(str(exc)) from exc
-    evaluations = {a: evaluate(games[a], config.exclusions, manual, overrides) for a in sorted(games)}
-    excluded = {a for a, ev in evaluations.items() if ev.excluded}
-    flags = {a: content_flags(games[a], config.exclusions) for a in games}
+    games, scores = import_records(source)
+    manual, overrides = import_lists(config)
+    chosen = select_datasets(config, scores, games, manual, overrides, key=import_rank_key)
+    evaluations, excluded, flags, ranked = chosen.evaluations, chosen.excluded, chosen.flags, chosen.ranked
 
     depth = config.depth_cut
-    ranked: dict[str, RankedDataset] = {}
     for d in config.datasets:
-        r = slice_top(rank_pool(d, scores, games, excluded, depth, import_rank_key), scores)
+        r = ranked[d.key]
         if len(r.top) < d.list_size:
             raise BuildFailed(f"dataset {d.key} has only {len(r.eligible)} eligible items; every dataset must hold "
                               f"exactly {d.list_size}")

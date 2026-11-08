@@ -4,22 +4,28 @@
 
 **Blocked by:** 29
 
-**Status:** ready-for-agent
+**Status:** done
 
 Spec: [Build management spec](../spec.md): "The Build menu" (steps 4 and 5), "Datasets, List Size and Tag Depth" (grid and defaults). Decision ticket: [grid scaling](11-grid-and-defaults-scaling.md).
 
-- [ ] Reports and analysis: Content Flags (the same editor shape as rules, without descriptor ids or rank limits), Genre Tags, the genre-kind map (Steam only), `max_itemset_size`, `min_support`, `release_month_check` (Steam only), `causal_words`, `resolution_sweep`.
-- [ ] Network defaults: every `network.toml` key, with the `[parameter_selection]` Selection Settings and Pair Constraints, and today's validation.
-- [ ] Warnings per dataset, naming it and its N, shown on the Network step and in Review (never a refusal):
+- [x] Reports and analysis: Content Flags (the same editor shape as rules, without descriptor ids or rank limits), Genre Tags, the genre-kind map (Steam only), `max_itemset_size`, `min_support`, `release_month_check` (Steam only), `causal_words`, `resolution_sweep`.
+- [x] Network defaults: every `network.toml` key, with the `[parameter_selection]` Selection Settings and Pair Constraints, and today's validation.
+- [x] Warnings per dataset, naming it and its N, shown on the Network step and in Review (never a refusal):
   - the grid's largest g > N;
   - the default g or s > N;
   - `min_support` > N.
-- [ ] A grid with no pairs (s_low > g_high) marks the step red and blocks Build.
-- [ ] The Workbench and Parameter Selection sliders keep 1–40 (g) and 1–30 (s), raised only to the Build's largest configured value (its network default or the top of its grid range).
-- [ ] bg entries for every warning and string.
-- [ ] Tests:
+- [x] A grid with no pairs (s_low > g_high) marks the step red and blocks Build.
+- [x] The Workbench and Parameter Selection sliders keep 1–40 (g) and 1–30 (s), raised only to the Build's largest configured value (its network default or the top of its grid range).
+- [x] bg entries for every warning and string.
+- [x] Tests:
   - Each warning appears for a draft with Overall List Size 10, and saving stays allowed.
   - The no-pairs grid blocks Build.
   - A Build with `g_range` up to 50 gets a g slider up to 50.
 
 ## Comments
+
+## Implementation note
+
+Reports and analysis and Network defaults edit `analysis`/`reports`/`network` (Steam-only parts hidden for an Import). `preview.grid_warnings` lists per-dataset warnings naming the dataset and its N (largest g, default g/s, min_support above N). They never refuse. A grid with no pairs is a `draft_problems` problem on the Network step: it marks the step red, blocks Build, and replaces the config layer's untranslated message. `layout.slider_tops(ctx)` keeps 40/30 and rises to the Build's largest configured g/s. Tests: warnings for List Size 10 while saving stays allowed, the no-pairs grid blocks Build, and `slider_tops` with g_range up to 50.
+
+Deviation: these steps are edited as TOML text (see issue 30), with the same validation as the Build.

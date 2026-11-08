@@ -7,14 +7,16 @@ The only inputs are the read-only Snapshot, in either form (`steamstudy.build.so
 
 from __future__ import annotations
 
+import copy
 import datetime as dt
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
 from steamstudy.analysis.templates import wording
 from steamstudy.build import assemble as A
 from steamstudy.build.assemble import GameTable
-from steamstudy.build.datasets import RankedDataset, rank_dataset
+from steamstudy.build.datasets import RankedDataset
 from steamstudy.build.exclusion import (
     ExclusionListError,
     configured_tag_ids,
@@ -125,18 +127,13 @@ def build(
 
     vocabulary = read_vocabulary(source)
     result.warnings += _vocabulary_warnings(config, vocabulary)
-    _apply_manual_metadata(config, games, result)
-    try:
-        manual_exclusions = validate_manual_exclusions(config.manual_exclusions)
-        overrides = validate_overrides(config.exclusion_overrides, config.exclusions)
-    except ExclusionListError as exc:
-        raise BuildFailed(str(exc)) from exc
-    evaluations = {a: evaluate(games[a], config.exclusions, manual_exclusions, overrides) for a in sorted(games)}
-    excluded = {a for a, ev in evaluations.items() if ev.excluded}
-    flags = {a: content_flags(games[a], config.exclusions) for a in games}
+    games, warnings = apply_manual_metadata(config, games)
+    result.warnings += warnings
+    manual_exclusions, overrides = steam_lists(config)
+    chosen = select_datasets(config, scores, games, manual_exclusions, overrides)
+    evaluations, excluded, flags, ranked = chosen.evaluations, chosen.excluded, chosen.flags, chosen.ranked
 
     depth = config.depth_cut
-    ranked = {d.key: rank_dataset(d, scores, games, excluded, depth) for d in config.datasets}
     for r in ranked.values():
         n = r.definition.list_size
         if len(r.top) < n:
@@ -230,16 +227,55 @@ def _steamdb_rows(source: BuildSource, games: dict[int, Game], members: list[int
     return rows
 
 
-def _apply_manual_metadata(config: Config, games: dict[int, Game], result: BuildResult) -> None:
+def apply_manual_metadata(config: Config, games: dict[int, Game]) -> tuple[dict[int, Game], list[str]]:
+    """The games with the Manual Metadata Entries applied (an entry's game is copied first, so `games` is left as
+    it was: the Eligible Pool preview reuses it), and the warnings for entries not used."""
+    out, warnings = dict(games), []
     try:
         entries = validate_manual_entries(config.manual_metadata)
         for appid, entry in sorted(entries.items()):
-            if appid not in games:
-                result.warnings.append(f"Manual Metadata Entry for appid {appid} not used: the app has no score")
+            if appid not in out:
+                warnings.append(f"Manual Metadata Entry for appid {appid} not used: the app has no score")
                 continue
-            apply_manual_entry(games[appid], entry)
+            out[appid] = copy.deepcopy(out[appid])
+            apply_manual_entry(out[appid], entry)
     except ManualMetadataError as exc:
         raise BuildFailed(str(exc)) from exc
+    return out, warnings
+
+
+def steam_lists(config: Config) -> tuple[dict[int, dict[str, Any]], dict[tuple[int, str], dict[str, Any]]]:
+    """A Steam Build's Manual Exclusions and Exclusion Overrides, validated; BuildFailed when they are not."""
+    try:
+        return (validate_manual_exclusions(config.manual_exclusions),
+                validate_overrides(config.exclusion_overrides, config.exclusions))
+    except ExclusionListError as exc:
+        raise BuildFailed(str(exc)) from exc
+
+
+@dataclass
+class Selection:
+    """Which games every rule excludes and each dataset's ranked pool: the Build stage's own step, which the Eligible
+    Pool preview calls too (one implementation)."""
+
+    evaluations: dict[int, Any]
+    excluded: set[int]
+    flags: dict[int, list[str]]
+    ranked: dict[str, RankedDataset]
+
+
+def select_datasets(config: Config, scores: dict[int, Any], games: dict[int, Game], manual: dict[int, Any],
+                    overrides: dict[Any, Any], *, key: Any = None,
+                    tie_value: Callable[[Any], float | None] | None = None) -> Selection:
+    """Evaluate every rule on every game, then rank each dataset's Eligible Pool and cut it at its List Size."""
+    from steamstudy.build.datasets import rank_pool, slice_top, sort_key, steam_tie_value
+
+    evaluations = {a: evaluate(games[a], config.exclusions, manual, overrides) for a in sorted(games)}
+    excluded = {a for a, ev in evaluations.items() if ev.excluded}
+    flags = {a: content_flags(games[a], config.exclusions) for a in games}
+    ranked = {d.key: slice_top(rank_pool(d, scores, games, excluded, config.depth_cut, key or sort_key), scores,
+                               tie_value=tie_value or steam_tie_value) for d in config.datasets}
+    return Selection(evaluations, excluded, flags, ranked)
 
 
 def _vocabulary_warnings(config: Config, vocabulary: TagVocabulary | None) -> list[str]:

@@ -22,7 +22,7 @@ import diskcache
 import flask
 from dash import DiskcacheManager, dcc, html
 
-from steamstudy.app import callbacks, pending
+from steamstudy.app import build_menu, callbacks, draft_dialog, pending
 from steamstudy.app.layout import build_layout
 from steamstudy.app.loader import builds_root, is_ref, load_build, resolve_ref, set_builds_root
 from steamstudy.app.relabel import msg
@@ -113,6 +113,8 @@ def create_app(build_path: str | Path) -> dash.Dash:
 
     build_layout(ctx)  # fills the relabel registry before any page is served
     callbacks.register(app)
+    build_menu.register(app)
+    draft_dialog.register(app)
     return app
 
 

@@ -24,7 +24,7 @@ COOKIE = "steamstudy_lang"  # written client-side (assets/workbench.js), read wh
 
 # One Bulgarian catalogue module per area under `steamstudy/i18n/bg/`.
 AREAS = ("layout", "callbacks", "view", "ps_view", "ps_run", "selection_text", "refusals", "schema_tips",
-         "ui_words")
+         "ui_words", "build_menu")
 
 Entry = str | dict[str, str]
 

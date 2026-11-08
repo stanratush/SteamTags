@@ -34,12 +34,20 @@ AREA_OF = {
     "app/export.py": "refusals",
     "app/help.py": "ui_words", "app/guide.py": "ui_words", "app/relabel.py": "layout",
     "network/selection.py": "selection_text", "app/ps_export.py": "selection_text",
+    "app/build_menu.py": "build_menu", "app/draft_dialog.py": "build_menu", "app/preview.py": "build_menu",
 }
 
 def _refusals() -> Iterable[str]:
     from steamstudy.app.export import REFUSALS
 
     return REFUSALS.values()
+
+
+def _import_codes() -> Iterable[str]:
+    """Every Import error and warning code's message (Import data… shows them in the Interface Language)."""
+    from steamstudy.imports import ERROR_CODES, WARNING_CODES
+
+    return [*ERROR_CODES.values(), *WARNING_CODES.values()]
 
 
 def _schema_tips() -> Iterable[str]:
@@ -68,7 +76,8 @@ def _selection_sentences() -> Iterable[str]:
 
 NON_LITERAL: dict[str, Callable[[], Iterable[str]]] = {"refusals": _refusals, "schema_tips": _schema_tips,
                                                        "view": _inspector_labels,
-                                                       "selection_text": _selection_sentences}
+                                                       "selection_text": _selection_sentences,
+                                                       "build_menu": _import_codes}
 
 
 @dataclass(frozen=True)

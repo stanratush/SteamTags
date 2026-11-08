@@ -551,3 +551,51 @@ body[data-form=medium] #root.selection .ps-inspector.has-sel,
 body[data-form=narrow] #root.selection .ps-inspector.has-sel,
 body[data-form=narrow][data-sheet=open] #root.selection .ps-inspector.has-sel{grid-area:main;top:12px;bottom:12px;
  width:380px}
+
+/* ---- The Build menu (build_menu.py), the draft dialog (draft_dialog.py) and the Build run strip */
+.bm-btn{padding:2px 6px;font-size:inherit}
+.build-menu{position:fixed;left:12px;top:46px;z-index:60;width:620px;max-width:calc(100vw - 24px);max-height:75vh;overflow:auto;
+ background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 28px rgba(20,30,50,.18);padding:8px 0}
+.bm-block{padding:4px 0 8px;border-bottom:1px solid var(--line2)}
+.bm-source{padding:4px 12px;font-size:12.5px}
+.bm-row{display:flex;align-items:center;gap:6px;padding-right:8px}
+.bm-row:hover{background:var(--bg)}
+.bm-row-main{flex:1;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;text-align:left;border:0;background:none;
+ padding:4px 0;cursor:pointer;color:var(--ink);font:inherit}
+.bm-actions{visibility:hidden;display:flex;gap:2px}
+.bm-row:hover .bm-actions{visibility:visible}
+.bm-chip{font-size:11px;border:1px solid var(--line);border-radius:10px;padding:0 6px;color:var(--ink2)}
+.bm-chip.open{border-color:var(--acc);color:var(--acc)}
+.bm-chip.warn{border-color:var(--warn);color:var(--warn)}
+.bm-chip.draft{font-style:italic}
+.bm-footer{display:flex;gap:6px;padding:8px 12px 2px}
+.bm-footer:empty{display:none}
+.bm-dialog{flex-direction:column}
+.bm-dialog-body{overflow:auto;padding:4px 20px 16px}
+.bm-upload{border:1px dashed var(--line);border-radius:6px;padding:10px;margin:6px 0;cursor:pointer;text-align:center}
+.bm-errors{font-size:12px;border-collapse:collapse}
+.bm-errors td,.bm-errors th{border-bottom:1px solid var(--line2);padding:2px 6px;text-align:left}
+.btn.danger{background:#b42318;border-color:#b42318}
+.small{font-size:12px}
+.build-strip{background:var(--acc-bg);border-bottom:1px solid var(--line);padding:4px 12px;font-size:12.5px}
+.strip-row{display:flex;align-items:center;gap:10px}
+.strip-row progress{width:180px}
+.draft-dialog{position:fixed;inset:0;z-index:70;background:rgba(20,30,50,.35);align-items:stretch;justify-content:center}
+.dd-frame{background:var(--panel);margin:24px;flex:1;max-width:1200px;border-radius:8px;display:flex;flex-direction:column;
+ overflow:hidden;box-shadow:0 12px 40px rgba(20,30,50,.25)}
+.dd-head{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.dd-head .btn{margin-left:auto}
+.dd-main{display:flex;flex:1;min-height:0}
+.dd-nav{width:210px;border-right:1px solid var(--line);padding:8px;display:flex;flex-direction:column;gap:2px}
+.dd-step{text-align:left;border:0;background:none;padding:6px 8px;border-radius:6px;cursor:pointer;font:inherit;color:var(--ink)}
+.dd-step.on{background:var(--acc-bg);color:var(--acc)}
+.dd-mark{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;background:var(--line)}
+.dd-mark.green{background:#1a7f37}
+.dd-mark.red{background:#b42318}
+.dd-steps{flex:1;overflow:auto;padding:12px 20px}
+.dd-text{min-height:260px;font-size:12.5px}
+.dd-text.short{min-height:70px}
+.dd-table{border-collapse:collapse;font-size:12.5px}
+.dd-table td,.dd-table th{border-bottom:1px solid var(--line2);padding:3px 6px;text-align:left;vertical-align:top}
+.dd-pool{font-family:var(--mono);font-size:12px}
+.missing-build{padding:60px;text-align:center}
