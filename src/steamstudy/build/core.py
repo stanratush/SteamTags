@@ -10,9 +10,10 @@ import datetime as dt
 from dataclasses import dataclass, field
 from typing import Any
 
+from steamstudy.analysis.templates import wording
 from steamstudy.build import assemble as A
 from steamstudy.build.assemble import GameTable
-from steamstudy.build.datasets import TOP_N, RankedDataset, rank_dataset
+from steamstudy.build.datasets import RankedDataset, rank_dataset
 from steamstudy.build.exclusion import (
     ExclusionListError,
     configured_tag_ids,
@@ -41,7 +42,7 @@ from steamstudy.build.pool import Listing, SnapshotLike, read_listing, skipped_a
 from steamstudy.build.score import Score, Window, placeholder_rows, score, unscored_reason
 from steamstudy.config import Config
 from steamstudy.export import schema as S
-from steamstudy.export.schema import DATASET_KEYS, FileSchema
+from steamstudy.export.schema import FileSchema
 from steamstudy.versions import software_versions
 
 ATTRIBUTION = "Player data: Steam Charts; tags/metadata: Steam store"
@@ -124,19 +125,19 @@ def build(
     excluded = {a for a, ev in evaluations.items() if ev.excluded}
     flags = {a: content_flags(games[a], config.exclusions) for a in games}
 
-    if tuple(d.key for d in config.datasets) != DATASET_KEYS:
-        raise BuildFailed(f"datasets.toml must define exactly {DATASET_KEYS}")
-    ranked = {d.key: rank_dataset(d, scores, games, excluded) for d in config.datasets}
+    depth = config.depth_cut
+    ranked = {d.key: rank_dataset(d, scores, games, excluded, depth) for d in config.datasets}
     for r in ranked.values():
-        if len(r.top) < TOP_N:
-            message = f"dataset {r.key} has only {len(r.top)} eligible games; every dataset must hold exactly {TOP_N}"
+        n = r.definition.list_size
+        if len(r.top) < n:
+            message = f"dataset {r.key} has only {len(r.eligible)} eligible games; every dataset must hold exactly {n}"
             if meta.get("mode") != "test":
                 raise BuildFailed(message)
             result.warnings.append(message + " (allowed only in a test Build)")
     _check_list_names(games, ranked)
 
     histories = {a: apps[a].history for a in scores if apps[a].history is not None}
-    t = GameTable(scores, games, histories, listing.best_rank, ranked, flags)  # type: ignore[arg-type]
+    t = GameTable(scores, games, histories, listing.best_rank, ranked, flags, depth)  # type: ignore[arg-type]
     excluded_evals = {a: ev for a, ev in evaluations.items() if ev.excluded}
     for key, r in ranked.items():
         result.add(f"datasets/top100_{key}.csv", S.TOP100, A.top100_rows(t, r))
@@ -144,10 +145,14 @@ def build(
     result.add("reports/parse_errors.csv", S.PARSE_ERRORS, parse_errors)
     result.add("reports/placeholder_rows.csv", S.PLACEHOLDER_ROWS, _placeholder_rows(apps))
     result.add("reports/ties.csv", S.TIES, A.ties_rows(t))
-    result.add("reports/exclusions.csv", S.EXCLUSIONS, A.exclusion_rows(t, excluded_evals))
-    result.add("reports/impact_removals.csv", S.IMPACT_REMOVALS, A.impact_removal_rows(t, excluded_evals))
-    result.add("reports/impact_near_misses.csv", S.IMPACT_NEAR_MISSES, A.near_miss_rows(t, evaluations))
-    result.add("reports/impact_adult_signals.csv", S.IMPACT_ADULT_SIGNALS, A.adult_signal_rows(t, evaluations))
+    keys = list(ranked)
+    result.add("reports/exclusions.csv", S.EXCLUSIONS.for_datasets(keys), A.exclusion_rows(t, excluded_evals))
+    result.add("reports/impact_removals.csv", S.IMPACT_REMOVALS.for_datasets(keys),
+               A.impact_removal_rows(t, excluded_evals))
+    result.add("reports/impact_near_misses.csv", S.IMPACT_NEAR_MISSES.for_datasets(keys),
+               A.near_miss_rows(t, evaluations))
+    result.add("reports/impact_adult_signals.csv", S.IMPACT_ADULT_SIGNALS.for_datasets(keys),
+               A.adult_signal_rows(t, evaluations))
     result.add("reports/impact_unexcluded.csv", S.IMPACT_UNEXCLUDED, A.unexcluded_rows(t, config.genre_kind))
     result.add("reports/tag_vocabulary.csv", S.TAG_VOCABULARY, A.tag_vocabulary_rows(games, vocabulary))
     result.add("reports/release_month_check.csv", S.RELEASE_MONTH_CHECK,
@@ -160,7 +165,7 @@ def build(
                                  warnings=result.warnings))
     completeness = _completeness(snapshot, listing, apps, window)
     completeness += _exclusion_counts(games, evaluations, config)
-    completeness += A.depth_check_rows(t)
+    completeness += A.depth_check_rows(t, wording(config)["top_h"])
     result.add("reports/completeness.csv", S.COMPLETENESS, completeness)
 
     result.build_json = _build_json(snapshot, config, build_id, allow_parse_errors, len(parse_errors))

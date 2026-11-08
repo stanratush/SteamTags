@@ -245,5 +245,5 @@ def test_an_old_build_json_still_loads_in_the_app(tmp_path, config_dir):
     folder = write_build(build(Snapshot(_world().snapshot(tmp_path / "snap")), old_cfg, "20261005T140000Z-abcdef12"), tmp_path)
     loaded = load_build(folder)
     assert [d.key for d in loaded.datasets] == ["overall", "puzzle", "rpg", "strategy", "simulation"]
-    assert [r["appid"] for r in loaded.rows("overall")] == [698670]
+    assert [i.id for i in loaded.read("overall").items] == [698670]
     assert "dating_sim_tag" not in json.dumps(loaded.build_json["config"]["exclusions"]["content_flags"])

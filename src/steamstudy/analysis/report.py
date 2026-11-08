@@ -9,7 +9,7 @@ from __future__ import annotations
 import statistics
 from typing import Any
 
-from steamstudy.analysis.templates import fmt, paragraph, render_report, sentence
+from steamstudy.analysis.templates import fmt, paragraph, render_report, sentence, wording
 from steamstudy.build.summary import build_banners
 from steamstudy.config import Config
 
@@ -26,13 +26,14 @@ def _of(rows: list[dict[str, Any]], dataset: str) -> list[dict[str, Any]]:
 
 def report_html(result: Any, config: Config) -> str:
     a = result.analysis_json
-    blocks = [paragraph("caveat")]
+    w = wording(config)
+    blocks = [paragraph("caveat", **w)]
     for d in config.datasets:
         blocks += _dataset_section(result, config, d.key, d.label, a["datasets"][d.key])
     disconnected = sum(info["n_disconnected_clusters"] for info in a["datasets"].values())
-    blocks += ["## Methods", paragraph("methods"), sentence("methods_disconnected", count=disconnected),
-               "## Limitations", paragraph("limitations"), paragraph("attribution")]
-    return render_report("Feature analysis of the Top-100 Datasets", blocks, config.analysis.causal_words,
+    blocks += ["## Methods", paragraph("methods"), sentence("methods_disconnected", count=disconnected, number=w["number"]),
+               "## Limitations", paragraph("limitations", **w), paragraph("attribution")]
+    return render_report(f"Feature analysis of the {w['top_h']} Datasets", blocks, config.analysis.causal_words,
                          banners=build_banners(result.build_json))
 
 

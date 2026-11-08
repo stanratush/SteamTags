@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from collections.abc import Sequence
 from typing import Any
 
 from steamstudy.build.parse import (
@@ -59,12 +60,22 @@ class Game:
     def tag_ids(self) -> set[int]:
         return {t.tag_id for t in self.tags}
 
-    def has_tag(self, tag_id: int) -> bool:
-        """'Has tag' for datasets and the network: anywhere in the displayed list, whatever the rank limits."""
-        return tag_id in self.tag_ids
+    def has_tag(self, tag_id: int, depth: int | None = None) -> bool:
+        """'Has tag' for datasets and the network: among the first `depth` displayed tags (all when None),
+        whatever the rank limits."""
+        return any(t.tag_id == tag_id for t in counted_tags(self.tags, depth))
 
     def store_detail(self) -> str:
         return f"store page: {self.page_outcome}; appdetails: {self.details_outcome}"
+
+
+def counted_tags(tags: Sequence[Any], depth: int | None) -> Sequence[Any]:
+    """The tags that count as "had" under Tag Depth: the first `depth` of the displayed list (all when None).
+
+    The one definition of "has" for Tag-Specific Dataset membership, the Eligible Pool and its baselines and the
+    feature analysis. Exclusions, Content Flags and rank limits read the full list instead.
+    """
+    return tags if depth is None else tags[:depth]
 
 
 def read_vocabulary(snapshot: SnapshotLike) -> TagVocabulary | None:

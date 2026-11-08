@@ -201,7 +201,7 @@ def state_views(c: BuildContext, meta: dict[str, Any], tables: dict[str, Any], t
     if c.build_json.get("parse_errors_allowed"):
         banners.append(html.Div(tx("parse_errors_allowed — this Build was made with --allow-parse-errors ({n} errors); "
                                    "never publish it.", n=c.build_json.get("parse_error_count")), className="banner"))
-    rows_total = len(c.rows(dataset))
+    rows_total = c.read(dataset).size
     defining = c.dataset(dataset).defining_tag
     n_missing = len(tables["nin"])
     filters = html.P(tx("Minimum games per tag {g}, minimum shared games {s}, Minimum Months Filter {m}.",

@@ -236,6 +236,7 @@ def _controls(L: Labels, ctx: BuildContext) -> html.Div:
     tx = L.tx
     first = ctx.datasets[0].key
     s = ctx.default_settings(first)
+    field = ctx.read(first).filter_field  # None: no filter field, so no slider and every item is kept
     defining = ctx.dataset(first).defining_tag
     genre_ids = [t.id for t in ctx.genre_tags]
     hidden = [t for t in genre_ids if t in s.hidden_tag_ids]
@@ -246,8 +247,9 @@ def _controls(L: Labels, ctx: BuildContext) -> html.Div:
             html.Label(L.span(msg("Dataset")), htmlFor="dataset", className="l"),
             dcc.Dropdown(id="dataset", options=[{"label": d.label, "value": d.key} for d in ctx.datasets],
                          value=first, clearable=False, searchable=False)]),
-        _item(L, "min-months", msg("Months ≥"), str(s.min_months),
-              _slider(L, "min-months", msg("Minimum Months Filter"), 0, 60, s.min_months)),
+        *([_item(L, "min-months", msg("Months ≥"), str(s.min_months),
+                 _slider(L, "min-months", msg("Minimum Months Filter"), int(field.minimum), int(field.maximum), s.min_months))]
+          if field else []),
     ])
     filters = _section(L, msg("Filters"), [
         _item(L, "min-games", msg("Min games"), str(s.min_games_per_tag),

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
 import time
 from collections import Counter
 import logging
@@ -513,7 +514,7 @@ def run_steamdb(
     transport: Transport | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
-    """Fetch SteamDB pages for one Build's Top-100 members only, as a logged batch of that Build's Snapshot.
+    """Fetch SteamDB pages for one Build's Top-N members only, as a logged batch of that Build's Snapshot.
 
     Refuses before any request unless `collection.toml` records a SteamDB permission reference.
     SteamDB values never enter a dataset; the next Build writes reports/steamdb_crosscheck.csv.
@@ -530,7 +531,9 @@ def run_steamdb(
     folder = resolve_build(root, build_id)
     snapshot_id = folder.parent.name
     members: set[int] = set()
-    for key in S.DATASET_KEYS:
+    # The Build's own datasets, in its config order (every Build records them in `dataset_sizes`).
+    build_json = json.loads((folder / "datasets" / "build.json").read_text(encoding="utf-8"))
+    for key in build_json["dataset_sizes"]:
         path = folder / "datasets" / f"top100_{key}.csv"
         if path.is_file():
             members.update(int(r["appid"]) for r in read_typed_csv(path, S.TOP100))

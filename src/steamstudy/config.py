@@ -49,6 +49,7 @@ class DatasetDef:
     key: str
     label: str
     defining_tag: TagRef | None
+    list_size: int = 100  # List Size: how many items the Top-N Dataset holds
 
 
 @dataclass(frozen=True)
@@ -176,6 +177,7 @@ class Config:
     genre_tags: tuple[TagRef, ...]
     genre_kind: dict[int, str]
     datasets: tuple[DatasetDef, ...]
+    tag_depth: int | str  # Tag Depth ("tags per game"): an integer >= 2, or the literal "all"
     network: NetworkDefaults
     analysis: AnalysisConfig
     manual_metadata: tuple[dict[str, Any], ...]
@@ -189,6 +191,11 @@ class Config:
     @property
     def build_config_hash(self) -> str:
         return content_hash({name: self.files[name] for name in BUILD_FILES})
+
+    @property
+    def depth_cut(self) -> int | None:
+        """The number of leading tags that count as "has" (None = every tag); Steam shows at most 20."""
+        return None if self.tag_depth == "all" else int(self.tag_depth)
 
     def dataset(self, key: str) -> DatasetDef:
         for d in self.datasets:
@@ -248,6 +255,7 @@ def config_from_data(
         genre_tags=_tag_refs(_get(files, "genres").get("genre_tags", []), "genres.genre_tags"),
         genre_kind=_genre_kind(_get(files, "genres")),
         datasets=_datasets(_get(files, "datasets")),
+        tag_depth=_tag_depth(_get(files, "datasets")),
         network=_network(_get(files, "network")),
         analysis=_analysis(_get(files, "analysis")),
         manual_metadata=tuple(_get(files, "manual_metadata").get("entry", [])),
@@ -485,6 +493,25 @@ def _genre_kind(t: dict[str, Any]) -> dict[int, str]:
     return kinds
 
 
+MIN_LIST_SIZE = 10
+STEAM_MAX_TAG_DEPTH = 20  # a Steam store page displays at most 20 tags
+
+
+def _tag_depth(t: dict[str, Any]) -> int | str:
+    """Tag Depth for a Steam Build: 2-20, or "all" (the default, the same as 20)."""
+    value = t.get("tag_depth", "all")
+    if value == "all":
+        return "all"
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ConfigError(f"datasets.tag_depth: must be an integer or the string \"all\", got {value!r}")
+    if value < 2:
+        raise ConfigError(f"datasets.tag_depth: must be at least 2 (or \"all\"), got {value}")
+    if value > STEAM_MAX_TAG_DEPTH:
+        raise ConfigError(f"datasets.tag_depth: a Steam store page shows at most {STEAM_MAX_TAG_DEPTH} tags, "
+                          f"got {value}; use \"all\"")
+    return value
+
+
 def _datasets(t: dict[str, Any]) -> tuple[DatasetDef, ...]:
     items = t.get("dataset", [])
     if not items:
@@ -493,16 +520,28 @@ def _datasets(t: dict[str, Any]) -> tuple[DatasetDef, ...]:
     for i, item in enumerate(items):
         where = f"datasets.dataset[{i}]"
         defining = item.get("defining_tag")
-        out.append(
-            DatasetDef(
-                key=_req(item, "key", str, where),
-                label=_req(item, "label", str, where),
-                defining_tag=_tag_refs([defining], f"{where}.defining_tag")[0] if defining else None,
-            )
-        )
+        key = _code(_req(item, "key", str, where), f"{where}.key")
+        label = _req(item, "label", str, where)
+        if not label.strip():
+            raise ConfigError(f"{where}.label: a label is required")
+        size = item.get("list_size", 100)
+        if isinstance(size, bool) or not isinstance(size, int) or size < MIN_LIST_SIZE:
+            raise ConfigError(f"{where}.list_size: must be an integer of at least {MIN_LIST_SIZE}, got {size!r}")
+        out.append(DatasetDef(key=key, label=label,
+                              defining_tag=_tag_refs([defining], f"{where}.defining_tag")[0] if defining else None,
+                              list_size=size))
     keys = [d.key for d in out]
     if len(set(keys)) != len(keys):
         raise ConfigError(f"datasets: duplicate dataset keys {keys}")
+    plain = [d.key for d in out if d.defining_tag is None]
+    if len(plain) != 1 or plain[0] != "overall":
+        raise ConfigError("datasets: exactly one dataset must have no defining tag, and its key must be 'overall'"
+                          f" (found {plain or 'none'})")
+    if out[0].key != "overall":
+        raise ConfigError("datasets: 'overall' must be listed first")
+    tag_ids = [d.defining_tag.id for d in out if d.defining_tag]
+    if len(set(tag_ids)) != len(tag_ids):
+        raise ConfigError("datasets: a defining tag may be used by one dataset only")
     return tuple(out)
 
 
@@ -590,6 +629,9 @@ def _parameter_selection(t: dict[str, Any]) -> ParameterSelectionDefaults:
     for key in ("tolerance", "min_retention", "max_isolated_share", "min_lcc_share"):
         _between(getattr(ps, key), 0, 1, f"{w}.{key}")
     _between(ps.min_comparable_neighbours, 0, 4, f"{w}.min_comparable_neighbours")
+    if ps.s_range[0] > ps.g_range[1]:
+        raise ConfigError(f"{w}: the Parameter Grid has no (g, s) pairs because s_range starts at {ps.s_range[0]}, "
+                          f"above the largest g, {ps.g_range[1]}")
     if ps.max_multi_tag_clusters is not None and ps.max_multi_tag_clusters < ps.min_multi_tag_clusters:
         raise ConfigError(f"{w}.max_multi_tag_clusters: must be 0 (off) or >= min_multi_tag_clusters "
                           f"({ps.min_multi_tag_clusters}), got {ps.max_multi_tag_clusters}")

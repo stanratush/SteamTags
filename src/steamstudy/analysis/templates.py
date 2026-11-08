@@ -28,8 +28,8 @@ SENTENCES: dict[str, str] = {
     "summary_placeholders": "{count} Placeholder Rows were treated as absent rows (placeholder_rows.csv).",
     "summary_excluded": "{excluded} scored games were excluded; by primary reason: {by_reason}.",
     "summary_dataset": "{label}: {rows} games from an Eligible Pool of {pool}; deepest /top rank of a member: {deepest}.",
-    "summary_ties": "{count} games outside a Top 100 share the score of rank 100 (ties.csv).",
-    "summary_release_check": "{count} Top-100 games have a Release Month more than {threshold} months from the "
+    "summary_ties": "{count} games outside a {top} share the score of {cutoff} (ties.csv).",
+    "summary_release_check": "{count} {top_h} games have a Release Month more than {threshold} months from the "
                              "store release date, or an unreadable store date (release_month_check.csv).",
     "summary_parse_errors": "Parse errors: {count}{allowed}.",
     "summary_warning": "Warning: {text}",
@@ -63,12 +63,12 @@ SENTENCES: dict[str, str] = {
                   "aid.",
     "ds_no_network": "The network at the report's settings has no edges, so no clusters are reported.",
     "ds_state": "Network State {state_id} (quote it with every network number).",
-    "methods_disconnected": "The report's runs produced {count} disconnected clusters across the five datasets.",
+    "methods_disconnected": "The report's runs produced {count} disconnected clusters across the {number} datasets.",
 }
 
 PARAGRAPHS: dict[str, str] = {
     "caveat": (
-        "This report describes the five published Top-100 Datasets. Each Top 100 is a ranked selection of the "
+        "This report describes the {number} published {top_h} Datasets. Each {top} is a ranked selection of the "
         "most-played games, not a random sample, so nothing here generalises to Steam as a whole. Frequencies, "
         "co-occurrences and clusters describe which characteristics recur together; none of them shows what "
         "makes a game popular. The q-values in associations.csv are a descriptive screen: a small q means "
@@ -92,7 +92,7 @@ PARAGRAPHS: dict[str, str] = {
         "consensus partition was computed: every partition shown comes from a single run."
     ),
     "limitations": (
-        "Limitations: tags are a current snapshot, not historical; the Top 100 is a ranked selection, not a "
+        "Limitations: tags are a current snapshot, not historical; the {top} is a ranked selection, not a "
         "sample; the partition comes from a single clustering run; Steam Charts has coverage gaps, and a gap "
         "means the app was not tracked, not that nobody played. The full list is in "
         "[User Guide chapter 6](../../../../docs/user-guide/06-known-limitations.md)."
@@ -115,8 +115,27 @@ def sentence(name: str, **values: Any) -> str:
     return SENTENCES[name].format(**{k: fmt(v) for k, v in values.items()})
 
 
-def paragraph(name: str) -> str:
-    return PARAGRAPHS[name]
+def paragraph(name: str, **values: Any) -> str:
+    text = PARAGRAPHS[name]
+    return text.format(**values) if values else text
+
+
+_NUMBER_WORDS = ("zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven",
+                 "twelve")
+
+
+def wording(config: Any) -> dict[str, str]:
+    """Build-output wording for the Top-N: the actual number when every dataset has the same List Size of 100
+    ("Top 100"), "Top-N" otherwise; dataset counts are spelled out."""
+    sizes = {d.list_size for d in config.datasets}
+    plain = sizes == {100}
+    count = len(config.datasets)
+    return {
+        "top": "Top 100" if plain else "Top-N",
+        "top_h": "Top-100" if plain else "Top-N",
+        "cutoff": "rank 100" if plain else "the last rank",
+        "number": _NUMBER_WORDS[count] if count < len(_NUMBER_WORDS) else str(count),
+    }
 
 
 def fmt(value: Any) -> str:

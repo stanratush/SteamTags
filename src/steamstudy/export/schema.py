@@ -67,6 +67,18 @@ class FileSchema:
                 return c
         raise KeyError(f"{self.name} has no column {name!r}")
 
+    def for_datasets(self, keys: tuple[str, ...] | list[str]) -> FileSchema:
+        """The file for a Build whose datasets are `keys`: the `would_be_rank_<dataset>` column, declared once
+        per default dataset, becomes one column per dataset in the given (config) order."""
+        template = [c for c in self.columns if c.name.startswith(WOULD_BE_RANK)]
+        if not template:
+            return self
+        first = next(i for i, c in enumerate(self.columns) if c.name.startswith(WOULD_BE_RANK))
+        expanded = tuple(
+            replace(template[0], name=f"{WOULD_BE_RANK}{k}", description=_would_be_rank_description(k)) for k in keys)
+        rest = [c for c in self.columns if not c.name.startswith(WOULD_BE_RANK)]
+        return replace(self, columns=(*rest[:first], *expanded, *rest[first:]))
+
     def with_prefix(self, name: str, prefix: tuple[Column, ...], group: str = "") -> FileSchema:
         """The same file with leading columns, e.g. an app table stacked by dataset in the Build."""
         return replace(self, name=name, columns=(*prefix, *self.columns), group=group or self.group)
@@ -165,16 +177,20 @@ COMPLETENESS = declare(
     group="build_reports",
 )
 
-DATASET_KEYS = ("overall", "puzzle", "rpg", "strategy", "simulation")
+WOULD_BE_RANK = "would_be_rank_"
+# The datasets of the shipped config. A Build's own datasets come from its config; `FileSchema.for_datasets`
+# expands the `would_be_rank_<dataset>` column once per dataset.
+DEFAULT_DATASET_KEYS = ("overall", "puzzle", "rpg", "strategy", "simulation")
+
+
+def _would_be_rank_description(key: str) -> str:
+    return (f"Rank the game takes in the {key} ranking, or would take had it not been excluded; empty when the "
+            f"game is outside that dataset's scope (no defining tag, or tags unknown).")
 
 
 def _would_be_rank_columns() -> list[Column]:
-    return [
-        C(f"would_be_rank_{key}", "int",
-          f"Rank the game takes in the {key} ranking, or would take had it not been excluded; empty when the game "
-          f"is outside that dataset's scope (no defining tag, or tags unknown).")
-        for key in DATASET_KEYS
-    ]
+    """One column per dataset key; a Build with other datasets gets its own via `FileSchema.for_datasets`."""
+    return [C(f"{WOULD_BE_RANK}{key}", "int", _would_be_rank_description(key)) for key in DEFAULT_DATASET_KEYS]
 
 
 # ----------------------------------------------------------------------------- Build: datasets/

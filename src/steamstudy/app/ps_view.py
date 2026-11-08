@@ -331,6 +331,7 @@ def controls(L: Labels, ctx: BuildContext, defaults: SEL.SelectionSettings) -> h
     first = ctx.datasets[0].key
     defining = [d.defining_tag.name for d in ctx.datasets if d.defining_tag]
     first_label = ctx.dataset(first).label
+    field = ctx.read(first).filter_field
     run = html.Div([
         html.H4([L.span(msg("Run")), " ", _static_help(L, "selection.run")], className="ctl-h"),
         html.Div([html.Button(L.prop("ps-run-all", "children", msg("Run all datasets")), id="ps-run-all",
@@ -364,9 +365,11 @@ def controls(L: Labels, ctx: BuildContext, defaults: SEL.SelectionSettings) -> h
                                                                                             key=lambda x: x[1])],
                      value=list(defaults.removed_tag_ids), multi=True,
                      placeholder=L.prop("ps-s-removed", "placeholder", msg("no removed tags"))),
-        html.Label([L.term(msg("Minimum Months Filter"), "selection.setting.min_months")], className="l"),
-        dcc.Slider(id="ps-s-min-months", min=0, max=60, step=1, value=defaults.min_months,
-                   marks={0: "0", 60: "60"}, tooltip={"placement": "bottom"}),
+        *([html.Label([L.term(msg("Minimum Months Filter"), "selection.setting.min_months")], className="l"),
+           dcc.Slider(id="ps-s-min-months", min=int(field.minimum), max=int(field.maximum), step=1,
+                      value=defaults.min_months, marks={int(field.minimum): str(int(field.minimum)),
+                                                        int(field.maximum): str(int(field.maximum))},
+                      tooltip={"placement": "bottom"})] if field else []),
         html.Label([L.term(msg("Clustering weight"), "selection.setting.weight")], className="l"),
         dcc.RadioItems(id="ps-s-weight", options=L.options("ps-s-weight", [("lift", msg("Lift")),
                                                                            ("shared_games", msg("Shared games"))]),

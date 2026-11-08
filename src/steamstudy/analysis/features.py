@@ -1,6 +1,6 @@
-"""Feature-analysis tables for one full Top-100 Dataset (every game counted once, no Minimum Months Filter).
+"""Feature-analysis tables for one full Top-N Dataset (every game counted once, no Minimum Months Filter).
 
-Frequencies are compared with the Eligible Pool (Top 100 included). The defining tag is listed at 100%
+Frequencies are compared with the Eligible Pool (the Top-N included). The defining tag is listed at 100%
 in the tag-frequency table and left out of combinations and associations.
 """
 

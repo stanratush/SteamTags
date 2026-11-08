@@ -1,6 +1,6 @@
 """Loading one Build for the app: its datasets, provenance and the network defaults it was built with.
 
-The app only ever analyses the pipeline's own exports (the `top100_<dataset>.csv` loading contract).
+The app only ever analyses the pipeline's own exports, read through `steamstudy.dataset.read_dataset`.
 Everything here is a plain function of the Build folder; nothing is cached between calls.
 """
 
@@ -13,10 +13,9 @@ from pathlib import Path
 from typing import Any
 
 from steamstudy.config import ConfigError, DatasetDef, NetworkDefaults, TagRef, config_from_data
-from steamstudy.export import schema as S
-from steamstudy.export.writer import read_typed_csv
+from steamstudy.dataset import Dataset, read_dataset
 from steamstudy.network.defaults import default_settings
-from steamstudy.network.model import Game, Settings, TagContext, games_from_rows
+from steamstudy.network.model import Game, Settings, TagContext
 
 
 @dataclass(frozen=True)
@@ -26,6 +25,11 @@ class BuildContext:
     network: NetworkDefaults
     datasets: tuple[DatasetDef, ...]
     genre_tags: tuple[TagRef, ...]
+    tag_depth: int | str = "all"  # Tag Depth: an integer, or "all"
+
+    @property
+    def depth_cut(self) -> int | None:
+        return None if self.tag_depth == "all" else int(self.tag_depth)
 
     @property
     def build_id(self) -> str:
@@ -38,16 +42,15 @@ class BuildContext:
     def dataset(self, key: str) -> DatasetDef:
         return next(d for d in self.datasets if d.key == key)
 
-    def rows(self, dataset: str) -> list[dict[str, Any]]:
-        path = self.path / "datasets" / f"top100_{dataset}.csv"
-        return read_typed_csv(path, S.TOP100) if path.is_file() else []
+    def read(self, dataset: str) -> Dataset:
+        """The dataset through the one reader (Tag Depth applied)."""
+        return read_dataset(self, dataset)
 
     def games(self, dataset: str) -> list[Game]:
-        return games_from_rows(self.rows(dataset))
+        return self.read(dataset).games()
 
     def context(self, dataset: str) -> TagContext:
-        d = self.dataset(dataset)
-        return TagContext(d.defining_tag.id if d.defining_tag else None, frozenset(t.id for t in self.genre_tags))
+        return self.read(dataset).context()
 
     def default_settings(self, dataset: str) -> Settings:
         d = self.dataset(dataset)
@@ -80,7 +83,7 @@ def load_build(path: str | Path) -> BuildContext:
         config = config_from_data(files)
     except ConfigError as exc:
         raise ValueError(f"build.json config of {path} is not readable: {exc}") from exc
-    return BuildContext(path, build_json, config.network, config.datasets, config.genre_tags)
+    return BuildContext(path, build_json, config.network, config.datasets, config.genre_tags, config.tag_depth)
 
 
 # build.json copies every file a Build reads; the collection settings are not among them.

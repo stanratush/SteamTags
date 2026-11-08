@@ -1,4 +1,4 @@
-"""Ranking the five Top-100 Datasets from one shared set of scored, non-excluded games."""
+"""Ranking the Top-N Datasets from one shared set of scored, non-excluded games."""
 
 from __future__ import annotations
 
@@ -10,8 +10,6 @@ from steamstudy.build.games import Game
 from steamstudy.build.score import Score
 from steamstudy.config import DatasetDef
 
-TOP_N = 100
-
 
 def sort_key(appid: int, s: Score) -> tuple[float, int, int]:
     """mean_monthly_players desc, months_observed desc, appid asc."""
@@ -22,8 +20,8 @@ def sort_key(appid: int, s: Score) -> tuple[float, int, int]:
 class RankedDataset:
     definition: DatasetDef
     eligible: list[int]  # the Eligible Pool, in rank order
-    top: list[int]
-    ties: list[int]  # outside the top, tied with rank 100's score
+    top: list[int]  # the dataset's List Size highest-ranked items
+    ties: list[int]  # outside the top, tied with the last rank's score
     _keys: list[tuple[float, int, int]] = field(default_factory=list)
 
     @property
@@ -31,35 +29,53 @@ class RankedDataset:
         return self.definition.key
 
 
-def in_scope(definition: DatasetDef, game: Game | None) -> bool | None:
-    """Whether a game belongs to the dataset's scope; None when its tags are unknown."""
+def in_scope(definition: DatasetDef, game: Game | None, depth: int | None = None) -> bool | None:
+    """Whether a game belongs to the dataset's scope (it has the defining tag within Tag Depth); None when its
+    tags are unknown."""
     if definition.defining_tag is None:
         return True
     if game is None or not game.has_data:
         return None
-    return game.has_tag(definition.defining_tag.id)
+    return game.has_tag(definition.defining_tag.id, depth)
 
 
-def rank_dataset(
-    definition: DatasetDef, scores: dict[int, Score], games: dict[int, Game], excluded: set[int]
+def rank_pool(
+    definition: DatasetDef, scores: dict[int, Score], games: dict[int, Game], excluded: set[int],
+    depth: int | None = None,
 ) -> RankedDataset:
+    """The Eligible Pool in rank order, with nothing sliced off yet (`slice_top` does that)."""
     eligible = sorted(
-        (a for a in scores if a not in excluded and in_scope(definition, games.get(a))),
+        (a for a in scores if a not in excluded and in_scope(definition, games.get(a), depth)),
         key=lambda a: sort_key(a, scores[a]),
     )
-    top = eligible[:TOP_N]
-    ties: list[int] = []
-    if len(eligible) > TOP_N:
-        cutoff = scores[top[-1]].mean_monthly_players
-        ties = [a for a in eligible[TOP_N:] if scores[a].mean_monthly_players == cutoff]
-    ranked = RankedDataset(definition, eligible, top, ties)
+    ranked = RankedDataset(definition, eligible, [], [])
     ranked._keys = [sort_key(a, scores[a]) for a in eligible]
     return ranked
 
 
-def would_be_rank(ranked: RankedDataset, appid: int, scores: dict[int, Score], games: dict[int, Game]) -> int | None:
+def slice_top(ranked: RankedDataset, scores: dict[int, Score], list_size: int | None = None) -> RankedDataset:
+    """Cut the pool at List Size (default: the definition's), listing the ties at the cutoff."""
+    n = ranked.definition.list_size if list_size is None else list_size
+    ranked.top = ranked.eligible[:n]
+    ranked.ties = []
+    if len(ranked.eligible) > n:
+        cutoff = scores[ranked.top[-1]].mean_monthly_players
+        ranked.ties = [a for a in ranked.eligible[n:] if scores[a].mean_monthly_players == cutoff]
+    return ranked
+
+
+def rank_dataset(
+    definition: DatasetDef, scores: dict[int, Score], games: dict[int, Game], excluded: set[int],
+    depth: int | None = None,
+) -> RankedDataset:
+    return slice_top(rank_pool(definition, scores, games, excluded, depth), scores)
+
+
+def would_be_rank(
+    ranked: RankedDataset, appid: int, scores: dict[int, Score], games: dict[int, Game], depth: int | None = None
+) -> int | None:
     """The rank the game takes, or would take had it not been excluded; None outside the dataset's scope."""
-    if appid not in scores or not in_scope(ranked.definition, games.get(appid)):
+    if appid not in scores or not in_scope(ranked.definition, games.get(appid), depth):
         return None
     key = sort_key(appid, scores[appid])
     position = bisect.bisect_left(ranked._keys, key)

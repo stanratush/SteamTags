@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from steamstudy.analysis.templates import paragraph, render_report, sentence
+from steamstudy.analysis.templates import paragraph, render_report, sentence, wording
 from steamstudy.config import Config
 
 
@@ -42,9 +42,10 @@ def reports_html(result: Any, config: Config) -> str:
         size = bj["dataset_sizes"][d.key]
         blocks.append("- " + sentence("summary_dataset", label=d.label, rows=size["rows"], pool=size["eligible_pool"],
                                       deepest=depth.get((d.key, "deepest_top_listing_rank"))))
-    blocks += [sentence("summary_ties", count=len(result.rows("reports/ties.csv"))),
+    w = wording(config)
+    blocks += [sentence("summary_ties", count=len(result.rows("reports/ties.csv")), top=w["top"], cutoff=w["cutoff"]),
                sentence("summary_release_check", count=len(result.rows("reports/release_month_check.csv")),
-                        threshold=config.analysis.release_month_check)]
+                        threshold=config.analysis.release_month_check, top_h=w["top_h"])]
     if result.warnings:
         blocks.append("## Warnings")
         blocks += ["- " + sentence("summary_warning", text=w) for w in result.warnings]

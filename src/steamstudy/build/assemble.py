@@ -11,20 +11,22 @@ from steamstudy.build.exclusion import Evaluation
 from steamstudy.build.games import Game
 from steamstudy.build.parse import MonthlyHistory, TagVocabulary
 from steamstudy.build.score import Score, Window
-from steamstudy.export.schema import DATASET_KEYS
 
 
 class GameTable:
     """Shared lookups for the row builders."""
 
     def __init__(self, scores: dict[int, Score], games: dict[int, Game], histories: dict[int, MonthlyHistory],
-                 listing_rank: dict[int, int], ranked: dict[str, RankedDataset], flags: dict[int, list[str]]):
+                 listing_rank: dict[int, int], ranked: dict[str, RankedDataset], flags: dict[int, list[str]],
+                 depth: int | None = None):
         self.scores, self.games, self.histories = scores, games, histories
         self.listing_rank, self.ranked, self.flags = listing_rank, ranked, flags
+        self.depth = depth
 
     def would_be_ranks(self, appid: int) -> dict[str, int | None]:
-        return {f"would_be_rank_{key}": would_be_rank(self.ranked[key], appid, self.scores, self.games)
-                if key in self.ranked else None for key in DATASET_KEYS}
+        """One `would_be_rank_<dataset>` value per dataset, in config order."""
+        return {f"would_be_rank_{key}": would_be_rank(ranked, appid, self.scores, self.games, self.depth)
+                for key, ranked in self.ranked.items()}
 
 
 def top100_rows(t: GameTable, ranked: RankedDataset) -> list[dict[str, Any]]:
@@ -79,12 +81,20 @@ def exclusion_rows(t: GameTable, evaluations: dict[int, Evaluation]) -> list[dic
     return rows
 
 
+def _beyond_depth(t: GameTable, appid: int, tag_id: int) -> bool:
+    if t.depth is None:
+        return False
+    return any(x.tag_id == tag_id and x.position > t.depth for x in t.games[appid].tags)
+
+
 def impact_removal_rows(t: GameTable, evaluations: dict[int, Evaluation]) -> list[dict[str, Any]]:
     rows = []
     for appid in sorted(evaluations):
         ev = evaluations[appid]
         for m in ev.matches:
             for label, tag_id in m.signals:
+                if tag_id is not None and _beyond_depth(t, appid, tag_id):
+                    label += " (beyond tags per game)"  # informational: the rule read the full list
                 rows.append({"rule": m.rule, "signal": label, "tag_id": tag_id, "appid": appid,
                              "name": t.games[appid].name, "is_primary_reason": m.rule == ev.primary_reason,
                              **t.would_be_ranks(appid)})
@@ -159,7 +169,7 @@ def manual_metadata_rows(games: dict[int, Game]) -> list[dict[str, Any]]:
     return [c for appid in sorted(games) for c in games[appid].citations]
 
 
-def depth_check_rows(t: GameTable) -> list[dict[str, Any]]:
+def depth_check_rows(t: GameTable, top_h: str = "Top-100") -> list[dict[str, Any]]:
     rows = []
     for ranked in t.ranked.values():
         ranks = [t.listing_rank[a] for a in ranked.top if a in t.listing_rank]
@@ -167,7 +177,7 @@ def depth_check_rows(t: GameTable) -> list[dict[str, Any]]:
         def row(item: str, value: int, note: str) -> dict[str, Any]:
             return {"section": "depth_check", "item": item, "dataset": ranked.key, "value": value, "note": note}
 
-        rows.append(row("members", len(ranked.top), "games in this Top-100 Dataset"))
+        rows.append(row("members", len(ranked.top), f"games in this {top_h} Dataset"))
         rows.append(row("members_without_listing_rank", len(ranked.top) - len(ranks),
                         "members not in the /top listing (test-mode edge cases)"))
         if ranks:

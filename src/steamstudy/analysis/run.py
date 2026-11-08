@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from steamstudy.analysis import features as F
+from steamstudy.build.games import counted_tags
 from steamstudy.analysis.network_stage import network_outputs
 from steamstudy.config import Config
 from steamstudy.export import schema as S
@@ -14,9 +15,11 @@ from steamstudy.export.schema import SCHEMA_VERSION, columns_block
 
 def run_analysis(result: Any, config: Config) -> None:
     """Add the analysis tables and `analysis.json` to a BuildResult (in place)."""
+    depth = config.depth_cut
     dataset_rows = {d.key: result.rows(f"datasets/top100_{d.key}.csv") for d in config.datasets}
     written: list[Any] = []
-    feature_summary = _feature_tables(result, config, dataset_rows, written)
+    counted_rows = {key: cut_rows(rows, depth) for key, rows in dataset_rows.items()}
+    feature_summary = _feature_tables(result, config, counted_rows, written)
     net = network_outputs(config, result.build_id, dataset_rows)
     for app_name, rows in net.tables.items():
         schema = S.stacked(app_name)
@@ -48,6 +51,14 @@ def run_analysis(result: Any, config: Config) -> None:
 PUZZLE_NOTE = "Puzzle is not a Steam store genre: the store's genre field never shows it."
 
 
+def cut_rows(rows: list[dict[str, Any]], depth: int | None) -> list[dict[str, Any]]:
+    """Dataset rows with the tag lists cut to Tag Depth: the files keep the full lists, the analysis counts the
+    first `depth` tags only."""
+    if depth is None:
+        return rows
+    return [{**r, "tag_ids": r["tag_ids"][:depth], "tags": r["tags"][:depth]} for r in rows]
+
+
 def _feature_tables(result: Any, config: Config, dataset_rows: dict[str, list[dict[str, Any]]],
                     written: list[Any]) -> dict[str, dict[str, Any]]:
     a = config.analysis
@@ -57,7 +68,7 @@ def _feature_tables(result: Any, config: Config, dataset_rows: dict[str, list[di
     summary: dict[str, dict[str, Any]] = {}
     for d in config.datasets:
         top = dataset_rows[d.key]
-        pool = [{"tag_ids": [t.tag_id for t in result.games[appid].tags],
+        pool = [{"tag_ids": [t.tag_id for t in counted_tags(result.games[appid].tags, config.depth_cut)],
                  "genre_ids": [g.genre_id for g in result.games[appid].genres]}
                 for appid in result.ranked[d.key].eligible]
         defining = d.defining_tag.id if d.defining_tag else None
