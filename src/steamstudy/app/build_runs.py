@@ -1,9 +1,10 @@
-"""Build runs from drafts: a server-wide job, one at a time per app process, in a background thread.
+"""Build runs from drafts: a server-wide job, one at a time per app process, each in its own process.
 
 A run is started from a draft's Review step and is shown in every tab (the strip under the header) until it is
 dismissed. Switching or closing a tab never cancels it; Cancel does (between stages). A second run waits for the
-first. `build_admin.build_draft` does the work: on success the draft becomes a Build, on failure the draft keeps the
-failure.
+first. A worker thread of the app process starts each run's process and relays its stages, so a Build never holds
+the server's interpreter. `build_admin.build_draft` does the work: on success the draft becomes a Build, on failure
+the draft keeps the failure.
 
 The estimate is about 24 s from a lightweight Snapshot and about 99 s from raw (issue 17's measurements); an Import
 is treated as lightweight.
@@ -11,6 +12,8 @@ is treated as lightweight.
 
 from __future__ import annotations
 
+import multiprocessing
+import queue
 import threading
 import time
 from collections import deque
@@ -137,9 +140,8 @@ def wait_idle(timeout: float = 300.0) -> bool:
 
 
 def _work() -> None:
+    """The queue's worker thread: each run in its own process, one at a time."""
     global _WORKER
-    from steamstudy.build_admin import BuildCancelled, BuildFailed, build_draft, list_drafts
-
     while True:
         with _LOCK:
             if not _QUEUE:
@@ -147,27 +149,68 @@ def _work() -> None:
                 return
             run = _RUNS[_QUEUE.popleft()]
             run.status, run.started = "running", time.time()
-
-        def progress(stage: str, run: Run = run) -> None:
-            run.stage = stage
-
-        try:
-            if run.kind == "lighten":
-                from steamstudy.lightweight import lighten
-
-                run.stage = "lighten"
-                lighten(run.root / "snapshots" / run.source_id)
-                run.status, run.finished = "done", time.time()
-                continue
-            draft = next((d for d in list_drafts(run.root, run.source_id) if d.stored_slug == run.slug), None)
-            if draft is None:
-                raise BuildFailed(f"the draft {run.name} no longer exists")
-            folder = build_draft(run.root, draft, on_progress=progress, should_stop=run.stop.is_set)
-            run.status, run.ref = "done", f"{folder.parent.name}/{folder.name}"
-        except BuildCancelled:
-            run.status = "cancelled"
-        except BuildFailed as exc:
-            run.status, run.error = "failed", str(exc)
-        except Exception as exc:  # noqa: BLE001 - a run never takes the server down; the draft keeps what it can
-            run.status, run.error = "failed", f"{type(exc).__name__}: {exc}"
+        status, value = _in_process(run)
+        run.status = status
+        if status == "done":
+            run.ref = value
+        elif status == "failed":
+            run.error = value
         run.finished = time.time()
+
+
+def _in_process(run: Run) -> tuple[str, str | None]:
+    """Run one Build (or Make lightweight Snapshot) in a child process; its stages reach `run.stage`, and Cancel
+    reaches it as an event it checks between stages. Returns (status, the new Build's ref or the error)."""
+    context = multiprocessing.get_context("spawn")
+    messages = context.Queue()
+    stop = context.Event()
+    child = context.Process(target=run_child, args=(run.kind, str(run.root), run.source_id, run.slug, run.name,
+                                                    messages, stop), name=f"build-run-{run.run_id}")
+    child.start()
+    try:
+        while True:
+            if run.stop.is_set():
+                stop.set()
+            try:
+                kind, value = messages.get(timeout=0.2)
+            except queue.Empty:
+                if child.is_alive():
+                    continue
+                try:  # the last message may arrive just after the child ended
+                    kind, value = messages.get(timeout=1.0)
+                except queue.Empty:
+                    return "failed", f"the Build process ended without a result (exit code {child.exitcode})"
+            if kind == "stage":
+                run.stage = value
+            else:
+                return kind, value
+    finally:
+        child.join(timeout=10)
+        messages.close()
+
+
+def run_child(kind: str, root: str, source_id: str, slug: str, name: str, messages: Any, stop: Any) -> None:
+    """The child process: build the draft (or lighten the Snapshot) and report stages, then one result:
+    ("done", ref), ("failed", message) or ("cancelled", None). Never raises."""
+    from steamstudy.build_admin import BuildCancelled, BuildFailed, build_draft, list_drafts
+
+    try:
+        if kind == "lighten":
+            from steamstudy.lightweight import lighten
+
+            messages.put(("stage", "lighten"))
+            lighten(Path(root) / "snapshots" / source_id)
+            messages.put(("done", None))
+            return
+        draft = next((d for d in list_drafts(Path(root), source_id) if d.stored_slug == slug), None)
+        if draft is None:
+            raise BuildFailed(f"the draft {name} no longer exists")
+        folder = build_draft(Path(root), draft, on_progress=lambda stage: messages.put(("stage", stage)),
+                             should_stop=stop.is_set)
+        messages.put(("done", f"{folder.parent.name}/{folder.name}"))
+    except BuildCancelled:
+        messages.put(("cancelled", None))
+    except BuildFailed as exc:
+        messages.put(("failed", str(exc)))
+    except Exception as exc:  # noqa: BLE001 - the parent reports it; the draft keeps what build_draft saved
+        messages.put(("failed", f"{type(exc).__name__}: {exc}"))

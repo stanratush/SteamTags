@@ -145,6 +145,36 @@ def test_delete_refuses_the_open_build_and_deletes_another(root):
     assert [n.ref for _, n in walk(build_tree(root)[0].builds)] == [a]
 
 
+def test_delete_first_stops_the_jobs_running_on_the_build(root, tmp_path, monkeypatch):
+    import subprocess
+    import sys
+
+    from steamstudy.app import job_registry
+
+    monkeypatch.setenv(job_registry.ENV, "")
+    job_registry.set_folder(tmp_path / "jobs")
+    a = _built(root, "A")
+    b = _built(root, "B")
+    held = root / "builds" / b / "app_cache" / "held.txt"
+    held.parent.mkdir(parents=True, exist_ok=True)
+    # A job of another tab on B: it holds a file of the Build open (on Windows that blocks the delete).
+    job = subprocess.Popen([sys.executable, "-c", "import sys, time; f = open(sys.argv[1], 'w'); f.write('x'); "
+                            "f.flush(); print('ready', flush=True); time.sleep(120)", str(held)],
+                           stdout=subprocess.PIPE, text=True)
+    try:
+        assert job.stdout.readline().strip() == "ready"
+        (tmp_path / "jobs" / "running" / f"{job.pid}-test.json").write_text(
+            json.dumps({"pid": job.pid, "ref": b}), encoding="utf-8")
+        assert [pid for _, pid in job_registry.jobs_on(b)] == [job.pid] and job_registry.jobs_on(a) == []
+        BA.delete_build(root, b, open_build=a, cancel_jobs=job_registry.cancel_jobs_on)
+        assert job.wait(timeout=10) is not None
+        assert not (root / "builds" / b).exists() and job_registry.jobs_on(b) == []
+    finally:
+        if job.poll() is None:
+            job.kill()
+        job.stdout.close()
+
+
 def test_a_bundle_tree_only_switches_and_hides_for_one_build(root, tmp_path):
     a = _built(root, "A")
     b = _built(root, "B", from_build=a)
@@ -170,9 +200,12 @@ def _fields(draft: BA.Draft, root: Path) -> tuple[list, list]:
     for i in ids:
         name = i["name"]
         if name.startswith("toml:"):
-            data = {k: v for k, v in draft.config[name[5:]].items()
-                    if not (name == "toml:exclusions" and k in ("global_rank_limit", "allowed_app_types"))}
-            values[name] = toml_text.dumps(data)
+            values[name] = toml_text.dumps(DD._box_data(draft.config, name[5:], False))
+        elif name.startswith("rule:"):
+            _, n, part = name.split(":")
+            rule = draft.config["exclusions"]["rule"][int(n)]
+            values[name] = rule["name"] if part == "name" else toml_text.dumps(
+                {k: v for k, v in rule.items() if k != "name"})
         elif name.startswith("ds:"):
             _, n, key = name.split(":")
             row = draft.config["datasets"]["dataset"][int(n)]
@@ -237,7 +270,7 @@ def test_a_failing_run_keeps_the_draft_and_shows_the_failure(root):
     build_runs.dismiss(view["run_id"])
 
 
-def test_an_unexpected_error_is_kept_on_the_draft_and_the_next_run_still_starts(root, monkeypatch):
+def test_an_unexpected_error_is_kept_on_the_draft_and_a_run_builds_in_its_own_process(root, monkeypatch):
     import steamstudy.build.core as core
 
     draft = BA.start_draft(root, "S1", config_dir=root / "config", name="Broken")
@@ -248,18 +281,20 @@ def test_an_unexpected_error_is_kept_on_the_draft_and_the_next_run_still_starts(
         raise RuntimeError("boom")
 
     monkeypatch.setattr(core, "build", boom)
-    build_runs.start(root, "S1", draft.stored_slug, draft.name)
-    assert build_runs.wait_idle()
-    (view,) = [v for v in build_runs.runs() if v["name"] == "Broken"]
-    assert view["status"] == "failed" and view["error"] == "RuntimeError: boom"
+    with pytest.raises(BA.BuildFailed, match="RuntimeError: boom"):
+        BA.build_draft(root, draft)
     (kept,) = [d for d in BA.list_drafts(root, "S1") if d.name == "Broken"]
     assert kept.last_failure == {"kind": "message", "message": "RuntimeError: boom"}
-    build_runs.dismiss(view["run_id"])
-    monkeypatch.undo()
-    build_runs.start(root, "S1", kept.stored_slug, kept.name)  # the idle worker has gone; a new one starts
+    # The run's child process imports the Build afresh: this process's broken `build` does not reach it.
+    build_runs.start(root, "S1", kept.stored_slug, kept.name)
     assert build_runs.wait_idle()
     (view,) = [v for v in build_runs.runs() if v["name"] == "Broken"]
-    assert view["status"] == "done"
+    assert view["status"] == "done" and view["ref"].startswith("S1/")
+    build_runs.dismiss(view["run_id"])
+    build_runs.start(root, "S1", "no-such-draft", "Gone")  # the idle worker has gone; a new one starts
+    assert build_runs.wait_idle()
+    (view,) = [v for v in build_runs.runs() if v["name"] == "Gone"]
+    assert view["status"] == "failed" and "no longer exists" in view["error"]
     build_runs.dismiss(view["run_id"])
 
 
@@ -289,22 +324,102 @@ def test_each_editor_writes_the_config_shape_the_build_reads(root):
     draft = BA.start_draft(root, "S1", config_dir=root / "config", name="Shapes")
     draft.config["exclusion_overrides"] = {"override": [{"appid": 10001, "rule": "software_tag", "reason": "r",
                                                          "evidence": "e"}]}
-    rules = copy.deepcopy(draft.config["exclusions"])
-    rules.pop("global_rank_limit", None)
-    rules.pop("allowed_app_types", None)
-    renamed = [r["name"] for r in rules["rule"]].index("software_tag")
-    rules["rule"][renamed]["name"] = "software"
+    i = [r["name"] for r in draft.config["exclusions"]["rule"]].index("software_tag")
+    vocabulary = PV.vocabulary(root, "S1")
+    assert "Puzzle" in vocabulary.ids  # the Snapshot's GetTagList
+    flags = {"content_flag": [{"name": "cozy", "label": "Cozy", "tags": [{"id": vocabulary.ids["Puzzle"],
+                                                                           "name": "Puzzle"}]}]}
     config, bad = DD.apply_fields(draft.config, {
         "ds:1:list_size": 30, "ds:1:defining": "Puzzle", "tag_depth": 10, "tag_depth_all": [],
-        "global_rank_limit": 5, "app_types": ["game", "dlc"], "toml:exclusions": toml_text.dumps(rules),
+        "global_rank_limit": 5, "app_types": ["game", "dlc"], f"rule:{i}:name": "software",
+        f"rule:{i}:body": 'label = "Software"\nname_only = ["GameMaker"]\n',
+        "toml:content_flags": toml_text.dumps(flags),
         "toml:exclusion_overrides": toml_text.dumps(draft.config["exclusion_overrides"]),
-    }, imported=False)
+    }, imported=False, vocabulary=vocabulary)
     assert bad == {}
     built = build_config(config)  # the shape issues 19-20 read
     assert built.tag_depth == 10 and built.exclusions.global_rank_limit == 5
     assert built.datasets[1].list_size == 30 and built.datasets[1].defining_tag.name == "Puzzle"
+    assert config["datasets"]["dataset"][1]["defining_tag"] == {"id": vocabulary.ids["Puzzle"], "name": "Puzzle"}
     assert config["exclusions"]["allowed_app_types"] == ["game", "dlc"]
+    assert config["exclusions"]["rule"][i] == {"name": "software", "label": "Software", "name_only": ["GameMaker"]}
+    assert [f.name for f in built.exclusions.content_flags] == ["cozy"]
     assert config["exclusion_overrides"]["override"][0]["rule"] == "software"  # the rename followed
+
+
+def _component(tree, id_):
+    """The component with this id in a tree."""
+    if isinstance(tree, (list, tuple)):
+        return next((c for c in (_component(n, id_) for n in tree) if c is not None), None)
+    if getattr(tree, "id", None) == id_:
+        return tree
+    children = getattr(tree, "children", None)
+    return _component(children, id_) if children is not None else None
+
+
+def test_the_defining_tag_is_picked_from_the_vocabulary_and_the_first_open_says_loading(root, monkeypatch):
+    draft = BA.start_draft(root, "S1", config_dir=root / "config", name="Picker")
+    BA.save_draft(root, draft)
+    picker = _component(DD.body(draft, root, "top_n", EN), DD._field("ds:1:defining"))
+    assert {o["value"] for o in picker.options} == set(PV.vocabulary(root, "S1").ids)
+    assert picker.value == draft.config["datasets"]["dataset"][1]["defining_tag"]["name"]
+    monkeypatch.setattr(PV, "_LOADED", None)
+    monkeypatch.setattr(PV, "warm", lambda *_a: None)
+    _, children = DD.open_draft({"source": "S1", "slug": draft.stored_slug}, "en")
+    assert "Loading Snapshot…" in _text(children)
+    PV.records(root, "S1")
+    _, children = DD.open_draft({"source": "S1", "slug": draft.stored_slug}, "en")
+    assert "Previewing…" in _text(children) and "Loading Snapshot…" not in _text(children)
+
+
+def _click(monkeypatch, trigger):
+    """Dash's callback context for a click on `trigger`."""
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(DD, "ctx", SimpleNamespace(triggered_id=trigger, triggered=[{"value": 1}]))
+
+
+def test_rules_move_and_a_delete_asks_before_dropping_the_rules_overrides(root, monkeypatch):
+    draft = BA.start_draft(root, "S1", config_dir=root / "config", name="Rules")
+    draft.config["exclusion_overrides"] = {"override": [{"appid": 10001, "name": "G", "rule": "software_tag",
+                                                         "reason": "r", "evidence": "e"}]}
+    BA.save_draft(root, draft)
+    ref = {"source": "S1", "slug": draft.stored_slug}
+    names = lambda: [r["name"] for r in BA.list_drafts(root, "S1")[0].config["exclusions"]["rule"]]  # noqa: E731
+    before = names()
+    i = before.index("software_tag")
+    _click(monkeypatch, {"type": "dd-rule-move", "i": i, "d": -1})
+    DD.edit_rules(None, None, None, None, None, ref, "top_n", "en")
+    assert names()[i - 1] == "software_tag" and sorted(names()) == sorted(before)
+    _click(monkeypatch, "dd-rule-add")
+    DD.edit_rules(None, None, None, None, None, ref, "top_n", "en")
+    assert names()[-1] == "rule_1"
+    _click(monkeypatch, {"type": "dd-rule-del", "i": i - 1})  # software_tag has an override: asks first
+    with pytest.raises(PreventUpdate):
+        DD.edit_rules(None, None, None, None, None, ref, "top_n", "en")
+    assert "software_tag" in names()
+    assert "1 Exclusion Override" in _text(CALLS['"dd-rule-confirm"']["children"])
+    _click(monkeypatch, {"type": "dd-rule-drop", "i": i - 1})
+    DD.edit_rules(None, None, None, None, None, ref, "top_n", "en")
+    (kept,) = BA.list_drafts(root, "S1")
+    assert "software_tag" not in names() and kept.config["exclusion_overrides"]["override"] == []
+    _click(monkeypatch, {"type": "dd-rule-del", "i": len(names()) - 1})  # rule_1 has none: deleted at once
+    DD.edit_rules(None, None, None, None, None, ref, "top_n", "en")
+    assert "rule_1" not in names()
+
+
+def test_keep_it_adds_an_override_per_rule_and_opens_curation(root, monkeypatch):
+    draft = BA.start_draft(root, "S1", config_dir=root / "config", name="Keep")
+    BA.save_draft(root, draft)
+    _click(monkeypatch, {"type": "dd-keep", "appid": 10002, "name": "Some Game", "rules": "software_tag,dating_sim_tag"})
+    body = DD.keep_game(None, {"source": "S1", "slug": draft.stored_slug}, "en")
+    (kept,) = BA.list_drafts(root, "S1")
+    entries = kept.config["exclusion_overrides"]["override"]
+    assert [(e["appid"], e["rule"], e["reason"]) for e in entries] == [(10002, "software_tag", ""),
+                                                                        (10002, "dating_sim_tag", "")]
+    assert CALLS['"dd-step-now"']["data"] == "curation"
+    assert {"type": "dd-pane", "step": "curation"} in _ids(body)
+    assert BA.draft_problems(root, kept)  # an empty reason is still to be filled in
 
 
 def test_a_duplicate_rule_name_marks_the_step_red_and_review_lists_it(root):
@@ -326,7 +441,11 @@ def test_an_import_draft_shows_no_steam_only_field(root):
     names = {i["name"] for i in _ids([DD.body(draft, root, s, EN) for s in BA.STEPS])
              if isinstance(i, dict) and i.get("type") == "dd-field"}
     assert "app_types" not in names and "toml:manual_metadata" not in names
-    assert {"toml:exclusions", "toml:manual_exclusions", "toml:exclusion_overrides", "tag_depth"} <= names
+    assert {"toml:content_flags", "toml:manual_exclusions", "toml:exclusion_overrides", "tag_depth"} <= names
+    assert "release_month_check" not in toml_text.dumps(DD._box_data(draft.config, "analysis", True))
+    config, bad = DD.apply_fields(draft.config, {"toml:analysis": toml_text.dumps(
+        DD._box_data(draft.config, "analysis", True))}, imported=True)
+    assert bad == {} and config["analysis"] == draft.config["analysis"]  # the hidden key is kept
 
 
 # ----------------------------------------------------------------------------- 31: grid warnings, sliders
@@ -423,8 +542,17 @@ def test_an_invalid_rule_shows_a_dash_with_the_reason(root):
     draft.config["exclusions"]["rule"][0]["name"] = "Not A Name!"
     pv = PV.for_review(root, draft)
     assert pv.error and "Not A Name!" in pv.error and pv.error_step == "top_n"
-    assert PV.pool_text(pv, "overall", EN) == "—" and not pv.buildable
-    assert "— Cannot preview:" in _text(PV.review_block(pv, EN))
+    assert _text(PV.pool_text(pv, "overall", EN)) == "—" and not pv.buildable
+    note = _text(DD._cannot_compute(pv, EN))
+    assert "— Cannot preview:" in note and "Not A Name!" in note and "Go to Changes the Top-N" in note
+
+
+def test_a_content_flag_problem_and_change_are_on_reports():
+    assert BA.step_of_message("exclusions.content_flag[0].name: name 'X' must be ...") == "reports"
+    assert BA.step_of_message("exclusions.rule[0].name: ...") == "top_n"
+    assert BA.step_of_message("manual_exclusions.exclusion[2]: ...") == "curation"
+    assert BA.Change("exclusions", "content_flag", [], [1]).step == "reports"
+    assert BA.Change("exclusions", "rule", [], [1]).step == "top_n"
 
 
 # ----------------------------------------------------------------------------- 33: Import data…

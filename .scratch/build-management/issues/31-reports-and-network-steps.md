@@ -28,4 +28,4 @@ Spec: [Build management spec](../spec.md): "The Build menu" (steps 4 and 5), "Da
 
 Reports and analysis and Network defaults edit `analysis`/`reports`/`network` (Steam-only parts hidden for an Import). `preview.grid_warnings` lists per-dataset warnings naming the dataset and its N (largest g, default g/s, min_support above N). They never refuse. A grid with no pairs is a `draft_problems` problem on the Network step: it marks the step red, blocks Build, and replaces the config layer's untranslated message. `layout.slider_tops(ctx)` keeps 40/30 and rises to the Build's largest configured g/s. Tests: warnings for List Size 10 while saving stays allowed, the no-pairs grid blocks Build, and `slider_tops` with g_range up to 50.
 
-Deviation: these steps are edited as TOML text (see issue 30), with the same validation as the Build.
+These steps are edited as TOML text, with the same validation as the Build. An Import's draft hides `release_month_check` (it keeps the value), and the Content Flags box is here (issue 30).

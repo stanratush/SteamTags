@@ -334,6 +334,22 @@ def _newest(builds: list[BuildInfo]) -> BuildInfo | None:
     return max(builds, key=lambda b: (b.build_id.split("-", 1)[0], b.build_id), default=None)
 
 
+def _remove_tree(path: Path, attempts: int = 25) -> None:
+    """`shutil.rmtree`, retried for a few seconds while a just-stopped process still holds a file (Windows)."""
+    import time
+
+    for attempt in range(attempts):
+        try:
+            shutil.rmtree(path)
+            return
+        except FileNotFoundError:
+            return
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.2)
+
+
 def deletion_plan(root: Path, ref: str, open_build: str | None) -> DeletionPlan:
     root = Path(root)
     info = _info(root, ref)
@@ -360,12 +376,15 @@ def deletion_plan(root: Path, ref: str, open_build: str | None) -> DeletionPlan:
                         orphaned_drafts=drafts)
 
 
-def delete_build(root: Path, ref: str, open_build: str | None) -> DeletionPlan:
+def delete_build(root: Path, ref: str, open_build: str | None,
+                 cancel_jobs: Callable[[str], object] | None = None) -> DeletionPlan:
     """Remove the Build folder (cache included) and move the `latest` pointers that named it.
-    Refuses the caller's open Build. Jobs running on it must be cancelled by the caller first."""
+    Refuses the caller's open Build. `cancel_jobs(ref)` first stops the jobs running on it (the app's)."""
     plan = deletion_plan(root, ref, open_build)
     base = builds_dir(root)
-    shutil.rmtree(base / plan.ref)
+    if cancel_jobs is not None:
+        cancel_jobs(plan.ref)
+    _remove_tree(base / plan.ref)
     for where, target in plan.latest_moves.items():
         pointer = base / "latest" if where == "root" else base / where / "latest"
         if target is None:
@@ -378,11 +397,32 @@ def delete_build(root: Path, ref: str, open_build: str | None) -> DeletionPlan:
 # ----------------------------------------------------------------------------- the draft dialog's reading of a draft
 
 # A draft dialog's steps, and which settings files each edits (`exclusions` holds both the named rules, step 2,
-# and the Content Flags, step 4; a problem in it is shown on step 2).
+# and the Content Flags, step 4: see `step_of`).
 STEPS = ("start", "top_n", "curation", "reports", "network", "review")
 STEP_OF_FILE = {"datasets": "top_n", "exclusions": "top_n", "manual_exclusions": "curation",
                 "exclusion_overrides": "curation", "manual_metadata": "curation", "genres": "reports",
                 "analysis": "reports", "network": "network"}
+
+
+def step_of(file: str, key: str = "") -> str:
+    """The draft step that edits a setting: its file's, except the Content Flags (Reports and analysis)."""
+    if file == "exclusions" and key.startswith("content_flag"):
+        return "reports"
+    return STEP_OF_FILE.get(file, "top_n")
+
+
+def step_of_box(box: str) -> str:
+    """The step of one of the dialog's TOML boxes (`content_flags` is the Content Flags' part of exclusions)."""
+    return "reports" if box == "content_flags" else STEP_OF_FILE.get(box, "top_n")
+
+
+def step_of_message(message: str) -> str:
+    """The step that fixes a settings error, from the file and key its message starts with
+    ("exclusions.content_flag[0].name: ..." -> reports)."""
+    head = message.split(":", 1)[0].strip()
+    file, _, key = head.partition(".")
+    file = file.split("[", 1)[0].strip()
+    return step_of(file, key.removeprefix("toml").lstrip(". "))
 # The settings that change which games are in a Top-N (Review badges them).
 TOP_N_FILES = ("datasets", "exclusions", "manual_exclusions", "exclusion_overrides", "manual_metadata")
 
@@ -396,7 +436,7 @@ class Change:
 
     @property
     def step(self) -> str:
-        return STEP_OF_FILE.get(self.file, "top_n")
+        return step_of(self.file, self.key)
 
     @property
     def top_n(self) -> bool:
@@ -469,8 +509,7 @@ def draft_problems(root: Path, draft: Draft) -> list[Problem]:
         validate_manual_exclusions(config.manual_exclusions)
     except (ConfigError, ExclusionListError, ValueError) as exc:
         message = str(exc)
-        file = message.split(".", 1)[0].split(":", 1)[0].split("[", 1)[0].strip()
-        problems.append(Problem(STEP_OF_FILE.get(file, "top_n"), message))
+        problems.append(Problem(step_of_message(message), message))
     except FileNotFoundError as exc:
         problems.append(Problem("start", f"The source is missing: {exc}"))
     ps = draft.config.get("network", {}).get("parameter_selection", {})

@@ -26,7 +26,7 @@ from dash import ALL, ClientsideFunction, Input, Output, Patch, State, ctx, html
 from dash.exceptions import PreventUpdate
 
 from steamstudy.app import help as H
-from steamstudy.app import app_cache, ps_run, rs_cache
+from steamstudy.app import app_cache, job_registry, ps_run, rs_cache
 from steamstudy.app import ps_view as PV
 from steamstudy.app import view as V
 from steamstudy.app.export import REFUSALS, BuildNotFound, OpenRefused, export_zip, open_export
@@ -1275,7 +1275,7 @@ def register(app: dash.Dash) -> None:
        running=[(Output("rs-run", "disabled"), True, False), (Output("rs-continue", "disabled"), True, False),
                 (Output("rs-run-tag", "disabled"), True, False), (Output("rs-cancel", "disabled"), False, True)],
        cancel=[Input("rs-cancel", "n_clicks")],
-       progress=[Output("rs-progress-store", "data")], prevent_initial_call=True)(rs_job)
+       progress=[Output("rs-progress-store", "data")], prevent_initial_call=True)(job_registry.tracked(rs_job))
     cb(Output("rs-progress", "value"), Output("rs-progress", "max"), Output("rs-progress-label", "children"),
        Input("rs-progress-store", "data"), Input("rs-request", "data"), Input("rs-cancel", "n_clicks"),
        Input("lang", "data"))(progress_display)
@@ -1332,13 +1332,13 @@ def register(app: dash.Dash) -> None:
                     (Output("ps-cancel", "disabled"), False, True), (Output("ps-running", "data"), True, False)]
     cb(Output("ps-run-done", "data"), Input("ps-run-request", "data"), State("build-path", "data"), background=True,
        running=jobs_running, cancel=[Input("ps-cancel", "n_clicks")], progress=[Output("ps-progress", "data")],
-       prevent_initial_call=True)(ps_job)
+       prevent_initial_call=True)(job_registry.tracked(ps_job))
     cb(Output("ps-validate-request", "data"), Input("ps-validate", "n_clicks"), State("ps-active", "data"),
        State("ps-dataset", "data"), State("ps-pair", "data"), State("build-path", "data"),
        State("ps-constraints", "data"), prevent_initial_call=True)(ps_validate_request)
     cb(Output("ps-validate-done", "data"), Input("ps-validate-request", "data"), State("build-path", "data"),
        background=True, running=jobs_running, cancel=[Input("ps-cancel", "n_clicks")],
-       progress=[Output("ps-progress", "data", allow_duplicate=True)], prevent_initial_call=True)(ps_validate_job)
+       progress=[Output("ps-progress", "data", allow_duplicate=True)], prevent_initial_call=True)(job_registry.tracked(ps_validate_job))
     cb(Output("ps-dataset", "data"), Output("ps-pair", "data"),
        Input({"type": "ps-strip", "dataset": ALL}, "n_clicks"), prevent_initial_call=True)(ps_pick_dataset)
     cb(Output("ps-pair", "data", allow_duplicate=True), Input("ps-heatmap", "clickData"),

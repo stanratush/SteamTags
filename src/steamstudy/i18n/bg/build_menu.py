@@ -145,10 +145,26 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "all": "всички",
     "Global rank limit": "Общ лимит на ранга",
     "Exclusion rules": "Правила за изключване",
-    "The fixed rules run first ({before}), then the named rules below in order, then {after}. Edit the named rules "
-    "([[rule]]) and Content Flags ([[content_flag]]) here.":
-        "Първо се прилагат фиксираните правила ({before}), след това поименните правила по-долу по ред, а накрая "
-        "{after}. Тук се редактират поименните правила ([[rule]]) и флаговете за съдържание ([[content_flag]]).",
+    "The fixed rules run first, then the named rules in this order, then the Exclusion Overrides. Order decides each "
+    "excluded game's primary reason. Renaming a rule renames its overrides.":
+        "Първо се прилагат фиксираните правила, след това поименните правила в този ред, а накрая отмените на "
+        "изключване. Редът решава основната причина за всяка изключена игра. Преименуването на правило преименува и "
+        "отмените за него.",
+    "fixed": "фиксирани",
+    "rule name": "име на правилото",
+    "Run this rule earlier": "Приложи правилото по-рано",
+    "Run this rule later": "Приложи правилото по-късно",
+    "Delete this rule": "Изтрий правилото",
+    "Add a rule": "Добави правило",
+    "The rule {name} has {n} Exclusion Override. Delete it too?": {
+        "one": "Правилото {name} има {n} отмяна на изключване. Да се изтрие ли и тя?",
+        "other": "Правилото {name} има {n} отмени на изключване. Да се изтрият ли и те?"},
+    "Delete the rule and its overrides": "Изтрий правилото и отмените му",
+    "{name} (not in this source)": "{name} (липсва в този източник)",
+    "Content Flags mark games for the reports; they never exclude one.":
+        "Флаговете за съдържание отбелязват игри за отчетите; те никога не изключват игра.",
+    "Loading Snapshot…": "Зарежда се моментната снимка…",
+    "Loading Import…": "Зарежда се импортът…",
     "Each entry needs a reason and evidence, as in config/. The would-be Overall ranks of excluded games are on "
     "Review.":
         "Всеки запис изисква причина и доказателство, както в config/. Рангът в Overall, който изключените игри "
@@ -157,8 +173,10 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "Saved automatically; Close keeps the draft.": "Запазва се автоматично; Затвори запазва черновата.",
     "Previewing…": "Предварителен преглед…",
     "Close": "Затвори",
-    "{file}.toml does not parse; its last saved value is kept":
-        "{file}.toml не може да се разчете; запазва се последната записана стойност",
+    "{file} does not parse; its last saved value is kept":
+        "{file} не може да се разчете; запазва се последната записана стойност",
+    "Rule {n} does not parse; its last saved value is kept":
+        "Правило {n} не може да се разчете; запазва се последната записана стойност",
     "(removed)": "(премахнато)",
     "Top-N": "Топ-N",
     "Changed settings": "Променени настройки",
@@ -186,8 +204,12 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "Leave: ": "Излизат: ",
     "Excluded games that would rank in Overall": "Изключени игри, които биха се класирали в Overall",
     "Rule": "Правило",
-    "To keep one, add an Exclusion Override for its rule on Curation.":
-        "За да запазите някоя, добавете отмяна на изключване за правилото ѝ в Курация.",
+    "Keep it": "Запази я",
+    "Add an Exclusion Override for it on Curation": "Добави отмяна на изключване за нея в Курация",
+    "Keep it adds an Exclusion Override for each rule that excludes the game; fill in its reason and evidence on "
+    "Curation.":
+        "„Запази я“ добавя отмяна на изключване за всяко правило, което изключва играта; попълнете причината и "
+        "доказателството в Курация.",
     "{dataset} (N = {n}): the Parameter Grid's largest g ({g}) is above N.":
         "{dataset} (N = {n}): най-голямото g в мрежата от параметри ({g}) е над N.",
     "{dataset} (N = {n}): the default {name} ({value}) is above N.":

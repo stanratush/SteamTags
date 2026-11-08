@@ -26,6 +26,7 @@ from dash import ALL, Input, Output, State, ctx, dcc, html, no_update, set_props
 from dash.exceptions import PreventUpdate
 
 from steamstudy import build_admin as BA
+from steamstudy import pool_preview as PP
 from steamstudy import toml_text
 from steamstudy.app import build_runs, preview
 from steamstudy.app import help as H
@@ -35,10 +36,15 @@ from steamstudy.i18n import Text, lang_of, text
 
 STEP_TITLES = {"start": msg("Start"), "top_n": msg("Changes the Top-N"), "curation": msg("Curation"),
                "reports": msg("Reports and analysis"), "network": msg("Network defaults"), "review": msg("Review")}
-# The files edited as TOML text, by step (Steam-only files are left out of an Import's draft).
+# The files edited as TOML text, by step (Steam-only files are left out of an Import's draft). The named rules
+# are edited one card per rule on Top-N; `content_flags` is the `content_flag` part of `exclusions.toml`, edited on
+# Reports and analysis; `exclusions` shows only what is left of that file (nothing, in today's shape).
 TOML_FILES = {"top_n": ("exclusions",), "curation": ("manual_exclusions", "exclusion_overrides", "manual_metadata"),
-              "reports": ("genres", "analysis"), "network": ("network",)}
+              "reports": ("content_flags", "genres", "analysis"), "network": ("network",)}
 STEAM_ONLY_FILES = ("manual_metadata",)
+# Keys a TOML box leaves out: edited elsewhere in the dialog, or (an Import) Steam-only.
+EDITED_ELSEWHERE = {"exclusions": ("global_rank_limit", "allowed_app_types", "rule", "content_flag")}
+STEAM_ONLY_KEYS = {"analysis": ("release_month_check",)}
 APP_TYPES = ("game", "dlc", "demo", "application", "tool", "music", "video", "series", "episode", "hardware", "mod")
 # Fixed problem sentences of `build_admin.draft_problems`, shown in the Interface Language.
 KNOWN_PROBLEMS = (msg("The draft needs a name"),
@@ -106,8 +112,21 @@ def _start(draft: BA.Draft, root: Path, tx: Text) -> list[Any]:
     return out
 
 
-def _datasets(draft: BA.Draft, tx: Text, imported: bool) -> list[Any]:
+def _tag_picker(i: int, current: str | None, names: list[str], overall: bool, imported: bool,
+                tx: Text) -> dcc.Dropdown:
+    """A dataset's defining tag, chosen from the source's vocabulary (GetTagList, or the Import's attributes). A name
+    from an older config that is not in it stays shown, so that the Build's own check reports it."""
+    options = [{"label": n, "value": n} for n in names]
+    if current and current not in names:
+        options.insert(0, {"label": tx("{name} (not in this source)", name=current), "value": current})
+    return dcc.Dropdown(id=_field(f"ds:{i}:defining"), options=options, value=current or None, disabled=overall,
+                        clearable=True, searchable=True, className="dd-tag",
+                        placeholder=tx("(none)") if overall else (tx("an attribute") if imported else tx("a Steam tag")))
+
+
+def _datasets(draft: BA.Draft, root: Path, tx: Text, imported: bool, bad: dict[str, str]) -> list[Any]:
     ds = draft.config.get("datasets", {})
+    names = sorted(preview.vocabulary(root, draft.source_id).ids, key=str.casefold)
     rows = []
     for i, d in enumerate(ds.get("dataset", [])):
         defining = d.get("defining_tag") or {}
@@ -116,9 +135,7 @@ def _datasets(draft: BA.Draft, tx: Text, imported: bool) -> list[Any]:
             html.Td(dcc.Input(id=_field(f"ds:{i}:key"), value=d.get("key", ""), debounce=0.6, disabled=overall,
                               className="mono")),
             html.Td(dcc.Input(id=_field(f"ds:{i}:label"), value=d.get("label", ""), debounce=0.6)),
-            html.Td(dcc.Input(id=_field(f"ds:{i}:defining"), value=defining.get("name", ""), debounce=0.6,
-                              disabled=overall, placeholder=tx("(none)") if overall else
-                              (tx("an attribute") if imported else tx("a Steam tag")))),
+            html.Td(_tag_picker(i, defining.get("name"), names, overall, imported, tx)),
             html.Td(dcc.Input(id=_field(f"ds:{i}:list_size"), value=d.get("list_size", 100), type="number", min=1,
                               debounce=0.6)),
             html.Td(html.Span(id={"type": "dd-pool", "key": d.get("key", "")}, className="dd-pool mute")),
@@ -133,6 +150,7 @@ def _datasets(draft: BA.Draft, tx: Text, imported: bool) -> list[Any]:
     out: list[Any] = [
         html.H4(tx("Datasets")),
         html.Table([head, *rows], className="dd-table"),
+        html.Div(id="dd-pool-note"),
         html.Button(tx("Add a dataset"), id="dd-ds-add", className="btn small"),
         html.H4(_term(tx("Tags per game (Tag Depth)"), "draft.tag_depth", tx)),
         html.Div([dcc.Input(id=_field("tag_depth"), value=None if depth == "all" else depth, type="number", min=2,
@@ -147,21 +165,62 @@ def _datasets(draft: BA.Draft, tx: Text, imported: bool) -> list[Any]:
         out += [html.H4(tx("App types")),
                 dcc.Checklist(id=_field("app_types"), options=[{"label": t, "value": t} for t in APP_TYPES],
                               value=list(ex.get("allowed_app_types", ["game"])), inline=True, className="chips")]
-    out += [html.H4(_term(tx("Exclusion rules"), "draft.exclusions", tx)),
-            html.P(tx("The fixed rules run first ({before}), then the named rules below in order, then {after}. "
-                      "Edit the named rules ([[rule]]) and Content Flags ([[content_flag]]) here.",
-                      before=", ".join(tx(t) for t in FIXED_BEFORE), after=", ".join(tx(t) for t in FIXED_AFTER)),
-                   className="mute small")]
+    out += [html.H4(_term(tx("Exclusion rules"), "draft.exclusions", tx)), *_rules(draft, tx, bad)]
     return out
 
 
-def _toml_box(draft: BA.Draft, file: str, tx: Text, bad: dict[str, str]) -> list[Any]:
-    data = {k: v for k, v in draft.config.get(file, {}).items()
-            if not (file == "exclusions" and k in ("global_rank_limit", "allowed_app_types"))}
-    value = bad.get(file, toml_text.dumps(data))
-    return [html.Label(html.Span(f"{file}.toml", className="mono"), className="l"),
-            dcc.Textarea(id=_field(f"toml:{file}"), value=value, className="wide dd-text mono",
-                         spellCheck=False)]
+def _rules(draft: BA.Draft, tx: Text, bad: dict[str, str]) -> list[Any]:
+    """The named rules in order, one card each (name, up, down, delete, and the rule's signals as TOML), between
+    the fixed rules, which are shown but not editable."""
+    rules = draft.config.get("exclusions", {}).get("rule", [])
+    cards = []
+    for i, rule in enumerate(rules):
+        body = {k: v for k, v in rule.items() if k != "name"}
+        cards.append(html.Div([
+            html.Div([html.Span(f"{i + 1}.", className="mute"),
+                      dcc.Input(id=_field(f"rule:{i}:name"), value=rule.get("name", ""), debounce=0.6,
+                                className="mono", placeholder=tx("rule name")),
+                      html.Button("↑", id={"type": "dd-rule-move", "i": i, "d": -1}, className="btn quiet small",
+                                  disabled=i == 0, title=tx("Run this rule earlier")),
+                      html.Button("↓", id={"type": "dd-rule-move", "i": i, "d": 1}, className="btn quiet small",
+                                  disabled=i == len(rules) - 1, title=tx("Run this rule later")),
+                      html.Button("×", id={"type": "dd-rule-del", "i": i}, className="x",
+                                  title=tx("Delete this rule"))], className="row-inline"),
+            dcc.Textarea(id=_field(f"rule:{i}:body"), value=bad.get(f"rule:{i}", toml_text.dumps(body)),
+                         className="wide dd-text short mono", spellCheck=False),
+        ], className="dd-rule"))
+    return [html.P(tx("The fixed rules run first, then the named rules in this order, then the Exclusion Overrides. "
+                      "Order decides each excluded game's primary reason. Renaming a rule renames its overrides."),
+                   className="mute small"),
+            _fixed_rules(FIXED_BEFORE, tx), *cards, _fixed_rules(FIXED_AFTER, tx),
+            html.Div(id="dd-rule-confirm"),
+            html.Button(tx("Add a rule"), id="dd-rule-add", className="btn small")]
+
+
+def _fixed_rules(names: tuple[str, ...], tx: Text) -> html.Div:
+    return html.Div([html.Span(tx("fixed"), className="bm-chip"), " ", ", ".join(tx(t) for t in names)],
+                    className="dd-rule fixed mute small")
+
+
+def _box_data(config: dict[str, Any], file: str, imported: bool) -> dict[str, Any]:
+    """What a TOML box shows of a settings file."""
+    if file == "content_flags":
+        return {"content_flag": config.get("exclusions", {}).get("content_flag", [])}
+    hidden = (*EDITED_ELSEWHERE.get(file, ()), *(STEAM_ONLY_KEYS.get(file, ()) if imported else ()))
+    return {k: v for k, v in config.get(file, {}).items() if k not in hidden}
+
+
+def _toml_box(draft: BA.Draft, file: str, tx: Text, bad: dict[str, str], imported: bool) -> list[Any]:
+    data = _box_data(draft.config, file, imported)
+    if file == "exclusions" and not data and file not in bad:
+        return []  # today's shape: every key has its own editor
+    label = "exclusions.toml [[content_flag]]" if file == "content_flags" else f"{file}.toml"
+    out: list[Any] = [html.Label(html.Span(label, className="mono"), className="l")]
+    if file == "content_flags":
+        out.append(html.P(tx("Content Flags mark games for the reports; they never exclude one."),
+                          className="mute small"))
+    return out + [dcc.Textarea(id=_field(f"toml:{file}"), value=bad.get(file, toml_text.dumps(data)),
+                               className="wide dd-text mono", spellCheck=False)]
 
 
 def _term(label: str, key: str, tx: Text) -> html.Span:
@@ -185,7 +244,7 @@ def _step_content(step: str, draft: BA.Draft, root: Path, tx: Text, bad: dict[st
         return _start(draft, root, tx)
     out: list[Any] = []
     if step == "top_n":
-        out += _datasets(draft, tx, imported)
+        out += _datasets(draft, root, tx, imported, bad)
     if step == "curation":
         out.append(html.P(tx("Each entry needs a reason and evidence, as in config/. The would-be Overall ranks of "
                              "excluded games are on Review."), className="mute small"))
@@ -196,11 +255,14 @@ def _step_content(step: str, draft: BA.Draft, root: Path, tx: Text, bad: dict[st
     for file in TOML_FILES.get(step, ()):
         if imported and file in STEAM_ONLY_FILES:
             continue
-        out += _toml_box(draft, file, tx, bad)
+        out += _toml_box(draft, file, tx, bad, imported)
     return out
 
 
-def body(draft: BA.Draft, root: Path, step: str, tx: Text, bad: dict[str, str] | None = None) -> list[Any]:
+def body(draft: BA.Draft, root: Path, step: str, tx: Text, bad: dict[str, str] | None = None,
+         busy: str | None = None) -> list[Any]:
+    """The dialog of one draft on `step`. `busy` is the label shown while the preview computes ("Loading
+    Snapshot…" the first time the source is read; "Previewing…" after)."""
     bad = bad or {}
     nav = [html.Button([html.Span(className="dd-mark", id={"type": "dd-mark", "step": s}), tx(STEP_TITLES[s])],
                        id={"type": "dd-step", "step": s}, className="dd-step" + (" on" if s == step else ""))
@@ -210,7 +272,8 @@ def body(draft: BA.Draft, root: Path, step: str, tx: Text, bad: dict[str, str] |
     return [
         html.Div([html.B(tx("Build Draft: {name}", name=draft.name), id="dd-title"),
                   html.Span(tx("Saved automatically; Close keeps the draft."), className="mute small"),
-                  html.Span(tx("Previewing…"), id="dd-busy", className="mute small dd-busy", hidden=True),
+                  html.Span([html.Span(className="dd-spinner"), busy or tx("Previewing…")], id="dd-busy",
+                            className="mute small dd-busy", hidden=True),
                   html.Button(tx("Close"), id="dd-close", className="btn")], className="dd-head"),
         html.Div([html.Nav(nav, className="dd-nav"), html.Div(steps, className="dd-steps")], className="dd-main"),
         dcc.Store(id="dd-step-now", data=step), dcc.Store(id="dd-bad", data=bad), dcc.Store(id="dd-preview-key"),
@@ -227,10 +290,10 @@ def _number(value: Any) -> int | None:
         return None
 
 
-def apply_fields(config: dict[str, Any], fields: dict[str, Any], imported: bool) -> tuple[dict[str, Any],
-                                                                                         dict[str, str]]:
+def apply_fields(config: dict[str, Any], fields: dict[str, Any], imported: bool,
+                 vocabulary: PP.Vocabulary | None = None) -> tuple[dict[str, Any], dict[str, str]]:
     """The draft's settings with the dialog's field values in, and the TOML texts that do not parse
-    (file -> text; that file keeps its last saved value)."""
+    (box -> text; that box keeps its last saved value). `vocabulary` resolves a defining tag's id."""
     out = copy.deepcopy(config)
     bad: dict[str, str] = {}
     ds = out.setdefault("datasets", {})
@@ -247,13 +310,8 @@ def apply_fields(config: dict[str, Any], fields: dict[str, Any], imported: bool)
             if size is not None and size != row.get("list_size", 100):  # absent means 100
                 row["list_size"] = size
         elif key == "defining":
-            if row.get("key") == "overall":
-                continue
-            name_ = str(value or "").strip()
-            if name_:
-                row["defining_tag"] = {"name": name_} if imported else _steam_tag(name_, row.get("defining_tag"))
-            else:
-                row.pop("defining_tag", None)
+            if row.get("key") != "overall":
+                _set_defining(row, str(value or "").strip(), vocabulary)
         elif key in ("key", "label") and not (key == "key" and row.get("key") == "overall"):
             row[key] = str(value or "")
     if "tag_depth_all" in fields or "tag_depth" in fields:
@@ -272,32 +330,62 @@ def apply_fields(config: dict[str, Any], fields: dict[str, Any], imported: bool)
         types = list(fields["app_types"] or [])
         if sorted(types) != sorted(ex.get("allowed_app_types", ["game"])):
             ex["allowed_app_types"] = types
-    # The rule list last, so that a rule renamed there renames the overrides read from their own text.
-    tomls = sorted((n, v) for n, v in fields.items() if n.startswith("toml:"))
-    for name, value in sorted(tomls, key=lambda nv: nv[0] == "toml:exclusions"):
+    for name, value in sorted(fields.items()):
+        if not name.startswith("toml:"):
+            continue
         file = name.split(":", 1)[1]
         try:
             data = toml_text.loads(value or "")
         except ValueError:
             bad[file] = value
             continue
-        if file == "exclusions":
-            data = {**{k: ex[k] for k in ("global_rank_limit", "allowed_app_types") if k in ex}, **data}
-            renamed = rule_renames(config.get("exclusions", {}), data)
-            if renamed:
-                rename_overrides(out, renamed)
-        out[file] = data
+        if file == "content_flags":
+            ex["content_flag"] = data.get("content_flag", [])
+            continue
+        kept = (*EDITED_ELSEWHERE.get(file, ()), *(STEAM_ONLY_KEYS.get(file, ()) if imported else ()))
+        out[file] = {**{k: v for k, v in out.get(file, {}).items() if k in kept}, **data}
+    # The rule cards last, so that a renamed rule renames the overrides just read from their own box.
+    renamed = _apply_rules(out.setdefault("exclusions", {}), fields, bad)
+    if renamed:
+        rename_overrides(out, renamed)
     return out, bad
 
 
-def rule_renames(before: dict[str, Any], after: dict[str, Any]) -> dict[str, str]:
-    """Named rules renamed in place (old name -> new name): the same number of rules, and a rule whose name changed
-    at the same position. A deleted rule is not a rename: its overrides stay and Review lists them as a problem."""
-    old = [r.get("name") for r in before.get("rule", [])]
-    new = [r.get("name") for r in after.get("rule", [])]
-    if len(old) != len(new):
-        return {}
-    return {o: n for o, n in zip(old, new) if o != n and o and n and n not in old}
+def _apply_rules(ex: dict[str, Any], fields: dict[str, Any], bad: dict[str, str]) -> dict[str, str]:
+    """The rule cards' names and bodies into `ex["rule"]`; returns the renames (old name -> new name)."""
+    rules = ex.get("rule", [])
+    renamed: dict[str, str] = {}
+    old_names = [r.get("name") for r in rules]
+    for i, rule in enumerate(rules):
+        body_text = fields.get(f"rule:{i}:body")
+        if body_text is not None:
+            try:
+                body = toml_text.loads(body_text or "")
+            except ValueError:
+                bad[f"rule:{i}"] = body_text
+            else:
+                rules[i] = rule = {"name": rule.get("name", ""), **{k: v for k, v in body.items() if k != "name"}}
+        new = str(fields.get(f"rule:{i}:name", rule.get("name", "")) or "").strip()
+        old = rule.get("name", "")
+        if new != old:
+            rule["name"] = new
+            if old and new and new not in old_names:
+                renamed[old] = new
+    return renamed
+
+
+def _set_defining(row: dict[str, Any], name: str, vocabulary: PP.Vocabulary | None) -> None:
+    """A dataset's defining tag by name: `{ id, name }` from the source's vocabulary (an Import with numbered
+    attributes: `{ name }`). A name the vocabulary lacks is kept as it was, for the Build's check to report."""
+    if not name:
+        row.pop("defining_tag", None)
+        return
+    current = row.get("defining_tag")
+    ref = vocabulary.ref(name) if vocabulary is not None else None
+    if ref is not None:
+        row["defining_tag"] = ref
+    elif not (current and current.get("name") == name):
+        row["defining_tag"] = {"name": name}
 
 
 def rename_overrides(config: dict[str, Any], renamed: dict[str, str]) -> None:
@@ -307,35 +395,50 @@ def rename_overrides(config: dict[str, Any], renamed: dict[str, str]) -> None:
             entry["rule"] = renamed[entry["rule"]]
 
 
-def _steam_tag(name: str, current: dict[str, Any] | None) -> dict[str, Any]:
-    """A Steam defining tag by name: its id from the shipped vocabulary when the name is known there."""
-    if current and current.get("name") == name and "id" in current:
-        return current
-    tag_id = _vocabulary().get(name.casefold())
-    return {"id": tag_id, "name": name} if tag_id is not None else {"name": name}
+def overrides_of(config: dict[str, Any], rule: str) -> list[dict[str, Any]]:
+    return [e for e in config.get("exclusion_overrides", {}).get("override", []) if e.get("rule") == rule]
 
 
-def _vocabulary() -> dict[str, int]:
-    """Steam tag names (case-folded) -> ids, from the shipped config's tags (all a defining tag may name here)."""
-    from steamstudy.config import load_config
+def move_rule(config: dict[str, Any], i: int, step: int) -> None:
+    rules = config.setdefault("exclusions", {}).setdefault("rule", [])
+    j = i + step
+    if 0 <= i < len(rules) and 0 <= j < len(rules):
+        rules[i], rules[j] = rules[j], rules[i]
 
-    root = repo_root()
-    if root is None:
-        return {}
-    config = load_config(root / "config")
-    found: dict[str, int] = {}
 
-    def walk(value: Any) -> None:
-        if isinstance(value, dict):
-            if isinstance(value.get("id"), int) and isinstance(value.get("name"), str):
-                found[value["name"].casefold()] = value["id"]
-            for v in value.values():
-                walk(v)
-        elif isinstance(value, list):
-            for v in value:
-                walk(v)
-    walk(config.files)
-    return found
+def delete_rule(config: dict[str, Any], i: int, *, drop_overrides: bool) -> None:
+    """Remove the i-th named rule; with `drop_overrides`, its Exclusion Overrides too (else they stay, and fail the
+    Build's check on Curation)."""
+    rules = config.setdefault("exclusions", {}).setdefault("rule", [])
+    if not 0 <= i < len(rules):
+        return
+    name = rules.pop(i).get("name")
+    if drop_overrides:
+        table = config.setdefault("exclusion_overrides", {})
+        table["override"] = [e for e in table.get("override", []) if e.get("rule") != name]
+
+
+def add_rule(config: dict[str, Any]) -> None:
+    rules = config.setdefault("exclusions", {}).setdefault("rule", [])
+    names = {r.get("name") for r in rules}
+    n = 1
+    while f"rule_{n}" in names:
+        n += 1
+    rules.append({"name": f"rule_{n}", "label": f"Rule {n}", "tags": []})
+
+
+def add_overrides(config: dict[str, Any], appid: int, name: str, rules: list[str], today: str) -> int:
+    """The Override shortcut: an Exclusion Override of each rule that excludes the game (and has none yet), with
+    an empty reason and evidence for the researcher to fill in on Curation. Returns how many were added."""
+    table = config.setdefault("exclusion_overrides", {})
+    entries = table.setdefault("override", [])
+    have = {(e.get("appid"), e.get("rule")) for e in entries}
+    added = 0
+    for rule in rules:
+        if (appid, rule) not in have:
+            entries.append({"appid": appid, "name": name, "rule": rule, "reason": "", "evidence": [], "added": today})
+            added += 1
+    return added
 
 
 # ----------------------------------------------------------------------------- Review and the markers
@@ -354,8 +457,7 @@ def review(root: Path, draft: BA.Draft, tx: Text, bad: dict[str, str]) -> tuple[
     base = BA.draft_base(root, draft, root / "config")
     changes = BA.changed_settings(base, draft.config)
     problems = BA.draft_problems(root, draft)
-    problems += [BA.Problem(BA.STEP_OF_FILE.get(f, "top_n"), tx("{file}.toml does not parse; its last saved value "
-                                                                 "is kept", file=f)) for f in bad]
+    problems += [BA.Problem(*_bad_problem(f, tx)) for f in bad]
     marks = {s: "" for s in BA.STEPS}
     for c in changes:
         marks[c.step] = "green"
@@ -371,6 +473,7 @@ def review(root: Path, draft: BA.Draft, tx: Text, bad: dict[str, str]) -> tuple[
     marks["review"] = "red" if problems or pv.problems or pv.error else ""
     for d in draft.config.get("datasets", {}).get("dataset", []):
         set_props({"type": "dd-pool", "key": d.get("key", "")}, {"children": preview.pool_text(pv, d.get("key", ""), tx)})
+    set_props("dd-pool-note", {"children": _cannot_compute(pv, tx)})
     set_props("dd-preview-key", {"data": pv.key})
     rows = [html.Tr([html.Td(f"{c.file}.toml", className="mono"), html.Td(c.key, className="mono"),
                      html.Td(html.S(_short(c.before)) if c.before is not None else ""),
@@ -386,6 +489,7 @@ def review(root: Path, draft: BA.Draft, tx: Text, bad: dict[str, str]) -> tuple[
         out.append(html.P(tx("Identical settings to the Build {name}{note}. Building again is allowed.",
                              name=b.name, note=note), className="warning"))
     out += preview.review_block(pv, tx)
+    out += _cannot_compute(pv, tx)
     if problems:
         out.append(html.H4(tx("Problems to fix")))
         out.append(html.Ul([html.Li([tx(p.message) if p.message in KNOWN_PROBLEMS else p.message, " ",
@@ -400,6 +504,30 @@ def review(root: Path, draft: BA.Draft, tx: Text, bad: dict[str, str]) -> tuple[
     return out, marks, can_build
 
 
+def _go_to(step: str, tx: Text) -> html.Button:
+    return html.Button(tx("Go to {step}", step=tx(STEP_TITLES[step])), id={"type": "dd-step", "step": step,
+                                                                           "from": "review"},
+                       className="btn quiet small")
+
+
+def _cannot_compute(pv: PP.PoolPreview, tx: Text) -> list[Any]:
+    """Why the preview's numbers read "—", with a link to the step marked red."""
+    if not pv.error:
+        return []
+    out: list[Any] = [tx("— Cannot preview: {reason}", reason=pv.error)]
+    if pv.error_step:
+        out += [" ", _go_to(pv.error_step, tx)]
+    return [html.P(out, className="warning small")]
+
+
+def _bad_problem(box: str, tx: Text) -> tuple[str, str]:
+    """(step, message) for a TOML box that does not parse."""
+    if box.startswith("rule:"):
+        return "top_n", tx("Rule {n} does not parse; its last saved value is kept", n=int(box.split(":")[1]) + 1)
+    label = "exclusions.toml [[content_flag]]" if box == "content_flags" else f"{box}.toml"
+    return BA.step_of_box(box), tx("{file} does not parse; its last saved value is kept", file=label)
+
+
 # ----------------------------------------------------------------------------- callbacks
 
 
@@ -412,8 +540,11 @@ def open_draft(ref, lang):
     if draft is None:
         return HIDDEN, []
     tx = text(lang_of(lang))
+    busy = None
+    if not preview.is_loaded(root, draft.source_id) and preview.previewable(root, draft.source_id):
+        busy = tx("Loading Import…") if _is_import(root, draft) else tx("Loading Snapshot…")
     preview.warm(root, draft.source_id)
-    return {"display": "flex"}, body(draft, root, "start", tx)
+    return {"display": "flex"}, body(draft, root, "start", tx, busy=busy)
 
 
 def go_step(_clicks, ref, lang):
@@ -444,7 +575,7 @@ def save_fields(values, ids, ref, lang):
     fields = {i["name"]: v for i, v in zip(ids, values)}
     imported = _is_import(root, draft)
     config, bad = apply_fields(draft.config, {k: v for k, v in fields.items() if k not in ("name", "description")},
-                               imported)
+                               imported, preview.vocabulary(root, draft.source_id))
     draft.config = config
     name_problem = None
     if "description" in fields:
@@ -467,6 +598,7 @@ def save_fields(values, ids, ref, lang):
     set_props("dd-review", {"children": content})
     set_props("dd-grid-warnings", {"children": preview.grid_warnings(root, draft, tx)})
     set_props("dd-title", {"children": tx("Build Draft: {name}", name=draft.name)})
+    set_props("dd-busy", {"children": [html.Span(className="dd-spinner"), tx("Previewing…")]})
     overrides_text = fields.get("toml:exclusion_overrides")
     if overrides_text is not None and "exclusion_overrides" not in bad:
         current = toml_text.dumps(draft.config.get("exclusion_overrides", {}))
@@ -494,6 +626,61 @@ def edit_datasets(_add, _del, ref, step, lang):
             rows.pop(i)
     BA.save_draft(root, draft)
     return body(draft, root, step or "top_n", text(lang_of(lang)))
+
+
+def edit_rules(_move, _del, _drop, _add, _cancel, ref, step, lang):
+    """The rule cards' buttons: move a rule up or down, add one, delete one (asking first when it has Exclusion
+    Overrides: they go with it, or the delete is cancelled). The dialog is drawn again on the same step."""
+    root = repo_root()
+    draft = load(root, ref) if root else None
+    if draft is None or not ctx.triggered or not ctx.triggered[0].get("value"):
+        raise PreventUpdate
+    tx = text(lang_of(lang))
+    trig = ctx.triggered_id
+    if isinstance(trig, dict) and trig["type"] == "dd-rule-cancel":
+        set_props("dd-rule-confirm", {"children": []})
+        raise PreventUpdate
+    if trig == "dd-rule-add":
+        add_rule(draft.config)
+    elif trig["type"] == "dd-rule-move":
+        move_rule(draft.config, int(trig["i"]), int(trig["d"]))
+    elif trig["type"] == "dd-rule-del":
+        i = int(trig["i"])
+        rules = draft.config.get("exclusions", {}).get("rule", [])
+        name = rules[i].get("name", "") if 0 <= i < len(rules) else ""
+        n = len(overrides_of(draft.config, name)) if name else 0
+        if n:
+            set_props("dd-rule-confirm", {"children": html.Div([
+                html.P(tx.n(n, one="The rule {name} has {n} Exclusion Override. Delete it too?",
+                            other="The rule {name} has {n} Exclusion Overrides. Delete them too?", name=name),
+                       className="warning"),
+                html.Button(tx("Delete the rule and its overrides"), id={"type": "dd-rule-drop", "i": i},
+                            className="btn small danger"),
+                html.Button(tx("Cancel"), id={"type": "dd-rule-cancel", "i": i}, className="btn small")],
+                className="row-inline")})
+            raise PreventUpdate
+        delete_rule(draft.config, i, drop_overrides=False)
+    elif trig["type"] == "dd-rule-drop":
+        delete_rule(draft.config, int(trig["i"]), drop_overrides=True)
+    BA.save_draft(root, draft)
+    return body(draft, root, step or "top_n", tx)
+
+
+def keep_game(_clicks, ref, lang):
+    """The Override shortcut on Review: an Exclusion Override for each rule that excludes the game, then Curation,
+    where its reason and evidence are filled in."""
+    import datetime as dt
+
+    root = repo_root()
+    draft = load(root, ref) if root else None
+    if draft is None or not ctx.triggered or not ctx.triggered[0].get("value"):
+        raise PreventUpdate
+    trig = ctx.triggered_id
+    add_overrides(draft.config, int(trig["appid"]), str(trig["name"]), str(trig["rules"]).split(","),
+                  dt.date.today().isoformat())
+    BA.save_draft(root, draft)
+    set_props("dd-step-now", {"data": "curation"})
+    return body(draft, root, "curation", text(lang_of(lang)))
 
 
 def build_now(_n, ref, shown_key):
@@ -538,10 +725,19 @@ def register(app: dash.Dash) -> None:
     cb(Output({"type": "dd-mark", "step": ALL}, "className"), Output("dd-bad", "data"),
        Input({"type": "dd-field", "name": ALL}, "value"), State({"type": "dd-field", "name": ALL}, "id"),
        State("draft-open", "data"), State("lang", "data"), prevent_initial_call=False,
-       running=[(Output("dd-busy", "hidden"), False, True)])(save_fields)
+       running=[(Output("dd-busy", "hidden"), False, True),
+                (Output("dd-body", "className"), "dd-frame computing", "dd-frame")])(save_fields)
     cb(Output("dd-body", "children", allow_duplicate=True), Input("dd-ds-add", "n_clicks"),
        Input({"type": "dd-ds-del", "i": ALL}, "n_clicks"), State("draft-open", "data"),
        State("dd-step-now", "data"), State("lang", "data"), prevent_initial_call=True)(edit_datasets)
+    cb(Output("dd-body", "children", allow_duplicate=True), Input({"type": "dd-rule-move", "i": ALL, "d": ALL}, "n_clicks"),
+       Input({"type": "dd-rule-del", "i": ALL}, "n_clicks"), Input({"type": "dd-rule-drop", "i": ALL}, "n_clicks"),
+       Input("dd-rule-add", "n_clicks"), Input({"type": "dd-rule-cancel", "i": ALL}, "n_clicks"),
+       State("draft-open", "data"),
+       State("dd-step-now", "data"), State("lang", "data"), prevent_initial_call=True)(edit_rules)
+    cb(Output("dd-body", "children", allow_duplicate=True),
+       Input({"type": "dd-keep", "appid": ALL, "name": ALL, "rules": ALL}, "n_clicks"), State("draft-open", "data"),
+       State("lang", "data"), prevent_initial_call=True)(keep_game)
     cb(Output("draft-dialog", "style", allow_duplicate=True), Input("dd-build", "n_clicks"),
        State("draft-open", "data"), State("dd-preview-key", "data"), prevent_initial_call=True)(build_now)
     cb(Output("dd-lighten", "disabled"), Input("dd-lighten", "n_clicks"), State("draft-open", "data"),

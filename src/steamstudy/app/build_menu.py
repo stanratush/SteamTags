@@ -22,7 +22,7 @@ from dash import ALL, Input, Output, State, ctx, dcc, html, no_update, set_props
 from dash.exceptions import PreventUpdate
 
 from steamstudy import build_admin as BA
-from steamstudy.app import build_runs
+from steamstudy.app import build_runs, job_registry
 from steamstudy.app.loader import build_folder, builds_root, ref_of
 from steamstudy.app.relabel import Labels, msg
 from steamstudy.build_tree import BuildNode, SourceTree, build_tree, is_bundle, walk
@@ -356,7 +356,8 @@ def dialog_go(_dup, _del, _dup_open, pending, source, build_path, lang):
         return {"source": draft.source_id, "slug": draft.stored_slug}
     if trig == "bm-del-go" and pending.get("action") == "delete":
         try:
-            BA.delete_build(root, pending["ref"], ref_of(build_folder(build_path)))
+            BA.delete_build(root, pending["ref"], ref_of(build_folder(build_path)),
+                            cancel_jobs=job_registry.cancel_jobs_on)
         except BA.DeleteRefused:
             set_props("bm-dialog-body", {"children": html.P(
                 tx("This tab shows this Build: switch to another Build first."), className="warning")})

@@ -84,6 +84,73 @@ def source_version(root: Path, source_id: str) -> tuple[str, str] | None:
     return "snapshot", f"{meta.get('extract_version')}:{stat.st_size}:{int(stat.st_mtime)}"
 
 
+@dataclass(frozen=True)
+class Vocabulary:
+    """The tags a draft's defining tags may name: a Snapshot's GetTagList, or an Import's attributes."""
+
+    kind: str  # "snapshot" | "import"
+    ids: dict[str, int]  # name -> id
+    ids_required: bool = False  # an Import with supplied attribute ids: a reference names its id too
+
+    def ref(self, name: str) -> dict[str, Any] | None:
+        """The `{ id, name }` (an Import with numbered attributes: `{ name }`) a defining tag stores for a name;
+        None for a name not in the vocabulary."""
+        if name not in self.ids:
+            return None
+        if self.kind == "import" and not self.ids_required:
+            return {"name": name}
+        return {"id": self.ids[name], "name": name}
+
+
+_VOCABULARIES: dict[tuple[str, str, str], Vocabulary] = {}
+
+
+def tag_vocabulary(root: Path, source_id: str) -> Vocabulary:
+    """The source's tag vocabulary (cached per source version); empty when the source has none."""
+    from steamstudy.builds import light_path
+    from steamstudy.imports import imports_dir, is_import, load_import
+
+    root = Path(root)
+    if is_import(root, source_id):
+        folder = imports_dir(root) / source_id
+        stamp = str((folder / "import.json").stat().st_mtime_ns)
+    else:
+        light = light_path(root / "snapshots", source_id)
+        stamp = str(light.stat().st_mtime_ns) if light.is_file() else str((root / "snapshots" / source_id).is_dir())
+    key = (str(root), source_id, stamp)
+    if key in _VOCABULARIES:
+        return _VOCABULARIES[key]
+    if is_import(root, source_id):
+        tables = load_import(imports_dir(root) / source_id)
+        vocab = Vocabulary("import", {name: i for i, name in tables.attributes.items()},
+                           tables.attribute_ids == "supplied")
+    else:
+        tags = _steam_tags(root, source_id)
+        vocab = Vocabulary("snapshot", {name: i for i, name in tags.items()})
+    _VOCABULARIES.clear()
+    _VOCABULARIES[key] = vocab
+    return vocab
+
+
+def _steam_tags(root: Path, source_id: str) -> dict[int, str]:
+    from steamstudy.builds import light_path
+    from steamstudy.lightweight import LightweightError, read_light_vocabulary
+
+    light = light_path(root / "snapshots", source_id)
+    if light.is_file():
+        try:
+            return read_light_vocabulary(light)
+        except LightweightError:
+            return {}
+    if not (root / "snapshots" / source_id / "snapshot.json").is_file():
+        return {}
+    from steamstudy.build.source import RawSource
+    from steamstudy.snapshot import Snapshot
+
+    found = RawSource(Snapshot(root / "snapshots" / source_id)).vocabulary()
+    return dict(found.tags) if found is not None else {}
+
+
 def load_records(root: Path, source_id: str) -> Records | None:
     """The source's records (about 2.8 s for the full Snapshot), or None when it cannot be previewed."""
     found = source_version(root, source_id)
@@ -114,13 +181,6 @@ def load_records(root: Path, source_id: str) -> Records | None:
     return Records(source_id, kind, version, meta.get("mode") == "test", scores, games)
 
 
-def _step_of(message: str) -> str:
-    from steamstudy.build_admin import STEP_OF_FILE
-
-    file = message.split(".", 1)[0].split(":", 1)[0].split("[", 1)[0].strip()
-    return STEP_OF_FILE.get(file.replace(".toml", ""), "top_n")
-
-
 def preview(records: Records, settings: dict[str, Any], *, compare: list[int] | None = None,
             compared_with: str | None = None) -> PoolPreview:
     """The pools a draft's settings would give, on the Build stage's own code."""
@@ -145,7 +205,9 @@ def preview(records: Records, settings: dict[str, Any], *, compare: list[int] | 
             chosen = select_datasets(config, records.scores, games, manual, overrides)
     except (ConfigError, BuildFailed, ValueError, KeyError) as exc:
         out.error = str(exc)
-        out.error_step = _step_of(str(exc))
+        from steamstudy.build_admin import step_of_message
+
+        out.error_step = step_of_message(str(exc))
         return out
     for key, r in chosen.ranked.items():
         n = r.definition.list_size

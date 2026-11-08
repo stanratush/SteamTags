@@ -209,6 +209,17 @@ def read_light_meta(path: Path) -> dict[str, Any]:
     return meta
 
 
+def read_light_vocabulary(path: Path) -> dict[int, str]:
+    """The GetTagList vocabulary of a Lightweight Snapshot zip (tag id -> name), without opening its other tables;
+    empty when the Snapshot had none."""
+    try:
+        with zipfile.ZipFile(path) as zf:
+            rows = _rows(zf.read("vocabulary.csv"), TABLES["vocabulary.csv"], "vocabulary.csv")
+    except (OSError, KeyError, zipfile.BadZipFile) as exc:
+        raise LightweightError(f"{Path(path).name} is not a readable Lightweight Snapshot: {exc}") from exc
+    return {int(i): name for i, name in rows}
+
+
 def _rows(data: bytes, columns: tuple[str, ...], name: str) -> list[list[str]]:
     rows = list(csv.reader(io.StringIO(data.decode("utf-8"), newline="")))
     if not rows or tuple(rows[0]) != columns:

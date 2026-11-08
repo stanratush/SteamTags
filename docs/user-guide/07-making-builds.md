@@ -41,20 +41,20 @@ A Snapshot with only its raw form shows **Make lightweight Snapshot**. It makes 
 
 The settings that decide which games are in each Top-N Dataset:
 
-- **Datasets:** add, remove and relabel datasets, and give each a defining tag and a [List Size](03-metric-reference.md#list-size). `overall` cannot be removed or given a defining tag. Each row shows the dataset's Eligible Pool, as previewed for the current settings.
+- **Datasets:** add, remove and relabel datasets, and give each a defining tag and a [List Size](03-metric-reference.md#list-size). The defining tag is picked from the source's own tags: the Snapshot's Steam tag list, or an Import's attributes. `overall` cannot be removed or given a defining tag. Each row shows the dataset's Eligible Pool, as previewed for the current settings.
 - **[Tags per game (Tag Depth)](03-metric-reference.md#tags-per-game-tag-depth):** a number, or **all**.
 - **Global rank limit** and, for Steam only, the allowed app types.
-- **Exclusion rules:** the named rules, in order, between the fixed rules that always run first and last. They are edited as `exclusions.toml` text; each rule has a name, a label and its tags, with optional rank limits. Renaming a rule also renames its Exclusion Overrides. See [Exclusions and would-be ranks](03-metric-reference.md#exclusions-and-would-be-ranks).
+- **Exclusion rules:** the named rules, one card each, between the fixed rules that always run first and last (shown, not editable). A card holds the rule's name, and its label and signals (tags with optional rank limits, name-only matches) as text. **↑** and **↓** change the order, which decides each excluded game's primary reason; **Add a rule** adds one. Renaming a rule also renames its Exclusion Overrides. **×** deletes a rule; when the rule has Exclusion Overrides, the dialog asks first and deletes them with it. See [Exclusions and would-be ranks](03-metric-reference.md#exclusions-and-would-be-ranks).
 
 Hover over a setting's dotted label for its short explanation, and click it for the full entry.
 
 ### Curation {#draft-curation}
 
-The researcher-maintained lists: Manual Exclusions, Exclusion Overrides and (Steam only) Manual Metadata Entries. Each entry needs a reason and evidence and is checked as the Build checks it. The excluded games that would rank in Overall are listed on Review: to keep one, add an Exclusion Override for its rule here.
+The researcher-maintained lists: Manual Exclusions, Exclusion Overrides and (Steam only) Manual Metadata Entries. Each entry needs a reason and evidence and is checked as the Build checks it. The excluded games that would rank in Overall are listed on Review, each with **Keep it**: it adds an Exclusion Override for each rule that excludes the game and opens this step, where you fill in the reason and evidence.
 
 ### Reports and analysis {#draft-reports}
 
-The feature-analysis settings (`analysis.toml`: `max_itemset_size`, `min_support`, the causal words, the release-month check for Steam), the Genre Tags and the Content Flags. A causal word that appears in a generated report fails the Build run.
+The Content Flags (the `[[content_flag]]` part of `exclusions.toml`: they mark games for the reports and never exclude one), the Genre Tags and the feature-analysis settings (`analysis.toml`: `max_itemset_size`, `min_support`, the causal words, the release-month check for Steam). A causal word that appears in a generated report fails the Build run.
 
 ### Network defaults {#draft-network-defaults}
 
@@ -69,13 +69,13 @@ Review is where Build is pressed. It lists:
 - the **Eligible Pools**: each dataset's pool against its List Size, the games that would enter and leave Overall compared with the parent Build (or the latest Build of the source), and the excluded games that would rank in Overall;
 - the **problems to fix**, each with a button that goes to its step.
 
-The Eligible Pool numbers are a preview: they run the Build's own exclusion and ranking code on the source's records, so they equal what the Build will produce. **Build stays off until the preview matches the current settings.** After any edit, wait for Review to show the new numbers. A pool smaller than its List Size is a problem in a full Snapshot (a test Snapshot only warns). When a setting cannot be computed (an invalid rule, an override of an unknown rule), each number reads "—" with the reason.
+The Eligible Pool numbers are a preview: they run the Build's own exclusion and ranking code on the source's records, so they equal what the Build will produce. The first time a draft of a source opens, the dialog reads that source's records ("Loading Snapshot…", a few seconds). **Build stays off until the preview matches the current settings.** After any edit the old numbers stay, dimmed, until the new ones arrive. A pool smaller than its List Size is a problem in a full Snapshot (a test Snapshot only warns). When a setting cannot be computed (an invalid rule, an override of an unknown rule), each number reads "—", with the reason and a button to the step that fixes it.
 
 **Not previewed** means the Snapshot has no lightweight form, so its records are not loaded. Review says so, and Build stays on: the Build checks each List Size itself, from the raw pages, in about 99 s.
 
 ## A running Build
 
-Pressing Build starts a Build run, shown in a strip under the header in every tab and every mode: the stage, the seconds against the estimate (about 24 s from a lightweight Snapshot, about 99 s from raw) and a bar. Only one Build runs at a time in the app; a second waits for the first. Switching Builds or closing the tab does not stop it; **Cancel** does, between stages.
+Pressing Build starts a Build run in a process of its own, shown in a strip under the header in every tab and every mode: the stage, the seconds against the estimate (about 24 s from a lightweight Snapshot, about 99 s from raw) and a bar. Only one Build runs at a time in the app; a second waits for the first. Switching Builds or closing the tab does not stop it; **Cancel** does, between stages.
 
 When it finishes, the strip offers **Open it in this tab**: the app never switches by itself. The new Build appears in the tree, and the draft is gone. When it fails, the strip offers **Open the draft**: the draft keeps its settings, and its Start step shows the failure.
 
@@ -90,7 +90,7 @@ When it finishes, the strip offers **Open it in this tab**: the app never switch
 - where `latest` moves;
 - which Builds and drafts lose their parent and move to the top level.
 
-It cannot be undone. The Build open in this tab cannot be deleted: switch to another Build first.
+It cannot be undone. The Build open in this tab cannot be deleted: switch to another Build first. Removal Sensitivity and Parameter Selection runs that other tabs have going on the Build are stopped before it is deleted.
 
 ## Raw and lightweight Snapshots
 

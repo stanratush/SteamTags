@@ -22,7 +22,7 @@ import diskcache
 import flask
 from dash import DiskcacheManager, dcc, html
 
-from steamstudy.app import build_menu, callbacks, draft_dialog, pending
+from steamstudy.app import build_menu, callbacks, draft_dialog, job_registry, pending
 from steamstudy.app.layout import build_layout
 from steamstudy.app.loader import builds_root, is_ref, load_build, resolve_ref, set_builds_root
 from steamstudy.app.relabel import msg
@@ -93,6 +93,7 @@ def create_app(build_path: str | Path) -> dash.Dash:
     startup = ctx.ref
     jobs = job_store()
     pending.set_store(jobs)
+    job_registry.set_folder(jobs)  # job processes inherit it
     manager = DiskcacheManager(diskcache.Cache(str(jobs / "jobs")))
     app = dash.Dash(
         __name__, title="Tag Network", background_callback_manager=manager, serve_locally=True,

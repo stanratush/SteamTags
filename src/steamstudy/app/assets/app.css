@@ -598,4 +598,12 @@ body[data-form=narrow][data-sheet=open] #root.selection .ps-inspector.has-sel{gr
 .dd-table{border-collapse:collapse;font-size:12.5px}
 .dd-table td,.dd-table th{border-bottom:1px solid var(--line2);padding:3px 6px;text-align:left;vertical-align:top}
 .dd-pool{font-family:var(--mono);font-size:12px}
+.dd-frame.computing .dd-pool,.dd-frame.computing #dd-review,.dd-frame.computing #dd-pool-note{opacity:.45;transition:opacity .15s}
+.dd-spinner{display:inline-block;width:10px;height:10px;margin-right:5px;border:2px solid var(--line);border-top-color:var(--ink2);border-radius:50%;animation:busy-spin .8s linear infinite;vertical-align:-1px}
+.dd-tag{min-width:180px;font-size:12.5px}
+.dd-rule{border:1px solid var(--line2);border-radius:6px;padding:6px 8px;margin:6px 0}
+.dd-rule.fixed{border-style:dashed;padding:4px 8px}
+.dd-rule .row-inline{gap:6px;align-items:center;margin-bottom:4px;flex-wrap:nowrap}
+.dd-rule .row-inline .dash-input-container{flex:0 1 280px;width:auto}
+.dd-rule .dd-text.short{min-height:110px}
 .missing-build{padding:60px;text-align:center}

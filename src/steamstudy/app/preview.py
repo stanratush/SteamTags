@@ -35,6 +35,25 @@ def records(root: Path, source_id: str) -> PP.Records | None:
         return loaded
 
 
+def is_loaded(root: Path, source_id: str) -> bool:
+    """Whether the source's records are already loaded (the dialog then shows "Previewing…", not "Loading…")."""
+    found = PP.source_version(root, source_id)
+    loaded = _LOADED
+    return bool(found and loaded and (loaded[0], loaded[1], loaded[2]) == (root, source_id, found[1]))
+
+
+def previewable(root: Path, source_id: str) -> bool:
+    return PP.source_version(root, source_id) is not None
+
+
+def vocabulary(root: Path, source_id: str) -> PP.Vocabulary:
+    """The tags a defining tag may name; empty when the source cannot be read."""
+    try:
+        return PP.tag_vocabulary(root, source_id)
+    except (OSError, ValueError, KeyError):
+        return PP.Vocabulary("snapshot", {})
+
+
 def warm(root: Path, source_id: str) -> None:
     """Load the source in the background when a draft dialog opens, so the first preview does not wait for it."""
     threading.Thread(target=records, args=(root, source_id), daemon=True).start()
@@ -75,11 +94,11 @@ def for_review(root: Path, draft: Draft) -> PP.PoolPreview:
     return PP.preview(loaded, draft.config, compare=compare, compared_with=name)
 
 
-def pool_text(pv: PP.PoolPreview, key: str, tx: Text) -> str:
+def pool_text(pv: PP.PoolPreview, key: str, tx: Text) -> Any:
     if pv.not_previewed:
         return tx("Not previewed")
     if pv.error:
-        return "—"
+        return html.Span("—", title=pv.error)  # the reason, with its step's link, is under the table
     if key not in pv.pools:
         return ""
     eligible, size = pv.pools[key]
@@ -92,7 +111,7 @@ def review_block(pv: PP.PoolPreview, tx: Text) -> list[Any]:
         return out + [html.P(tx("Not previewed: this Snapshot has no lightweight form. The Build checks each List "
                                 "Size itself (about 99 s from raw)."), className="mute")]
     if pv.error:
-        return out + [html.P(tx("— Cannot preview: {reason}", reason=pv.error), className="warning")]
+        return out  # the reason and its step's link follow (draft_dialog)
     out.append(html.Ul([html.Li(tx("{key}: {n} eligible, List Size {size}", key=k, n=n, size=size))
                         for k, (n, size) in pv.pools.items()]))
     for line in pv.short:
@@ -107,12 +126,16 @@ def review_block(pv: PP.PoolPreview, tx: Text) -> list[Any]:
     if pv.would_be:
         out.append(html.H4(tx("Excluded games that would rank in Overall")))
         out.append(html.Table([html.Tr([html.Th(tx("Rank")), html.Th(tx("Name")), html.Th(tx("Rule")),
-                                        html.Th(tx("ID"))])] +
+                                        html.Th(tx("ID")), html.Th("")])] +
                               [html.Tr([html.Td(rank), html.Td(name), html.Td(", ".join(rules), className="mono"),
-                                        html.Td(appid, className="mono")]) for appid, name, rank, rules in
-                               pv.would_be[:50]], className="dd-table"))
-        out.append(html.P(tx("To keep one, add an Exclusion Override for its rule on Curation."),
-                          className="mute small"))
+                                        html.Td(appid, className="mono"),
+                                        html.Td(html.Button(tx("Keep it"), className="btn quiet small",
+                                                            title=tx("Add an Exclusion Override for it on Curation"),
+                                                            id={"type": "dd-keep", "appid": appid, "name": name,
+                                                                "rules": ",".join(rules)}))])
+                               for appid, name, rank, rules in pv.would_be[:50]], className="dd-table"))
+        out.append(html.P(tx("Keep it adds an Exclusion Override for each rule that excludes the game; fill in its "
+                             "reason and evidence on Curation."), className="mute small"))
     return out
 
 
