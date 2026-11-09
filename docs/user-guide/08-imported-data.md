@@ -40,7 +40,7 @@ From the repository, either:
 - in the app, press **Import data…** below the Build menu's tree, choose the file and, optionally, the filter column (the menu lists the file's numeric columns, or none); or
 - on the command line, `steamstudy import items.csv --filter months` (see the [Running Guide](../running-guide.md#import)).
 
-The whole file is checked in one pass. When it is valid, the Import appears in the Build menu with its **Import defaults** root, from which you start a draft. Making the Import does not make a Build; its first Build is made from a draft ([Making Builds in the app](07-making-builds.md)).
+The whole file is checked in one pass. When it is valid, the Import appears in the Build menu with its own **+ New Build** button, which starts a draft from the Import defaults. Making the Import does not make a Build; its first Build is made from a draft ([Making Builds in the app](07-making-builds.md)).
 
 ### When an Import is refused
 

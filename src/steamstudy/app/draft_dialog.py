@@ -681,16 +681,23 @@ def keep_game(_clicks, ref, lang):
     return _save_and_draw(root, draft, "curation", lang)
 
 
-def build_now(_n, ref, shown_key):
-    """Build, from Review only: the preview on screen must be the current settings' (never a stale one)."""
+def build_now(_n, ref, shown_key, lang=None):
+    """Build, from Review only: the preview on screen must be the current settings' (never a stale one). When it is
+    stale, or the draft cannot build, Review is drawn again with the reason (a Build button that silently did nothing
+    looked broken)."""
     if not _n:
         raise PreventUpdate
     root, draft = _open(ref)
     pv = preview.for_review(root, draft)
-    if not pv.not_previewed and pv.key != shown_key:
-        raise PreventUpdate
-    if BA.draft_problems(root, draft) or not pv.buildable:
-        raise PreventUpdate
+    stale = not pv.not_previewed and pv.key != shown_key
+    if stale or BA.draft_problems(root, draft) or not pv.buildable:
+        tx = text(lang_of(lang))
+        content, _, _ = review(root, draft, tx, {})
+        if stale:
+            content.insert(0, html.P(tx("The settings changed since this preview. Check it, then click Build again."),
+                                     className="warning"))
+        set_props("dd-review", {"children": content})
+        return no_update  # the redrawn Review is a side update: raising PreventUpdate would drop it
     build_runs.start(root, draft.ref, draft.name)
     return HIDDEN
 
@@ -735,7 +742,8 @@ def register(app: dash.Dash) -> None:
        Input({"type": "dd-keep", "appid": ALL, "name": ALL, "rules": ALL}, "n_clicks"), State("draft-open", "data"),
        State("lang", "data"), prevent_initial_call=True)(keep_game)
     cb(Output("draft-dialog", "style", allow_duplicate=True), Input("dd-build", "n_clicks"),
-       State("draft-open", "data"), State("dd-preview-key", "data"), prevent_initial_call=True)(build_now)
+       State("draft-open", "data"), State("dd-preview-key", "data"), State("lang", "data"),
+       prevent_initial_call=True)(build_now)
     cb(Output("dd-lighten", "disabled"), Input("dd-lighten", "n_clicks"), State("draft-open", "data"),
        prevent_initial_call=True)(lighten_now)
     cb(Output("draft-open", "data", allow_duplicate=True), Input("dd-close", "n_clicks"),

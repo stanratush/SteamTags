@@ -46,11 +46,13 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "Snapshot": "Моментна снимка",
     "raw": "сурова",
     "lightweight": "олекотена",
-    "Import defaults": "Стойности по подразбиране за импорт",
-    "start a draft from the defaults": "започни чернова от стойностите по подразбиране",
+    "New Build": "Нова компилация",
+    "Start a draft from {defaults}": "Започни чернова от {defaults}",
+    "the Import defaults": "стойностите по подразбиране за импорта",
     "Duplicate the open Build": "Дублирай отворената компилация",
     "Import data…": "Импортирай данни…",
-    "Manage Builds…": "Управление на компилациите…",
+    "Show sizes": "Покажи размерите",
+    "Hide sizes": "Скрий размерите",
     "Duplicate {name}": "Дублиране на {name}",
     "The new draft starts from this Build's settings, with this Build as its parent.":
         "Новата чернова започва от настройките на тази компилация, която става неин родител.",
@@ -72,7 +74,6 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "Other tabs on this Build will show that it no longer exists.":
         "Другите раздели с тази компилация ще покажат, че тя вече не съществува.",
     "Delete the Build": "Изтрий компилацията",
-    "Manage Builds": "Управление на компилациите",
     "Every Build with its folder size and app-cache size.":
         "Всяка компилация с размера на папката и на кеша на приложението.",
     # Import data…
@@ -92,8 +93,8 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "Value": "Стойност",
     "Message": "Съобщение",
     "Refused: {n} problems. Every one is listed in {path}.": "Отказано: {n} проблема. Всички са изброени в {path}.",
-    "Made Import {import_id}. Its Import defaults row in the tree starts a draft.":
-        "Създаден е импорт {import_id}. Редът му със стойности по подразбиране в дървото започва чернова.",
+    "Made Import {import_id}. Its New Build button in the tree starts a draft.":
+        "Създаден е импорт {import_id}. Бутонът му „Нова компилация“ в дървото започва чернова.",
     # the Build run strip
     "Building {name}: {stage}, {s} s of about {est} s": "Компилира се {name}: {stage}, {s} s от около {est} s",
     "starting": "стартиране",
@@ -204,6 +205,8 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "Go to {step}": "Към {step}",
     "Build": "Компилирай",
     "Building…": "Компилира се…",
+    "The settings changed since this preview. Check it, then click Build again.":
+        "Настройките се промениха след този преглед. Проверете го и натиснете „Компилирай“ отново.",
     # the Eligible Pool preview and the grid warnings
     "Not previewed": "Без предварителен преглед",
     "{n} eligible": "{n} годни",

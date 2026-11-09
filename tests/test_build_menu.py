@@ -129,9 +129,11 @@ def test_the_tree_shows_lineage_orphans_drafts_two_snapshots_and_an_import(root)
     view = BM.tree_view(a, EN)
     assert "from a deleted Build" in _text(view) and "✓ open in this tab" in _text(view)
     assert "from A on S1" in _text(view) and "20 tags per game" in _text(view)
-    assert "Import defaults" in _text(view) and "config/" in _text(view)  # the roots of the Import and Snapshot trees
+    assert _text(view).count("+ New Build") == 3  # one per Snapshot and Import: a draft from its defaults
     assert "0 changed settings" in _text(view)  # the Draft of B and From defaults, both unedited
     assert {"type": "bm-root", "source": import_id} in _ids(view)
+    assert {"type": "bm-root", "source": "S1"} in _ids(view)
+    assert "app cache" not in _text(view) and "app cache" in _text(BM.tree_view(a, EN, sizes=True))
 
 
 def test_delete_refuses_the_open_build_and_deletes_another(root):
@@ -411,7 +413,7 @@ def _post(client, deps, input_id: str, value, states: dict, changed: str):
 
 
 def test_the_menus_buttons_reach_the_page_through_dash(root, monkeypatch):
-    """Duplicate the open Build, Manage Builds… and a dialog's Duplicate button, as the browser fires them."""
+    """Duplicate the open Build, Import data… and a dialog's Duplicate button, as the browser fires them."""
     import dash
 
     from steamstudy.app.server import create_app
@@ -425,7 +427,7 @@ def test_the_menus_buttons_reach_the_page_through_dash(root, monkeypatch):
     client.get("/")
     deps = client.get("/_dash-dependencies").get_json()
     page = {"build-path": a, "lang": "en"}
-    for button in ("bm-manage", "bm-import", "bm-dup-open"):
+    for button in ("bm-import", "bm-dup-open"):
         reply = _post(client, deps, button, 1, page, f"{button}.n_clicks")
         assert reply.status_code == 200, button
         side = reply.get_json()["sideUpdate"]
@@ -446,6 +448,10 @@ def test_the_menus_buttons_reach_the_page_through_dash(root, monkeypatch):
     assert reply.status_code == 200 and not (root / "builds" / b).exists()
     side = reply.get_json()["sideUpdate"]
     assert side["bm-dialog"]["style"]["display"] == "none" and b not in json.dumps(side["bm-tree"])
+    tree, sizes, label = BM.toggle_sizes(1, False, a, "en")  # Show sizes: the same tree with each Build's sizes
+    assert sizes is True and label == "Hide sizes" and "app cache" in _text(tree)
+    tree, sizes, label = BM.toggle_sizes(2, True, a, "en")
+    assert sizes is False and label == "Show sizes" and "app cache" not in _text(tree)
 
 
 def _click_menu(monkeypatch, trigger):
@@ -619,8 +625,8 @@ def test_build_stays_off_while_the_previews_key_is_stale(root):
     draft.description = "stale key"
     BA.save_draft(root, draft)
     ref = {"source": "S1", "slug": draft.stored_slug}
-    with pytest.raises(PreventUpdate):
-        DD.build_now(1, ref, "not the current key")
+    assert DD.build_now(1, ref, "not the current key", "en") is no_update  # Review is drawn again, saying why
+    assert "The settings changed since this preview" in _text(CALLS['"dd-review"']["children"])
     assert not [v for v in build_runs.runs() if v["name"] == "Stale"]
     key = PV.for_review(root, draft).key
     DD.build_now(1, ref, key)

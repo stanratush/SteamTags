@@ -115,6 +115,25 @@
   });
   document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") closePills(); });
 
+  // ------------------------------------------------------------------ the Build menu closes on a click outside it
+
+  // Through the menu's own button, so Dash's record of the menu's style stays true: hiding it here directly would
+  // leave Dash believing it open, and the next click on the button would only "close" it.
+  function closeBuildMenu() {
+    const menu = document.getElementById("build-menu"), btn = document.getElementById("build-menu-btn");
+    if (menu && btn && menu.style.display !== "none") btn.click();
+  }
+
+  document.addEventListener("click", (ev) => {
+    if (!(ev.target instanceof Element) || !ev.target.isConnected) return;
+    if (ev.target.closest("#build-menu, #build-menu-btn, #bm-dialog, #draft-dialog, [data-radix-popper-content-wrapper]")) return;
+    closeBuildMenu();
+  });
+  document.addEventListener("keydown", (ev) => {
+    const dialog = document.getElementById("bm-dialog");
+    if (ev.key === "Escape" && !(dialog && dialog.style.display !== "none")) closeBuildMenu();
+  });
+
   // ------------------------------------------------------------------ the Inspector's link to the validation card
 
   document.addEventListener("click", (ev) => {

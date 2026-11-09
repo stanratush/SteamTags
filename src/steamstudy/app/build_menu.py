@@ -1,8 +1,9 @@
 """The Build menu: the header's Build name opens a lineage tree per Snapshot or Import (issue 28).
 
-In the repository the tree switches Builds, starts and opens drafts (`draft_dialog`), duplicates and deletes Builds,
-discards drafts, imports data (issue 33) and shows Manage Builds… with sizes. In an App Bundle it only switches, and it
-is hidden when the Bundle ships one Build. The tree is read from disk each time it is shown (`build_tree`).
+In the repository the tree switches Builds, starts drafts (each source's New Build button) and opens them
+(`draft_dialog`), duplicates and deletes Builds, discards drafts, imports data (issue 33) and shows each Build's sizes on
+request (Show sizes). In an App Bundle it only switches and shows settings. The tree is read from disk each time it is
+shown (`build_tree`).
 
 Build runs (`build_runs`) are shown in every tab by the strip under the header.
 """
@@ -74,6 +75,7 @@ def layout(L: Labels) -> list[Any]:
         dcc.Interval(id="build-strip-tick", interval=1500),
         dcc.Store(id="bm-pending"),  # {"action": "delete" | "duplicate", "ref": …} awaiting its dialog's button
         dcc.Store(id="draft-open"),  # {"source": …, "slug": …}: the draft whose dialog is open
+        dcc.Store(id="bm-sizes", data=False),  # whether the tree shows each Build's folder and app-cache sizes
     ]
 
 
@@ -162,21 +164,20 @@ def _source_block(tree: SourceTree, open_ref: str, tx: Text, *, edit: bool, size
     kind = tx("Import") if tree.kind == "import" else tx("Snapshot")
     forms = {"raw": tx("raw"), "lightweight": tx("lightweight"), "import": ""}
     form_text = ", ".join(forms[f] for f in tree.forms if forms[f])
-    rows: list[Any] = [html.Div([html.B(f"{kind} {tree.source_id}"),
-                                 html.Span(f" ({form_text})" if form_text else "", className="mute small")],
-                                className="bm-source")]
+    head: list[Any] = [html.B(f"{kind} {tree.source_id}"),
+                       html.Span(f" ({form_text})" if form_text else "", className="mute small")]
+    if edit:  # a new Build starts as a draft of the defaults: config/ for a Snapshot, an Import's own defaults
+        defaults = tx("the Import defaults") if tree.kind == "import" else "config/"
+        head.append(html.Button("+ " + tx("New Build"), id={"type": "bm-root", "source": tree.source_id},
+                                className="btn small primary bm-new",
+                                title=tx("Start a draft from {defaults}", defaults=defaults)))
+    rows: list[Any] = [html.Div(head, className="bm-source")]
     if edit:
-        root_label = tx("Import defaults") if tree.kind == "import" else "config/"
-        rows.append(html.Div(html.Button([html.Span(root_label, className="mono"),
-                                          html.Span(tx("start a draft from the defaults"), className="mute small")],
-                                         id={"type": "bm-root", "source": tree.source_id}, className="bm-row-main"),
-                             className="bm-row root"))
-        rows += [_draft_row(1, d, tx) for d in tree.drafts]
-    base = 1 if edit else 0
+        rows += [_draft_row(0, d, tx) for d in tree.drafts]
     for depth, node in walk(tree.builds):
-        rows.append(_build_row(base + depth, node, open_ref, tx, edit=edit, sizes=sizes))
+        rows.append(_build_row(depth, node, open_ref, tx, edit=edit, sizes=sizes))
         if edit:
-            rows += [_draft_row(base + depth + 1, d, tx) for d in node.drafts]
+            rows += [_draft_row(depth + 1, d, tx) for d in node.drafts]
     return html.Div(rows, className="bm-block")
 
 
@@ -189,12 +190,17 @@ def tree_view(open_ref: str, tx: Text, *, sizes: bool = False) -> list[Any]:
     return [_source_block(t, open_ref, tx, edit=edit, sizes=sizes) for t in trees]
 
 
-def footer_view(tx: Text) -> list[Any]:
+def _sizes_label(sizes: bool, tx: Text) -> str:
+    return tx("Hide sizes") if sizes else tx("Show sizes")
+
+
+def footer_view(tx: Text, sizes: bool = False) -> list[Any]:
     if not editable():
         return []
     return [html.Button(tx("Duplicate the open Build"), id="bm-dup-open", className="btn small"),
             html.Button(tx("Import data…"), id="bm-import", className="btn small"),
-            html.Button(tx("Manage Builds…"), id="bm-manage", className="btn small")]
+            html.Button(_sizes_label(sizes, tx), id="bm-sizes-btn", className="btn small quiet",
+                        title=tx("Every Build with its folder size and app-cache size."))]
 
 
 def menu_visible() -> bool:
@@ -205,7 +211,7 @@ def menu_visible() -> bool:
 # ----------------------------------------------------------------------------- callbacks
 
 
-def toggle_menu(n, build_path, lang, style):
+def toggle_menu(n, build_path, lang, style, sizes=False):
     if not n:
         raise PreventUpdate
     if style and style.get("display") != "none":
@@ -214,7 +220,17 @@ def toggle_menu(n, build_path, lang, style):
         raise PreventUpdate
     tx = text(lang_of(lang))
     open_ref = ref_of(build_folder(build_path))
-    return {"display": "block"}, tree_view(open_ref, tx), footer_view(tx)
+    return {"display": "block"}, tree_view(open_ref, tx, sizes=bool(sizes)), footer_view(tx, bool(sizes))
+
+
+def toggle_sizes(_n, sizes, build_path, lang):
+    """Show sizes / Hide sizes: the same tree, with each Build's folder and app-cache size (reading them walks every
+    Build folder, so they are shown on request)."""
+    if not _n or not editable():
+        raise PreventUpdate
+    tx = text(lang_of(lang))
+    sizes = not sizes
+    return tree_view(ref_of(build_folder(build_path)), tx, sizes=sizes), sizes, _sizes_label(sizes, tx)
 
 
 def _clicked() -> Any:
@@ -235,11 +251,11 @@ def _close_dialog() -> None:
     set_props("bm-dialog", {"style": HIDDEN})
 
 
-def _refresh(build_path: str, tx: Text) -> None:
-    set_props("bm-tree", {"children": tree_view(ref_of(build_folder(build_path)), tx)})
+def _refresh(build_path: str, tx: Text, sizes: bool = False) -> None:
+    set_props("bm-tree", {"children": tree_view(ref_of(build_folder(build_path)), tx, sizes=bool(sizes))})
 
 
-def tree_click(_b, _r, _d, _dup, _del, _dis, _set, build_path, lang, mode, dataset):
+def tree_click(_b, _r, _d, _dup, _del, _dis, _set, build_path, lang, mode, dataset, sizes=False):
     """A click in the tree: switch, show a Build's settings, start or open a draft, or ask for a Duplicate, Delete or
     Discard."""
     target = _clicked()
@@ -274,7 +290,7 @@ def tree_click(_b, _r, _d, _dup, _del, _dis, _set, build_path, lang, mode, datas
         draft = BA.find_draft(root, BA.DraftRef.from_store(target))
         if draft is not None:
             BA.discard_draft(root, draft)
-        _refresh(build_path, tx)
+        _refresh(build_path, tx, sizes)
         return no_update
     if kind == "bm-dup":
         _ask_duplicate(root, target["ref"], tx)
@@ -348,7 +364,7 @@ def duplicate_open(_n, build_path, lang):
     return no_update  # the dialog is a side update: raising PreventUpdate would drop it
 
 
-def dialog_go(_go, pending, sources, build_path, lang):
+def dialog_go(_go, pending, sources, build_path, lang, sizes=False):
     """The dialog's button: make the duplicate (and open its draft) or delete the Build. The buttons and the source
     dropdown exist only while their dialog is open, so they are pattern-matched (a plain id missing from the page
     stops Dash from running the callback at all)."""
@@ -373,7 +389,7 @@ def dialog_go(_go, pending, sources, build_path, lang):
             tx("This tab shows this Build: switch to another Build first."), className="warning")})
         return no_update
     _close_dialog()
-    _refresh(build_path, tx)
+    _refresh(build_path, tx, sizes)
     return no_update
 
 
@@ -381,16 +397,6 @@ def close_dialog(_n):
     if not _n:
         raise PreventUpdate
     return HIDDEN
-
-
-def manage(_n, build_path, lang):
-    if not _n or not editable():
-        raise PreventUpdate
-    tx = text(lang_of(lang))
-    _dialog(tx("Manage Builds"), [html.P(tx("Every Build with its folder size and app-cache size."),
-                                         className="mute small"),
-                                  *tree_view(ref_of(build_folder(build_path)), tx, sizes=True)])
-    return no_update  # the dialog is a side update: raising PreventUpdate would drop it
 
 
 # ----------------------------------------------------------------------------- Import data… (issue 33)
@@ -437,7 +443,7 @@ def import_columns(contents, filename, lang):
             filename or tx("Choose the CSV file…"))
 
 
-def import_go(_n, contents, filename, attrs, attrs_name, filter_field, build_path, lang):
+def import_go(_n, contents, filename, attrs, attrs_name, filter_field, build_path, lang, sizes=False):
     from steamstudy.imports import ERROR_CODES, WARNING_CODES, ImportRefused, make_import
 
     if not _n or not contents or not editable():
@@ -477,8 +483,8 @@ def import_go(_n, contents, filename, attrs, attrs_name, filter_field, build_pat
     meta = json.loads((folder / "import.json").read_text(encoding="utf-8"))
     warnings = [html.Li(f"{w.get('code')}: {tx(WARNING_CODES[w['code']]) if w.get('code') in WARNING_CODES else ''}")
                 for w in meta.get("warnings", [])]
-    _refresh(build_path, tx)
-    return [html.P(tx("Made Import {import_id}. Its Import defaults row in the tree starts a draft.",
+    _refresh(build_path, tx, sizes)
+    return [html.P(tx("Made Import {import_id}. Its New Build button in the tree starts a draft.",
                       import_id=folder.name)), html.Ul(warnings) if warnings else None]
 
 
@@ -554,7 +560,10 @@ def register(app: dash.Dash) -> None:
     cb = app.callback
     cb(Output("build-menu", "style"), Output("bm-tree", "children"), Output("bm-footer", "children"),
        Input("build-menu-btn", "n_clicks"), State("build-path", "data"), State("lang", "data"),
-       State("build-menu", "style"), prevent_initial_call=True)(toggle_menu)
+       State("build-menu", "style"), State("bm-sizes", "data"), prevent_initial_call=True)(toggle_menu)
+    cb(Output("bm-tree", "children", allow_duplicate=True), Output("bm-sizes", "data"),
+       Output("bm-sizes-btn", "children"), Input("bm-sizes-btn", "n_clicks"), State("bm-sizes", "data"),
+       State("build-path", "data"), State("lang", "data"), prevent_initial_call=True)(toggle_sizes)
     cb(Output("draft-open", "data", allow_duplicate=True),
        Input({"type": "bm-build", "ref": ALL}, "n_clicks"), Input({"type": "bm-root", "source": ALL}, "n_clicks"),
        Input({"type": "bm-draft", "source": ALL, "slug": ALL}, "n_clicks"),
@@ -562,16 +571,14 @@ def register(app: dash.Dash) -> None:
        Input({"type": "bm-discard", "source": ALL, "slug": ALL}, "n_clicks"),
        Input({"type": "bm-settings", "ref": ALL}, "n_clicks"),
        State("build-path", "data"), State("lang", "data"), State("mode", "value"), State("dataset", "value"),
-       prevent_initial_call=True)(tree_click)
+       State("bm-sizes", "data"), prevent_initial_call=True)(tree_click)
     cb(Output("draft-open", "data", allow_duplicate=True), Input({"type": "bm-go", "action": ALL}, "n_clicks"),
        State("bm-pending", "data"), State(DUP_SOURCE_ALL, "value"), State("build-path", "data"),
-       State("lang", "data"), prevent_initial_call=True)(dialog_go)
+       State("lang", "data"), State("bm-sizes", "data"), prevent_initial_call=True)(dialog_go)
     cb(Output("bm-dialog-title", "children", allow_duplicate=True), Input("bm-dup-open", "n_clicks"),
        State("build-path", "data"), State("lang", "data"), prevent_initial_call=True)(duplicate_open)
     cb(Output("bm-dialog", "style", allow_duplicate=True), Input("bm-dialog-close", "n_clicks"),
        prevent_initial_call=True)(close_dialog)
-    cb(Output("bm-dialog-title", "children", allow_duplicate=True), Input("bm-manage", "n_clicks"),
-       State("build-path", "data"), State("lang", "data"), prevent_initial_call=True)(manage)
     cb(Output("bm-dialog-title", "children", allow_duplicate=True), Input("bm-import", "n_clicks"),
        State("lang", "data"), prevent_initial_call=True)(import_dialog)
     cb(Output("bm-imp-filter", "options"), Output("bm-imp-filter", "value"), Output("bm-imp-file-label", "children"),
@@ -580,7 +587,7 @@ def register(app: dash.Dash) -> None:
     cb(Output("bm-imp-result", "children"), Input("bm-imp-go", "n_clicks"), State("bm-imp-file", "contents"),
        State("bm-imp-file", "filename"), State("bm-imp-attrs", "contents"), State("bm-imp-attrs", "filename"),
        State("bm-imp-filter", "value"), State("build-path", "data"), State("lang", "data"),
-       prevent_initial_call=True)(import_go)
+       State("bm-sizes", "data"), prevent_initial_call=True)(import_go)
     cb(Output("build-strip", "style"), Output("build-strip", "children"), Input("build-strip-tick", "n_intervals"),
        Input("lang", "data"))(strip)
     cb(Output("draft-open", "data", allow_duplicate=True),
