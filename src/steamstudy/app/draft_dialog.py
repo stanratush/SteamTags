@@ -642,7 +642,7 @@ def edit_rules(_move, _del, _drop, _add, _cancel, ref, step, lang):
     trig = ctx.triggered_id
     if isinstance(trig, dict) and trig["type"] == "dd-rule-cancel":
         set_props("dd-rule-confirm", {"children": []})
-        raise PreventUpdate
+        return no_update  # (raising PreventUpdate would drop the set_props update)
     if trig == "dd-rule-add":
         add_rule(draft.config)
     elif trig["type"] == "dd-rule-move":
@@ -661,7 +661,7 @@ def edit_rules(_move, _del, _drop, _add, _cancel, ref, step, lang):
                             className="btn small danger"),
                 html.Button(tx("Cancel"), id={"type": "dd-rule-cancel", "i": i}, className="btn small")],
                 className="row-inline")})
-            raise PreventUpdate
+            return no_update  # the question is a side update: raising PreventUpdate would drop it
         delete_rule(draft.config, i, drop_overrides=False)
     elif trig["type"] == "dd-rule-drop":
         delete_rule(draft.config, int(trig["i"]), drop_overrides=True)

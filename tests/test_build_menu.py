@@ -10,6 +10,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+from dash import no_update
 from dash.exceptions import PreventUpdate
 
 from conftest import CONFIG_DIR
@@ -392,6 +393,61 @@ def test_the_defining_tag_is_picked_from_the_vocabulary_and_the_first_open_says_
     assert "Previewing…" in _text(children) and "Loading Snapshot…" not in _text(children)
 
 
+def _post(client, deps, input_id: str, value, states: dict, changed: str):
+    """Fire a callback as the browser does, through Dash's own endpoint: the one whose only input is `input_id` (as
+    `/_dash-dependencies` writes it; a pattern's `value` is a list of (id, n_clicks)). A callback that raises
+    PreventUpdate answers 204 and Dash drops its `set_props` updates, which calling the function directly hides."""
+    cb = next(c for c in deps if [i["id"] for i in c["inputs"]] == [input_id])
+    component, _, prop = cb["output"].rpartition(".")
+
+    def item(d, v):
+        if d["id"].startswith("{"):
+            return [{"id": i, "property": d["property"], "value": x} for i, x in (v or [])]
+        return {**d, "value": v}
+    body = {"output": cb["output"], "outputs": {"id": component, "property": prop},
+            "inputs": [item(cb["inputs"][0], value)],
+            "state": [item(s, states.get(s["id"])) for s in cb["state"]], "changedPropIds": [changed]}
+    return client.post("/_dash-update-component", json=body)
+
+
+def test_the_menus_buttons_reach_the_page_through_dash(root, monkeypatch):
+    """Duplicate the open Build, Manage Builds… and a dialog's Duplicate button, as the browser fires them."""
+    import dash
+
+    from steamstudy.app.server import create_app
+
+    for module in (BM, DD):  # Dash's own set_props, not the fixture's recorder: its updates must reach the reply
+        monkeypatch.setattr(module, "set_props", dash.set_props)
+
+    a = _built(root, "A")
+    app = create_app(root / "builds" / a)
+    client = app.server.test_client()
+    client.get("/")
+    deps = client.get("/_dash-dependencies").get_json()
+    page = {"build-path": a, "lang": "en"}
+    for button in ("bm-manage", "bm-import", "bm-dup-open"):
+        reply = _post(client, deps, button, 1, page, f"{button}.n_clicks")
+        assert reply.status_code == 200, button
+        side = reply.get_json()["sideUpdate"]
+        assert side["bm-dialog"]["style"]["display"] == "flex", button
+    assert reply.get_json()["sideUpdate"]["bm-pending"]["data"] == {"action": "duplicate", "ref": a}
+    go = {"action": "duplicate", "type": "bm-go"}
+    reply = _post(client, deps, '{"action":["ALL"],"type":"bm-go"}', [(go, 1)],
+                  {**page, "bm-pending": {"action": "duplicate", "ref": a},
+                   '{"i":["ALL"],"type":"bm-dup-source"}': [({"i": 0, "type": "bm-dup-source"}, "S1")]},
+                  '{"action":"duplicate","type":"bm-go"}.n_clicks')
+    assert reply.status_code == 200
+    opened = reply.get_json()["response"]["draft-open"]["data"]
+    assert BA.find_draft(root, BA.DraftRef.from_store(opened)).parent_build_id == a
+    b = _built(root, "B")  # Delete: the dialog closes and the tree is drawn again without it
+    delete = {"action": "delete", "type": "bm-go"}
+    reply = _post(client, deps, '{"action":["ALL"],"type":"bm-go"}', [(delete, 1)],
+                  {**page, "bm-pending": {"action": "delete", "ref": b}}, '{"action":"delete","type":"bm-go"}.n_clicks')
+    assert reply.status_code == 200 and not (root / "builds" / b).exists()
+    side = reply.get_json()["sideUpdate"]
+    assert side["bm-dialog"]["style"]["display"] == "none" and b not in json.dumps(side["bm-tree"])
+
+
 def _click_menu(monkeypatch, trigger):
     from types import SimpleNamespace
 
@@ -440,8 +496,7 @@ def test_rules_move_and_a_delete_asks_before_dropping_the_rules_overrides(root, 
     DD.edit_rules(None, None, None, None, None, ref, "top_n", "en")
     assert names()[-1] == "rule_1"
     _click(monkeypatch, {"type": "dd-rule-del", "i": i - 1})  # software_tag has an override: asks first
-    with pytest.raises(PreventUpdate):
-        DD.edit_rules(None, None, None, None, None, ref, "top_n", "en")
+    assert DD.edit_rules(None, None, None, None, None, ref, "top_n", "en") is no_update
     assert "software_tag" in names()
     assert "1 Exclusion Override" in _text(CALLS['"dd-rule-confirm"']["children"])
     _click(monkeypatch, {"type": "dd-rule-drop", "i": i - 1})

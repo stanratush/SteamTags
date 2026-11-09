@@ -252,7 +252,7 @@ def tree_click(_b, _r, _d, _dup, _del, _dis, _set, build_path, lang, mode, datas
         ref = target["ref"]
         if ref == ref_of(build_folder(build_path)):
             set_props("build-menu", {"style": HIDDEN})
-            raise PreventUpdate
+            return no_update  # (raising PreventUpdate would drop the set_props update)
         set_props("switch-to", {"data": build_url(ref, mode, dataset)})
         return no_update
     if kind == "bm-settings" and root is not None:  # read-only: in App Bundles too
@@ -295,15 +295,20 @@ def _sources_for(root: Path, ref: str) -> list[str]:
     return [t.source_id for t in build_tree(root) if t.kind == "snapshot" and t.forms]
 
 
+DUP_SOURCE = {"type": "bm-dup-source", "i": 0}  # the Duplicate dialog's source dropdown
+DUP_SOURCE_ALL = {"type": "bm-dup-source", "i": ALL}
+
+
 def _ask_duplicate(root: Path, ref: str, tx: Text) -> None:
     sources = _sources_for(root, ref)
     source = source_of(ref)
     _dialog(tx("Duplicate {name}", name=BA.parent_name(root, ref) or ref), [
         html.P(tx("The new draft starts from this Build's settings, with this Build as its parent.")),
-        html.Label(tx("Snapshot or Import to build from"), htmlFor="bm-dup-source", className="l"),
-        dcc.Dropdown(id="bm-dup-source", options=[{"label": s, "value": s} for s in sources],
+        html.Label(tx("Snapshot or Import to build from"), className="l"),
+        dcc.Dropdown(id=DUP_SOURCE, options=[{"label": s, "value": s} for s in sources],
                      value=source if source in sources else (sources[0] if sources else None), clearable=False),
-        html.Div(html.Button(tx("Duplicate"), id="bm-dup-go", className="btn primary"), className="row-inline"),
+        html.Div(html.Button(tx("Duplicate"), id={"type": "bm-go", "action": "duplicate"}, className="btn primary"),
+                 className="row-inline"),
     ])
     set_props("bm-pending", {"data": {"action": "duplicate", "ref": ref}})
 
@@ -328,47 +333,48 @@ def _ask_delete(root: Path, ref: str, build_path: str, tx: Text) -> None:
         html.Ul([*moves, *orphans, *bundles]),
         html.P(tx("Exports made from it will no longer open with Open Network State…"), className="mute small"),
         html.P(tx("Other tabs on this Build will show that it no longer exists."), className="mute small"),
-        html.Div(html.Button(tx("Delete the Build"), id="bm-del-go", className="btn primary danger"),
-                 className="row-inline"),
+        html.Div(html.Button(tx("Delete the Build"), id={"type": "bm-go", "action": "delete"},
+                             className="btn primary danger"), className="row-inline"),
     ])
     set_props("bm-pending", {"data": {"action": "delete", "ref": ref}})
 
 
-def dialog_go(_dup, _del, _dup_open, pending, source, build_path, lang):
-    """The dialog's button: make the duplicate (and open its draft) or delete the Build; or Duplicate the open
-    Build from the footer."""
-    trig = ctx.triggered_id
-    if not ctx.triggered or not ctx.triggered[0].get("value"):
-        raise PreventUpdate
+def duplicate_open(_n, build_path, lang):
+    """Duplicate the open Build (the menu's footer): ask which source, as a row's Duplicate does."""
     root = repo_root()
-    if root is None or not editable():
+    if not _n or root is None or not editable():
+        raise PreventUpdate
+    _ask_duplicate(root, ref_of(build_folder(build_path)), text(lang_of(lang)))
+    return no_update  # the dialog is a side update: raising PreventUpdate would drop it
+
+
+def dialog_go(_go, pending, sources, build_path, lang):
+    """The dialog's button: make the duplicate (and open its draft) or delete the Build. The buttons and the source
+    dropdown exist only while their dialog is open, so they are pattern-matched (a plain id missing from the page
+    stops Dash from running the callback at all)."""
+    target = _clicked()
+    root = repo_root()
+    if target is None or root is None or not editable() or not pending or pending.get("action") != target["action"]:
         raise PreventUpdate
     tx = text(lang_of(lang))
-    if trig == "bm-dup-open":
-        _ask_duplicate(root, ref_of(build_folder(build_path)), tx)
-        raise PreventUpdate
-    if not pending:
-        raise PreventUpdate
-    if trig == "bm-dup-go" and pending.get("action") == "duplicate":
+    if target["action"] == "duplicate":
         try:
-            draft = BA.duplicate(root, pending["ref"], source)
+            draft = BA.duplicate(root, pending["ref"], sources[0] if sources else None)
         except (BA.WrongSource, FileNotFoundError) as exc:
             set_props("bm-dialog-body", {"children": html.P(str(exc), className="warning")})
-            raise PreventUpdate from exc
+            return no_update
         _close_dialog()
         set_props("build-menu", {"style": HIDDEN})
         return draft.ref.store()
-    if trig == "bm-del-go" and pending.get("action") == "delete":
-        try:
-            BA.delete_build(root, pending["ref"], ref_of(build_folder(build_path)),
-                            cancel_jobs=job_registry.cancel_jobs_on)
-        except BA.DeleteRefused:
-            set_props("bm-dialog-body", {"children": html.P(
-                tx("This tab shows this Build: switch to another Build first."), className="warning")})
-            raise PreventUpdate from None
-        _close_dialog()
-        _refresh(build_path, tx)
-    raise PreventUpdate
+    try:
+        BA.delete_build(root, pending["ref"], ref_of(build_folder(build_path)), cancel_jobs=job_registry.cancel_jobs_on)
+    except BA.DeleteRefused:
+        set_props("bm-dialog-body", {"children": html.P(
+            tx("This tab shows this Build: switch to another Build first."), className="warning")})
+        return no_update
+    _close_dialog()
+    _refresh(build_path, tx)
+    return no_update
 
 
 def close_dialog(_n):
@@ -384,7 +390,7 @@ def manage(_n, build_path, lang):
     _dialog(tx("Manage Builds"), [html.P(tx("Every Build with its folder size and app-cache size."),
                                          className="mute small"),
                                   *tree_view(ref_of(build_folder(build_path)), tx, sizes=True)])
-    raise PreventUpdate
+    return no_update  # the dialog is a side update: raising PreventUpdate would drop it
 
 
 # ----------------------------------------------------------------------------- Import data… (issue 33)
@@ -406,7 +412,7 @@ def import_dialog(_n, lang):
         html.Div(html.Button(tx("Import"), id="bm-imp-go", className="btn primary"), className="row-inline"),
         html.Div(id="bm-imp-result"),
     ])
-    raise PreventUpdate
+    return no_update  # the dialog is a side update: raising PreventUpdate would drop it
 
 
 def _decode(contents: str) -> bytes:
@@ -557,10 +563,11 @@ def register(app: dash.Dash) -> None:
        Input({"type": "bm-settings", "ref": ALL}, "n_clicks"),
        State("build-path", "data"), State("lang", "data"), State("mode", "value"), State("dataset", "value"),
        prevent_initial_call=True)(tree_click)
-    cb(Output("draft-open", "data", allow_duplicate=True), Input("bm-dup-go", "n_clicks"),
-       Input("bm-del-go", "n_clicks"), Input("bm-dup-open", "n_clicks"), State("bm-pending", "data"),
-       State("bm-dup-source", "value"), State("build-path", "data"), State("lang", "data"),
-       prevent_initial_call=True)(dialog_go)
+    cb(Output("draft-open", "data", allow_duplicate=True), Input({"type": "bm-go", "action": ALL}, "n_clicks"),
+       State("bm-pending", "data"), State(DUP_SOURCE_ALL, "value"), State("build-path", "data"),
+       State("lang", "data"), prevent_initial_call=True)(dialog_go)
+    cb(Output("bm-dialog-title", "children", allow_duplicate=True), Input("bm-dup-open", "n_clicks"),
+       State("build-path", "data"), State("lang", "data"), prevent_initial_call=True)(duplicate_open)
     cb(Output("bm-dialog", "style", allow_duplicate=True), Input("bm-dialog-close", "n_clicks"),
        prevent_initial_call=True)(close_dialog)
     cb(Output("bm-dialog-title", "children", allow_duplicate=True), Input("bm-manage", "n_clicks"),
