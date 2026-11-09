@@ -563,8 +563,20 @@ body[data-form=narrow][data-sheet=open] #root.selection .ps-inspector.has-sel{gr
 .bm-row:hover{background:var(--bg)}
 .bm-row-main{flex:1;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;text-align:left;border:0;background:none;
  padding:4px 0;cursor:pointer;color:var(--ink);font:inherit}
-.bm-actions{display:flex;gap:2px;opacity:.5}
-.bm-row:hover .bm-actions,.bm-actions:focus-within{opacity:1}
+.bm-actions{display:flex;gap:2px;visibility:hidden}
+.bm-row:hover .bm-actions,.bm-actions:focus-within{visibility:visible}
+.bm-row{padding-left:12px}
+.bm-row .bm-row-main{padding-left:14px}  /* the lane where a parent's line runs down */
+.bm-guides{display:flex;align-self:stretch;flex:none;margin-right:-6px}
+.bm-row[data-stem]{position:relative}
+.bm-row[data-stem]::before{content:"";position:absolute;left:var(--stem-x);top:24px;bottom:0;
+ border-left:1.5px solid var(--faint)}
+.bm-g{position:relative;width:18px}
+.bm-g.pipe::before,.bm-g.tee::before,.bm-g.elbow::before{content:"";position:absolute;left:6px;top:0;bottom:0;
+ border-left:1.5px solid var(--faint)}
+.bm-g.elbow::before{bottom:auto;height:14px}
+.bm-g.tee::after,.bm-g.elbow::after{content:"";position:absolute;left:6px;top:13px;width:22px;
+ border-top:1.5px solid var(--faint)}
 .bm-chip{font-size:11px;border:1px solid var(--line);border-radius:10px;padding:0 6px;color:var(--ink2)}
 .bm-chip.open{border-color:var(--acc);color:var(--acc)}
 .bm-chip.warn{border-color:var(--warn);color:var(--warn)}

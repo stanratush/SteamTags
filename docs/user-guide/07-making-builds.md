@@ -6,7 +6,7 @@ This chapter is for researchers who make Builds: from the repository (`uv run st
 
 Click the Build's name in the header to open the Build menu. It shows one tree per Snapshot and per Import, with the forms the Snapshot has (raw, lightweight) beside its id. Each tree's heading has a **+ New Build** button, which starts a draft from the defaults: `config/` for a Snapshot (the defaults in the repository's `config/` folder) or the Import defaults for an Import.
 
-Under the heading are the Builds, each under the Build it was made from. A Build row shows its name, chips (**✓ open in this tab**, **latest**, **test**), its date and a short summary of its Top-N (for example "Overall 100 · Puzzle 100"). A Build whose parent was deleted sits at the top level and reads "from a deleted Build"; a Build duplicated from another Snapshot's Build sits at the top level of its own tree and names that Build and Snapshot.
+Under the heading are the Builds, each under the Build it was made from and joined to it by a line. A Build row shows its name, chips (**✓ open in this tab**, **latest**, **test**), its date and a short summary of its Top-N (for example "Overall 100 · Puzzle 100"). A Build whose parent was deleted sits at the top level and reads "from a deleted Build"; a Build duplicated from another Snapshot's Build sits at the top level of its own tree and names that Build and Snapshot.
 
 Draft rows sit under the Build they started from (or at the top of the tree, when they started from the defaults) and show their state: **draft**, **running %** while a Build run is working on them, or **failed** after a failed run. They also show how many settings differ from where the draft started, and when it was last saved.
 
@@ -17,8 +17,8 @@ Click a Build to switch this tab to it ([Switch Builds](01-getting-started.md#sw
 There are three ways to start one:
 
 - **From the defaults:** press **+ New Build** in the tree's heading. The draft starts from `config/` (or the Import defaults) and has no parent.
-- **Duplicate:** press **Duplicate** on a Build's row, or press **Duplicate the open Build** below the tree. The app asks which Snapshot the new Build should read; the default is the parent's own. A Build of an Import can only be duplicated within that Import.
-- **Discard:** press **Discard** on a draft's row to delete it.
+- **Duplicate:** hover over a Build and press **Duplicate**, or press **Duplicate the open Build** below the tree. The app asks which Snapshot the new Build should read; the default is the parent's own. A Build of an Import can only be duplicated within that Import.
+- **Discard:** hover over a draft and press **Discard** to delete it.
 
 A draft is saved after every edit; **Close** keeps it, and it reopens from the tree. A draft whose settings equal an existing Build's may still be built: Review names that Build and says that building again is allowed.
 
@@ -94,7 +94,7 @@ A Build never changes: to try other settings, Duplicate it into a draft.
 
 **Show sizes** below the tree adds each Build's folder size and app-cache size to its row; **Hide sizes** removes them.
 
-**Delete** (on a Build's row) asks first and shows what it will do:
+**Delete** (hover over a Build) asks first and shows what it will do:
 
 - which bundles named the Build;
 - that exports made from it will no longer open with **Open Network State…**;

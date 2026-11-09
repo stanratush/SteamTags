@@ -136,6 +136,21 @@ def test_the_tree_shows_lineage_orphans_drafts_two_snapshots_and_an_import(root)
     assert "app cache" not in _text(view) and "app cache" in _text(BM.tree_view(a, EN, sizes=True))
 
 
+def test_a_build_made_from_another_is_joined_to_it_by_lines(root):
+    a = _built(root, "A")
+    b = _built(root, "B", from_build=a)
+    c = _built(root, "C", from_build=a)
+    (block,) = [blk for blk in BM.tree_view(a, EN) if "S1" in _text(blk.children[0])]
+    rows = {r.children[1].id["ref"]: r for r in block.children  # [guides or None, the row's button, actions]
+            if "build" in (getattr(r, "className", "") or "")}
+
+    def guides(row):
+        return [g.className.split()[1] for g in row.children[0].children] if row.children[0] is not None else []
+    assert guides(rows[a]) == [] and getattr(rows[a], "data-stem", None) == "1"  # A has Builds made from it
+    assert guides(rows[b]) == ["tee"] and guides(rows[c]) == ["elbow"]  # B, then C, the last made from A
+    assert getattr(rows[c], "data-stem", None) is None
+
+
 def test_delete_refuses_the_open_build_and_deletes_another(root):
     a = _built(root, "A")
     b = _built(root, "B")

@@ -27,7 +27,7 @@ from steamstudy.app import build_runs, job_registry
 from steamstudy.app.loader import build_folder, builds_root, ref_of
 from steamstudy.app.relabel import Labels, msg
 from steamstudy.build_tree import (ORPHAN_DELETED, ORPHAN_NOT_BUNDLED, ORPHAN_OTHER_SOURCE, BuildNode, SourceTree,
-                                   build_tree, is_bundle, walk)
+                                   build_tree, is_bundle)
 from steamstudy.builds import source_of
 from steamstudy.i18n import Text, lang_of, text
 
@@ -101,7 +101,24 @@ def _chips(node: BuildNode, open_ref: str, tx: Text) -> list[Any]:
     return chips
 
 
-def _build_row(depth: int, node: BuildNode, open_ref: str, tx: Text, *, edit: bool, sizes: bool) -> html.Div:
+def _guides(guides: list[str]) -> html.Span | None:
+    """The lineage lines in front of a row, one cell per level below the top: "pipe" (an ancestor's later sibling
+    continues), "blank", then "tee" (this row has a later sibling) or "elbow" (it is its parent's last child)."""
+    if not guides:
+        return None
+    return html.Span([html.Span(className=f"bm-g {g}") for g in guides], className="bm-guides")
+
+
+def _stem(guides: list[str], has_children: bool) -> dict[str, Any]:
+    """A Build with Builds or drafts made from it: a line down from its name to its children's connectors."""
+    if not has_children:
+        return {}
+    x = 12 + len(guides) * 18 + 6  # the row's padding, its guides, then the middle of the lane before its name
+    return {"style": {"--stem-x": f"{x}px"}, "data-stem": "1"}
+
+
+def _build_row(guides: list[str], node: BuildNode, open_ref: str, tx: Text, *, edit: bool,
+               sizes: bool) -> html.Div:
     origin = []
     if node.orphan == ORPHAN_DELETED:
         origin = [html.Span(tx("from a deleted Build"), className="mute small")]
@@ -118,13 +135,14 @@ def _build_row(depth: int, node: BuildNode, open_ref: str, tx: Text, *, edit: bo
     size = ([html.Span(tx("{size} (app cache {cache})", size=_size(node.size_bytes, tx),
                           cache=_size(node.app_cache_bytes, tx)), className="mute small")] if sizes else [])
     return html.Div([
+        _guides(guides),
         html.Button([html.B(node.info.name), *_chips(node, open_ref, tx),
                      html.Span(node.date, className="mute small"), html.Span(_top_n_text(node, tx), className="mute small"),
                      *origin, *size],
                     id={"type": "bm-build", "ref": node.ref}, className="bm-row-main",
                     title=node.info.description or node.ref),
         html.Span(actions, className="bm-actions"),
-    ], className="bm-row build", style={"paddingLeft": f"{12 + depth * 18}px"})
+    ], **_stem(guides, bool(node.children or (edit and node.drafts))), className="bm-row build")
 
 
 def _top_n_text(node: BuildNode, tx: Text) -> str:
@@ -133,7 +151,7 @@ def _top_n_text(node: BuildNode, tx: Text) -> str:
     return " · ".join(filter(None, [node.top_n, depth]))
 
 
-def _draft_row(depth: int, draft: BA.Draft, tx: Text) -> html.Div:
+def _draft_row(guides: list[str], draft: BA.Draft, tx: Text) -> html.Div:
     run = build_runs.running_draft(draft.ref)
     if run:
         status = tx("running {pct}%", pct=run["pct"]) if run["status"] == "running" else tx("waiting")
@@ -150,6 +168,7 @@ def _draft_row(depth: int, draft: BA.Draft, tx: Text) -> html.Div:
     changed = ([html.Span(tx.n(n, one="{n} changed setting", other="{n} changed settings"), className="mute small")]
                if n is not None else [])
     return html.Div([
+        _guides(guides),
         html.Button([html.I(draft.name), html.Span(status, className="bm-chip draft"), *changed,
                      html.Span(tx("last saved {when}", when=saved), className="mute small")],
                     id={"type": "bm-draft", **draft.ref.store()},
@@ -157,7 +176,7 @@ def _draft_row(depth: int, draft: BA.Draft, tx: Text) -> html.Div:
         html.Span([html.Button(tx("Discard"), id={"type": "bm-discard", **draft.ref.store()},
                                className="btn quiet small")],
                   className="bm-actions"),
-    ], className="bm-row draft", style={"paddingLeft": f"{12 + depth * 18}px"})
+    ], className="bm-row draft")
 
 
 def _source_block(tree: SourceTree, open_ref: str, tx: Text, *, edit: bool, sizes: bool) -> html.Div:
@@ -173,12 +192,28 @@ def _source_block(tree: SourceTree, open_ref: str, tx: Text, *, edit: bool, size
                                 title=tx("Start a draft from {defaults}", defaults=defaults)))
     rows: list[Any] = [html.Div(head, className="bm-source")]
     if edit:
-        rows += [_draft_row(0, d, tx) for d in tree.drafts]
-    for depth, node in walk(tree.builds):
-        rows.append(_build_row(depth, node, open_ref, tx, edit=edit, sizes=sizes))
-        if edit:
-            rows += [_draft_row(depth + 1, d, tx) for d in node.drafts]
+        rows += [_draft_row([], d, tx) for d in tree.drafts]
+    for node in tree.builds:
+        rows.append(_build_row([], node, open_ref, tx, edit=edit, sizes=sizes))
+        rows += _descendants(node, [], open_ref, tx, edit=edit, sizes=sizes)
     return html.Div(rows, className="bm-block")
+
+
+def _descendants(node: BuildNode, guides: list[str], open_ref: str, tx: Text, *, edit: bool,
+                 sizes: bool) -> list[html.Div]:
+    """What was made from `node`, joined to it by lines: its drafts, then the Builds made from it (and theirs)."""
+    items: list[tuple[str, Any]] = [*(("draft", d) for d in (node.drafts if edit else [])),
+                                    *(("build", c) for c in node.children)]
+    rows: list[html.Div] = []
+    for i, (kind, item) in enumerate(items):
+        last = i == len(items) - 1
+        here = [*guides, "elbow" if last else "tee"]
+        if kind == "draft":
+            rows.append(_draft_row(here, item, tx))
+            continue
+        rows.append(_build_row(here, item, open_ref, tx, edit=edit, sizes=sizes))
+        rows += _descendants(item, [*guides, "blank" if last else "pipe"], open_ref, tx, edit=edit, sizes=sizes)
+    return rows
 
 
 def tree_view(open_ref: str, tx: Text, *, sizes: bool = False) -> list[Any]:
