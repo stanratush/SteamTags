@@ -192,7 +192,7 @@ def test_on_linux_and_macos_a_stopped_job_takes_its_worker_processes_with_it(mon
     assert killed == [(pid, signal.SIGTERM) for pid in (10, 11, 13, 12)]
 
 
-def test_a_bundle_tree_only_switches_and_hides_for_one_build(root, tmp_path):
+def test_a_bundle_tree_switches_and_shows_settings_even_for_one_build(root, tmp_path, monkeypatch):
     a = _built(root, "A")
     b = _built(root, "B", from_build=a)
     bundle = tmp_path / "bundle"
@@ -201,11 +201,14 @@ def test_a_bundle_tree_only_switches_and_hides_for_one_build(root, tmp_path):
     set_builds_root(bundle / "builds")
     assert not BM.editable() and BM.menu_visible()
     ids = _ids(BM.tree_view(a, EN))
-    assert {"type": "bm-build", "ref": b} in ids
+    assert {"type": "bm-build", "ref": b} in ids and {"type": "bm-settings", "ref": b} in ids
     assert not [i for i in ids if isinstance(i, dict) and i["type"] in ("bm-root", "bm-dup", "bm-del", "bm-draft")]
     assert BM.footer_view(EN) == []
+    _click_menu(monkeypatch, {"type": "bm-settings", "ref": b})  # read-only: works in a bundle
+    BM.tree_click(None, None, None, None, None, None, None, f"{a}", "en", "workbench", "overall")
+    assert CALLS['"bm-dialog-title"']["children"] == "Settings of B"
     shutil.rmtree(bundle / "builds" / b)
-    assert not BM.menu_visible()  # one Build: nothing to switch to
+    assert BM.menu_visible()  # one Build: its Settings… stay reachable
 
 
 # ----------------------------------------------------------------------------- 29: the dialog and Build runs
@@ -217,7 +220,7 @@ def _fields(draft: BA.Draft, root: Path) -> tuple[list, list]:
     for i in ids:
         name = i["name"]
         if name.startswith("toml:"):
-            values[name] = toml_text.dumps(DD._box_data(draft.config, name[5:], False))
+            values[name] = toml_text.dumps(DD.box_data(draft.config, name[5:], False))
         elif name.startswith("rule:"):
             _, n, part = name.split(":")
             rule = draft.config["exclusions"]["rule"][int(n)]
@@ -389,6 +392,31 @@ def test_the_defining_tag_is_picked_from_the_vocabulary_and_the_first_open_says_
     assert "Previewing…" in _text(children) and "Loading Snapshot…" not in _text(children)
 
 
+def _click_menu(monkeypatch, trigger):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(BM, "ctx", SimpleNamespace(triggered_id=trigger, triggered=[{"value": 1}]))
+
+
+def test_a_builds_settings_show_its_tags_per_game_and_exclusion_limit(root):
+    from steamstudy.app import build_settings
+
+    draft = BA.start_draft(root, "S1", config_dir=root / "config", name="Fifteen")
+    draft.description = "15 tags per game, exclusion within 15"
+    draft.config["datasets"]["tag_depth"] = 15
+    draft.config["exclusions"]["global_rank_limit"] = 15
+    BA.save_draft(root, draft)
+    folder = BA.build_draft(root, draft)
+    ref = f"{folder.parent.name}/{folder.name}"
+    body = build_settings.view(root, ref, EN)
+    text_ = " ".join(_text(body).split())
+    assert "Fifteen" in text_ and ref in text_ and "15 tags per game, exclusion within 15" in text_
+    assert "Tags per game (Tag Depth) : 15" in text_ and "Global rank limit : 15" in text_
+    assert "Hentai (within the first 15 tags)" in text_ and "Dating Sim (within the first 15 tags)" in text_
+    assert "network.toml" in text_ and "manual_exclusions.toml" in text_  # every file, as a draft edits it
+    assert {"type": "help", "panel": "build-settings"} in _ids(body)
+
+
 def _click(monkeypatch, trigger):
     """Dash's callback context for a click on `trigger`."""
     from types import SimpleNamespace
@@ -459,9 +487,9 @@ def test_an_import_draft_shows_no_steam_only_field(root):
              if isinstance(i, dict) and i.get("type") == "dd-field"}
     assert "app_types" not in names and "toml:manual_metadata" not in names
     assert {"toml:content_flags", "toml:manual_exclusions", "toml:exclusion_overrides", "tag_depth"} <= names
-    assert "release_month_check" not in toml_text.dumps(DD._box_data(draft.config, "analysis", True))
+    assert "release_month_check" not in toml_text.dumps(DD.box_data(draft.config, "analysis", True))
     config, bad = DD.apply_fields(draft.config, {"toml:analysis": toml_text.dumps(
-        DD._box_data(draft.config, "analysis", True))}, imported=True)
+        DD.box_data(draft.config, "analysis", True))}, imported=True)
     assert bad == {} and config["analysis"] == draft.config["analysis"]  # the hidden key is kept
 
 

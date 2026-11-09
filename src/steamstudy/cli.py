@@ -67,6 +67,9 @@ def _parser() -> argparse.ArgumentParser:
                    help="a Build to include: its id, <source_id>/<build_id>, its name, <source_id>/<name>, or latest "
                         "(repeatable; the first opens by default)")
     n.add_argument("--allow-test", action="store_true", help="allow Builds of test Snapshots")
+    n.add_argument("--with-sources", action="store_true",
+                   help="also ship each Build's lightweight Snapshot (or Import), config/ and the Build's libraries, "
+                        "so the bundled app can make new Builds")
     n.add_argument("--target", action="append", default=[], choices=("windows", "macos", "linux"),
                    help="an operating system to make it for (repeatable; default: this computer's)")
     n.add_argument("--out", type=Path, help="folder for the zip (default: <root>/bundles)")
@@ -304,7 +307,8 @@ def _bundle(args: argparse.Namespace) -> int:
     log = logging.getLogger("steamstudy.bundle")
     try:
         path = make_bundle(args.root, builds=args.build, targets=args.target, out=args.out,
-                           skip_parameter_selection=args.skip_parameter_selection, allow_test=args.allow_test)
+                           skip_parameter_selection=args.skip_parameter_selection, allow_test=args.allow_test,
+                           with_sources=args.with_sources)
     except BundleError as exc:
         log.error("bundle not written: %s", exc)
         return 2

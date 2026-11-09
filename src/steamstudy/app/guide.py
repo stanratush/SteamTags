@@ -29,6 +29,7 @@ PANEL_SECTIONS: dict[str, tuple[str, str]] = {
     "export": ("05-citing-and-reproducing.md", "citing-and-reproducing-a-network-state"),
     # The Build menu and the draft dialog (repository only): each draft step's `?` opens its chapter-7 section.
     "build-menu": ("07-making-builds.md", "the-build-tree"),
+    "build-settings": ("07-making-builds.md", "see-a-builds-settings"),
     "import": ("08-imported-data.md", "making-an-import"),
     "draft-start": ("07-making-builds.md", "draft-start"),
     "draft-top_n": ("07-making-builds.md", "draft-top-n"),

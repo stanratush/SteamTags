@@ -157,9 +157,9 @@ def _datasets(draft: BA.Draft, root: Path, tx: Text, imported: bool, bad: dict[s
             html.Td(html.Button("×", id={"type": "dd-ds-del", "i": i}, className="x", disabled=overall,
                                 title=tx("Remove this dataset"))),
         ]))
-    head = html.Tr([html.Th(h) for h in (tx("Dataset key"), tx("Label"), _term(tx("Defining tag"), "draft.defining_tag", tx),
-                                         _term(tx("List Size"), "draft.list_size", tx),
-                                         _term(tx("Eligible Pool"), "draft.eligible_pool", tx), "")])
+    head = html.Tr([html.Th(h) for h in (tx("Dataset key"), tx("Label"), term(tx("Defining tag"), "draft.defining_tag", tx),
+                                         term(tx("List Size"), "draft.list_size", tx),
+                                         term(tx("Eligible Pool"), "draft.eligible_pool", tx), "")])
     depth = ds.get("tag_depth", "all" if imported else 20)
     ex = draft.config.get("exclusions", {})
     out: list[Any] = [
@@ -167,12 +167,12 @@ def _datasets(draft: BA.Draft, root: Path, tx: Text, imported: bool, bad: dict[s
         html.Table([head, *rows], className="dd-table"),
         html.Div(id="dd-pool-note"),
         html.Button(tx("Add a dataset"), id="dd-ds-add", className="btn small"),
-        html.H4(_term(tx("Tags per game (Tag Depth)"), "draft.tag_depth", tx)),
+        html.H4(term(tx("Tags per game (Tag Depth)"), "draft.tag_depth", tx)),
         html.Div([dcc.Input(id=_field("tag_depth"), value=None if depth == "all" else depth, type="number", min=2,
                             debounce=0.6),
                   dcc.Checklist(id=_field("tag_depth_all"), options=[{"label": tx("all"), "value": "all"}],
                                 value=["all"] if depth == "all" else [], inline=True)], className="row-inline"),
-        html.H4(_term(tx("Global rank limit"), "draft.exclusions", tx)),
+        html.H4(term(tx("Global rank limit"), "draft.exclusions", tx)),
         dcc.Input(id=_field("global_rank_limit"), value=ex.get("global_rank_limit"), type="number", min=1, max=20,
                   debounce=0.6, placeholder=tx("none") if imported else ""),
     ]
@@ -180,7 +180,7 @@ def _datasets(draft: BA.Draft, root: Path, tx: Text, imported: bool, bad: dict[s
         out += [html.H4(tx("App types")),
                 dcc.Checklist(id=_field("app_types"), options=[{"label": t, "value": t} for t in APP_TYPES],
                               value=list(ex.get("allowed_app_types", ["game"])), inline=True, className="chips")]
-    out += [html.H4(_term(tx("Exclusion rules"), "draft.exclusions", tx)), *_rules(draft, tx, bad)]
+    out += [html.H4(term(tx("Exclusion rules"), "draft.exclusions", tx)), *_rules(draft, tx, bad)]
     return out
 
 
@@ -217,7 +217,7 @@ def _fixed_rules(names: tuple[str, ...], tx: Text) -> html.Div:
                     className="dd-rule fixed mute small")
 
 
-def _box_data(config: dict[str, Any], file: str, imported: bool) -> dict[str, Any]:
+def box_data(config: dict[str, Any], file: str, imported: bool) -> dict[str, Any]:
     """What a TOML box shows of a settings file."""
     if file == "content_flags":
         return {"content_flag": config.get("exclusions", {}).get("content_flag", [])}
@@ -226,7 +226,7 @@ def _box_data(config: dict[str, Any], file: str, imported: bool) -> dict[str, An
 
 
 def _toml_box(draft: BA.Draft, file: str, tx: Text, bad: dict[str, str], imported: bool) -> list[Any]:
-    data = _box_data(draft.config, file, imported)
+    data = box_data(draft.config, file, imported)
     if file == "exclusions" and not data and file not in bad:
         return []  # today's shape: every key has its own editor
     label = "exclusions.toml [[content_flag]]" if file == "content_flags" else f"{file}.toml"
@@ -238,7 +238,7 @@ def _toml_box(draft: BA.Draft, file: str, tx: Text, bad: dict[str, str], importe
                                className="wide dd-text mono", spellCheck=False)]
 
 
-def _term(label: str, key: str, tx: Text) -> html.Span:
+def term(label: str, key: str, tx: Text) -> html.Span:
     """A setting's label with both help layers: hover shows its chapter-3 In short, a click opens the entry."""
     return html.Span(label, className="term", tabIndex="0", **H.attrs(key, tx))
 

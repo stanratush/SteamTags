@@ -84,11 +84,13 @@ def environment(target: Target, python: tuple[int, int]) -> dict[str, str]:
             "sys_platform": target.sys_platform, "extra": ""}
 
 
-def closure(lock: dict[str, Any], target: Target, python: tuple[int, int], root: str = "steamstudy") -> list[str]:
-    """The packages the app needs on this target and Python: `root`'s dependencies and theirs, markers applied."""
+def closure(lock: dict[str, Any], target: Target, python: tuple[int, int], root: str = "steamstudy",
+            extra: Sequence[str] = ()) -> list[str]:
+    """The packages the app needs on this target and Python: `root`'s dependencies and theirs, markers applied,
+    plus the `extra` packages (at their locked versions) and their dependencies."""
     packages = {p["name"]: p for p in lock["package"]}
     env = environment(target, python)
-    todo = list(packages[root].get("dependencies", []))
+    todo = list(packages[root].get("dependencies", [])) + [{"name": name} for name in extra]
     seen: set[tuple[str, str]] = set()
     names: set[str] = set()
     while todo:
@@ -124,14 +126,17 @@ def compatible(package: dict[str, Any], target: Target, python: tuple[int, int])
     return out
 
 
-def plan(lock: dict[str, Any], targets: list[str], pythons: tuple[tuple[int, int], ...] = PYTHONS) -> Plan:
+def plan(lock: dict[str, Any], targets: list[str], pythons: tuple[tuple[int, int], ...] = PYTHONS,
+         extra: Sequence[str] = ()) -> Plan:
+    """The wheels every target and Python needs: the app's, plus the `extra` packages (a bundle that makes Builds:
+    `BUILD_LIBRARIES`)."""
     packages = {p["name"]: p for p in lock["package"]}
     result = Plan(packages)
     for name in targets:
         target = TARGETS[name]
         for python in pythons:
             per: dict[str, list[Wheel]] = {}
-            for package in closure(lock, target, python):
+            for package in closure(lock, target, python, extra=extra):
                 found = compatible(packages[package], target, python)
                 if found:
                     per[package] = found

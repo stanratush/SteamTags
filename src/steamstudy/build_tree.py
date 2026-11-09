@@ -1,9 +1,10 @@
 """The Build tree: every source's Builds by lineage, with its drafts (the Build menu and Manage Builds…).
 
 Dash-free, read from disk on each call. One tree per source (a Snapshot or an Import). In the repository the root is
-`config/` (a Snapshot) or "Import defaults" (an Import), and drafts hang under the Build they started from. In an App
-Bundle (`bundle=True`) there is no root row and no drafts: a Build whose parent is not in the Bundle sits at the top
-"from <parent name> (not in this Bundle)".
+`config/` (a Snapshot) or "Import defaults" (an Import), and drafts hang under the Build they started from. So it is
+in an App Bundle made with its sources, which can make Builds too. In an App Bundle of Builds only (`bundle=True`)
+there is no root row and no drafts. In any App Bundle, a Build whose parent it does not ship sits at the top "from
+<parent name> (not in this Bundle)".
 
 A Build whose parent is not in its tree sits at the top, marked with why (`ORPHAN_*`).
 """
@@ -55,8 +56,14 @@ class SourceTree:
 
 
 def is_bundle(root: Path) -> bool:
-    """Whether the app runs from an App Bundle (no Snapshots, Imports or config to make Builds from)."""
-    return (Path(root) / "bundle.json").is_file() or not (Path(root) / "config").is_dir()
+    """Whether the app runs read-only: from an App Bundle of Builds only, or anywhere without `config/` (no source
+    or settings to make Builds from). An App Bundle made with its sources (`bundle.json` kind "sources") can make
+    Builds like the repository."""
+    root = Path(root)
+    if not (root / "config").is_dir():
+        return True
+    manifest = root / "bundle.json"
+    return manifest.is_file() and json.loads(manifest.read_text(encoding="utf-8")).get("kind") != "sources"
 
 
 def folder_bytes(path: Path) -> int:
@@ -127,10 +134,10 @@ def build_tree(root: Path, *, bundle: bool | None = None, sizes: bool = False) -
                 continue
             if parent in every:  # duplicated from a Build of another Snapshot (or Import)
                 node.parent_name, node.orphan = every[parent].name, ORPHAN_OTHER_SOURCE
-            elif parent:
-                node.parent_name = _parent_name_from_bundle(root, parent) if bundle else None
-                shipped_elsewhere = bundle and node.parent_name != DELETED_PARENT
-                node.orphan = ORPHAN_NOT_BUNDLED if shipped_elsewhere else ORPHAN_DELETED
+            elif parent:  # an App Bundle names a parent it does not ship; anywhere else the parent was deleted
+                node.parent_name = _parent_name_from_bundle(root, parent)
+                not_shipped = node.parent_name not in (None, DELETED_PARENT)
+                node.orphan = ORPHAN_NOT_BUNDLED if not_shipped else ORPHAN_DELETED
             top.append(node)
         root_drafts: list[Draft] = []
         if not bundle:
@@ -144,7 +151,7 @@ def build_tree(root: Path, *, bundle: bool | None = None, sizes: bool = False) -
 
 
 def _parent_name_from_bundle(root: Path, parent_ref: str) -> str | None:
-    """The parent's name the Bundle recorded at make time (`bundle.json`), when it did."""
+    """The parent's name the Bundle recorded at make time (`bundle.json`), when it did (None outside a bundle)."""
     manifest = root / "bundle.json"
     if not manifest.is_file():
         return None

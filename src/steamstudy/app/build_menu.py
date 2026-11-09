@@ -109,10 +109,10 @@ def _build_row(depth: int, node: BuildNode, open_ref: str, tx: Text, *, edit: bo
     elif node.orphan == ORPHAN_NOT_BUNDLED:
         origin = [html.Span(tx("from {name} (not in this Bundle)", name=node.parent_name or node.info.parent_build_id),
                             className="mute small")]
-    actions = []
+    actions = [html.Button(tx("Settings…"), id={"type": "bm-settings", "ref": node.ref}, className="btn quiet small")]
     if edit:
-        actions = [html.Button(tx("Duplicate"), id={"type": "bm-dup", "ref": node.ref}, className="btn quiet small"),
-                   html.Button(tx("Delete"), id={"type": "bm-del", "ref": node.ref}, className="btn quiet small")]
+        actions += [html.Button(tx("Duplicate"), id={"type": "bm-dup", "ref": node.ref}, className="btn quiet small"),
+                    html.Button(tx("Delete"), id={"type": "bm-del", "ref": node.ref}, className="btn quiet small")]
     size = ([html.Span(tx("{size} (app cache {cache})", size=_size(node.size_bytes, tx),
                           cache=_size(node.app_cache_bytes, tx)), className="mute small")] if sizes else [])
     return html.Div([
@@ -198,13 +198,8 @@ def footer_view(tx: Text) -> list[Any]:
 
 
 def menu_visible() -> bool:
-    """The menu is hidden in a Bundle that ships one Build (nothing to switch to)."""
-    root = repo_root()
-    if root is None:
-        return False
-    if not is_bundle(root):
-        return True
-    return sum(len(walk(t.builds)) for t in build_tree(root, bundle=True)) > 1
+    """The menu shows wherever the app runs on a builds root, even for one Build: its Settings… are read there."""
+    return repo_root() is not None
 
 
 # ----------------------------------------------------------------------------- callbacks
@@ -230,8 +225,8 @@ def _clicked() -> Any:
     return ctx.triggered_id
 
 
-def _dialog(title: str, body: list[Any]) -> None:
-    set_props("bm-dialog", {"style": {"display": "flex", "width": "640px"}})
+def _dialog(title: str, body: list[Any], width: str = "640px") -> None:
+    set_props("bm-dialog", {"style": {"display": "flex", "width": width}})
     set_props("bm-dialog-title", {"children": title})
     set_props("bm-dialog-body", {"children": body})
 
@@ -244,8 +239,9 @@ def _refresh(build_path: str, tx: Text) -> None:
     set_props("bm-tree", {"children": tree_view(ref_of(build_folder(build_path)), tx)})
 
 
-def tree_click(_b, _r, _d, _dup, _del, _dis, build_path, lang, mode, dataset):
-    """A click in the tree: switch, start or open a draft, or ask for a Duplicate, Delete or Discard."""
+def tree_click(_b, _r, _d, _dup, _del, _dis, _set, build_path, lang, mode, dataset):
+    """A click in the tree: switch, show a Build's settings, start or open a draft, or ask for a Duplicate, Delete or
+    Discard."""
     target = _clicked()
     if target is None:
         raise PreventUpdate
@@ -258,6 +254,12 @@ def tree_click(_b, _r, _d, _dup, _del, _dis, build_path, lang, mode, dataset):
             set_props("build-menu", {"style": HIDDEN})
             raise PreventUpdate
         set_props("switch-to", {"data": build_url(ref, mode, dataset)})
+        return no_update
+    if kind == "bm-settings" and root is not None:  # read-only: in App Bundles too
+        from steamstudy.app import build_settings
+
+        _dialog(tx("Settings of {name}", name=BA.parent_name(root, target["ref"]) or target["ref"]),
+                build_settings.view(root, target["ref"], tx), width="820px")
         return no_update
     if root is None or not editable():
         raise PreventUpdate
@@ -552,6 +554,7 @@ def register(app: dash.Dash) -> None:
        Input({"type": "bm-draft", "source": ALL, "slug": ALL}, "n_clicks"),
        Input({"type": "bm-dup", "ref": ALL}, "n_clicks"), Input({"type": "bm-del", "ref": ALL}, "n_clicks"),
        Input({"type": "bm-discard", "source": ALL, "slug": ALL}, "n_clicks"),
+       Input({"type": "bm-settings", "ref": ALL}, "n_clicks"),
        State("build-path", "data"), State("lang", "data"), State("mode", "value"), State("dataset", "value"),
        prevent_initial_call=True)(tree_click)
     cb(Output("draft-open", "data", allow_duplicate=True), Input("bm-dup-go", "n_clicks"),

@@ -158,6 +158,13 @@ def _build_settings(info: BuildInfo) -> tuple[dict[str, dict[str, Any]], list[di
     return files, list(bj.get("changelog", []))
 
 
+def build_settings(root: Path, ref: str) -> tuple[dict[str, dict[str, Any]], BuildInfo, dict[str, Any]]:
+    """A Build's settings files (exclusions in today's shape, as a draft reads them), its info and its build.json."""
+    info = _info(root, ref)
+    bj = json.loads((info.path / "datasets" / "build.json").read_text(encoding="utf-8"))
+    return _build_settings(info)[0], info, bj
+
+
 def _info(root: Path, ref: str) -> BuildInfo:
     path = builds_dir(root) / ref
     if "/" not in ref or not (path / "datasets" / "build.json").is_file():

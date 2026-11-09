@@ -7,7 +7,7 @@ these Builds:
 
 {builds}
 
-It never collects data or makes Builds; it only opens the Builds it carries.
+{makes}
 
 Made for:  {targets}
 Python:    3.12, 3.13 or 3.14 (not 3.14.1) must already be installed (python.org)

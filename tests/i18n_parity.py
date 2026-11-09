@@ -35,6 +35,7 @@ AREA_OF = {
     "app/help.py": "ui_words", "app/guide.py": "ui_words", "app/relabel.py": "layout",
     "network/selection.py": "selection_text", "app/ps_export.py": "selection_text",
     "app/build_menu.py": "build_menu", "app/draft_dialog.py": "build_menu", "app/preview.py": "build_menu",
+    "app/build_settings.py": "build_menu",
 }
 
 def _refusals() -> Iterable[str]:

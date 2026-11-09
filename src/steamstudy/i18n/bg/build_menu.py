@@ -14,6 +14,22 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "from {name} on {source}": "от {name} в {source}",
     "{depth} tags per game": "{depth} тага на игра",
     "all tags per game": "всички тагове на игра",
+    # a Build's settings, read-only (Settings…)
+    "Settings…": "Настройки…",
+    "Settings of {name}": "Настройки на {name}",
+    "Snapshot {id} ({form} form)": "Моментна снимка {id} ({form} форма)",
+    "Built from": "Компилирана от",
+    "A Build never changes: to try other settings, Duplicate it into a draft.":
+        "Компилацията никога не се променя: за да опитате други настройки, дублирайте я в чернова.",
+    "(an exclusion rule's tag counts only within this many of a game's first tags)":
+        "(тагът на правило за изключване се отчита само сред толкова първи тагове на играта)",
+    "The fixed rules run first ({before}), then these, then {after}.":
+        "Първо се прилагат фиксираните правила ({before}), след това тези, а накрая {after}.",
+    "No named rules.": "Няма поименни правила.",
+    "{tag} (within the first {n} tags)": "{tag} (сред първите {n} тага)",
+    "name: {names}": "име: {names}",
+    "content descriptors {ids}": "описания на съдържанието {ids}",
+    "the adults-only notice": "известието „само за възрастни“",
     "{n} changed setting": {"one": "{n} променена настройка", "other": "{n} променени настройки"},
     "from a deleted Build": "от изтрита компилация",
     "from {name} (not in this Bundle)": "от {name} (не е в този пакет)",

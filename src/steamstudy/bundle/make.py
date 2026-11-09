@@ -34,6 +34,9 @@ from steamstudy.bundle import start_tag_network as launcher
 from steamstudy.bundle.wheels import PYTHONS, TARGETS, Wheel, plan, read_lock, requirements
 
 BUNDLE_FORMAT = 1
+# The libraries a Build needs beyond the app's (the page parser and the report renderer). Only a bundle made
+# `with_sources` installs them; it never collects, so `requests` and pandas stay out (ADR 0007).
+BUILD_LIBRARIES = ("lxml", "markdown")
 REPO = Path(__file__).resolve().parents[3]
 FILES = Path(__file__).resolve().parent / "files"
 EXECUTABLE = 0o100755 << 16
@@ -138,6 +141,40 @@ def build_entry(root: Path, info: BuildInfo) -> dict[str, Any]:
             "parent_build_id": info.parent_build_id, "parent_name": parent_name}
 
 
+MAKES_BUILDS = "It never collects data or makes Builds; it only opens the Builds it carries."
+MAKES_SOURCES = ("It also carries the data these Builds were made from (each lightweight Snapshot or Import) and\n"
+                 "the default settings, so it can make new Builds: open the Build menu (the Build's name at the\n"
+                 "top) and Duplicate a Build, or start a draft (User Guide chapter 7). It never collects data.")
+
+
+def bundle_sources(root: Path, infos: Sequence[BuildInfo]) -> list[tuple[Path, Path]]:
+    """(where it is, where the bundle ships it) for each Build's source: a Snapshot's lightweight form (of this
+    software's extract version: the bundled app reads only that), or an Import's folder. Refuses a Snapshot with
+    no current lightweight form."""
+    from steamstudy.build.source import EXTRACT_VERSION
+    from steamstudy.builds import light_path
+    from steamstudy.imports import imports_dir, is_import
+    from steamstudy.lightweight import read_light_meta
+
+    out: dict[str, tuple[Path, Path]] = {}
+    for info in infos:
+        sid = info.source_id
+        if sid in out:
+            continue
+        if is_import(root, sid):
+            out[sid] = (imports_dir(root) / sid, Path("imports") / sid)
+            continue
+        light = light_path(root / "snapshots", sid)
+        if not light.is_file():
+            raise BundleError(f"Snapshot {sid} has no lightweight form: run `steamstudy snapshot lighten {sid}` first")
+        version = read_light_meta(light).get("extract_version")
+        if version != EXTRACT_VERSION:
+            raise BundleError(f"Snapshot {sid}'s lightweight form has extract version {version}, this software "
+                              f"reads {EXTRACT_VERSION}: run `steamstudy snapshot lighten {sid}` again")
+        out[sid] = (light, Path("snapshots") / light.name)
+    return list(out.values())
+
+
 def current_target() -> str:
     target = launcher.target_name(platform.system(), platform.machine())
     if target is None:
@@ -178,11 +215,13 @@ def make_bundle(root: Path, *, builds: Sequence[str] = (), targets: Sequence[str
                 fetch: Callable[[Wheel, Path], Path] = fetch_wheel,
                 build_wheel: Callable[[Path, Path], Path] = build_steamstudy_wheel,
                 now: dt.datetime | None = None, skip_parameter_selection: bool = False, allow_test: bool = False,
-                map_fn: Callable[..., Iterable[Any]] | None = None) -> Path:
+                with_sources: bool = False, map_fn: Callable[..., Iterable[Any]] | None = None) -> Path:
     """Write `<out>/tag-network-<build_id>-<targets>.zip` and return its path. `builds` names at least one Build (see
     `resolve_bundle_build`); the first is the Bundle's `latest` and opens by default. A Build of a test Snapshot needs
     `allow_test`. `skip_parameter_selection` makes a bundle without Parameter Selection results (test bundles only,
-    never a release); `map_fn` replaces the worker pool (tests)."""
+    never a release); `map_fn` replaces the worker pool (tests). `with_sources` also ships each Build's source (a
+    Snapshot's lightweight form, or an Import), `config/` and the Build's libraries, so the bundled app can make new
+    Builds (ADR 0007)."""
     root = Path(root)
     targets = list(dict.fromkeys(targets or [current_target()]))
     for name in targets:
@@ -201,8 +240,9 @@ def make_bundle(root: Path, *, builds: Sequence[str] = (), targets: Sequence[str
                 log.warning("%s (%s) and %s (%s) have identical settings on the same source", a.name, a.ref,
                             b.name, b.ref)
     folders = [i.path for i in infos]
+    sources = bundle_sources(root, infos) if with_sources else []
     lock_path = lock_path or repo / "uv.lock"
-    wheel_plan = plan(read_lock(lock_path), targets)
+    wheel_plan = plan(read_lock(lock_path), targets, extra=BUILD_LIBRARIES if with_sources else ())
     if not wheel_plan.complete:
         listed = "; ".join(f"{p} {v} for {t} / Python {py}" for p, v, t, py in wheel_plan.missing)
         raise BundleError(f"no wheel in uv.lock for: {listed}")
@@ -210,7 +250,7 @@ def make_bundle(root: Path, *, builds: Sequence[str] = (), targets: Sequence[str
     cache = cache or out / ".cache" / "wheels"
     now = now or dt.datetime.now(dt.UTC)
     first = folders[0]
-    name = f"tag-network-{first.name}-{'-'.join(targets)}"
+    name = f"tag-network-{first.name}-{'-'.join(targets)}" + ("-sources" if with_sources else "")
     with tempfile.TemporaryDirectory() as tmp:
         stage = Path(tmp) / name
         (stage / "wheels").mkdir(parents=True)
@@ -237,13 +277,20 @@ def make_bundle(root: Path, *, builds: Sequence[str] = (), targets: Sequence[str
             else:
                 shipped[build_ref] = _ship_with_pool(folder, dest)
         (stage / "builds" / "latest").write_text(f"{ref_of(first)}\n", encoding="utf-8")
+        for source_path, shipped_as in sources:
+            dest = stage / shipped_as
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            (shutil.copytree if source_path.is_dir() else shutil.copy2)(source_path, dest)
+        if with_sources:
+            shutil.copytree(root / "config", stage / "config")
         shutil.copytree(repo / "docs" / "user-guide", stage / "User Guide")
         shutil.copy2(Path(launcher.__file__), stage / "start_tag_network.py")
         shutil.copy2(FILES / "Start Tag Network.bat", stage / "Start Tag Network.bat")
         command = (FILES / "Start Tag Network.command").read_bytes().replace(b"\r\n", b"\n")
         (stage / "Start Tag Network.command").write_bytes(command)
         manifest = {
-            "bundle_format": BUNDLE_FORMAT, "steamstudy_version": __version__,
+            "bundle_format": BUNDLE_FORMAT, "kind": "sources" if with_sources else "builds",
+            "sources": [str(p).replace("\\", "/") for _, p in sources], "steamstudy_version": __version__,
             "uv_lock_sha256": hashlib.sha256(lock_path.read_bytes()).hexdigest(), "targets": targets,
             "python_versions": [f"{a}.{b}" for a, b in PYTHONS], "excluded_python_versions": ["3.14.1"],
             "builds": [i.ref for i in infos], "latest_build": first.name,
@@ -255,7 +302,7 @@ def make_bundle(root: Path, *, builds: Sequence[str] = (), targets: Sequence[str
             builds="\n".join(f"  {b.name}  ({b.ref})" + ("  (opens by default)" if n == 0 else "")
                              for n, b in enumerate(infos)),
             targets=", ".join(TARGETS[t].label() for t in targets), created=now.strftime("%Y-%m-%d"),
-            version=__version__)
+            version=__version__, makes=MAKES_SOURCES if with_sources else MAKES_BUILDS)
         (stage / "READ ME FIRST.txt").write_text(readme, encoding="utf-8")
         longest = max((str(Path(name) / p.relative_to(stage)).replace("\\", "/") for p in stage.rglob("*")
                        if p.is_file()), key=len)

@@ -1,6 +1,6 @@
 # Making Builds in the app
 
-This chapter is for researchers who run the app from the repository (`uv run steamstudy app`, see the [Running Guide](../running-guide.md#the-app)). An App Bundle only opens the Builds it carries, so none of this appears there. A Build never changes once it is made: to try other settings you make a new Build from a **draft**, a set of settings that is saved as you edit it and becomes a Build when you build it. Settings that need interpreting link to their entries in [chapter 3](03-metric-reference.md); this chapter says only where to find them and what each step does.
+This chapter is for researchers who make Builds: from the repository (`uv run steamstudy app`, see the [Running Guide](../running-guide.md#the-app)), or from an App Bundle made **with its sources** (it carries each Build's lightweight Snapshot or Import and the default settings; its `READ ME FIRST.txt` says so). An App Bundle of Builds only opens the Builds it carries: there, only [See a Build's settings](#see-a-builds-settings) applies. A Build never changes once it is made: to try other settings you make a new Build from a **draft**, a set of settings that is saved as you edit it and becomes a Build when you build it. Settings that need interpreting link to their entries in [chapter 3](03-metric-reference.md); this chapter says only where to find them and what each step does.
 
 ## The Build tree
 
@@ -78,6 +78,17 @@ The Eligible Pool numbers are a preview: they run the Build's own exclusion and 
 Pressing Build starts a Build run in a process of its own, shown in a strip under the header in every tab and every mode: the stage, the seconds against the estimate (about 24 s from a lightweight Snapshot, about 99 s from raw) and a bar. Only one Build runs at a time in the app; a second waits for the first. Switching Builds or closing the tab does not stop it; **Cancel** does, between stages.
 
 When it finishes, the strip offers **Open it in this tab**: the app never switches by itself. The new Build appears in the tree, and the draft is gone. When it fails, the strip offers **Open the draft**: the draft keeps its settings, and its Start step shows the failure.
+
+## See a Build's settings
+
+Every Build row in the Build menu has **Settings…**, in App Bundles too. It shows the Build's name, id, description and the Snapshot (and its form) or Import it was built from, then its settings by the draft's steps:
+
+- **Changes the Top-N:** each dataset's defining tag, List Size and Eligible Pool, the tags per game, the exclusion limit (`global_rank_limit`: a rule's tag counts only within that many of a game's first tags), the app types (Steam), and each named exclusion rule with its signals. A rule's tag reads, for example, "Hentai (within the first 15 tags)": its own rank limit, or the exclusion limit.
+- **Curation**, **Reports and analysis** and **Network defaults:** each settings file as the text a draft edits, folded until you open it.
+
+Tags per game and the exclusion limit are separate settings. Exclusion reads a game's full tag list and comes first; tags per game decides afterwards which genre a remaining game belongs to and which tags form the network. A Build with 10 tags per game and the exclusion limit 20 still excludes a game whose Hentai tag is its 20th; set the exclusion limit to 10 too, on the Top-N step, for exclusion to look at the same 10 tags.
+
+A Build never changes: to try other settings, Duplicate it into a draft.
 
 ## Manage and delete Builds {#manage-builds}
 

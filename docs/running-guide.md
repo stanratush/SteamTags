@@ -204,7 +204,7 @@ When a library the app computes with is installed at another version than the on
 
 ## Making an App Bundle
 
-An App Bundle lets a researcher run the Tag Network app on another computer that has only Python 3.12–3.14 (not 3.14.1): no uv, no repository, no internet. It never collects or builds; it opens only the Builds it carries. See [ADR 0001](adr/0001-app-bundle-wheels-not-frozen.md) for why it ships wheels and a launcher rather than a frozen executable. To release a bundle after a code update, follow [Releasing an updated App Bundle](releasing-an-app-bundle.md).
+An App Bundle lets a researcher run the Tag Network app on another computer that has only Python 3.12–3.14 (not 3.14.1): no uv, no repository, no internet. It never collects. By default it opens only the Builds it carries; made `--with-sources`, it can also make new Builds from the Snapshots it carries. See [ADR 0001](adr/0001-app-bundle-wheels-not-frozen.md) for why it ships wheels and a launcher rather than a frozen executable. To release a bundle after a code update, follow [Releasing an updated App Bundle](releasing-an-app-bundle.md).
 
 ```bash
 uv run steamstudy bundle --build "Overall, first release"
@@ -214,6 +214,7 @@ writes `bundles/tag-network-<build_id>-<targets>.zip` for this computer's operat
 
 - `--build` (required, repeatable) names a Build: its `build_id`, `<source_id>/<build_id>`, its name, or `<source_id>/<name>` (names ignore case; an ambiguous name is refused, listing the matches). `--build latest` is the newest Build. The first one named opens by default.
 - `--allow-test` allows Builds of test Snapshots (test bundles only).
+- `--with-sources` also ships each Build's lightweight Snapshot (or Import), `config/` and the libraries a Build needs, so the bundled app can make new Builds ([ADR 0007](adr/0007-a-bundle-may-carry-its-sources.md)). The zip's name ends in `-sources`.
 - `--target windows|macos|linux` (repeatable) makes it for those systems instead (Windows x64, macOS on Apple silicon, Linux x86_64 with glibc 2.28 or newer). Intel Macs and ARM Linux are not supported.
 - `--out <folder>` writes the zip elsewhere.
 - `--skip-parameter-selection` ships no Parameter Selection results. It is for quick test bundles only, never for a release.

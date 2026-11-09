@@ -436,3 +436,121 @@ def test_a_bundle_with_an_import_build_opens_it(tmp_path, monkeypatch):
     assert ref.startswith(import_id + "/") and not (bundle / "imports").exists()
     ctx = load_build(bundle / "builds" / ref)
     assert ctx.build_json["name"] == "Items" and (bundle / "builds" / ref / "app_cache").is_dir()
+
+
+# ----------------------------------------------------------------------------- a bundle made with its sources
+
+
+def test_a_bundle_with_sources_installs_the_build_libraries_for_every_target_and_python():
+    from steamstudy.bundle.make import BUILD_LIBRARIES
+
+    lock = read_lock(REPO / "uv.lock")
+    p = plan(lock, ["linux", "macos", "windows"], extra=BUILD_LIBRARIES)
+    assert p.complete, p.missing
+    for per in p.wheels.values():
+        assert {"lxml", "markdown"} <= set(per) and "pandas" not in per
+
+
+def _sources_bundle(root, tmp_path, monkeypatch, builds):
+    """`make_bundle(with_sources=True)` on a stub lock (the Build libraries as one-wheel packages) and stub wheels."""
+    import zipfile as zf
+
+    from steamstudy.bundle.wheels import Wheel
+
+    pure = {name: {"name": name, "version": "1.0", "dependencies": [],
+                   "wheels": [{"url": f"https://x/{name}-1.0-py3-none-any.whl", "hash": "sha256:0"}]}
+            for name in ("lxml", "markdown")}
+    monkeypatch.setattr("steamstudy.bundle.make.read_lock", lambda _path: {"package": [
+        {"name": "steamstudy", "version": "0.1.0", "dependencies": []}, *pure.values()]})
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    wheel = tmp_path / "steamstudy-0.1.0-py3-none-any.whl"
+    wheel.write_bytes(b"x")
+
+    def fetch(w: Wheel, cache):
+        path = tmp_path / w.filename
+        path.write_bytes(b"w")
+        return path
+
+    path = make_bundle(root, builds=builds, targets=["windows"], out=tmp_path / "out", lock_path=REPO / "uv.lock",
+                       fetch=fetch, build_wheel=lambda _repo, _out: wheel, skip_parameter_selection=True,
+                       allow_test=True, with_sources=True)
+    extracted = tmp_path / "x"
+    with zf.ZipFile(path) as z:
+        z.extractall(extracted)
+    return path, next(extracted.iterdir())
+
+
+def test_a_bundle_with_sources_ships_the_lightweight_snapshot_and_can_make_builds(named_root, tmp_path,
+                                                                                   monkeypatch):
+    import json
+    import shutil
+
+    from steamstudy import build_admin as BA
+    from steamstudy.build_tree import build_tree, is_bundle, walk
+    from steamstudy.lightweight import lighten
+
+    shutil.copytree(named_root[0], tmp_path / "root")
+    root = tmp_path / "root"
+    with pytest.raises(BundleError, match="no lightweight form"):
+        _sources_bundle(root, tmp_path / "a", monkeypatch, ["C"])
+    lighten(root / "snapshots" / "S1")
+    path, bundle = _sources_bundle(root, tmp_path / "b", monkeypatch, ["C"])
+    assert path.name.endswith("-windows-sources.zip")
+    manifest = json.loads((bundle / "bundle.json").read_text(encoding="utf-8"))
+    assert manifest["kind"] == "sources" and manifest["sources"] == ["snapshots/S1.light.zip"]
+    assert (bundle / "snapshots" / "S1.light.zip").is_file() and not (bundle / "snapshots" / "S1").exists()
+    assert (bundle / "config" / "datasets.toml").is_file()
+    requirements = (bundle / "requirements" / "windows-py3.13.txt").read_text(encoding="utf-8")
+    assert "lxml==1.0" in requirements and "markdown==1.0" in requirements
+    assert "can make new Builds" in (bundle / "READ ME FIRST.txt").read_text(encoding="utf-8")
+    # The bundled app makes Builds like the repository: the defaults' root row, drafts, and a new Build.
+    assert not is_bundle(bundle)
+    (tree,) = build_tree(bundle)
+    (c,) = [n for _, n in walk(tree.builds)]
+    assert c.orphan == "not in this Bundle" and c.parent_name == "B"
+    draft = BA.duplicate(bundle, c.ref, "S1", name="Made in the bundle")
+    draft.description = "a Build made from the bundled lightweight Snapshot"
+    BA.save_draft(bundle, draft)
+    folder = BA.build_draft(bundle, draft)
+    assert folder.parent.parent == bundle / "builds"
+    assert json.loads((folder / "datasets" / "build.json").read_text(encoding="utf-8"))["snapshot_form"] == \
+        "lightweight"
+
+
+def test_a_build_runs_without_the_pipeline_libraries_a_sources_bundle_leaves_out(tmp_path):
+    """A bundle with sources installs the app's libraries plus BUILD_LIBRARIES: pandas is the pipeline library it
+    lacks (requests comes with dash). A Build from a lightweight Snapshot must not need it."""
+    import subprocess
+    import sys
+    import textwrap
+
+    from conftest import CONFIG_DIR
+    from steamstudy.lightweight import lighten
+    from test_build_network import tagged_world
+
+    import shutil
+
+    root = tmp_path / "root"
+    shutil.copytree(CONFIG_DIR, root / "config")
+    tagged_world().snapshot(root / "snapshots" / "S1")
+    lighten(root / "snapshots" / "S1")
+    shutil.rmtree(root / "snapshots" / "S1")  # the bundle ships only the lightweight form
+    code = textwrap.dedent(f"""
+        import sys
+        class Block:
+            def find_spec(self, name, path=None, target=None):
+                if name == "pandas" or name.startswith("pandas."):
+                    raise ImportError("not in a bundle: " + name)
+        sys.meta_path.insert(0, Block())
+        from pathlib import Path
+        from steamstudy import build_admin as BA
+        root = Path({str(root)!r})
+        draft = BA.start_draft(root, "S1", config_dir=root / "config", name="No pandas")
+        draft.description = "built without pandas"
+        BA.save_draft(root, draft)
+        print("built", BA.build_draft(root, draft).name)
+    """)
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, encoding="utf-8",
+                         cwd=tmp_path)
+    assert out.returncode == 0, out.stderr[-3000:]
+    assert out.stdout.strip().startswith("built ")

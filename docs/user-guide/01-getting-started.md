@@ -15,9 +15,9 @@ A yellow banner at the top warns when the Build comes from a test Snapshot (`mod
 
 ## Switch Builds
 
-Each browser tab shows one Build, and its address names it (`…/build/<source>/<build id>`), so two tabs can show two Builds side by side and a bookmark reopens the same one. When the app carries more than one Build, the Build's name in the header opens a menu of every Build, arranged by the Snapshot or Import it was made from, with each Build under the one it was made from. Click a Build to switch this tab to it.
+Each browser tab shows one Build, and its address names it (`…/build/<source>/<build id>`), so two tabs can show two Builds side by side and a bookmark reopens the same one. The Build's name in the header opens a menu of every Build, arranged by the Snapshot or Import it was made from, with each Build under the one it was made from. Click a Build to switch this tab to it.
 
-Switching keeps the language, the mode and the dataset when the other Build has a dataset of the same key. It resets the Network State settings to the other Build's defaults, since its numbers differ. If a background job is running in this tab (a Removal Sensitivity or Parameter Selection Run), the app asks before switching, because switching cancels it. A Build that has been deleted opens as a notice with a link to the latest Build. A bundle with a single Build has no menu.
+Switching keeps the language, the mode and the dataset when the other Build has a dataset of the same key. It resets the Network State settings to the other Build's defaults, since its numbers differ. If a background job is running in this tab (a Removal Sensitivity or Parameter Selection Run), the app asks before switching, because switching cancels it. A Build that has been deleted opens as a notice with a link to the latest Build. Each Build's **Settings…** in the menu shows what it was built with ([chapter 7](07-making-builds.md#see-a-builds-settings)), so the menu is there even when the app carries a single Build.
 
 If you run the app from the repository, the same menu also makes Builds; see [Making Builds in the app](07-making-builds.md).
 
