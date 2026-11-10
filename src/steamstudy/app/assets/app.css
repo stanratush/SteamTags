@@ -59,6 +59,10 @@ input[type=text],input:not([type]),.dash-input-element{border-radius:6px}
  background:#fff;cursor:pointer;margin:0;user-select:none}
 .chips .dash-options-list-option.selected{background:#f1f2f4;color:var(--mute);text-decoration:line-through;
  text-decoration-color:#b6bcc6}
+/* chips that pick (a draft's app types): a selected chip is chosen, not hidden */
+.chips.pick .dash-options-list-option.selected{background:var(--acc-bg);color:var(--acc);border-color:var(--acc);
+ text-decoration:none}
+.chips.pick .dash-options-list-option.selected::before{content:"✓ "}
 .check .dash-options-list-option{margin:6px 0 0;font-size:12px;color:var(--ink2)}
 
 /* sliders: the label carries the live value */

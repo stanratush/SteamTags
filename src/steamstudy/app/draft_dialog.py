@@ -179,7 +179,8 @@ def _datasets(draft: BA.Draft, root: Path, tx: Text, imported: bool, bad: dict[s
     if not imported:
         out += [html.H4(tx("App types")),
                 dcc.Checklist(id=_field("app_types"), options=[{"label": t, "value": t} for t in APP_TYPES],
-                              value=list(ex.get("allowed_app_types", ["game"])), inline=True, className="chips")]
+                              value=list(ex.get("allowed_app_types", ["game"])), inline=True,
+                              className="chips pick")]  # a selected type is allowed, not hidden
     out += [html.H4(term(tx("Exclusion rules"), "draft.exclusions", tx)), *_rules(draft, tx, bad)]
     return out
 
