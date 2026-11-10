@@ -756,22 +756,32 @@ def cluster_list(summary: Mapping[str, Any], names: Mapping[int, str], *, tx: Te
 
 
 def validation_card(view: DatasetView, validation: Mapping[str, Any] | None, names: Mapping[int, str], *,
-                    tx: Text) -> list[Any]:
-    """The default-constraint pair's validation, with the custom-constraints note when another pair is chosen (or a
-    warning when none qualifies under them)."""
+                    tx: Text, pair: tuple[int, int] | None = None) -> list[Any]:
+    """The validation of `pair`, the cell inspected on the heatmap (by default the default-constraint pair), with the
+    custom-constraints note when another pair is chosen (or a warning when none qualifies under them)."""
     if view.status != "complete" or view.default_choice is None:
         return []
-    pair = view.default_choice.chosen
+    default = view.default_choice.chosen
+    pair = pair or default
     if pair is None:
         return [html.P(tx("No pair qualifies under the default constraints, so nothing was validated automatically. "
                           "Validate this pair is offered on any inspected pair."))]
     summary = validation["summary"] if validation else None
     out: list[Any] = [html.H4([T.validation_title(pair, tx=tx), _help("selection.validate", tx)])]
-    note = T.constraints_note(pair, view.star, view.star == pair, tx=tx)
+    if pair == default:
+        note = T.constraints_note(pair, view.star, view.star == pair, tx=tx)
+    elif default is not None:
+        note = (tx("This is the pair you selected; the pair chosen under the default constraints is g = {g}, s = {s}.",
+                   g=default[0], s=default[1]), False)
+    else:
+        note = None
     if note is not None:
         out.append(html.P(note[0], className="ps-note warning" if note[1] else "small mute"))
     if summary is None:
-        return out + [html.P(tx("Not validated."))]
+        result = view.result(pair)
+        if result is None or result.selected is None:
+            return out + [html.P(tx("This pair has no Selected Partition, so it cannot be validated."))]
+        return out + [html.P(tx("Not validated. Validate this pair in the Pair Inspector runs its validation."))]
     for section in (T.null_section(summary, pair, tx=tx), T.subsample_section(summary, names, tx=tx)):
         out += [html.H5([section.title, _help(section.help_key, tx)]), html.P(section.header, className="small mute"),
                 *render(section.paragraphs)]
@@ -968,8 +978,8 @@ def _status_strip(letter: str, clusters: list[Mapping[str, Any]]) -> html.Div:
 def inspector_validation(view: DatasetView, pair: tuple[int, int] | None, validation: Mapping[str, Any] | None, *,
                          tx: Text) -> list[Any]:
     """The Inspector's Validation section, above the static Validate this pair button: "Not validated", or the null
-    badge, the dissolved count, the R and A status strips, the median ARI and, for the card's pair, a link to the
-    card."""
+    badge, the dissolved count, the R and A status strips, the median ARI and a link to the card (which follows the
+    inspected pair)."""
     result = None if pair is None else view.result(pair)
     if result is None or result.selected is None:
         return []
@@ -988,10 +998,8 @@ def inspector_validation(view: DatasetView, pair: tuple[int, int] | None, valida
                     reselected=tx.num(sub["reselected"]["ari"]["median"]),
                     at=tx.num(sub["at_resolution"]["ari"]["median"])), className="small"),
     ]
-    if view.default_choice is not None and pair == view.default_choice.chosen:
-        goto: dict[str, Any] = {"data-goto": "ps-validation"}  # workbench.js scrolls the main column to the card
-        out.append(html.A(tx("Open the validation card") + " ↓", href="#ps-validation", className="small ps-goto",
-                          **goto))
+    goto: dict[str, Any] = {"data-goto": "ps-validation"}  # workbench.js scrolls the main column to the card
+    out.append(html.A(tx("Open the validation card") + " ↓", href="#ps-validation", className="small ps-goto", **goto))
     return out
 
 

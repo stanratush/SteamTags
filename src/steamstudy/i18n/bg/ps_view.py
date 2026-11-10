@@ -108,7 +108,12 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "Arm": "Вариант",
     "re-selected": "при нов избор",
     "at resolution": "при резолюцията",
-    "Not validated.": "Не е валидирано.",
+    "Not validated. Validate this pair in the Pair Inspector runs its validation.":
+        "Не е валидирано. „Валидирай тази двойка“ в инспектора на двойката стартира валидирането.",
+    "This pair has no Selected Partition, so it cannot be validated.":
+        "Тази двойка няма избрано разбиване, затова не може да бъде валидирана.",
+    "This is the pair you selected; the pair chosen under the default constraints is g = {g}, s = {s}.":
+        "Това е избраната от вас двойка; двойката, избрана при ограниченията по подразбиране, е g = {g}, s = {s}.",
     # The validation card's Cluster list (interval plot) and its expanded rows
     "Share of subsamples with Hennig's Jaccard ≤ 0.5, with its 95% Wilson interval. R = re-selected, A = at "
     "resolution.":

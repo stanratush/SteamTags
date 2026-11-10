@@ -918,6 +918,7 @@ def ps_render(mode, active, cstore, dataset, metric, pair, running, progress, bu
     inspected = tuple(pair) if pair else view.star
     inspected_validation = (PV.validation_of(c, settings, dataset, inspected, view.result(inspected)) if inspected
                             else None)
+    card_pair, card_validation = (inspected, inspected_validation) if inspected else (shown_pair, shown)
     computed = next((v.computed_with for v in views if v.computed_with), None)
     line, banner = PV.provenance(computed, tx=tx)
     key_hash = SEL.key_hash(settings.settings_key())[:12]
@@ -941,7 +942,7 @@ def ps_render(mode, active, cstore, dataset, metric, pair, running, progress, bu
         PV.strip(views, dataset, {d: t for d, t in custom.items() if t}, tx=tx), loading,
         PV.heatmap(view, metric or "neighbour_agreement", inspected, tx=tx),
         PV.why(view, inspected, settings_label.text, labels[dataset].text, settings.min_multi_tag_clusters, tx=tx),
-        PV.validation_card(view, shown, names, tx=tx),
+        PV.validation_card(view, card_validation, names, tx=tx, pair=card_pair),
         PV.inspector(view, inspected, names, tx=tx),
         result is None or result.selected is None, apply_text, apply_class,
         {"display": "inline-block"} if can_validate and inspected_validation is None else {"display": "none"},

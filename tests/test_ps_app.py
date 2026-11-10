@@ -385,6 +385,17 @@ def test_the_validation_card_renders_the_block_and_dissolved_only_in_most_subsam
     assert sum(" diss" in x for x in _classes(listing) if x.startswith("ps-wdot")) == dissolved
 
 
+def test_the_validation_card_follows_the_inspected_pair(ps_build):
+    view = _views(ps_build)["overall"]
+    chosen = view.default_choice.chosen
+    other = next(p for p in view.pairs if p != chosen and view.result(p).selected is not None)
+    card = _text(PV.validation_card(view, None, {}, tx=EN, pair=other))
+    assert card.startswith(f"Validation of g = {other[0]}, s = {other[1]}")
+    assert f"the pair chosen under the default constraints is g = {chosen[0]}, s = {chosen[1]}" in card
+    assert "Not validated. Validate this pair in the Pair Inspector" in card
+    assert _text(PV.validation_card(view, None, {}, tx=EN)).startswith(f"Validation of g = {chosen[0]}")
+
+
 def test_a_ps_validation_1_file_is_not_read_and_the_pair_shows_as_not_validated(ps_build, monkeypatch):
     """The records version is in the key: an old file simply misses (no migration, no partial read)."""
     ctx = load_build(ps_build)
@@ -888,7 +899,8 @@ def test_the_inspectors_strips_and_the_card_link(ps_build):
     assert len(link) == 1 and _text(link[0]) == "Open the validation card ↓"
     other = next(p for p in view.pairs if p != view.star and view.result(p).selected is not None)
     elsewhere = PV.inspector_validation(view, other, {"summary": _inspector_summary()}, tx=EN)
-    assert not [c for c in _walk(elsewhere) if getattr(c, "className", None) == "small ps-goto"]
+    # the card follows the inspected pair, so every validated pair links to it
+    assert [c for c in _walk(elsewhere) if getattr(c, "className", None) == "small ps-goto"]
     bg = _text(PV.inspector_validation(view, view.star, {"summary": _inspector_summary()}, tx=text("bg")))
     assert "Q е над всички 100 разбъркани мрежи" in bg and "Отвори картата за валидиране" in bg
 
