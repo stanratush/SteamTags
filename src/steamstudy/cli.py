@@ -73,6 +73,9 @@ def _parser() -> argparse.ArgumentParser:
     n.add_argument("--target", action="append", default=[], choices=("windows", "macos", "linux"),
                    help="an operating system to make it for (repeatable; default: this computer's)")
     n.add_argument("--out", type=Path, help="folder for the zip (default: <root>/bundles)")
+    n.add_argument("--validate-all-pairs", action="append", default=[], metavar="BUILD",
+                   help="validate every Parameter Selection pair of this Build (named as in --build), not only each "
+                        "dataset's default-constraint pair; hours of work, reused from the Build's app cache")
     n.add_argument("--skip-parameter-selection", action="store_true",
                    help="ship no Parameter Selection results (quick test bundles only; never for a release)")
     return p
@@ -308,7 +311,7 @@ def _bundle(args: argparse.Namespace) -> int:
     try:
         path = make_bundle(args.root, builds=args.build, targets=args.target, out=args.out,
                            skip_parameter_selection=args.skip_parameter_selection, allow_test=args.allow_test,
-                           with_sources=args.with_sources)
+                           with_sources=args.with_sources, validate_all=args.validate_all_pairs)
     except BundleError as exc:
         log.error("bundle not written: %s", exc)
         return 2

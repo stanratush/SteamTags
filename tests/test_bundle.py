@@ -196,6 +196,58 @@ def test_a_bundle_ships_the_default_parameter_selection(ps_root, tmp_path, monke
     assert not (folder / "app_cache" / "parameter_selection").exists()  # the maker's cache is never written
 
 
+def test_validate_all_pairs_ships_every_pairs_validation_and_reuses_them_next_time(ps_root, tmp_path, monkeypatch,
+                                                                                  caplog):
+    import json
+    import logging
+    import shutil
+
+    from steamstudy.app import ps_cache
+    from steamstudy.app.loader import load_build
+    from steamstudy.network import selection as SEL
+
+    root = tmp_path / "root"  # a copy: this test writes the maker's cache, which other tests expect empty
+    shutil.copytree(ps_root, root)
+    folder = _build_folder(root)
+    ref = f"{folder.parent.name}/{folder.name}"
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    bundle = _ps_bundle(root, tmp_path / "a", monkeypatch, validate_all=["latest"])
+    staged = bundle / "builds" / folder.parent.name / folder.name
+    shipped = json.loads((bundle / "bundle.json").read_text(encoding="utf-8"))["parameter_selection"][ref]
+    ctx = load_build(staged)
+    settings = SEL.load_selection_settings(ctx.network, (t.id for t in ctx.genre_tags), ctx.build_id)
+    expected = []
+    for d in ctx.datasets:
+        grid = ps_cache.load_grid(staged / "app_cache", settings.grid_key(d.key, ctx.context(d.key)), d.key)[0]
+        expected += [SEL.key_hash(settings.validation_key(d.key, ctx.context(d.key), *p)) for p in settings.pairs()
+                     if grid.at(*p).selected is not None]
+    assert shipped["every_pair_validated"] and sorted(shipped["validations"]) == sorted(expected)
+    defaults = len([o for o in ctx.datasets if _has_default_pair(staged, settings, ctx, o.key)])
+    assert expected and len(expected) > defaults  # more than the default-constraint pairs
+    saved = len(list((folder / "app_cache" / "parameter_selection" / "validation").iterdir()))
+    assert saved == len(expected) - defaults  # every pair but the default ones, which each bundle recomputes
+    caplog.clear()
+    with caplog.at_level(logging.INFO, logger="steamstudy.bundle"):
+        _ps_bundle(root, tmp_path / "b", monkeypatch, validate_all=["latest"])
+    reused = sum(int(r.getMessage().split(", ")[-1].split()[0]) for r in caplog.records
+                 if "reused from the app cache" in r.getMessage())
+    assert reused == len(expected) - defaults  # the default pairs are recomputed as always; the rest are reused
+
+
+def _has_default_pair(staged, settings, ctx, dataset):
+    """Whether `dataset` has a pair chosen under the default constraints (validated by every bundle)."""
+    from steamstudy.app import ps_cache, ps_run
+
+    grid, _, na = ps_cache.load_grid(staged / "app_cache", settings.grid_key(dataset, ctx.context(dataset)), dataset)
+    return ps_run._choose_default(ctx, grid, na) is not None
+
+
+def test_validate_all_pairs_names_a_bundled_build(ps_root, tmp_path, monkeypatch):
+    with pytest.raises(BundleError, match="needs Parameter Selection"):
+        _ps_bundle(ps_root, tmp_path, monkeypatch, validate_all=["latest"], skip_parameter_selection=True)
+
+
 def test_a_stale_maker_cache_is_reported_and_not_shipped(ps_root, tmp_path, monkeypatch, caplog):
     import json
     import logging

@@ -111,6 +111,46 @@ def ship_parameter_selection(source: Path, staged: Path, map_fn: Callable[..., I
     return {"settings_key_hash": SEL.key_hash(settings.settings_key()), "grids": grids, "validations": validations}
 
 
+def validate_all_pairs(source: Path, staged: Path, map_fn: Callable[..., Iterable[Any]]) -> list[str]:
+    """`--validate-all-pairs`: validate every pair with a Selected Partition in each complete grid of the staged Build
+    (not only the default-constraint pair) and return the validation key hashes. Hours of work, so a validation the
+    maker's own app cache already holds under the same key (grid, seeds and method versions) is reused, and each new
+    one is saved there too: the next bundle of this Build, and the maker's app, find it."""
+    from steamstudy.app import ps_cache, ps_run
+    from steamstudy.app.loader import load_build
+    from steamstudy.network import selection as SEL
+
+    ctx = load_build(staged)
+    settings = SEL.load_selection_settings(ctx.network, (t.id for t in ctx.genre_tags), ctx.build_id)
+    staged_cache, source_cache = staged / "app_cache", source / "app_cache"
+    hashes: list[str] = []
+    for d in (x.key for x in ctx.datasets):
+        context = ctx.context(d)
+        loaded = ps_cache.load_grid(staged_cache, settings.grid_key(d, context), d)
+        if loaded is None:
+            log.warning("Build %s, %s: the grid is not complete, so no pair is validated", staged.name, d)
+            continue
+        pairs = [p for p in settings.pairs() if loaded[0].at(*p).selected is not None]
+        reused = 0
+        for n, (g, s) in enumerate(pairs, start=1):
+            vkey = settings.validation_key(d, context, g, s)
+            here, there = ps_cache.validation_path(staged_cache, vkey), ps_cache.validation_path(source_cache, vkey)
+            if not here.is_file():
+                if there.is_file():
+                    here.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(there, here)
+                    reused += 1
+                else:
+                    if ps_run.validate_pair(ctx, settings, d, g, s, map_fn=map_fn, cache_root=staged_cache) != "done":
+                        raise BundleError(f"{staged.name}, {d}: the validation of g = {g}, s = {s} did not finish")
+                    there.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(here, there)
+            hashes.append(SEL.key_hash(vkey))
+            log.info("Build %s, %s: validated pair %d of %d (g = %d, s = %d)", staged.name, d, n, len(pairs), g, s)
+        log.info("Build %s, %s: %d pairs validated, %d reused from the app cache", staged.name, d, len(pairs), reused)
+    return hashes
+
+
 def resolve_bundle_build(root: Path, spec: str) -> BuildInfo:
     """A `--build`: `latest`, a `build_id`, `<source_id>/<build_id>`, a name or `<source_id>/<name>` (names are
     case-insensitive). An ambiguous name is refused, listing the matches."""
@@ -215,13 +255,15 @@ def make_bundle(root: Path, *, builds: Sequence[str] = (), targets: Sequence[str
                 fetch: Callable[[Wheel, Path], Path] = fetch_wheel,
                 build_wheel: Callable[[Path, Path], Path] = build_steamstudy_wheel,
                 now: dt.datetime | None = None, skip_parameter_selection: bool = False, allow_test: bool = False,
-                with_sources: bool = False, map_fn: Callable[..., Iterable[Any]] | None = None) -> Path:
+                with_sources: bool = False, map_fn: Callable[..., Iterable[Any]] | None = None,
+                validate_all: Sequence[str] = ()) -> Path:
     """Write `<out>/tag-network-<build_id>-<targets>.zip` and return its path. `builds` names at least one Build (see
     `resolve_bundle_build`); the first is the Bundle's `latest` and opens by default. A Build of a test Snapshot needs
     `allow_test`. `skip_parameter_selection` makes a bundle without Parameter Selection results (test bundles only,
     never a release); `map_fn` replaces the worker pool (tests). `with_sources` also ships each Build's source (a
     Snapshot's lightweight form, or an Import), `config/` and the Build's libraries, so the bundled app can make new
-    Builds (ADR 0007)."""
+    Builds (ADR 0007). `validate_all` names Builds (as `builds` does, each also in `builds`) whose every pair is
+    validated, not only each dataset's default-constraint pair (`validate_all_pairs`)."""
     root = Path(root)
     targets = list(dict.fromkeys(targets or [current_target()]))
     for name in targets:
@@ -230,6 +272,11 @@ def make_bundle(root: Path, *, builds: Sequence[str] = (), targets: Sequence[str
     if not builds:
         raise BundleError("name at least one Build with --build (an id, a name, <source_id>/…, or latest)")
     infos = list({i.ref: i for i in (resolve_bundle_build(root, b) for b in builds)}.values())  # first mention wins
+    every_pair = {resolve_bundle_build(root, b).ref for b in validate_all}
+    if every_pair - {i.ref for i in infos}:
+        raise BundleError(f"--validate-all-pairs names a Build not in --build: {', '.join(sorted(every_pair))}")
+    if every_pair and skip_parameter_selection:
+        raise BundleError("--validate-all-pairs needs Parameter Selection: drop --skip-parameter-selection")
     tests = [i for i in infos if i.mode == "test"]
     if tests and not allow_test:
         listed = ", ".join(f"{i.name} ({i.ref})" for i in tests)
@@ -275,7 +322,11 @@ def make_bundle(root: Path, *, builds: Sequence[str] = (), targets: Sequence[str
             elif map_fn is not None:
                 shipped[build_ref] = ship_parameter_selection(folder, dest, map_fn)
             else:
-                shipped[build_ref] = _ship_with_pool(folder, dest)
+                shipped[build_ref] = _ship_with_pool(folder, dest, every_pair=build_ref in every_pair)
+            if map_fn is not None and build_ref in every_pair:
+                shipped[build_ref]["validations"] = validate_all_pairs(folder, dest, map_fn)
+            if build_ref in every_pair:
+                shipped[build_ref]["every_pair_validated"] = True
         (stage / "builds" / "latest").write_text(f"{ref_of(first)}\n", encoding="utf-8")
         for source_path, shipped_as in sources:
             dest = stage / shipped_as
@@ -327,8 +378,9 @@ def make_bundle(root: Path, *, builds: Sequence[str] = (), targets: Sequence[str
     return target_zip
 
 
-def _ship_with_pool(source: Path, staged: Path) -> dict[str, Any]:
-    """`ship_parameter_selection` through a pool of `[parameter_selection] workers` (0 = cpu - 1)."""
+def _ship_with_pool(source: Path, staged: Path, *, every_pair: bool = False) -> dict[str, Any]:
+    """`ship_parameter_selection` (then `validate_all_pairs` when `every_pair`) through a pool of
+    `[parameter_selection] workers` (0 = cpu - 1)."""
     import multiprocess as mp
 
     from steamstudy.app import ps_run
@@ -336,4 +388,7 @@ def _ship_with_pool(source: Path, staged: Path) -> dict[str, Any]:
 
     workers = ps_run.worker_count(load_build(staged).network.parameter_selection.workers)
     with mp.Pool(workers) as pool:
-        return ship_parameter_selection(source, staged, pool.imap_unordered)
+        shipped = ship_parameter_selection(source, staged, pool.imap_unordered)
+        if every_pair:
+            shipped["validations"] = validate_all_pairs(source, staged, pool.imap_unordered)
+        return shipped
