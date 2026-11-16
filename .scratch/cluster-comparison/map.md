@@ -34,6 +34,7 @@ An **implementation-ready spec** (`.scratch/cluster-comparison/spec.md`) for a f
 
 <!-- one line per resolved ticket: gist + link -->
 - [Which measures can score the similarity of two Clusters from different datasets?](issues/01-similarity-measures.md): run four beside Jaccard: the two containments (with their minimum), Jaccard on the common Tags, the overlap Lift on the common Tags (descriptive, no p-value), and ARI on the common Tags for the pair overview; Dice, cosine, weighted Jaccard, NMI and VI are left out.
+- [How do Tags missing from the other dataset's network enter a match?](issues/02-tags-missing-from-the-other-network.md): Common Tags are the Tags in both networks; a Cluster's unshared Tags are split into in another Cluster, isolated, and not in the network; every similarity is shown on the whole Cluster (headline) and on the Common Tags, the latter "—" below two Common Tags; "no overlap" is split from "not in B's network"; the pair overview shows the Common Tags count and shares.
 
 ## Not yet specified
 
