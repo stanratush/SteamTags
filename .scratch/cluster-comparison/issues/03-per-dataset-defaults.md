@@ -47,3 +47,5 @@ Resolved with the researcher, 2026-11-17.
 
 - **The seed.** Point 1 makes the seed per-dataset (it travels with the cell), which amends the charted "seed is shared". The researcher accepted this provisionally and asked for it to be examined on its own: [Why does the seed change between cells, and should it be the same for every dataset?](10-seed-per-dataset.md) Points 1, 4 and 5 follow that ticket's answer where they mention the seed.
 - **How the user selects a cell** (a grid inside the mode, or a jump to Parameter Selection): [What does the Cluster Comparison mode look like?](06-look-of-the-mode.md)
+
+_Amended by [What happens to a defining Tag in a match when Genre Tags or defining Tags are shown?](14-defining-tag-in-a-match.md): the mode has no "defining Tag hidden" control; each dataset's own defining Tag is always hidden._

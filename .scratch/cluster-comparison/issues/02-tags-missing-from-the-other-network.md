@@ -45,3 +45,5 @@ Running example: Cluster A of dataset 1 = {Puzzle, Logic, Casual, Hidden Object,
    - Lift and Common-Tag Jaccard use the full set of Common Tags (for Lift, N counts every Common Tag, isolated ones included);
    - the pair-overview ARI keeps the existing `selection.link` set: Common Tags with an edge in at least one of the two networks, because Tags isolated in both agree trivially and would inflate ARI.
 8. **The pair overview shows the Common Tags of each pair of datasets**: their number, and that number as a share of each network's Tags, in both directions ("38 common Tags: 76% of Overall's, 54% of Puzzle's"). This is the coverage figure kept beside ARI. Whether a lopsided pair also needs a warning stays open on the map.
+
+_Amended by [What happens to a defining Tag in a match when Genre Tags or defining Tags are shown?](14-defining-tag-in-a-match.md): a Tag hidden in only one dataset of a pair is set aside for that pair and listed as "hidden in <dataset> (its defining Tag)"._

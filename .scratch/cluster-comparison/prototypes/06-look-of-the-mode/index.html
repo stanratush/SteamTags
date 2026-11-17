@@ -1,0 +1,355 @@
+<!doctype html>
+<!-- PROTOTYPE (throwaway) for ticket 06 "What does the Cluster Comparison mode look like?".
+     Three structurally different variants of the fourth app mode, switchable via ?variant=A|B|C and the bottom bar
+     (← → keys). Real data: the full Build's stored Selected Partitions (export.py → data.js). Sub-shape B (a static
+     page dressed in the app's header and tokens) rather than a Dash route: the question is the layout, and mounting a
+     fourth mode in the Dash app would mean real callbacks. Open by double-clicking; nothing is saved. -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cluster Comparison prototype</title>
+<style>
+:root{--bg:#f5f6f8;--panel:#fff;--line:#e3e6eb;--line2:#eef0f3;--ink:#1b2130;--ink2:#3d4555;--mute:#6b7280;--faint:#9aa1ad;
+ --acc:#2457d6;--acc-bg:#eef3ff;--warn:#9a5b00;--warn-bg:#fff6e5;--bad:#a33;--bad-bg:#fdeeee;
+ --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+*{box-sizing:border-box}html,body{margin:0}
+body{font:13px/1.45 var(--sans);color:var(--ink);background:var(--bg);font-variant-numeric:tabular-nums;padding-bottom:70px}
+button,input,select{font:inherit;color:inherit}
+.top{display:flex;align-items:center;gap:14px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line)}
+.top b{font-size:14px}.top .mute{font-size:12px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg span{padding:4px 10px;border-right:1px solid var(--line);color:var(--ink2)}.seg span:last-child{border:0}
+.seg span.on{background:var(--ink);color:#fff}
+.mute{color:var(--mute)}.small{font-size:12px}.faint{color:var(--faint)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+h3{margin:0 0 8px;font-size:13px}h4{margin:10px 0 6px;font-size:12px;color:var(--ink2)}
+table{border-collapse:collapse;width:100%}th,td{padding:4px 6px;border-bottom:1px solid var(--line2);text-align:left;vertical-align:top}
+th{font-weight:600;color:var(--ink2);font-size:12px;background:#fafbfc}
+td.n,th.n{text-align:right}
+tr.click{cursor:pointer}tr.click:hover td{background:#f4f7ff}tr.sel td{background:var(--acc-bg)}
+.sw{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.dsdot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.cl{white-space:nowrap;font-weight:600}.cl .ds{font-weight:400;color:var(--ink2)}
+.flag{display:inline-block;padding:0 6px;border-radius:9px;font-size:11px;white-space:nowrap}
+.flag.absent{background:#eceef2;color:var(--ink2)}.flag.nooverlap{background:var(--bad-bg);color:var(--bad)}
+.flag.belowmin{background:var(--warn-bg);color:var(--warn)}
+.chip{display:inline-block;padding:0 6px;margin:1px 2px;border-radius:4px;background:#f0f2f5;font-size:12px}
+.chip.sh{background:#e4edff;color:#1c3f99}
+.chip .w{color:var(--mute);font-size:11px}
+.bar{display:inline-block;height:8px;background:var(--acc);border-radius:2px;vertical-align:middle;margin-right:5px}
+.minbox{display:inline-flex;align-items:center;gap:6px;font-size:12px}
+.minbox input[type=range]{width:120px}
+.btn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:2px 8px;cursor:pointer}
+.btn:hover{background:#f4f7ff}
+input.sm{width:44px;padding:1px 4px;border:1px solid var(--line);border-radius:4px}
+.figs{display:flex;gap:16px;flex-wrap:wrap;margin:6px 0}
+.fig b{display:block;font-size:18px}.fig span{font-size:11px;color:var(--mute)}
+.cols3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.note{font-size:12px;color:var(--ink2);background:#fafbfc;border:1px dashed var(--line);border-radius:6px;padding:6px 8px;margin:6px 0}
+/* variant A */
+.A-strip{display:flex;gap:8px;padding:10px 12px;overflow-x:auto}
+.A-card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px 10px;min-width:190px}
+.A-card.off{opacity:.5}.A-card .src{font-size:11px;color:var(--mute)}
+.A-body{display:grid;grid-template-columns:420px 1fr 420px;gap:10px;padding:0 12px}
+.matrix td{text-align:center;border:1px solid var(--line2);padding:6px 4px;font-size:12px}
+.matrix td.pair{cursor:pointer}.matrix td.pair:hover{background:#f4f7ff}.matrix td.on{outline:2px solid var(--acc)}
+.matrix td.lo{background:#fafbfc;color:var(--mute)}
+.matrix th{text-align:center}
+/* variant B */
+.B-body{display:grid;grid-template-columns:290px 1fr;gap:10px;padding:10px 12px}
+.diagram{position:relative}
+.box{border:1px solid var(--line);border-left:4px solid var(--ink2);border-radius:6px;padding:4px 8px;margin-bottom:8px;background:#fff;cursor:pointer;font-size:12px}
+.box.dim{opacity:.35}.box.hl{box-shadow:0 0 0 2px var(--acc)}
+.box .tags{color:var(--mute);font-size:11px;line-height:1.3;max-height:2.6em;overflow:hidden}
+/* variant C */
+.C-body{display:grid;grid-template-columns:260px 1fr;gap:10px;padding:10px 12px}
+.mini{border-collapse:collapse;margin:4px 0}.mini td{width:10px;height:10px;padding:0;border:1px solid #fff;cursor:pointer}
+.mini td.x{background:#eee;cursor:default}.mini td.cur{outline:2px solid var(--ink)}
+.mini td.star{box-shadow:inset 0 0 0 2px #f2c400}
+.heat td.h{text-align:center;cursor:pointer;min-width:58px;border:1px solid #fff}
+.heat td.h.below{color:var(--faint)}.heat td.h.on{outline:2px solid var(--ink)}
+.heat th.rot{writing-mode:vertical-rl;transform:rotate(180deg);height:90px;text-align:left}
+/* switcher */
+#sw{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:#111;color:#fff;border-radius:999px;
+ padding:6px 8px;display:flex;align-items:center;gap:8px;box-shadow:0 6px 20px rgba(0,0,0,.3);z-index:99;font-size:13px}
+#sw button{background:#333;color:#fff;border:0;border-radius:999px;width:28px;height:28px;cursor:pointer}
+#sw span{min-width:240px;text-align:center}
+</style></head><body>
+<div class="top"><b>Tag Network</b><span class="mute">Build 20261008T221504Z-7a23ae9f ▾</span>
+ <span class="seg"><span>Workbench</span><span>Analysis Report mode</span><span>Parameter Selection</span><span class="on">Cluster Comparison</span></span>
+ <span class="mute small" id="shared">Shared: Leiden · Lift · Months ≥ 0 · Genre Tags hidden · defining Tag hidden · removed: none ▾</span></div>
+<div id="app"></div>
+<div id="sw"><button data-sw="-1">←</button><span id="swl"></span><button data-sw="1">→</button></div>
+<script src="data.js"></script><script src="logic.js"></script>
+<script>
+"use strict";
+const VARIANTS = { A: "Matrix · match table · Inspector", B: "Pair list · link diagram", C: "Pairs table · heatmap · grid picker" };
+let V = new URLSearchParams(location.search).get("variant") || "A";
+let showAllGames = false, groupBy = "A", showWeak = false;
+
+// --- shared pieces (content decided by tickets 04/05; placement is what varies) ---
+function clName(st, c, style) {
+  const d = st.d;
+  if (style === "wb") return `<span class="cl"><span class="sw" style="background:${clusterColor(c.label, c.size)}"></span><span class="ds">${esc(d.label)}</span> ${c.label}</span>`;
+  if (style === "short") return `<span class="cl"><span class="dsdot" style="background:${DS_HUE[d.key]}"></span>${d.label.slice(0, 3).toUpperCase()}·${c.label}</span>`;
+  return `<span class="cl"><span class="dsdot" style="background:${DS_HUE[d.key]}"></span><span class="ds">${esc(d.label)}</span> ${c.label}</span>`;
+}
+function dsName(st) { return `<span class="dsdot" style="background:${DS_HUE[st.key]}"></span>${esc(st.d.label)}`; }
+function minControl() {
+  return `<span class="minbox">Minimum similarity (Jaccard) <input type="range" min="0" max="0.6" step="0.01" value="${S.min}" data-act="min">
+    <b>${S.min.toFixed(2)}</b></span>`;
+}
+function tagWhere(t, other, style) {
+  const w = whereInB(t, other);
+  const where = w.kind === "other" ? `in ${other.d.label} ${w.label}` : w.kind === "isolated" ? `isolated in ${other.d.label}` : `not in ${other.d.label}'s network`;
+  return `<span class="chip">${esc(NAME(t))} <span class="w">${where}</span></span>`;
+}
+function detail(A, B, r, style) {
+  if (!r) return `<p class="mute">Pick a match to see it in detail.</p>`;
+  const gb = gamesInBoth(A, B, r.ca, r.cb);
+  const shown = showAllGames ? gb.rows : gb.rows.slice(0, 10);
+  const sharedSet = new Set(r.shared);
+  let games;
+  if (!gb.N) games = `<p class="note">These two datasets have no games in common, so no game can be in both Clusters.</p>`;
+  else if (!gb.rows.length) games = `<p class="note">None of the <b>${gb.N}</b> games in both datasets is in both Clusters.</p>`;
+  else games = `<table><tr><th class="n">Rank in ${esc(A.d.label)}</th><th class="n">Rank in ${esc(B.d.label)}</th><th>Name</th>
+      <th class="n">Matched in ${esc(A.d.label)}</th><th class="n">Matched in ${esc(B.d.label)}</th><th>Tags</th></tr>
+      ${shown.map(x => `<tr><td class="n">${x.g.r}</td><td class="n">${x.gb.r}</td><td>${esc(x.g.n)}</td>
+        <td class="n">${x.ma.length} / ${r.a}</td><td class="n">${x.mb.length} / ${r.b}</td>
+        <td>${x.tags.map(t => `<span class="chip ${sharedSet.has(t) ? "sh" : ""}">${esc(NAME(t))}</span>`).join("")}</td></tr>`).join("")}</table>
+      ${gb.rows.length > 10 ? `<button class="btn" data-act="allgames">${showAllGames ? "Show first 10" : "Show all " + gb.rows.length}</button>` : ""}`;
+  return `<h3>${clName(A, r.ca, style)} &nbsp;⟷&nbsp; ${clName(B, r.cb, style)}</h3>
+   <div class="figs">
+    <div class="fig"><b>${f2(r.j)}</b><span>Jaccard (whole Cluster)</span></div>
+    <div class="fig"><b>${pct(r.pa)}</b><span>of ${esc(A.d.label)} ${r.ca.label}'s ${r.a} Tags shared</span></div>
+    <div class="fig"><b>${pct(r.pb)}</b><span>of ${esc(B.d.label)} ${r.cb.label}'s ${r.b} Tags shared</span></div>
+    <div class="fig"><b>${f2(r.jc)}</b><span>Jaccard on Common Tags (${r.a2} · ${r.b2})</span></div>
+   </div>
+   <div class="small mute">${r.n} shared Tag${r.n > 1 ? "s" : ""}: ${(r.lift).toFixed(1)}× the ${r.exp.toFixed(1)} the Cluster sizes alone give (Lift, ${r.N} Common Tags).</div>
+   <div class="cols3" style="margin-top:8px">
+    <div><h4>Shared (${r.n})</h4>${r.shared.map(t => `<span class="chip sh">${esc(NAME(t))}</span>`).join("")}</div>
+    <div><h4>Only in ${esc(A.d.label)} ${r.ca.label} (${r.onlyA.length})</h4>${r.onlyA.map(t => tagWhere(t, B)).join("")}</div>
+    <div><h4>Only in ${esc(B.d.label)} ${r.cb.label} (${r.onlyB.length})</h4>${r.onlyB.map(t => tagWhere(t, A)).join("")}</div>
+   </div>
+   <h4>Games in both Clusters</h4>
+   ${gb.N ? `<div class="small">Of <b>${gb.N}</b> games in both datasets: <b>${gb.rows.length}</b> in both Clusters, <b>${gb.onlyA}</b> only in ${esc(A.d.label)} ${r.ca.label}, <b>${gb.onlyB}</b> only in ${esc(B.d.label)} ${r.cb.label}, <b>${gb.neither}</b> in neither.</div>` : ""}
+   ${games}`;
+}
+function curPair() {
+  const inc = included().map(d => d.key);
+  if (!inc.includes(S.pair[0]) || !inc.includes(S.pair[1]) || S.pair[0] === S.pair[1]) S.pair = inc.slice(0, 2);
+  if (S.pair.length < 2) return null;
+  const A = state(S.pair[0]), B = state(S.pair[1]);
+  const rows = matches(A, B);
+  const sel = S.match && rows.find(r => r.ca.label === S.match[0] && r.cb.label === S.match[1]);
+  return { A, B, rows, sel, ov: overview(A, B) };
+}
+
+// ======================= Variant A: matrix · match table · Inspector =======================
+function variantA() {
+  const P = curPair();
+  const strip = DATA.datasets.map(d => {
+    const on = S.include[d.key], c = d.cells[S.cell[d.key]], h = S.hand[d.key];
+    const st = state(d.key);
+    return `<div class="A-card ${on ? "" : "off"}">
+      <label><input type="checkbox" data-act="inc" data-k="${d.key}" ${on ? "checked" : ""}> <b>${dsName(st)}</b></label>
+      <span class="small mute">${st.nodes.size} Tags · ${st.multi.length} Multi-Tag Clusters</span>
+      <div class="small" style="margin:3px 0">g <input class="sm" data-act="hg" data-k="${d.key}" value="${h ? h.g : c.g}">
+       s <input class="sm" data-act="hs" data-k="${d.key}" value="${h ? h.s : c.s}">
+       γ <input class="sm" data-act="hγ" data-k="${d.key}" value="${h ? h.gamma : f2(c.gamma)}"></div>
+      <div class="src">${sourceText(d.key)} · Seed-Noise Floor ${f2(c.floor)}</div>
+      <a class="small" href="#" data-act="toPS">Select another cell in Parameter Selection ↗</a></div>`;
+  }).join("");
+  const inc = included();
+  const ovs = Object.fromEntries(pairs().map(o => [o.A.key + "|" + o.B.key, o]));
+  const matrix = `<table class="matrix"><tr><th></th>${inc.map(d => `<th>${esc(d.label.slice(0, 4))}</th>`).join("")}</tr>
+    ${inc.map((r, i) => `<tr><th>${esc(r.label)}</th>${inc.map((c, j) => {
+      if (i === j) return `<td class="lo">—</td>`;
+      const o = ovs[r.key + "|" + c.key] || ovs[c.key + "|" + r.key];
+      const on = P && ((S.pair[0] === r.key && S.pair[1] === c.key) || (S.pair[1] === r.key && S.pair[0] === c.key));
+      if (i < j) return `<td class="pair ${on ? "on" : ""}" data-act="pair" data-a="${r.key}" data-b="${c.key}"><b>${f2(o.ari)}</b><br><span class="mute">${o.common} Tags · ${o.gamesCommon} games</span></td>`;
+      return `<td class="pair lo ${on ? "on" : ""}" data-act="pair" data-a="${c.key}" data-b="${r.key}">${o.above} / ${o.rows.length}<br><span>matches</span></td>`;
+    }).join("")}</tr>`).join("")}</table>
+    <p class="small mute">Above the diagonal: ARI on the Common Tags, the Common Tags count and the games in common. Below: matches at or above the minimum / all matches.</p>`;
+  let table = "";
+  if (P) {
+    const { A, B, rows, ov } = P;
+    const [X, Y] = groupBy === "A" ? [A, B] : [B, A];
+    const xr = groupBy === "A" ? rows : rows.map(r => ({ ...r, ca: r.cb, cb: r.ca, pa: r.pb, pb: r.pa, swapped: true, orig: r }));
+    const fl = clusterFlags(X, Y, xr, S.min);
+    table = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <h3 style="margin:0">${dsName(A)} × ${dsName(B)} <button class="btn" data-act="swap">⇄</button></h3>${minControl()}</div>
+      <div class="small mute" style="margin-bottom:6px">Common Tags ${ov.common} (${pct(ov.shareA)} of ${esc(A.d.label)}, ${pct(ov.shareB)} of ${esc(B.d.label)}) · ARI ${f2(ov.ari)} · ${ov.gamesCommon} games in common ·
+        Group by <a href="#" data-act="group">${groupBy === "A" ? esc(A.d.label) : esc(B.d.label)} ▾</a></div>
+      <table><tr><th>${esc(X.d.label)} Cluster</th><th>${esc(Y.d.label)} Cluster</th><th>Jaccard</th><th class="n">% of ${esc(X.d.label.slice(0, 4))}</th><th class="n">% of ${esc(Y.d.label.slice(0, 4))}</th><th class="n">J common</th></tr>
+      ${fl.map(f => {
+        const list = showWeak ? f.mine : f.above;
+        const head = `<td rowspan="${Math.max(1, list.length)}">${clName(X, f.c, "wb")} <span class="mute small">${f.c.size}</span>${f.flag ? `<br><span class="flag ${f.flag}">${FLAG_TEXT[f.flag]}</span>` : ""}</td>`;
+        if (!list.length) return `<tr>${head}<td colspan="5" class="mute small">${f.flag === "belowmin" ? `best ${f2(f.best)}` : ""}</td></tr>`;
+        return list.map((r, i) => {
+          const o = r.orig || r, isSel = S.match && S.match[0] === o.ca.label && S.match[1] === o.cb.label;
+          return `<tr class="click ${isSel ? "sel" : ""}" data-act="match" data-a="${o.ca.label}" data-b="${o.cb.label}">${i === 0 ? head : ""}
+           <td>${clName(Y, r.cb, "wb")}</td><td><span class="bar" style="width:${r.j * 80}px;${r.j < S.min ? "opacity:.3" : ""}"></span>${f2(r.j)}</td>
+           <td class="n">${pct(r.pa)}</td><td class="n">${pct(r.pb)}</td><td class="n">${f2(r.jc)}</td></tr>`;
+        }).join("");
+      }).join("")}</table>
+      <label class="small"><input type="checkbox" data-act="weak" ${showWeak ? "checked" : ""}> Show matches below the minimum</label>`;
+  }
+  return `<div class="A-strip">${strip}</div>
+   <div class="A-body"><div class="panel"><h3>Pairs</h3>${matrix}</div>
+    <div class="panel">${table || "<p class=mute>Include at least two datasets.</p>"}</div>
+    <div class="panel"><h3 class="small mute">Inspector</h3>${P ? detail(P.A, P.B, P.sel, "wb") : ""}</div></div>`;
+}
+
+// ======================= Variant B: pair list · link diagram =======================
+function variantB() {
+  const P = curPair();
+  const dsTable = `<table><tr><th></th><th>Dataset</th><th class="n">g</th><th class="n">s</th><th class="n">γ</th></tr>
+    ${DATA.datasets.map(d => { const c = d.cells[S.cell[d.key]], st = state(d.key);
+      return `<tr><td><input type="checkbox" data-act="inc" data-k="${d.key}" ${S.include[d.key] ? "checked" : ""}></td>
+      <td>${dsName(st)}<div class="small mute">${S.source[d.key] === "pick" ? "★ pick" : S.source[d.key]} · floor ${f2(c.floor)}</div></td>
+      <td class="n">${c.g}</td><td class="n">${c.s}</td><td class="n">${f2(c.gamma)}</td></tr>`; }).join("")}</table>`;
+  const plist = pairs().sort((a, b) => (b.ari ?? -1) - (a.ari ?? -1)).map(o => {
+    const on = P && o.A.key === P.A.key && o.B.key === P.B.key || P && o.A.key === P.B.key && o.B.key === P.A.key;
+    return `<tr class="click ${on ? "sel" : ""}" data-act="pair" data-a="${o.A.key}" data-b="${o.B.key}">
+      <td>${dsName(o.A)} × ${dsName(o.B)}</td><td class="n"><span class="bar" style="width:${Math.max(0, o.ari || 0) * 60}px"></span>${f2(o.ari)}</td>
+      <td class="n small">${o.common}<br><span class="mute">${pct(o.shareA)}·${pct(o.shareB)}</span></td><td class="n small">${o.gamesCommon}</td></tr>`;
+  }).join("");
+  let diag = "";
+  if (P) {
+    const { A, B, rows } = P;
+    const fa = clusterFlags(A, B, rows, S.min), fb = clusterFlags(B, A, rows.map(r => ({ ...r, ca: r.cb, cb: r.ca })), S.min);
+    const focus = S.cluster;
+    const box = (st, f, side) => {
+      const c = f.c, related = !focus || (focus[0] === st.key && focus[1] === c.label) ||
+        rows.some(r => r.j >= S.min && ((side === "A" && focus[0] === B.key && r.cb.label === focus[1] && r.ca === c) || (side === "B" && focus[0] === A.key && r.ca.label === focus[1] && r.cb === c)));
+      return `<div class="box ${related ? "" : "dim"} ${focus && focus[0] === st.key && focus[1] === c.label ? "hl" : ""}" id="box-${side}-${c.label}" style="border-left-color:${DS_HUE[st.key]}" data-act="focus" data-k="${st.key}" data-l="${c.label}">
+        <b>${c.label}</b> <span class="mute">${c.size} Tags</span> ${f.flag ? `<span class="flag ${f.flag}">${FLAG_TEXT[f.flag]}</span>` : ""}
+        <div class="tags">${[...c.members].map(NAME).join(", ")}</div></div>`;
+    };
+    diag = `<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">${dsName(A)} × ${dsName(B)} <button class="btn" data-act="swap">⇄</button></h3>${minControl()}</div>
+     <p class="small mute">Line width = Jaccard. Click a line for the match, a Cluster to show only its links. Below-minimum matches are ${showWeak ? "dashed" : "hidden"} (<a href="#" data-act="weak">${showWeak ? "hide" : "show"}</a>).
+      ${A.one.length || B.one.length ? `One-Tag Clusters are not matched (${A.one.length} in ${esc(A.d.label)}, ${B.one.length} in ${esc(B.d.label)}).` : ""}</p>
+     <div class="diagram" id="diag" style="display:grid;grid-template-columns:1fr 180px 1fr;gap:0">
+      <div><h4>${dsName(A)} · ${A.multi.length} Multi-Tag Clusters</h4>${fa.map(f => box(A, f, "A")).join("")}</div>
+      <div style="position:relative"><svg id="links" style="position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible"></svg></div>
+      <div><h4>${dsName(B)} · ${B.multi.length} Multi-Tag Clusters</h4>${fb.map(f => box(B, f, "B")).join("")}</div>
+     </div>`;
+  }
+  return `<div class="B-body"><div><div class="panel"><h3>Datasets</h3>${dsTable}
+      <p class="small mute">Click a row's g, s or γ to edit; cells are selected in Parameter Selection.</p></div>
+     <div class="panel" style="margin-top:10px"><h3>Pairs</h3><table><tr><th>Pair</th><th class="n">ARI</th><th class="n">Common</th><th class="n">Games</th></tr>${plist}</table></div></div>
+    <div><div class="panel">${diag}</div><div class="panel" style="margin-top:10px">${P ? detail(P.A, P.B, P.sel, "ds") : ""}</div></div></div>`;
+}
+function drawLinks() {
+  const svg = document.getElementById("links"); if (!svg) return;
+  const P = curPair(), host = svg.parentElement.getBoundingClientRect();
+  let out = "";
+  for (const r of P.rows) {
+    if (r.j < S.min && !showWeak) continue;
+    if (S.cluster && !((S.cluster[0] === P.A.key && S.cluster[1] === r.ca.label) || (S.cluster[0] === P.B.key && S.cluster[1] === r.cb.label))) continue;
+    const a = document.getElementById("box-A-" + r.ca.label).getBoundingClientRect(), b = document.getElementById("box-B-" + r.cb.label).getBoundingClientRect();
+    const y1 = a.top + a.height / 2 - host.top, y2 = b.top + b.height / 2 - host.top, x2 = host.width;
+    const sel = S.match && S.match[0] === r.ca.label && S.match[1] === r.cb.label;
+    out += `<path d="M0,${y1} C${x2 / 2},${y1} ${x2 / 2},${y2} ${x2},${y2}" stroke="${sel ? "#1b2130" : "#2457d6"}" stroke-opacity="${sel ? 1 : 0.25 + r.j}"
+      stroke-width="${1 + r.j * 22}" fill="none" ${r.j < S.min ? 'stroke-dasharray="4 3"' : ""} style="cursor:pointer" data-act="match" data-a="${r.ca.label}" data-b="${r.cb.label}">
+      <title>${r.ca.label} × ${r.cb.label}: Jaccard ${f2(r.j)}, ${r.n} shared</title></path>`;
+    out += `<text x="${x2 / 2}" y="${(y1 + y2) / 2 - 3}" font-size="10" text-anchor="middle" fill="#3d4555">${f2(r.j)}</text>`;
+  }
+  svg.innerHTML = out;
+}
+
+// ======================= Variant C: pairs table · heatmap · grid picker =======================
+function miniGrid(d) {
+  const keys = Object.keys(d.cells).map(k => k.split(",").map(Number));
+  const gs = [...new Set(keys.map(k => k[0]))].sort((a, b) => b - a), ss = [...new Set(keys.map(k => k[1]))].sort((a, b) => a - b);
+  const gmax = Math.max(...gs), gmin = Math.min(...gs), smax = Math.max(...ss), smin = Math.min(...ss);
+  let h = `<table class="mini">`;
+  for (let g = gmax; g >= gmin; g--) {
+    h += "<tr>";
+    for (let s = smin; s <= smax; s++) {
+      const c = d.cells[`${g},${s}`];
+      if (!c) { h += `<td class="x" title="g ${g} · s ${s}: no Selected Partition"></td>`; continue; }
+      const v = c.na ?? 0.5, col = `hsl(${60 + (1 - v) * 200},60%,${45 + v * 20}%)`;
+      h += `<td style="background:${col}" class="${S.cell[d.key] === `${g},${s}` ? "cur" : ""} ${d.star === `${g},${s}` ? "star" : ""}" title="g ${g} · s ${s} · NA ${f2(c.na)} · γ ${f2(c.gamma)}" data-act="cell" data-k="${d.key}" data-c="${g},${s}"></td>`;
+    }
+    h += "</tr>";
+  }
+  return h + `</table><div class="small faint">g ${gmin}–${gmax} ↑ · s ${smin}–${smax} → · yellow ring = ★ pick</div>`;
+}
+function variantC() {
+  const P = curPair();
+  const side = DATA.datasets.map(d => `<div class="panel" style="margin-bottom:8px;${S.include[d.key] ? "" : "opacity:.5"}">
+    <label><input type="checkbox" data-act="inc" data-k="${d.key}" ${S.include[d.key] ? "checked" : ""}> <b>${dsName(state(d.key))}</b></label>
+    <div class="small">${sourceText(d.key)}</div>${S.include[d.key] ? miniGrid(d) : ""}</div>`).join("");
+  const ptab = `<table><tr><th>Pair</th><th class="n">Common Tags</th><th class="n">% of first</th><th class="n">% of second</th><th class="n">ARI (Common Tags)</th><th class="n">Games in common</th><th class="n">Matches ≥ min</th></tr>
+   ${pairs().map(o => { const on = P && ((o.A.key === P.A.key && o.B.key === P.B.key) || (o.A.key === P.B.key && o.B.key === P.A.key));
+     return `<tr class="click ${on ? "sel" : ""}" data-act="pair" data-a="${o.A.key}" data-b="${o.B.key}"><td>${dsName(o.A)} × ${dsName(o.B)}</td><td class="n">${o.common}</td><td class="n">${pct(o.shareA)}</td><td class="n">${pct(o.shareB)}</td>
+      <td class="n">${f2(o.ari)}</td><td class="n">${o.gamesCommon}</td><td class="n">${o.above} of ${o.rows.length}</td></tr>`; }).join("")}</table>`;
+  let heat = "";
+  if (P) {
+    const { A, B, rows } = P;
+    const fa = clusterFlags(A, B, rows, S.min), fb = clusterFlags(B, A, rows.map(r => ({ ...r, ca: r.cb, cb: r.ca })), S.min);
+    const cell = (ca, cb) => {
+      const r = rows.find(x => x.ca === ca && x.cb === cb);
+      if (!r) return `<td class="h" style="background:#fafbfc"></td>`;
+      const below = r.j < S.min, on = S.match && S.match[0] === ca.label && S.match[1] === cb.label;
+      const bg = below ? "#f3f4f6" : `rgba(36,87,214,${0.12 + r.j * 1.4})`;
+      return `<td class="h ${below ? "below" : ""} ${on ? "on" : ""}" style="background:${bg};color:${!below && r.j > 0.35 ? "#fff" : ""}" data-act="match" data-a="${ca.label}" data-b="${cb.label}"
+        title="${r.n} shared · ${pct(r.pa)} / ${pct(r.pb)}">${f2(r.j)}<br><span style="font-size:10px">${r.n} sh.</span></td>`;
+    };
+    heat = `<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">${dsName(A)} (rows) × ${dsName(B)} (columns) <button class="btn" data-act="swap">⇄</button></h3>${minControl()}</div>
+     <table class="heat" style="width:auto;margin-top:6px"><tr><th></th>${B.multi.map(c => `<th class="rot">${clName(B, c, "short")} <span class="mute">${c.size}</span></th>`).join("")}<th>Flag</th></tr>
+     ${fa.map(f => `<tr><th>${clName(A, f.c, "short")} <span class="mute">${f.c.size}</span></th>${B.multi.map(cb => cell(f.c, cb)).join("")}
+       <td>${f.flag ? `<span class="flag ${f.flag}">${FLAG_TEXT[f.flag]}</span>` : `<span class="small mute">${f.above.length} match${f.above.length === 1 ? "" : "es"}</span>`}</td></tr>`).join("")}
+     <tr><th>Flag</th>${fb.map(f => `<td class="small" style="text-align:center">${f.flag ? `<span class="flag ${f.flag}" title="${FLAG_TEXT[f.flag]}">${f.flag === "belowmin" ? "below min" : FLAG_TEXT[f.flag]}</span>` : ""}</td>`).join("")}<td></td></tr></table>
+     <p class="small mute">Cell = whole-Cluster Jaccard and shared Tags; grey = below the minimum; empty = no shared Tag. ${A.one.length + B.one.length ? `One-Tag Clusters are not matched (${A.one.length} / ${B.one.length}).` : ""}</p>`;
+  }
+  return `<div class="C-body"><div>${side}</div><div><div class="panel"><h3>All pairs</h3>${ptab}</div>
+    <div class="panel" style="margin-top:10px">${heat}</div><div class="panel" style="margin-top:10px">${P ? detail(P.A, P.B, P.sel, "short") : ""}</div></div></div>`;
+}
+
+// --- render + events ---
+function render() {
+  document.getElementById("app").innerHTML = ({ A: variantA, B: variantB, C: variantC }[V] || variantA)();
+  document.getElementById("swl").textContent = `${V} (${VARIANTS[V]})`;
+  if (V === "B") requestAnimationFrame(drawLinks);
+}
+function go(dir) {
+  const ks = Object.keys(VARIANTS); V = ks[(ks.indexOf(V) + dir + ks.length) % ks.length];
+  const u = new URL(location); u.searchParams.set("variant", V); history.replaceState(null, "", u); render();
+}
+document.addEventListener("click", e => {
+  const sw = e.target.closest("[data-sw]"); if (sw) return go(+sw.dataset.sw);
+  const t = e.target.closest("[data-act]"); if (!t) return;
+  const a = t.dataset.act;
+  if (["inc", "min", "hg", "hs", "hγ"].includes(a)) return; // handled on change/input
+  e.preventDefault();
+  if (a === "pair") { S.pair = [t.dataset.a, t.dataset.b]; S.match = null; S.cluster = null; showAllGames = false; }
+  else if (a === "swap") { S.pair = [S.pair[1], S.pair[0]]; if (S.match) S.match = [S.match[1], S.match[0]]; }
+  else if (a === "match") { S.match = [t.dataset.a, t.dataset.b]; showAllGames = false; }
+  else if (a === "allgames") showAllGames = !showAllGames;
+  else if (a === "group") groupBy = groupBy === "A" ? "B" : "A";
+  else if (a === "weak") showWeak = !showWeak;
+  else if (a === "focus") { const f = [t.dataset.k, t.dataset.l]; S.cluster = S.cluster && S.cluster[0] === f[0] && S.cluster[1] === f[1] ? null : f; }
+  else if (a === "cell") setCell(t.dataset.k, t.dataset.c);
+  else if (a === "toPS") { alert("Would open Parameter Selection on this dataset; its cell picker sends the cell back here."); return; }
+  render();
+});
+document.addEventListener("change", e => {
+  const t = e.target, a = t.dataset.act;
+  if (a === "inc") { S.include[t.dataset.k] = t.checked; S.match = null; }
+  else if (a === "weak") showWeak = t.checked;
+  else if (a === "hg" || a === "hs" || a === "hγ") {
+    const k = t.dataset.k, card = t.closest(".A-card");
+    const g = +card.querySelector('[data-act="hg"]').value, s = +card.querySelector('[data-act="hs"]').value;
+    setByHand(k, g, s, a === "hγ" ? t.value : null);
+  } else return;
+  render();
+});
+document.addEventListener("input", e => { if (e.target.dataset.act === "min") { S.min = +e.target.value; render(); document.querySelector('[data-act="min"]').focus(); } });
+document.addEventListener("keydown", e => {
+  if (e.target.closest("input,textarea,[contenteditable]")) return;
+  if (e.key === "ArrowLeft") go(-1); if (e.key === "ArrowRight") go(1);
+});
+window.addEventListener("resize", () => V === "B" && drawLinks());
+render();
+</script></body></html>
