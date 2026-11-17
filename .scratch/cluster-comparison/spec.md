@@ -270,4 +270,15 @@ These choices were implicit in the tickets and are made explicit here.
 
 ## Issues
 
-Not sliced yet. Numbering will continue after the map's decision tickets (01–14).
+Implementation tickets, numbered after the map's decision tickets (01–14):
+
+- [15: Comparison core](issues/15-comparison-core.md) (no blockers)
+- [16: Resolving each dataset's partition](issues/16-resolving-dataset-partitions.md) (no blockers)
+- [17: User Guide, glossary, help keys and the sentences module](issues/17-guide-glossary-help-and-sentences.md) (15)
+- [18: Mode: shared settings, dataset table and pair list](issues/18-mode-skeleton.md) (15, 16, 17)
+- [19: Link diagram, Minimum Match Jaccard and flags](issues/19-link-diagram-and-minimum.md) (18)
+- [20: Match detail and games in both Clusters](issues/20-match-detail-and-games.md) (19)
+- [21: Editing datasets, shared-setting changes and state across switches](issues/21-editing-datasets-and-state.md) (18)
+- [22: Routes to and from Parameter Selection](issues/22-routes-to-and-from-parameter-selection.md) (18)
+- [23: Export CSV](issues/23-export.md) (18)
+- [24: Full-Build acceptance check](issues/24-full-build-acceptance.md) (19–23)
