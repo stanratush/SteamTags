@@ -4,7 +4,7 @@
 
 **Blocked by:** 15
 
-**Status:** ready-for-agent
+**Status:** done
 
 Spec: [Cluster Comparison spec](../spec.md): "Terms", "Readings", "Reading against seed and threshold dependence" (the caution), "Documentation and in-app help", the source lines and flag wording in "The Cluster Comparison mode" and "Matching", and "Moving between modes" (the `selection.use_in_comparison` text). Decision: ticket [11](11-names-and-readings.md).
 
