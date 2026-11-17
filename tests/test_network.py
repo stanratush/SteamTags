@@ -15,7 +15,7 @@ from steamstudy.network.layout import layout_state
 from steamstudy.network.model import KEY_VERSION, Game, Settings, TagContext, canonical_key_json, state_id_of
 from steamstudy.network.sensitivity import removal_sensitivity, run_order
 from steamstudy.network.stability import curveball, noise_seeds, replicate_seeds
-from steamstudy.network.state import compute_state
+from steamstudy.network.state import compute_state, light_partition
 from steamstudy.network.sweep import resolution_sweep, sweep_grid
 from steamstudy.network.tables import state_tables
 
@@ -458,3 +458,17 @@ def test_a_run_that_always_gains_stops_at_the_pass_cap(monkeypatch):
     monkeypatch.setattr(la.Optimiser, "optimise_partition", always_gains)
     (run,) = leiden_scan(graph, [1.0], [5])
     assert PASS_CAP == 1000 and run.capped and len(calls) == 1000 and set(calls) == {1}
+
+
+@pytest.mark.parametrize("algorithm", ["louvain", "leiden"])
+def test_light_partition_equals_compute_state_partition_and_seed_noise_floor(algorithm):
+    """The Cluster Comparison's hand-set and no-run datasets: one clustering plus the noise-seed runs only."""
+    games = _random_games(1)
+    settings = _settings(algorithm=algorithm, min_games_per_tag=3, min_shared_games=2, resolution=2.5)
+    full = compute_state(games, settings)
+    light = light_partition(games, settings)
+    assert light.clusters == full.clusters
+    assert light.network.nodes == full.network.nodes and light.edged == {t for e in full.network.edges for t in (e.u, e.v)}
+    assert light.seed_noise_floor == full.seed_summary()["seed_ari_min"]
+    assert light.state_id == full.state_id
+    assert full.seed_summary()["seed_ari_min"] < 1.0  # the floor is exercised, not trivially 1

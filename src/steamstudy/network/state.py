@@ -162,6 +162,34 @@ def partition_metrics(graph: nx.Graph, clusters: list[Cluster], tags: list[int],
     return M.modularity(graph, clusters, resolution), M.silhouette(tags, clusters, tag_games, distances)
 
 
+@dataclass(frozen=True)
+class LightPartition:
+    """The Cluster Comparison's partition of a hand-set or no-run dataset: the network, one clustering with the
+    settings' seed and the noise-seed runs for its Seed-Noise Floor. No null model, centres, silhouette or node
+    metrics; its partition and floor equal `compute_state`'s at the same settings."""
+
+    settings: Settings
+    network: TagNetwork
+    clusters: list[Cluster]
+    edged: frozenset[int]
+    seed_noise_floor: float | None  # the minimum ARI of the noise-seed runs against the main run
+
+    @property
+    def state_id(self) -> str:
+        return state_id_of(self.settings.key())
+
+
+def light_partition(games: list[Game], settings: Settings, context: TagContext | None = None) -> LightPartition:
+    network = build_network(games, settings, context or TagContext())
+    graph = to_graph(network.nodes, network.edges, settings.clustering_weight)
+    clusters = cluster_graph(graph, settings, settings.seed)
+    main = membership(clusters)
+    aris = [ari(network.nodes, main, membership(cluster_graph(graph, settings, seed)))
+            for seed in noise_seeds(settings.seed, settings.noise_seeds, settings.null_replicates)]
+    return LightPartition(settings, network, clusters, frozenset(t for e in network.edges for t in (e.u, e.v)),
+                          min(aris) if aris else None)
+
+
 def compute_state(games: list[Game], settings: Settings, context: TagContext | None = None) -> NetworkState:
     context = context or TagContext()
     network = build_network(games, settings, context)

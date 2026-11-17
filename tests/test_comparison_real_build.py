@@ -5,15 +5,16 @@ Months Filter, Genre Tags and defining Tags hidden, default Pair Constraints."""
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import pytest
 
+from steamstudy.app import cc_view as CC
 from steamstudy.app import ps_cache, ps_view
 from steamstudy.app.loader import load_build
 from steamstudy.network import comparison as CMP
 from steamstudy.network import selection as SEL
-from steamstudy.network.graph import filter_games
 
 REAL_BUILD = Path(__file__).resolve().parents[1] / "builds" / "20261005T062558Z-full" / "20261008T221504Z-7a23ae9f"
 
@@ -30,24 +31,47 @@ pytestmark = pytest.mark.skipif(not REAL_BUILD.is_dir(), reason="the full Build 
 
 
 @pytest.fixture(scope="module")
-def pairs():
+def resolved():
+    """Every dataset on its pick, resolved cold (graph files not yet read in this process), with the seconds."""
     mp = pytest.MonkeyPatch()
     mp.setattr(ps_cache, "NAME_LENGTH", 64)  # this Build's cache predates the 16-digit folder names
+    mp.setattr(ps_view, "_LOADED", {})
     try:
         ctx = load_build(REAL_BUILD)
-        settings, constraints = ps_view.defaults_of(ctx)
-        partitions = []
-        for ds in ctx.datasets:
-            view = ps_view.dataset_view(ctx, settings, ds.key, constraints, constraints)
-            assert view.star is not None, ds.key
-            r = view.result(view.star)
-            partitions.append(CMP.Partition(
-                dataset=ds.key, clusters=tuple(SEL.clusters_of(r.nodes, r.selected)), edged=frozenset(r.edged),
-                hidden=frozenset(settings.hidden_tag_ids(ctx.context(ds.key))),
-                games=tuple(filter_games(ctx.games(ds.key), settings.min_months)), min_games_per_tag=view.star[0]))
+        constraints = SEL.default_constraints(ctx.network)
+        shared = CC.shared_defaults(ctx)
+        started = time.perf_counter()
+        out = [CC.resolve(ctx, shared, CC.Request(ds.key, "pick"), constraints) for ds in ctx.datasets]
+        return ctx, out, time.perf_counter() - started
     finally:
         mp.undo()
-    return CMP.compare_all(partitions)
+
+
+@pytest.fixture(scope="module")
+def pairs(resolved):
+    _, datasets, _ = resolved
+    return CMP.compare_all([r.partition for r in datasets])
+
+
+def test_every_dataset_resolves_on_its_pick_within_the_cold_budget(resolved):
+    _, rs, seconds = resolved
+    assert {r.values.dataset: (r.values.source, r.values.g, r.values.s) for r in rs} == {
+        "overall": ("pick", 17, 2), "puzzle": ("pick", 14, 2), "rpg": ("pick", 7, 5), "strategy": ("pick", 14, 2),
+        "simulation": ("pick", 14, 5)}
+    assert {r.values.dataset: round(r.seed_noise_floor, 2) for r in rs} == {
+        "overall": 1.0, "puzzle": 0.52, "rpg": 0.8, "strategy": 1.0, "simulation": 1.0}
+    assert seconds < 5.0  # the spec's budget: about 0.4 s per dataset on a cell, under about 5 s cold for five
+
+
+def test_a_hand_set_dataset_resolves_within_half_a_second_once_leiden_has_run(resolved):
+    ctx, _, _ = resolved
+    shared = CC.shared_defaults(ctx)
+    request = CC.Request("rpg", "hand", 7, 5, 2.0)
+    CC.resolve(ctx, shared, request, SEL.default_constraints(ctx.network))  # the process's first Leiden run: ~1 s once
+    started = time.perf_counter()
+    r = CC.resolve(ctx, shared, request, SEL.default_constraints(ctx.network))
+    assert r.values.source == "hand"
+    assert time.perf_counter() - started < 0.5
 
 
 def test_ten_pairs_and_103_cluster_matches_with_the_reported_ari(pairs):
