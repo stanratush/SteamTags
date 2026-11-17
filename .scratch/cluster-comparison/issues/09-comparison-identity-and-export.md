@@ -1,7 +1,7 @@
 # What fixes one comparison, and what does its export hold?
 Type: grilling
 Status:
-Blocked by: 03, 04
+Blocked by: 03, 04, 10
 
 ## Question
 
