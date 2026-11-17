@@ -493,6 +493,14 @@ Open the **Not in network** tab (section 2 in Analysis Report mode). Every tag o
 2. Quote the `state_id` from the file name or from section 1 of Analysis Report mode with every number you use.
 3. Deposit the zip with the paper. See [Citing and reproducing a Network State](05-citing-and-reproducing.md).
 
+### Compare the Clusters of two datasets
+
+1. Run Automatic Parameter Selection for the datasets you want to compare (**Run all datasets** in the Parameter Selection mode), so each starts on its chosen pair.
+2. Switch to **Cluster Comparison**. Every dataset is included; the pair with the highest ARI is chosen. Click another row under **Dataset pairs** to change the pair.
+3. Read the diagram: one curve per Cluster Match at or above the **Minimum Match Jaccard**, a badge on each Cluster with no such match. Click a curve to open the match, with its shared and unshared Tags and the games in both Clusters.
+4. Before quoting a match, check each dataset's Seed-Noise Floor and NA in its row, and see whether the match survives another Threshold Pair ("Use in Cluster Comparison" on a neighbouring cell).
+5. **Export CSV** records every pair; quote the `comparison_id` with every number you use.
+
 ## Parameter Selection mode
 
 The third mode runs [Automatic Parameter Selection](03-metric-reference.md#how-automatic-parameter-selection-works) and shows its results. It has the Workbench's three panes: Controls on the left (Run, Selection settings), the dataset strip with the Pair Constraints under it, heatmap, "Why this pair" and validation card in the middle, and the Pair Inspector on the right. At medium and narrow widths the Controls become a pill bar and the Inspector a floating card, as in the Workbench; the Pair Constraints stay under the dataset strip at every width. In this mode the header's **Controls**, **Pair Constraints** and **Inspector** toggles hide or show those panels; the heatmap widens into the room they leave.
@@ -559,7 +567,7 @@ Each button shows "★ 14·2 NA 0.98", "no qualifying pair", "not run" or "grid 
 
 *Why it matters here.* The datasets differ in which tags are common, so the thresholds that keep a coherent network differ too.
 
-*Caution.* No agreement score between datasets is computed; comparing their Clusters is a question for the feature-analysis report.
+*Caution.* No agreement score between datasets is computed here; their Clusters are compared in the [Cluster Comparison mode](#cluster-comparison-mode).
 
 *Example.* "★ 17·2 NA 0.97" for overall beside "★ 14·2 NA 0.98" for puzzle.
 
@@ -613,6 +621,22 @@ The Seed-Noise Floor can differ: when the Workbench seed is one of the scan seed
 
 *Example.* Applying puzzle g = 14, s = 2 sets γ 1.09 with a scan seed and shows "Selected Partition reproduced ✓".
 
+### Use in Cluster Comparison
+
+> **In short.** Put this cell into the Cluster Comparison for this dataset and switch there.
+>
+> **Here:** compares another cell's Selected Partition with the other datasets' Clusters.
+>
+> **Caution:** Available only when Parameter Selection's settings are the comparison's shared settings.
+
+The button sits beside Apply to Workbench and is always shown. It is enabled under Apply's rule (a cell with a Selected Partition) and disabled when Parameter Selection's current settings differ from the Cluster Comparison's shared settings, including a shown defining tag; its tooltip then says "The Cluster Comparison uses other shared settings; this cell comes from a different run." Pressing it sets the cell as the dataset's values (its source line becomes "Selected Partition at g … · s …"), includes the dataset if it was left out, resolves the comparison and switches mode. Nothing is sent to the Workbench.
+
+*Why it matters here.* A Cluster Match found at one pair is worth checking at a neighbouring pair; this is the way to put that pair into the comparison.
+
+*Caution.* The comparison reads the cell's stored Selected Partition, never reclusters it.
+
+*Example.* Inspecting RPG g = 8, s = 5 and pressing Use in Cluster Comparison shows RPG on that cell beside the other four datasets on their picks.
+
 ### Validate this pair
 
 > **In short.** Runs the Null Comparison and Subsample Stability for the inspected pair, as a background job.
@@ -644,3 +668,152 @@ The zip is named `steamstudy_parameter-selection_<settings key>_<UTC>.zip`. Inco
 *Caution.* The button is disabled until at least one dataset's grid is complete.
 
 *Example.* An export after "Run all datasets" holds 765 rows in `pairs.csv`.
+
+## Cluster Comparison mode
+
+> **In short.** Matches the Multi-Tag Clusters of the Build's Top-N Datasets, two datasets at a time, on their Tags.
+>
+> **Here:** shows which Clusters of one dataset share Tags with which Clusters of another.
+>
+> **Caution:** a match is shared Tags, never evidence that the Clusters are real.
+
+> **Caution.** A Cluster Match says that two Clusters, each found at its dataset's settings, share Tags. It is not evidence that the Clusters are real or that the datasets share a genre structure. A match can appear, vanish or change its Match Jaccard with the seed, with g and s, and with the resolution. Read it against each dataset's Seed-Noise Floor and Neighbour Agreement.
+
+The fourth mode has a header, a sidebar and a main column. The header holds the shared settings, the `comparison_id` and **Export CSV**; the sidebar lists the datasets and the dataset pairs; the main column shows the chosen pair as a link diagram with the match detail under it. At medium and narrow widths the sidebar collapses above the diagram as a pill bar, as the Workbench's Controls do, and the diagram keeps its two columns and scrolls. The comparison keeps everything you set (the included datasets and their values, the chosen pair and match, the minimum) across every mode switch; switching Build starts it afresh, every dataset on its pick. How the figures are computed is in [How a Cluster Comparison works](03-metric-reference.md#how-a-cluster-comparison-works).
+
+*Why it matters here.* Each dataset is clustered on its own, from its own games, so the same genre combination may appear as a Cluster in several datasets. The mode lines them up by their Tags without merging the datasets.
+
+### Shared settings
+
+> **In short.** The Clustering Weight, algorithm, Minimum Months Filter, hidden Genre Tags and removed tags, one set for every dataset.
+>
+> **Here:** they decide which Automatic Parameter Selection run each dataset's pick comes from.
+>
+> **Caution:** a change resolves every dataset again and drops values set by hand.
+
+One row of controls in the header. They start from the Parameter Selection settings (Leiden, Lift, its Minimum Months Filter, its hidden Genre Tags and its removed tags), never from the Workbench's. Hidden Genre Tags is the same chip checklist as in Selection settings. There is no defining-tag control: each dataset's own defining tag is always hidden in that dataset, so a Parameter Selection run made with the defining tag shown never feeds the mode. Changing a shared setting resolves every dataset against the run for the new settings, on its pick if that run exists and with no run if not, and a notice says that values set by hand were dropped.
+
+*Why it matters here.* A Selected Partition belongs to one set of Selection Settings; the comparison can only show it under the same settings.
+
+*Caution.* With Louvain no Parameter Selection run can exist, so every dataset is clustered once at the network defaults.
+
+*Example.* Unhiding one Genre Tag sends every dataset whose run under that setting is missing to "No Automatic Parameter Selection run".
+
+### Datasets
+
+> **In short.** One row per Top-N Dataset: include it, read where its partition comes from, and edit its g, s and γ.
+>
+> **Here:** each dataset shows its own partition at its own values.
+>
+> **Caution:** a dataset set by hand is one clustering with the main seed, not a Selected Partition.
+
+Each row has an include checkbox, the dataset's name in its colour, and g, s and γ. Under the name, the **source line** says where the partition comes from, by Threshold Pair:
+
+- "★ Selected Partition at g 9 · s 7 (chosen pair)": the run's pick under the Pair Constraints set in Parameter Selection;
+- "Selected Partition at g 10 · s 6": another cell of the run, chosen in Parameter Selection or by typing its g and s;
+- "Set by hand: one Leiden run, main seed": values that name no cell with a Selected Partition, or an edited γ;
+- "No Automatic Parameter Selection run: network defaults, one Leiden run, main seed", with **Open Parameter Selection**; the line says so instead when the run has no qualifying pair, or when a selected cell's run is gone.
+
+A dataset on a cell shows the cell's stored Selected Partition: it is read from the Parameter Selection cache, never reclustered, and has no seed of its own (the tooltip: it was found among the partitions of 10 scan seeds). A dataset set by hand or with no run is clustered once with the Build's main seed; the mode has no seed control. Under the source line, "Seed-Noise Floor 0.52 · NA 0.81" gives the run's floor and the cell's Neighbour Agreement, or the dataset's own floor and "—" off a cell. Typing g and s that name a cell with a Selected Partition selects that cell; any other pair, or an edited γ, sets the dataset by hand. The limits are the Workbench's. Each row links to Parameter Selection on that dataset with its cell highlighted. There is no route into the Workbench: to open a dataset there, use [Apply to Workbench](#apply-to-workbench) in Parameter Selection.
+
+*Why it matters here.* The datasets differ in which tags are common, so each needs its own thresholds; the Selected Partition gives each a defensible one.
+
+*Caution.* A changed Pair Constraint in Parameter Selection moves a dataset on its pick at the next resolve; a selected cell or values set by hand stay.
+
+*Example.* With RPG set by hand to g 9, s 7, γ 1.20, its row reads "Set by hand: one Leiden run, main seed" and "Seed-Noise Floor … · NA —".
+
+### Dataset pairs
+
+> **In short.** Every pair of included datasets, ranked by ARI on their Comparable Tags, with the Comparable Tags and the games in common.
+>
+> **Here:** chooses which two datasets the diagram shows.
+>
+> **Caution:** ARI compares two partitions; it says nothing about any one match.
+
+Each row shows ARI (comparable Tags) with a small bar, the number of Comparable Tags with their share of each network ("38 Comparable Tags: 76% of Overall's, 54% of Puzzle's") and the games in common. Clicking a row chooses the pair; on first open the top pair is chosen. With fewer than two datasets included, the list and the diagram say "Include at least two datasets to compare". See [ARI on Comparable Tags](03-metric-reference.md#ari-on-comparable-tags) and [Comparable Tags coverage](03-metric-reference.md#comparable-tags-coverage).
+
+*Why it matters here.* A pair compared on a small share of either network can show few matches only because few Tags are in both.
+
+*Caution.* The games in common are shown, never scored.
+
+*Example.* On the full Build Strategy × Simulation leads with ARI 0.53 on 32 Comparable Tags (82% of Strategy's, 84% of Simulation's) and 48 games in common.
+
+### Link diagram
+
+> **In short.** The chosen pair's Multi-Tag Clusters in two columns, with a curve for each Cluster Match at or above the minimum.
+>
+> **Here:** shows at a glance which Clusters share Tags.
+>
+> **Caution:** a curve's width is Match Jaccard, not a measure of how alike the two genres are.
+
+A's Multi-Tag Clusters stand in the left column and B's in the right, under headings naming each dataset; A is the earlier dataset in the Build's order until ⇄ swaps the sides. Each box shows its label, its Tag count, its Tags (clipped to two lines), its flag as a badge, and a left border in the dataset's colour; a Cluster alone is always written with its dataset ("Overall C3"), since `C1…` labels mean nothing across datasets. Each curve's width and strength follow its Match Jaccard, written on it. Clicking a box shows only its curves and dims the Clusters it does not match; clicking it again shows all. Clicking a curve chooses the match. A line under the diagram counts each side's One-Tag Clusters, which are never matched. A pair with no Cluster Match says so.
+
+*Why it matters here.* One Cluster can match several, and a split or merge between datasets shows as one box with curves to two.
+
+*Caution.* The colours are the datasets', not the Workbench's Cluster colours.
+
+*Example.* In Overall × RPG, Overall C1 has curves to RPG C5 (0.25) and RPG C2 (0.14).
+
+### Minimum similarity and flags
+
+> **In short.** The Minimum Match Jaccard hides weaker matches, and a badge marks each Cluster with no match at or above it.
+>
+> **Here:** keeps one-Tag overlaps from crowding the diagram.
+>
+> **Caution:** a view choice: it changes neither the `comparison_id` nor the export.
+
+The **Minimum Match Jaccard** slider (short "Minimum Jaccard") starts at 0.10; **show weaker** draws the hidden matches dashed. Each Multi-Tag Cluster with no match on show carries one badge: "No match: outside Overall's network" (none of its Tags is a Comparable Tag), "No match: only One-Tag Clusters in Overall" (its Comparable Tags are each a One-Tag Cluster there; the tooltip counts them) or "No match above 0.10" (it has matches, all weaker). See [No-match flags](03-metric-reference.md#no-match-flags).
+
+*Why it matters here.* On the full Build 58 of the 103 matches share a single Tag; the minimum 0.10 hides 51 of them.
+
+*Caution.* A Cluster whose Tags are spread one each over several Clusters falls under "No match above".
+
+*Example.* At 0.10, Overall C4 carries "No match above 0.10" against Puzzle (its best match is 0.07), and Puzzle C4 "No match: outside Overall's network".
+
+### Match detail
+
+> **In short.** One Cluster Match: its figures, its shared Tags, each Cluster's other Tags with where they sit, and the games in both Clusters.
+>
+> **Here:** says why two Clusters match and where the rest of their Tags went.
+>
+> **Caution:** Overlap vs. expected is descriptive: no p-value.
+
+It names the two Clusters ("Overall C3 ~ Puzzle C1") and gives Match Jaccard, Shared % of A, Shared % of B and Jaccard (comparable) with the Comparable Tag counts, then the Overlap vs. expected sentence ("3 shared Tags: 2.4× the 1.25 expected from the Cluster sizes (N = 38 Comparable Tags)"). Three Tag columns follow: **Shared**, **Only in ‹A Cluster›** and **Only in ‹B Cluster›**, each unshared Tag with its group: "in Overall C5", "One-Tag Cluster in Overall", "not in Overall's network (2 games, minimum 5)" or "hidden in Strategy (its defining Tag)", the last set aside and in no figure. Before a match is chosen the detail asks you to click a curve. The figures are defined in [Match Jaccard and Jaccard on Comparable Tags](03-metric-reference.md#match-jaccard-and-jaccard-on-comparable-tags), [Shared share](03-metric-reference.md#shared-share) and [Overlap vs. expected](03-metric-reference.md#overlap-vs-expected).
+
+*Why it matters here.* A low Match Jaccard can come from Tags the other network does not have at all; the Tag groups and Jaccard (comparable) show how much.
+
+*Caution.* A defining tag hidden in one dataset is set aside for the pair and listed, never counted.
+
+*Example.* Overall C4 ~ RPG C2 has 3 shared Tags, Match Jaccard 0.38 and Jaccard (comparable) 0.50; two of RPG C2's other Tags are not in Overall's network.
+
+### Games in both Clusters
+
+> **In short.** The games ranked in both datasets that have Tags of both Clusters of the match, most matched first.
+>
+> **Here:** shows the games behind a match.
+>
+> **Caution:** shown, never scored: the similarity is computed on Tags only.
+
+A game is listed when it is in both Top-N Datasets after the shared Minimum Months Filter and has at least one Tag of each Cluster, as the Cluster Inspector counts a Cluster's games. The columns are Rank in A, Rank in B, Name, Matched in A (x / |a|), Matched in B (y / |b|) and the game's Tags from either Cluster, the shared ones marked. They are sorted by Matched in A plus Matched in B, then by Rank in A and Rank in B. A count line above says "Of **N** games in both datasets: **k** in both Clusters, **x** only in A, **y** only in B, **z** in neither." The first 10 rows are shown, then **Show all N**. With no games in common the list says "These two datasets have no games in common, so no game can be in both Clusters."; with games in common but none in both Clusters, "None of the **N** games in both datasets is in both Clusters."
+
+*Why it matters here.* Two Top-N Datasets mostly hold different games, so a match rests on Tags, and the games in both show what it looks like in practice.
+
+*Caution.* Puzzle has at most two games in common with any other dataset of the full Build, so its lists are nearly always empty.
+
+*Example.* Strategy C2 ~ Simulation C1: of 48 games in both datasets, 42 are in both Clusters, 0 only in Strategy, 5 only in Simulation and 1 in neither.
+
+### Export CSV
+
+> **In short.** Download every dataset pair of this comparison, whatever is on screen, as six CSV tables and `comparison.json` in one zip named with the `comparison_id`.
+>
+> **Here:** the record of a comparison, for a paper's supplement.
+>
+> **Caution:** Record only: it cannot be reopened. Disabled while a dataset is still being computed.
+
+Download every dataset pair of this comparison, whatever is on screen, as six CSV tables and `comparison.json` in one zip named with the `comparison_id`. Record only: it cannot be reopened. Disabled while a dataset is still being computed. The zip holds every Cluster Match regardless of the minimum, with A always the earlier dataset in the Build's order. [Cite a Cluster Comparison](05-citing-and-reproducing.md#cite-a-cluster-comparison) says how to quote it.
+
+*Why it matters here.* Readers can recheck every figure, and apply any minimum of their own, from the tables.
+
+*Caution.* Each dataset is rebuilt from its own record: its `state_id` when set by hand or with no run, or its run's settings key and Threshold Pair.
+
+*Example.* With all five datasets on their picks the zip is named `steamstudy_cluster-comparison_7789f0b5d412_<UTC timestamp>.zip` and holds 10 pairs and 103 matches.

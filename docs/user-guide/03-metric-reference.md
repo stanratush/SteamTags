@@ -2224,3 +2224,226 @@ A Cluster gets one label at most, **Dissolved in most subsamples**: Hennig's Jac
 *Compare with.* Neighbour Agreement (other thresholds, same games) and the Seed-Noise Floor (another seed): see [Three kinds of stability](#three-kinds-of-stability).
 
 **Exact definition:** subsample r draws `random.Random(seed_r).sample(games, m)`, seed_r from stream 5; for Cluster C, C′ is its tags in the comparison set and D′ a subsample Cluster restricted to it; Hennig's J_r = max_D |C′ ∩ D′| / |C′ ∪ D′|, scored when |C′| ≥ 2; Whole-Cluster J_r = max_D |C ∩ D′| / |C ∪ D′|, 0 when |C′| = 0; B* = #{non-degenerate r : |C′| ≥ 2}; `mean_jaccard_se` = sd(J_r)/√B*; `dissolution_frequency` = #{J_r ≤ 0.5}/B*, with the 95% Wilson interval (z = 1.96); `dissolved_in_most` = #{J_r ≤ 0.5} > B*/2; `borderline` = `wilson_low` ≤ 0.5 ≤ `wilson_high`; `assessable` = B* > 0.
+
+## Cluster Comparison
+
+> **In short.** The Cluster Comparison: how the Multi-Tag Clusters of one Top-N Dataset share Tags with those of another, each dataset on its own partition.
+>
+> **Here:** lines up the genre combinations each dataset was clustered into, without merging the datasets.
+>
+> **Caution:** shared Tags only: not evidence that the Clusters are real or that the datasets share a genre structure.
+
+#### How a Cluster Comparison works
+
+> **In short.** The steps in order: each dataset's partition, the Comparable Tags of each pair, the Cluster Matches and their figures, the flags, the pair's ARI, then the games.
+>
+> **Here:** shows how the Cluster Comparison mode arrives at its diagram and its figures.
+>
+> **Caution:** each figure has its own entry; read the caveats there.
+
+> **Caution.** A Cluster Match says that two Clusters, each found at its dataset's settings, share Tags. It is not evidence that the Clusters are real or that the datasets share a genre structure. A match can appear, vanish or change its Match Jaccard with the seed, with g and s, and with the resolution. Read it against each dataset's Seed-Noise Floor and Neighbour Agreement.
+
+The mode compares the included Top-N Datasets of one Build, two at a time, every pair of them.
+
+1. **Each dataset's partition.** A dataset on a cell of its Automatic Parameter Selection run (its pick under the Pair Constraints, or another selected cell) shows that cell's stored [Selected Partition](#selected-partition-and-selected-resolution), read from the cache and never reclustered. A dataset set by hand, or with no run under the shared settings, is clustered once with the Build's main seed. Each dataset's own [defining tag](#defining-tag) is always hidden in it.
+2. **Comparable Tags.** For a pair A, B, the Tags in both networks ([Cluster Match and Comparable Tags](#cluster-match-and-comparable-tags)). A Tag hidden in only one of the two (in practice that dataset's defining tag, when Genre Tags are shown) is set aside for the pair.
+3. **Cluster Matches.** Every pair of Multi-Tag Clusters, one from each dataset, that share at least one Tag, with [Match Jaccard and Jaccard on Comparable Tags](#match-jaccard-and-jaccard-on-comparable-tags), the [Shared share](#shared-share) and [Overlap vs. expected](#overlap-vs-expected).
+4. **Flags.** Each Multi-Tag Cluster with no match at or above the minimum gets one [No-match flag](#no-match-flags).
+5. **The pair.** [ARI on Comparable Tags](#ari-on-comparable-tags), the [Comparable Tags coverage](#comparable-tags-coverage) and the [games in common](#games-in-common-and-games-in-both-clusters) rank and describe the pair.
+6. **Games.** For each match, the games in both datasets that have Tags of both Clusters are listed, never scored.
+
+Everything that fixes the result is the [Comparison State](#comparison-state-and-comparisonid), named by its `comparison_id`.
+
+*Why it matters here.* Each Top-N Dataset is clustered on its own, from its own games and at its own thresholds, so the same combination of characteristics can surface as a Cluster in several datasets, or split in one and not in another. Matching on Tags makes that visible; it cannot say whether the combination is a genre.
+
+### Cluster Match and Comparable Tags
+
+> **In short.** Two Multi-Tag Clusters, one from each dataset, that share at least one Tag; it says they share Tags, not that they are the same group.
+>
+> **Here:** the unit the diagram draws as a curve and the export lists in `matches.csv`.
+>
+> **Caution:** each Cluster was found at its dataset's own settings; the match can change with them.
+
+A **Cluster Match** is a pair (Cluster a of A, Cluster b of B), both Multi-Tag Clusters, that share at least one Tag; one Cluster can have several. One-Tag Clusters are never matched. The **Comparable Tags** C of a pair are the Tags in both networks: visible and reaching the minimum games per tag in each, One-Tag Clusters included. They are the only Tags the comparison can judge a Cluster on, since a Tag missing from the other network has no Cluster there. A Tag hidden in only one of the two datasets, in practice that dataset's own defining tag while Genre Tags are shown, is **set aside** for the pair: removed from both Clusters' Tag sets before any figure, flag or Tag group count, and listed separately as "hidden in Strategy (its defining Tag)". Tags hidden or removed in both networks appear nowhere.
+
+*Why it matters here.* The same genre combination can carry different labels in two datasets, since `C1…` is given per partition by size; only shared Tags line them up.
+
+*Example.* On the full Build the 10 dataset pairs have 103 Cluster Matches; Strategy C2 and Simulation C1 share 11 Tags.
+
+*Bounds.* A Cluster has from 0 to as many matches as the other dataset has Multi-Tag Clusters; C has from 0 to the smaller network's size.
+
+*Compare with.* Cluster pairs (two Clusters of one partition), which the Connection Ratio describes inside one network.
+
+**Exact definition:** C = V_A ∩ V_B (each network's node set); for Multi-Tag Clusters a, b, with T_X the Tags hidden in dataset X, a⁻ = a ∖ T_B and b⁻ = b ∖ T_A; (a, b) is a Cluster Match when |a⁻ ∩ b⁻| ≥ 1.
+
+### Match Jaccard and Jaccard on Comparable Tags
+
+> **In short.** The shared Tags as a share of all Tags in either Cluster; 1 = the same Tags, 0 = none in common; a Tag missing from the other network counts against it.
+>
+> **Higher →** more of the two Clusters' Tags are shared.
+>
+> **Here:** ranks the matches and takes the Minimum Match Jaccard.
+>
+> **Caution:** read Jaccard (comparable) beside it.
+
+With n shared Tags and Cluster sizes |a|, |b| (set-aside Tags excluded), **Match Jaccard** = n / (|a| + |b| − n). Tags not in the other network count against it, so a Cluster that is largely outside the other network cannot reach a high value. It ranks the matches and takes the minimum.
+
+**Jaccard (comparable).** The same overlap on the Comparable Tags only; never lower than Match Jaccard, and the gap shows how much of a low score comes from Tags missing from the other network; "—" when either Cluster has fewer than two Comparable Tags. With a′ = a ∩ C and b′ = b ∩ C, it is n / (|a′| + |b′| − n). The match stays listed and ranked by Match Jaccard.
+
+*Why it matters here.* On the full Build Jaccard (comparable) gains 0.10 or more over Match Jaccard on 27 of the 80 matches it can judge: much of a low score there is Tags the other dataset never had in its network.
+
+*Example.* Strategy C2 (12 Tags) ~ Simulation C1 (18 Tags) share 11: Match Jaccard 11 / 19 = 0.58, and on their 11 and 15 Comparable Tags Jaccard (comparable) 11 / 15 = 0.73. Overall C4 ~ RPG C2: 0.38 and 0.50.
+
+*Bounds.* Both from 0 to 1 (a match is above 0 by definition); Jaccard (comparable) is never lower than Match Jaccard.
+
+*Compare with.* Seen on the full Build: Match Jaccard 0.03 to 0.58, median 0.09. Hennig's Jaccard and the Whole-Cluster Jaccard of Subsample Stability, which compare one Cluster with its own subsample, not two datasets.
+
+**Exact definition:** n = |a⁻ ∩ b⁻|; Match Jaccard = n / (|a⁻| + |b⁻| − n); Jaccard (comparable) = n / (|a⁻ ∩ C| + |b⁻ ∩ C| − n), blank when |a⁻ ∩ C| < 2 or |b⁻ ∩ C| < 2.
+
+### Shared share
+
+> **In short.** The share of one Cluster's Tags that the other also has; they differ when the sizes differ; 100% on one side means that Cluster lies wholly inside the other.
+>
+> **Here:** tells a Cluster nested inside a larger one from two overlapping Clusters.
+>
+> **Caution:** a high share of a small Cluster can rest on one or two Tags.
+
+**Shared, % of A** = n / |a| and **Shared, % of B** = n / |b|. Their comparable forms, n / |a′| and n / |b′|, are shown beside them, "—" when that Cluster has fewer than two Comparable Tags. The smaller of the two shares is not shown as a figure of its own: on the full Build it orders the matches as Match Jaccard does (correlation 0.96) and never changed a top match.
+
+*Why it matters here.* Two datasets often split one genre combination differently: one broad Cluster on one side, two narrower ones on the other. The two shares show which side is the broad one.
+
+*Example.* Strategy C2 ~ Simulation C1: 92% of Strategy C2's Tags are in Simulation C1, but only 61% of Simulation C1's are in Strategy C2.
+
+*Bounds.* Each from above 0 to 100%.
+
+*Compare with.* Match Jaccard, which combines both sizes into one number.
+
+**Exact definition:** Shared, % of A = |a⁻ ∩ b⁻| / |a⁻|; comparable form |a⁻ ∩ b⁻| / |a⁻ ∩ C|, blank when |a⁻ ∩ C| < 2; and the same for B.
+
+### Overlap vs. expected
+
+> **In short.** Shared Tags ÷ what two Clusters of these sizes would share if Tags were placed at random among the Comparable Tags; 1× = the sizes alone; descriptive, no p-value, since Clusters are not random draws.
+>
+> **Here:** shown only in a match's detail, as a sentence.
+>
+> **Caution:** never a ranking: it favours matches of one Tag.
+
+E = |a′| · |b′| / N with N = |C| (One-Tag Clusters included) is what two Clusters of these comparable sizes would share if their Tags were drawn at random from the Comparable Tags; Overlap vs. expected = n / E. The detail writes it as "3 shared Tags: 2.4× the 1.25 expected from the Cluster sizes (N = 38 Comparable Tags)". No p-value or z-score is given: Clusters are not random draws of Tags, so a probability under that model would describe nothing real.
+
+*Why it matters here.* A share of 50% means little between two Clusters that each hold half the Comparable Tags; the expected overlap puts the size effect in numbers.
+
+*Example.* Overall C4 ~ RPG C2 share 3 Tags against an expected 0.71 (4 × 5 / 28): 4.2×. Strategy C2 ~ Simulation C1 share 11 against 5.16: 2.1×.
+
+*Bounds.* From above 0 upwards; 1× = the sizes alone.
+
+*Compare with.* Match Jaccard (correlation 0.38 on the full Build): ranking by Overlap vs. expected would change 13 of 58 top matches, mostly towards one-Tag matches.
+
+**Exact definition:** E = |a⁻ ∩ C| · |b⁻ ∩ C| / |C|; Overlap vs. expected = |a⁻ ∩ b⁻| / E.
+
+### ARI on Comparable Tags
+
+> **In short.** How alike the two partitions are on the Comparable Tags with an edge in either network; 1 = identical, around 0 = no more than chance.
+>
+> **Higher →** the two datasets group their shared Tags more alike.
+>
+> **Here:** ranks the dataset pairs in the sidebar.
+>
+> **Caution:** one number for the whole pair; it says nothing about any one match.
+
+The [adjusted Rand index](#adjusted-rand-index) of the two partitions, on the Comparable Tags that have an edge in at least one of the two networks (a Tag isolated in both agrees trivially and is left out), as Neighbour Agreement compares two Threshold Pairs. One-Tag Clusters take part. "—" below two such Tags. No AMI or other summary is shown: on the full Build AMI and the mean best Jaccard order the pairs as ARI does (rank correlations 0.90 and 0.84).
+
+*Why it matters here.* It says which pairs of datasets cluster their shared Tags in a similar way, and so where matches are likely to be clear.
+
+*Example.* On the full Build Strategy × Simulation has ARI 0.53 on 32 Comparable Tags; Puzzle × RPG and Puzzle × Simulation 0.07.
+
+*Bounds.* −0.5 to 1; around 0 = no more agreement than chance.
+
+*Compare with.* Seen on the full Build: 0.07 to 0.53. Neighbour Agreement, the same index between two Threshold Pairs of one dataset.
+
+**Exact definition:** ARI(L_A, L_B) on the Tags {t ∈ C : t has an edge in A or in B}, sorted by Tag id, with L_X(t) the Cluster label of t in X (`sklearn.metrics.adjusted_rand_score`); blank below two such Tags.
+
+### Comparable Tags coverage
+
+> **In short.** How many Tags are in both networks and what share of each network that is; a low share means the pair is compared on only a small part of that network.
+>
+> **Here:** shown for each dataset pair, both ways.
+>
+> **Caution:** a pair compared on a small share of one network says little about that network's other Clusters.
+
+"38 Comparable Tags: 76% of Overall's, 54% of Puzzle's": |C| and its share of each network's Tags. The two shares differ whenever the networks differ in size. A Cluster whose Tags fall mostly outside C can show only weak matches, whatever its structure.
+
+*Why it matters here.* Datasets drawn on different genres hold different frequent Tags; coverage says how much of each network the comparison can see.
+
+*Example.* Overall × RPG: 28 Comparable Tags, 97% of Overall's but only 39% of RPG's.
+
+*Bounds.* Each share from 0 to 100%.
+
+*Compare with.* The No-match flag "outside … network", which marks a single Cluster with no Comparable Tag at all.
+
+**Exact definition:** n_C = |V_A ∩ V_B|; share of A = n_C / |V_A|; share of B = n_C / |V_B|.
+
+### Games in common and games in both Clusters
+
+> **In short.** The games ranked in both Top-N Datasets; shown, never scored.
+>
+> **Here:** the games behind each match, listed in its detail.
+>
+> **Caution:** two Top-N Datasets mostly hold different games; similarity is computed on Tags only.
+
+The **games in common** of a pair are the games in both Top-N Datasets after the shared Minimum Months Filter. A game is in the **games in both Clusters** of a match (a in A, b in B) when it is in common and has at least one Tag of a, as counted in A's network, and at least one Tag of b, as counted in B's. This is the Cluster Inspector's rule for a Cluster's games; no minimum count or share is added. Set-aside Tags do not count, so a defining tag hidden in one dataset cannot pull its games into a Cluster of the other. Games are never "shared games", which belongs to an edge.
+
+*Why it matters here.* Similarity on games would mostly measure how the datasets were drawn, so games are only shown: they let you see what a match looks like.
+
+*Example.* Overall has 1 game in common with Puzzle, 38 with RPG, 24 with Strategy and 28 with Simulation; Puzzle has at most 2 with any other dataset.
+
+*Bounds.* From 0 to the smaller dataset's game count.
+
+*Compare with.* The Cluster Inspector's Games section, which lists one Cluster's games in one dataset.
+
+**Exact definition:** G = {games in both datasets after the filter}; a game g ∈ G is in both Clusters when |tags_A(g) ∩ a⁻| ≥ 1 and |tags_B(g) ∩ b⁻| ≥ 1; sorted by |tags_A(g) ∩ a⁻| + |tags_B(g) ∩ b⁻| descending, then rank in A, then rank in B.
+
+### No-match flags
+
+> **In short.** A badge on a Multi-Tag Cluster with no Cluster Match at or above the minimum: outside the other network, only One-Tag Clusters there, or no match above the minimum.
+>
+> **Here:** says why a Cluster has no curve in the diagram.
+>
+> **Caution:** a flag is no evidence that the Cluster is unique to its dataset.
+
+For each Multi-Tag Cluster of A against B (and the reverse), set-aside Tags ignored, one flag at most:
+
+- **"No match: outside Overall's network"**: none of its Tags is a Comparable Tag. This includes a Cluster whose only Comparable Tag would have been a defining tag hidden on the other side.
+- **"No match: only One-Tag Clusters in Overall"**: it has Comparable Tags, but each is a One-Tag Cluster in B; the tooltip counts them ("3 Tags in One-Tag Clusters of Overall, 2 not in its network").
+- **"No match above 0.10"**: it has matches, none at or above the minimum currently set. A Cluster whose Tags are spread one each over several Clusters falls here.
+
+Each unshared Tag of a match falls into one of four groups, named with the other dataset: in another Multi-Tag Cluster there ("in Overall C5"), a One-Tag Cluster there, not in its network ("not in Overall's network (2 games, minimum 5)", one group for below the minimum and for none of its games), or hidden there as its defining tag, set aside and in no figure.
+
+*Why it matters here.* A Cluster with no curve can mean three different things; the badge says which.
+
+*Example.* Against Overall, RPG C7 is outside Overall's network (none of its 4 Tags is in it); at 0.10, Overall C4 has no match above the minimum against Puzzle (its best is 0.07).
+
+*Bounds.* One flag at most per Cluster and direction; the first two do not depend on the minimum.
+
+*Compare with.* The Minimum Match Jaccard, which decides only the third flag.
+
+**Exact definition:** for a in A against B, with a⁻ = a ∖ T_B: `outside_network` when a⁻ ∩ V_B = ∅; `only_one_tag_clusters` when every t ∈ a⁻ ∩ V_B is a One-Tag Cluster of B; otherwise "No match above m" when max Match Jaccard < m.
+
+### Comparison State and `comparison_id`
+
+> **In short.** Everything that fixes one Cluster Comparison result, and the 12-character id that names it.
+>
+> **Here:** the id in the mode's header and in the export's file name.
+>
+> **Caution:** a record only: no comparison can be reopened from it.
+
+The key holds the Build; the shared settings (Clustering Weight, algorithm, Minimum Months Filter, hidden Genre Tags, removed tags); and for each included dataset, in the Build's dataset order, its values: on a cell, the Parameter Selection settings key, g, s and the Selected Resolution; set by hand or with no run, g, s, γ and the main seed. Whether a cell is the pick or another selected cell is not in the key, since the partition is the same. The Minimum Match Jaccard, "show weaker", the chosen pair, which dataset is on the left and the chosen Cluster or match are view choices, never in the key. The export names, per dataset, its `state_id` (set by hand or no run) or its run's settings key and Threshold Pair, so each dataset can be rebuilt.
+
+*Why it matters here.* A Cluster Match depends on every dataset's settings; the id ties a quoted match to all of them at once.
+
+*Example.* All five datasets of the full Build on their picks, under the Parameter Selection defaults: `comparison_id` 7789f0b5d412.
+
+*Bounds.* 12 hexadecimal characters.
+
+*Compare with.* The `state_id` of one Network State, made the same way.
+
+**Exact definition:** `comparison_id` = the first 12 hex characters of the SHA-256 of the key's canonical JSON (sorted keys, no whitespace), as `state_id` is made.

@@ -41,7 +41,15 @@ This chapter is the single home of every caveat the study carries. The reports' 
 - **A dataset can end with `no_qualifying_pair`.** Nothing is relaxed automatically; the mode then shows the exclusion table.
 - **Validation is one 80% fraction and one null model.** No curve of fractions, no other noise type, and no Subsample Stability on null replicates.
 - **Validation runs on the data the pair was chosen on.** Subsample Stability may be slightly optimistic; Q played no part in the choice, so the Null Comparison is barely affected. The grid and the choice of pair are not repeated per replicate.
-- **One pair per dataset, chosen independently.** No pair common to all five datasets is chosen, and the datasets' Clusters are not compared.
+- **One pair per dataset, chosen independently.** No pair common to all five datasets is chosen; the datasets' Clusters are compared only in the Cluster Comparison mode.
+
+## Cluster Comparison
+
+- **One Build only.** Datasets of different Builds cannot be compared: their Tags, their "shared" settings and the one Build a tab opens would each need their own design. Open two tabs side by side instead.
+- **A Threshold Pair's partition depends on the Parameter Selection cache.** A dataset on a cell shows the stored Selected Partition; when the cache is cleared or the run changes, the dataset falls back to the network defaults and its source line says so.
+- **Similarity is computed on Tag sets only.** Two Top-N Datasets mostly hold different games, so games are shown for a match, never scored.
+- **One pair of datasets at a time.** A Cluster is not followed across three or more datasets at once.
+- **No significance and no bands.** Overlap vs. expected has no p-value, and no figure is put into words such as high or low; each is read against its bounds.
 
 ## Imported data
 

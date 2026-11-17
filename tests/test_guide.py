@@ -390,3 +390,33 @@ def test_the_draft_dialog_settings_open_their_chapter_3_entries():
 
     anchors = _anchors("03-metric-reference.md")
     assert all(file == "03-metric-reference.md" and anchor in anchors for file, anchor in DRAFT_HELP.values())
+
+
+# ----------------------------------------------------------------------------- Cluster Comparison
+
+def test_the_cluster_comparison_caution_and_readings_are_the_sentence_modules():
+    """The caution opens the mode's section and the metric chapter; each figure's reading is its entry's In short
+    line (Jaccard (comparable) shares its entry with Match Jaccard and leads its own paragraph there)."""
+    from steamstudy.app.guide import in_short, section
+    from steamstudy.network.comparison_text import CAUTION, READINGS
+
+    for name, anchor in (("02-app-controls.md", "cluster-comparison-mode"),
+                         ("03-metric-reference.md", "how-a-cluster-comparison-works")):
+        assert f"> **Caution.** {CAUTION}\n" in section(_text(name), anchor), name
+    metrics = _text("03-metric-reference.md")
+    entries = {"cluster_match": "cluster-match-and-comparable-tags",
+               "match_jaccard": "match-jaccard-and-jaccard-on-comparable-tags", "shared_share": "shared-share",
+               "overlap_vs_expected": "overlap-vs-expected", "ari": "ari-on-comparable-tags",
+               "comparable_tags": "comparable-tags-coverage",
+               "games_in_common": "games-in-common-and-games-in-both-clusters"}
+    for key, anchor in entries.items():
+        assert in_short(section(metrics, anchor))[0] == ("In short.", READINGS[key]), key
+    assert f"**Jaccard (comparable).** {READINGS['comparable_jaccard']}" in section(
+        metrics, "match-jaccard-and-jaccard-on-comparable-tags")
+
+
+def test_the_cluster_comparison_glossary_terms_are_in_context_and_the_guide():
+    terms = ("Cluster Comparison", "Cluster Match", "Comparable Tags", "Match Jaccard", "Comparison State")
+    assert set(terms) <= set(_glossary_terms())
+    guide = _text("02-app-controls.md") + _text("03-metric-reference.md")
+    assert all(term in guide for term in terms)

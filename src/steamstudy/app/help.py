@@ -128,6 +128,44 @@ SELECTION_HELP: dict[str, tuple[str, str]] = {
     "selection.subsample": (METRIC_REFERENCE, "subsample-stability"),
 }
 HELP.update(SELECTION_HELP)
+# The Cluster Comparison mode's help: every figure, label, flag badge, source state, the minimum slider, ⇄ and Export
+# CSV, plus Parameter Selection's "Use in Cluster Comparison".
+_MATCH, _JACC = "cluster-match-and-comparable-tags", "match-jaccard-and-jaccard-on-comparable-tags"
+_GAMES, _FLAGS = "games-in-common-and-games-in-both-clusters", "no-match-flags"
+COMPARISON_HELP: dict[str, tuple[str, str]] = {
+    "comparison.mode": (APP_CONTROLS, "cluster-comparison-mode"),
+    "comparison.how": (METRIC_REFERENCE, "how-a-cluster-comparison-works"),
+    "comparison.shared_settings": (APP_CONTROLS, "shared-settings"),
+    "comparison.datasets": (APP_CONTROLS, "datasets"),
+    "comparison.source.pick": (APP_CONTROLS, "datasets"),
+    "comparison.source.cell": (APP_CONTROLS, "datasets"),
+    "comparison.source.hand": (APP_CONTROLS, "datasets"),
+    "comparison.source.no_run": (APP_CONTROLS, "datasets"),
+    "comparison.seed_noise": (METRIC_REFERENCE, "adjusted-rand-index"),
+    "comparison.neighbour_agreement": (METRIC_REFERENCE, "neighbour-agreement"),
+    "comparison.pairs": (APP_CONTROLS, "dataset-pairs"),
+    "comparison.ari": (METRIC_REFERENCE, "ari-on-comparable-tags"),
+    "comparison.comparable_tags": (METRIC_REFERENCE, "comparable-tags-coverage"),
+    "comparison.games_in_common": (METRIC_REFERENCE, _GAMES),
+    "comparison.diagram": (APP_CONTROLS, "link-diagram"),
+    "comparison.swap": (APP_CONTROLS, "link-diagram"),
+    "comparison.minimum": (APP_CONTROLS, "minimum-similarity-and-flags"),
+    "comparison.flag.outside_network": (METRIC_REFERENCE, _FLAGS),
+    "comparison.flag.only_one_tag_clusters": (METRIC_REFERENCE, _FLAGS),
+    "comparison.flag.below_minimum": (METRIC_REFERENCE, _FLAGS),
+    "comparison.match": (METRIC_REFERENCE, _MATCH),
+    "comparison.match_jaccard": (METRIC_REFERENCE, _JACC),
+    "comparison.comparable_jaccard": (METRIC_REFERENCE, _JACC),
+    "comparison.share": (METRIC_REFERENCE, "shared-share"),
+    "comparison.overlap": (METRIC_REFERENCE, "overlap-vs-expected"),
+    "comparison.tag_groups": (METRIC_REFERENCE, _FLAGS),
+    "comparison.detail": (APP_CONTROLS, "match-detail"),
+    "comparison.games": (APP_CONTROLS, "games-in-both-clusters"),
+    "comparison.comparison_id": (METRIC_REFERENCE, "comparison-state-and-comparisonid"),
+    "comparison.export": (APP_CONTROLS, "export-csv"),
+    "selection.use_in_comparison": (APP_CONTROLS, "use-in-cluster-comparison"),
+}
+HELP.update(COMPARISON_HELP)
 # The draft dialog's settings (repository only): hover shows the chapter-3 entry's In short, a click opens it.
 DRAFT_HELP: dict[str, tuple[str, str]] = {
     "draft.list_size": (METRIC_REFERENCE, "list-size"),

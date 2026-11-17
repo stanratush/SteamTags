@@ -166,6 +166,26 @@ _Avoid_: fixed settings, configuration, parameters (unqualified)
 A **Threshold Pair** that has a **Selected Partition** and a **Neighbour Agreement** and meets every **Pair Constraint**. **Automatic Parameter Selection** picks only among Qualifying Pairs.
 _Avoid_: eligible pair (that word belongs to the **Eligible Pool**), valid pair, admissible pair
 
+**Cluster Comparison**:
+The **Tag Network** app's mode that matches the **Multi-Tag Clusters** of the **Top-N Datasets** of one **Build**, two datasets at a time. Each dataset shows its own partition, on its **Selected Partition** or clustered once at values set by hand; similarity is computed on **Tag** sets only, and games are shown, never scored.
+_Avoid_: cluster tracking, cross-dataset clustering
+
+**Cluster Match**:
+Two **Multi-Tag Clusters**, one from each of two datasets, that share at least one **Tag**. One **Cluster** can have several. It says that two **Clusters**, each found at its dataset's settings, share **Tags**; never that they are the same group, that the **Clusters** are real or that the datasets share a genre structure.
+_Avoid_: correspondence, same cluster, shared cluster
+
+**Comparable Tags**:
+The **Tags** in both networks of a dataset pair: visible and reaching the minimum games per tag in each (**One-Tag Clusters** count). The only **Tags** the **Cluster Comparison** can judge a **Cluster** on; a **Tag** hidden in only one of the two datasets (its defining tag) is set aside for that pair.
+_Avoid_: common Tags, surviving Tags
+
+**Match Jaccard**:
+The shared **Tags** of a **Cluster Match** as a share of all **Tags** in either **Cluster** (set-aside **Tags** excluded). A **Tag** missing from the other network counts against it. Ranks the matches and takes the Minimum Match Jaccard.
+_Avoid_: Whole-Cluster Jaccard (that name belongs to **Subsample Stability**), similarity (unqualified)
+
+**Comparison State**:
+Everything that fixes one **Cluster Comparison** result: the **Build**, the shared settings (Clustering Weight, algorithm, **Minimum Months Filter**, hidden Genre Tags, removed **Tags**) and, for each included dataset, its **Threshold Pair** and **Selected Resolution** on a run's cell, or its thresholds, resolution and seed when set by hand or with no run. Named by its `comparison_id`. The Minimum Match Jaccard, the chosen pair and match and which dataset is on the left are view choices, not part of it.
+_Avoid_: comparison (unqualified), session, view
+
 **Lift**:
 For two tags: how often they share games, divided by how often they would if tags were assigned independently (observed ÷ expected co-occurrence), counted over the games the network is built from (the loaded **Top-N Dataset** after the **Minimum Months Filter**). Above 1 = they occur together more than chance would predict. A frequency-corrected measure of association, not a cause.
 _Avoid_: association strength (use only when citing van Eck & Waltman), affinity

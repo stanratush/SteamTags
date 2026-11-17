@@ -31,6 +31,7 @@ AREA_OF = {
     "app/ps_view.py": "ps_view",
     "app/ps_run.py": "ps_run",
     "network/selection_text.py": "selection_text",
+    "network/comparison_text.py": "comparison_text",
     "app/export.py": "refusals",
     "app/help.py": "ui_words", "app/guide.py": "ui_words", "app/relabel.py": "layout",
     "network/selection.py": "selection_text", "app/ps_export.py": "selection_text",
@@ -75,9 +76,16 @@ def _selection_sentences() -> Iterable[str]:
     return SENTENCES
 
 
+def _comparison_sentences() -> Iterable[str]:
+    from steamstudy.network.comparison_text import SENTENCES
+
+    return SENTENCES
+
+
 NON_LITERAL: dict[str, Callable[[], Iterable[str]]] = {"refusals": _refusals, "schema_tips": _schema_tips,
                                                        "view": _inspector_labels,
                                                        "selection_text": _selection_sentences,
+                                                       "comparison_text": _comparison_sentences,
                                                        "build_menu": _import_codes}
 
 
