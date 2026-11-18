@@ -658,7 +658,7 @@ def test_the_zip_holds_the_six_tables_and_comparison_json_named_by_the_compariso
     for schema in S.CC_TABLES:
         assert zf.read(schema.name).decode("utf-8-sig").splitlines()[0] == ",".join(schema.column_names)
     meta = json.loads(zf.read("comparison.json"))
-    assert meta["comparison_id"] == result.comparison_id and meta["schema_version"] == S.SCHEMA_VERSION == 7
+    assert meta["comparison_id"] == result.comparison_id and meta["schema_version"] == S.SCHEMA_VERSION == 8
     assert meta["caution"] == CT.CAUTION and meta["minimum_match_jaccard_on_screen"] == 0.10
     assert set(meta["columns"]) == {s.name for s in S.CC_TABLES}
     assert meta["datasets"]["overall"]["threshold_pair"] == [15, 3] and meta["datasets"]["puzzle"]["state_id"]

@@ -285,12 +285,14 @@ def export_tables(ctx: BuildContext, settings: SEL.SelectionSettings, constraint
     files = {schema.name: csv_bytes(schema, tables[schema.name]) for schema in S.PS_TABLES}
     shared = constraints_for(constraints_store, "", default_constraints)
     report.append("## Methods\n\n" + T.methods_paragraph(en, T.methods_values(
-        settings, shared, tx=en, top_n="Top-100" if {d.list_size for d in ctx.datasets} == {100} else "Top-N")))
+        settings, shared, tx=en, top_n="Top-100" if {d.list_size for d in ctx.datasets} == {100} else "Top-N"))
+        + T.workbench_priority_sentence(settings.workbench_seed_priority, tx=en))
     report_bytes = ("\n\n".join(report) + "\n").encode("utf-8")
     meta = {
         "schema_version": S.SCHEMA_VERSION, "settings_key": settings.settings_key(),
         "settings_key_hash": SEL.key_hash(settings.settings_key()), "exported_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "selection_settings": asdict(settings), "settings_label": settings_label.text,
+        "selection_settings": asdict(settings), "workbench_seed_priority": settings.workbench_seed_priority,
+        "settings_label": settings_label.text,
         "settings_changes": settings_label.changes,
         "grid": {"g_range": list(settings.g_range), "s_range": list(settings.s_range),
                  "gamma_step": settings.gamma_step, "scan_end_rule": SEL.SCAN_RULE, "scan_seeds": scan,

@@ -230,6 +230,13 @@ MESSAGES: dict[str, str | dict[str, str]] = {
         "е леко оптимистична.",
     "{n} Genre Tags and each dataset's defining tag": "жанрови тагове ({n}) и определящия таг на всеки набор",
     "{n} Genre Tags": "жанрови тагове ({n})",
+    "The Build's Workbench Seed Priority was “Prefer the main seed”: the Workbench γ and seed that show each Selected "
+    "Partition were searched with the main seed at every γ first, so some are further from the Selected Resolution; "
+    "the partitions themselves are unchanged.":
+        "Приоритетът на началното число в работното място на компилацията беше „Предпочитай главното начално "
+        "число“: γ и началното число в работното място, които показват всяко избрано разбиване, бяха търсени първо с "
+        "главното начално число при всяко γ, затова някои са по-далеч от избраната резолюция; самите разбивания не "
+        "се променят.",
     # The declared sentences (selection_text.SENTENCES)
     "Neighbour Agreement measures how little the clustering changes when g or s moves by one. It does not show that "
     "the Clusters are real.":

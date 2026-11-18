@@ -189,6 +189,27 @@ def test_each_controls_section_is_a_pill_with_its_section_in_the_popover(ps_buil
     assert render(ps_build, progress=progress)["pill_run"] == "running"
 
 
+def _readonly_lines(build, tx=EN):
+    ctx = load_build(build)
+    block = next(c for c in _walk(PV.controls(Labels(tx, build=ctx), ctx, PV.defaults_of(ctx)[0]))
+                 if getattr(c, "className", None) == "mute small ps-readonly")
+    return [Labels(tx, build=ctx).resolve(line) if callable(line) else line
+            for line in (getattr(c, "children", c) for c in block.children)]
+
+
+def _with_priority(build, priority):
+    path = build / "datasets" / "build.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["config"]["network"]["parameter_selection"]["workbench_seed_priority"] = priority
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return build
+
+
+def test_the_fixed_settings_show_the_workbench_seed_priority(ps_build):
+    assert "Workbench seed priority: Closest γ to the midpoint" in _readonly_lines(ps_build)
+    assert "Workbench seed priority: Prefer the main seed" in _readonly_lines(_with_priority(ps_build, "main_seed"))
+
+
 def test_the_mode_has_its_own_panel_toggles_all_on_at_first(ps_build):
     from steamstudy.app.layout import build_layout
 
@@ -553,10 +574,21 @@ def test_an_export_after_apply_records_applied_from_and_keeps_the_state_id(ps_bu
                                   .read("export.json"))
     with_block, without = unpack(sent), unpack(plain)
     assert with_block["applied_from"]["reproduced"] is True and "applied_from" not in without
+    assert with_block["applied_from"]["workbench_seed_priority"] == "closest_gamma"
     assert with_block["state_id"] == without["state_id"] and "applied_from" not in with_block["state_key"]
     data = __import__("base64").b64decode(sent["content"])
     opened = open_export(data, builds_root=str(ps_build.parents[1]))
     assert opened.state_id_matches
+    # an export saved before the field (schema_version 7, applied_from without the priority) still opens
+    old = {**with_block, "schema_version": 7,
+           "applied_from": {k: v for k, v in with_block["applied_from"].items() if k != "workbench_seed_priority"}}
+    source = zipfile.ZipFile(io.BytesIO(data))
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        for name in source.namelist():
+            zf.writestr(name, json.dumps(old) if name == "export.json" else source.read(name))
+    reopened = open_export(buffer.getvalue(), builds_root=str(ps_build.parents[1]))
+    assert reopened.schema_version == 7 and reopened.state_id_matches
 
 
 def test_apply_needs_a_selected_partition(ps_build):
@@ -569,14 +601,14 @@ def test_apply_needs_a_selected_partition(ps_build):
 # ----------------------------------------------------------------------------- issue 31: Export tables
 
 
-def _export(build, cstore=None):
+def _export(build, cstore=None, settings=None):
     import datetime as dt
 
     from steamstudy.app.ps_export import export_tables
 
     ctx = load_build(build)
     defaults, _ = PV.defaults_of(ctx)
-    name, data = export_tables(ctx, defaults, cstore, now=dt.datetime(2026, 10, 27, 12, 0, tzinfo=dt.UTC))
+    name, data = export_tables(ctx, settings or defaults, cstore, now=dt.datetime(2026, 10, 27, 12, 0, tzinfo=dt.UTC))
     zf = zipfile.ZipFile(io.BytesIO(data))
     return name, {n: zf.read(n) for n in zf.namelist()}
 
@@ -585,6 +617,34 @@ def _rows(files, name):
     import csv
 
     return list(csv.DictReader(io.StringIO(files[name].decode("utf-8-sig"))))
+
+
+def test_the_export_always_records_the_workbench_seed_priority(ps_build):
+    ctx = load_build(ps_build)
+    defaults, _ = PV.defaults_of(ctx)
+    _, files = _export(ps_build)
+    meta = json.loads(files["parameter_selection.json"])
+    assert meta["workbench_seed_priority"] == meta["selection_settings"]["workbench_seed_priority"] == "closest_gamma"
+    assert "workbench_seed_priority" not in meta["settings_key"]
+    report = files["selection_report.md"].decode("utf-8")
+    assert "seed priority" not in report.lower() and "main seed first" not in report
+    _, files = _export(ps_build, settings=defaults.with_(workbench_seed_priority="main_seed"))
+    meta = json.loads(files["parameter_selection.json"])
+    assert meta["workbench_seed_priority"] == meta["selection_settings"]["workbench_seed_priority"] == "main_seed"
+    assert meta["settings_key"]["workbench_seed_priority"] == "main_seed"
+    methods = files["selection_report.md"].decode("utf-8").split("## Methods", 1)[1]
+    assert "Workbench Seed Priority was “Prefer the main seed”" in methods
+
+
+def test_a_default_selection_report_is_unchanged(ps_build):
+    """The methods section of a default report is exactly the shared template, as before the priority existed."""
+    from steamstudy.network import selection_text as T
+
+    ctx = load_build(ps_build)
+    defaults, constraints = PV.defaults_of(ctx)
+    _, files = _export(ps_build)
+    methods = files["selection_report.md"].decode("utf-8").split("## Methods\n\n", 1)[1]
+    assert methods == T.methods_paragraph(EN, T.methods_values(defaults, constraints, tx=EN)) + "\n"
 
 
 def test_export_tables_writes_the_record(ps_build):

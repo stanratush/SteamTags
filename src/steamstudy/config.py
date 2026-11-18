@@ -31,6 +31,8 @@ CHANGELOG_FILE = "CHANGELOG.md"
 
 CLUSTERING_WEIGHTS = ("shared_games", "lift")
 ALGORITHMS = ("louvain", "leiden")
+WORKBENCH_SEED_PRIORITIES = ("closest_gamma", "main_seed")
+DEFAULT_WORKBENCH_SEED_PRIORITY = WORKBENCH_SEED_PRIORITIES[0]
 
 
 class ConfigError(ValueError):
@@ -72,6 +74,8 @@ class ParameterSelectionDefaults:
     min_lcc_share: float
     min_comparable_neighbours: int
     max_multi_tag_clusters: int | None  # None = off (0 in the file)
+    # the Workbench γ/seed search order (Workbench Seed Priority); never changes the partition
+    workbench_seed_priority: str = DEFAULT_WORKBENCH_SEED_PRIORITY
 
 
 # The shipped table, for Builds whose network.toml predates it.
@@ -80,6 +84,7 @@ PARAMETER_SELECTION_DEFAULTS: dict[str, Any] = {
     "s_range": [2, 12], "gamma_step": 0.05, "scan_seeds": 10, "null_replicates": 100, "subsamples": 100,
     "workers": 0, "tolerance": 0.05, "min_retention": 0.50, "max_isolated_share": 0.10, "min_lcc_share": 0.90,
     "min_comparable_neighbours": 2, "max_multi_tag_clusters": 0,
+    "workbench_seed_priority": DEFAULT_WORKBENCH_SEED_PRIORITY,
 }
 
 
@@ -653,6 +658,9 @@ def _parameter_selection(t: dict[str, Any]) -> ParameterSelectionDefaults:
     weight = _req(t, "clustering_weight", str, w)
     if weight not in CLUSTERING_WEIGHTS:
         raise ConfigError(f"{w}.clustering_weight: must be one of {CLUSTERING_WEIGHTS}")
+    priority = t.get("workbench_seed_priority", DEFAULT_WORKBENCH_SEED_PRIORITY)  # older Builds have no key
+    if priority not in WORKBENCH_SEED_PRIORITIES:
+        raise ConfigError(f"{w}.workbench_seed_priority: must be \"closest_gamma\" or \"main_seed\", got {priority!r}")
     ps = ParameterSelectionDefaults(
         clustering_weight=weight,
         min_months=_req(t, "min_months", int, w),
@@ -670,6 +678,7 @@ def _parameter_selection(t: dict[str, Any]) -> ParameterSelectionDefaults:
         min_lcc_share=_req(t, "min_lcc_share", float, w),
         min_comparable_neighbours=_req(t, "min_comparable_neighbours", int, w),
         max_multi_tag_clusters=_req(t, "max_multi_tag_clusters", int, w) or None,
+        workbench_seed_priority=priority,
     )
     _between(ps.min_months, 0, 60, f"{w}.min_months")
     _between(ps.min_multi_tag_clusters, 1, 10, f"{w}.min_multi_tag_clusters")

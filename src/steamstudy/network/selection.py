@@ -19,7 +19,7 @@ import networkx as nx
 import numpy as np
 from sklearn.metrics import adjusted_rand_score
 
-from steamstudy.config import NetworkDefaults
+from steamstudy.config import DEFAULT_WORKBENCH_SEED_PRIORITY, WORKBENCH_SEED_PRIORITIES, NetworkDefaults
 from steamstudy.i18n import Text
 from steamstudy.network import champ as C
 from steamstudy.network import metrics as M
@@ -60,6 +60,7 @@ class SelectionSettings:
     replicates: int  # R, Null Comparison
     subsamples: int  # S, Subsample Stability
     algorithm: str = "leiden"
+    workbench_seed_priority: str = DEFAULT_WORKBENCH_SEED_PRIORITY  # the Build's; not a staged Selection Setting
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "genre_hidden", tuple(sorted(set(self.genre_hidden))))
@@ -68,6 +69,8 @@ class SelectionSettings:
         object.__setattr__(self, "s_range", tuple(self.s_range))
         if self.algorithm != "leiden":
             raise ValueError("Parameter Selection runs Leiden only")
+        if self.workbench_seed_priority not in WORKBENCH_SEED_PRIORITIES:
+            raise ValueError(f"workbench_seed_priority must be one of {WORKBENCH_SEED_PRIORITIES}")
 
     def pairs(self) -> list[tuple[int, int]]:
         """The Parameter Grid: (g, s) with s ≤ g, g ascending then s ascending."""
@@ -103,6 +106,9 @@ class SelectionSettings:
             "g_range": list(self.g_range), "s_range": list(self.s_range), "gamma_step": self.gamma_step,
             "scan_seeds": self.scan_seeds, "min_multi_tag_clusters": self.min_multi_tag_clusters,
             "method_version": METHOD_VERSION,
+            # only when not the default, so a default key (and every existing cache) is unchanged
+            **({"workbench_seed_priority": self.workbench_seed_priority}
+               if self.workbench_seed_priority != DEFAULT_WORKBENCH_SEED_PRIORITY else {}),
         }
 
     def grid_key(self, dataset: str, context: TagContext) -> dict[str, Any]:
@@ -130,7 +136,7 @@ def load_selection_settings(network: NetworkDefaults, genre_tag_ids: Iterable[in
         clustering_weight=ps.clustering_weight, seed=network.seed, null_replicates=network.null_replicates,
         noise_seeds=network.noise_seeds, g_range=ps.g_range, s_range=ps.s_range, gamma_step=ps.gamma_step,
         scan_seeds=ps.scan_seeds, min_multi_tag_clusters=ps.min_multi_tag_clusters, replicates=ps.null_replicates,
-        subsamples=ps.subsamples,
+        subsamples=ps.subsamples, workbench_seed_priority=ps.workbench_seed_priority,
     )
 
 
@@ -304,6 +310,7 @@ class GraphTask:
     min_multi_tag_clusters: int
     weight: float  # edges × scan length, for heaviest-first dispatch
     n_pairs: int  # grid pairs with this graph
+    workbench_seed_priority: str = DEFAULT_WORKBENCH_SEED_PRIORITY
 
 
 @dataclass(frozen=True)
@@ -398,22 +405,38 @@ def workbench_candidates(a: float, b: float, midpoint: float) -> list[float]:
     return sorted((x for x in values if a <= x <= b), key=lambda x: (abs(x - midpoint), x))
 
 
+def workbench_attempts(a: float, b: float, midpoint: float, main_seed: int, scan_seeds: Iterable[int],
+                       priority: str = DEFAULT_WORKBENCH_SEED_PRIORITY) -> Iterator[tuple[float, int, str]]:
+    """The (γ, seed, seed_kind) attempts in the order the Workbench Seed Priority sets. `closest_gamma`: at each
+    candidate γ, the main seed then the scan seeds. `main_seed`: the main seed at every γ, then the scan seeds at
+    every γ again from the nearest."""
+    if priority not in WORKBENCH_SEED_PRIORITIES:
+        raise ValueError(f"workbench_seed_priority must be one of {WORKBENCH_SEED_PRIORITIES}, got {priority!r}")
+    candidates = workbench_candidates(a, b, midpoint)
+    scan = list(scan_seeds)
+    if priority == "closest_gamma":
+        for gamma in candidates:
+            yield gamma, main_seed, "main"
+            yield from ((gamma, s, "scan") for s in scan)
+        return
+    yield from ((gamma, main_seed, "main") for gamma in candidates)
+    yield from ((gamma, s, "scan") for gamma in candidates for s in scan)
+
+
 def workbench_setting(graph: nx.Graph, membership: list[int], a: float, b: float, midpoint: float, main_seed: int,
-                      scan_seeds: Iterable[int]) -> WorkbenchSetting:
-    """The first (two-decimal γ, seed) at which Leiden reproduces the Selected Partition exactly: candidates nearest
-    the midpoint first, at each the main seed and then the scan seeds. Otherwise the rounded midpoint, main seed."""
+                      scan_seeds: Iterable[int],
+                      priority: str = DEFAULT_WORKBENCH_SEED_PRIORITY) -> WorkbenchSetting:
+    """The first (two-decimal γ, seed) at which Leiden reproduces the Selected Partition exactly, in the order of
+    `workbench_attempts`. Otherwise the rounded midpoint, main seed."""
     lg, weights = _leiden_graph(graph)
     target = np.asarray(membership)
-    candidates = workbench_candidates(a, b, midpoint)
-    seeds = [(main_seed, "main"), *((s, "scan") for s in scan_seeds)]
-    for gamma in candidates:
-        for seed, kind in seeds:
-            labels, _ = _leiden_passes(lg, weights, gamma, seed)
-            if np.array_equal(C.canonical(labels), target):
-                return WorkbenchSetting(gamma, seed, kind, None, 1.0)
+    for gamma, seed, kind in workbench_attempts(a, b, midpoint, main_seed, scan_seeds, priority):
+        labels, _ = _leiden_passes(lg, weights, gamma, seed)
+        if np.array_equal(C.canonical(labels), target):
+            return WorkbenchSetting(gamma, seed, kind, None, 1.0)
     gamma = max(0.01, round(midpoint, 2))
     labels, _ = _leiden_passes(lg, weights, gamma, main_seed)
-    flag = "not_reproduced" if candidates else "not_representable"
+    flag = "not_reproduced" if workbench_candidates(a, b, midpoint) else "not_representable"
     return WorkbenchSetting(gamma, main_seed, "main", flag, float(adjusted_rand_score(target, labels)))
 
 
@@ -489,7 +512,8 @@ def _selected_metrics(task: GraphTask, network: TagNetwork, graph: nx.Graph,
     s, nodes = task.settings, network.nodes
     gamma = chosen.midpoint
     target = list(chosen.membership)
-    wb = workbench_setting(graph, target, chosen.a, chosen.b, gamma, s.seed, task.scan_seeds)
+    wb = workbench_setting(graph, target, chosen.a, chosen.b, gamma, s.seed, task.scan_seeds,
+                           task.workbench_seed_priority)
     runs = leiden_scan(graph, [gamma], noise_seeds(s.seed, s.noise_seeds, s.null_replicates))
     aris = [float(adjusted_rand_score(target, r.membership)) for r in runs]
     exact = sum(bool(np.array_equal(C.canonical(r.membership), np.asarray(target))) for r in runs)
@@ -534,7 +558,7 @@ def grid_tasks(games: list[Game], settings: SelectionSettings, dataset: str, con
         length = len(C.scan_gammas(n_e, settings.gamma_step)) if n_e >= 2 else 1
         tasks.append(GraphTask(h, games, context, p.settings, tuple(scan_seeds), settings.gamma_step,
                                settings.min_multi_tag_clusters, float(max(1, len(p.network.edges)) * length),
-                               count[h]))
+                               count[h], settings.workbench_seed_priority))
     tasks.sort(key=lambda t: (-t.weight, t.graph_hash))
     return {(p.g, p.s): p.graph_hash for p in pairs}, tasks
 

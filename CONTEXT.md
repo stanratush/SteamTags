@@ -110,6 +110,10 @@ _Avoid_: robust partition, consensus partition
 The **Stable Partition** that **Automatic Parameter Selection** keeps for a **Threshold Pair**: the one with the widest **Optimality Domain** among those with at least the minimum number of **Multi-Tag Clusters** (three by default; **One-Tag Clusters** never count). A **Threshold Pair** may have none. Its **Selected Resolution** is the midpoint of that domain.
 _Avoid_: best partition, final clustering
 
+**Workbench Seed Priority**:
+The **Build** setting that chooses the order in which the Workbench γ and seed are searched for a **Selected Partition**: nearest the **Selected Resolution** first (the default), or the main seed first. It never changes which partition is selected or shown, only the γ and seed at which the Workbench shows it.
+_Avoid_: seed preference, seed mode, main-seed mode
+
 **Neighbour Agreement**:
 How similar a **Threshold Pair**'s **Selected Partition** is to those of its adjacent pairs in the **Parameter Grid** (g ± 1, s ± 1), compared on the **Tags** they share that have an edge in at least one of the two networks (a tag isolated in both agrees trivially and is left out). Adjacent pairs without a **Selected Partition** are missing, never counted as disagreement, and adjacent pairs with an identical network are left out, since a step that changes nothing tests nothing. Measures parameter stability: dependence on the thresholds, not on the seed or the games. Tends to be higher at large g, where one step changes the network less (see **Edge Overlap**).
 _Avoid_: grid stability, robustness, smoothness

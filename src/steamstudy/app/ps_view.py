@@ -411,7 +411,13 @@ def read_only(s: SEL.SelectionSettings) -> list[Callable[[Text], str]]:
                           g_hi=s.g_range[1], s_lo=s.s_range[0], s_hi=s.s_range[1], n=len(s.pairs())),
             lambda tx: tx("γ from 0 to γ_max(n_e) in steps of {step}; {seeds} scan seeds",
                           step=tx.fixed(s.gamma_step, "g"), seeds=s.scan_seeds),
-            lambda tx: tx("Null Comparison R = {r}; Subsample Stability S = {s}", r=s.replicates, s=s.subsamples)]
+            lambda tx: tx("Null Comparison R = {r}; Subsample Stability S = {s}", r=s.replicates, s=s.subsamples),
+            lambda tx: tx("Workbench seed priority: {order}",
+                          order=tx(SEED_PRIORITY_LABELS[s.workbench_seed_priority]))]
+
+
+# The Build's Workbench Seed Priority, as the Fixed settings name it.
+SEED_PRIORITY_LABELS = {"closest_gamma": msg("Closest γ to the midpoint"), "main_seed": msg("Prefer the main seed")}
 
 
 def run_rows(views: list[DatasetView], progress: Mapping[str, Any] | None, validated: Mapping[str, bool], *,

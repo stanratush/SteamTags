@@ -44,6 +44,7 @@ This file sits outside `docs/user-guide/`, so the guide parser never reads it. T
 | Stable Partition | стабилно разбиване (in the Gibson & Mucha sense) | устойчиво разбиване, консенсусно разбиване |
 | Selected Partition | избрано разбиване | най-добро разбиване, окончателна клъстеризация |
 | Selected Resolution | избрана резолюция | — |
+| Workbench Seed Priority (values: Closest γ to the midpoint · Prefer the main seed) | приоритет на началното число в работното място (Най-близкото γ до средата · Предпочитай главното начално число) | — |
 | resolution γ | резолюция γ | разделителна способност |
 | seed | начално число (with *seed* in parentheses at the guide heading and on the control's tooltip) | семе, сийд |
 | Seed-Noise Floor | праг на шума от началното число | доверителен интервал, грешка, стабилност на seed |

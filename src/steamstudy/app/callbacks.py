@@ -169,7 +169,7 @@ def applied_line(verify, key, cluster_of, tx):
                 tx("Applied from Parameter Selection: {dataset}, g={g}, s={s} — shows a different partition from the "
                    "Selected Partition: ARI {ari}", **where, ari=tx.fixed(value, ".2f")))
         record = {k: applied[k] for k in ("dataset", "g", "s", "grid_key_hash", "method_version", "workbench_gamma",
-                                          "workbench_seed")}
+                                          "workbench_seed", "workbench_seed_priority")}
         record.update({"reproduced": reproduced, "ari": None if reproduced else value})
         return line, {"applied_key": applied["key"], "applied_from": record, "text": line}
     if key != verify["applied_key"]:
@@ -1164,7 +1164,8 @@ def ps_apply(_n, dataset, pair, active, build_path, cstore=None):
     values = controls_from_settings(c, workbench)
     applied = {"dataset": dataset, "g": g, "s": s, "grid_key_hash": SEL.key_hash(settings.grid_key(
                    dataset, c.context(dataset))), "method_version": SEL.METHOD_VERSION,
-               "workbench_gamma": wb["gamma"], "workbench_seed": wb["seed"], "nodes": result.nodes,
+               "workbench_gamma": wb["gamma"], "workbench_seed": wb["seed"],
+               "workbench_seed_priority": settings.workbench_seed_priority, "nodes": result.nodes,
                "membership": result.selected, "key": workbench.key()}
     pending = {"dataset": values["dataset"], "defining-hidden": values["defining-hidden"], "removed": values["removed"]}
     return [*[values[k] for k in CONTROL_IDS], values["removed"], None, None, pending, {"applied": applied},

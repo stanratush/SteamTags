@@ -1,0 +1,20 @@
+build 20261109T064256Z-493c5375, 647 graphs = 667 pairs with a Selected Partition, 126 s
+closest  reproduced 660, with main seed 503, at nearest-to-midpoint γ 630
+main     reproduced 660, with main seed 595, at nearest-to-midpoint γ 546
+
+modes disagree: 90 graphs = 92 pairs
+extra distance from midpoint (main − closest): median 0.042, p90 0.105, max 0.210
+main-mode γ position, share of half-domain from midpoint: median 0.41, p90 0.80, max 0.98
+edge room (1 = midpoint, 0 = edge): closest median 0.98, main median 0.59, main min 0.02
+ΔQ (main − closest): median +0.0028, range -0.0602 … +0.0336
+Workbench seed-noise floor: closest median 0.770, main median 0.771; Δ median +0.000, range -0.288 … +0.444, main lower in 21/90 graphs
+Workbench seed-noise mean: closest median 0.900, main median 0.939; Δ median +0.025, range -0.200 … +0.171, main lower in 26/90 graphs
+|Workbench floor − Parameter Selection floor|, closest: median 0.000, max 0.301
+|Workbench floor − Parameter Selection floor|, main: median 0.027, max 0.444
+
+chosen pairs (default constraints):
+  overall 16,10: mid 0.886 [0.540, 1.231]; closest γ 0.89 main = main mode
+  puzzle 11,5: mid 1.118 [0.911, 1.324]; closest γ 1.12 main = main mode
+  rpg 12,2: mid 1.085 [0.973, 1.197]; closest γ 1.09 main = main mode
+  strategy 8,3: mid 1.453 [1.288, 1.618]; closest γ 1.45 main = main mode
+  simulation 14,11: mid 1.285 [1.059, 1.511]; closest γ 1.28 main = main mode

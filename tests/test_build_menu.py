@@ -594,6 +594,16 @@ def test_a_no_pairs_grid_blocks_build(root):
     assert marks["network"] == "red" and not can_build
 
 
+def test_an_unknown_workbench_seed_priority_shows_on_the_network_step(root):
+    draft = BA.start_draft(root, "S1", config_dir=root / "config", name="Seed order")
+    draft.description = "unknown order"
+    draft.config["network"]["parameter_selection"]["workbench_seed_priority"] = "seed_first"
+    BA.save_draft(root, draft)
+    problems = BA.draft_problems(root, draft)
+    assert [p.step for p in problems] == ["network"]
+    assert "closest_gamma" in problems[0].message and "main_seed" in problems[0].message
+
+
 def test_the_g_slider_rises_to_the_builds_grid(tagged_build):
     from steamstudy.app.layout import slider_tops
 

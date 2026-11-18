@@ -68,6 +68,9 @@ MESSAGES: dict[str, str | dict[str, str]] = {
         "γ от 0 до γ_max(n_e) със стъпка {step}; начални числа за сканирането: {seeds}",
     "Null Comparison R = {r}; Subsample Stability S = {s}":
         "Сравнение с нулев модел R = {r}; стабилност при подизвадки S = {s}",
+    "Workbench seed priority: {order}": "Приоритет на началното число в работното място: {order}",
+    "Closest γ to the midpoint": "Най-близкото γ до средата",
+    "Prefer the main seed": "Предпочитай главното начално число",
     # The dataset strip and the loading panel
     "no qualifying pair": "няма квалифицирана двойка",
     "★ {g}·{s} NA {na}": "★ {g}·{s} NA {na}",

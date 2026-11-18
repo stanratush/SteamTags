@@ -30,6 +30,9 @@ scan_seeds = 10
 null_replicates = 100        # R, Null Comparison
 subsamples = 100             # S, Subsample Stability
 workers = 0                  # 0 = os.cpu_count() - 1
+# Workbench Seed Priority: the order the Workbench γ/seed search tries to show each Selected Partition. "closest_gamma"
+# (γ nearest the midpoint first; recommended) or "main_seed" (the main seed at every γ first). Never changes the partition.
+workbench_seed_priority = "closest_gamma"
 # Pair Constraints and tolerance: never in a cache key
 tolerance = 0.05
 min_retention = 0.50

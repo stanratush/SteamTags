@@ -420,3 +420,10 @@ def test_the_cluster_comparison_glossary_terms_are_in_context_and_the_guide():
     assert set(terms) <= set(_glossary_terms())
     guide = _text("02-app-controls.md") + _text("03-metric-reference.md")
     assert all(term in guide for term in terms)
+
+
+def test_the_workbench_seed_priority_term_is_in_context_and_the_guide():
+    assert "Workbench Seed Priority" in _glossary_terms()
+    guide = _text("02-app-controls.md") + _text("03-metric-reference.md")
+    assert "Workbench Seed Priority" in guide and "#workbench-seed-priority" in _text("02-app-controls.md")
+    assert "workbench_seed_priority" in _text("07-making-builds.md")

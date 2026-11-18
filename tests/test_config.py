@@ -127,3 +127,27 @@ def test_invalid_parameter_selection_values_raise_clear_errors(config_dir, key, 
     files["network"]["parameter_selection"][key] = value
     with pytest.raises(ConfigError, match=message):
         config_from_data(files)
+
+
+def test_workbench_seed_priority_is_shipped_as_the_default(config_dir):
+    assert load_config(config_dir).network.parameter_selection.workbench_seed_priority == "closest_gamma"
+
+
+@pytest.mark.parametrize("value", ["closest_gamma", "main_seed"])
+def test_workbench_seed_priority_values_load(config_dir, value):
+    files = _files(config_dir)
+    files["network"]["parameter_selection"]["workbench_seed_priority"] = value
+    assert config_from_data(files).network.parameter_selection.workbench_seed_priority == value
+
+
+def test_a_missing_workbench_seed_priority_reads_as_closest_gamma(config_dir):
+    files = _files(config_dir)
+    files["network"]["parameter_selection"].pop("workbench_seed_priority", None)
+    assert config_from_data(files).network.parameter_selection.workbench_seed_priority == "closest_gamma"
+
+
+def test_an_unknown_workbench_seed_priority_names_the_allowed_values(config_dir):
+    files = _files(config_dir)
+    files["network"]["parameter_selection"]["workbench_seed_priority"] = "seed_first"
+    with pytest.raises(ConfigError, match=r"workbench_seed_priority.*closest_gamma.*main_seed"):
+        config_from_data(files)

@@ -176,19 +176,24 @@ def test_the_workbench_gamma_and_seed_show_the_selected_partition(ctx, small, sm
         assert round(wb["gamma"], 2) == wb["gamma"] and r.selected_partition["a"] <= wb["gamma"] <= r.selected_partition["b"]
 
 
-def test_workbench_flags(ctx, small):
+@pytest.mark.parametrize("priority", ["closest_gamma", "main_seed"])
+def test_workbench_flags(ctx, small, priority):
     from steamstudy.network.graph import build_network, to_graph
 
     network = build_network(ctx.games("overall"), small.for_pair("overall", ctx.context("overall"), 15, 2),
                             ctx.context("overall"))
     graph = to_graph(network.nodes, network.edges, "lift")
     nodes = len(network.nodes)
-    narrow = SEL.workbench_setting(graph, [0] * nodes, 1.231, 1.239, 1.235, small.seed, [1, 2])
+    narrow = SEL.workbench_setting(graph, [0] * nodes, 1.231, 1.239, 1.235, small.seed, [1, 2], priority)
     assert (narrow.flag, narrow.gamma, narrow.seed, narrow.seed_kind) == ("not_representable", 1.24, small.seed, "main")
     never = list(range(nodes))  # every tag its own One-Tag Cluster: Leiden never returns it at γ ≤ 0.5 here
-    missed = SEL.workbench_setting(graph, never, 0.2, 0.5, 0.35, small.seed, [1, 2])
-    assert (missed.flag, missed.gamma) == ("not_reproduced", 0.35) and missed.ari < 1
+    missed = SEL.workbench_setting(graph, never, 0.2, 0.5, 0.35, small.seed, [1, 2], priority)
+    assert (missed.flag, missed.gamma, missed.seed, missed.seed_kind) == ("not_reproduced", 0.35, small.seed, "main")
+    assert missed.ari == pytest.approx(MISSED_ARI)
     assert SEL.workbench_candidates(0.0, 0.031, 0.0155) == [0.02, 0.01, 0.03]
+
+
+MISSED_ARI = 0.0  # HEAD before Workbench Seed Priority (frozen)
 
 
 def test_descriptive_q_equals_the_envelope_value(small_grid):
@@ -439,3 +444,88 @@ def test_an_inspected_pair_says_whether_it_qualifies_and_why_another_was_selecte
     alone = _inspected((3, 2), {(3, 2): (0.9, {"retention": 0.3})})
     assert alone[2] == ("It does not qualify: Information Retention below the minimum. No pair qualifies under the "
                         "default constraints.")
+
+
+# ----------------------------------------------------------------------------- Workbench Seed Priority
+
+
+def _first_match(priority, reproduces, a=0.10, b=0.50, midpoint=0.30, main=7, scan=(1, 2, 3)):
+    """The first attempt the fake check accepts, as `workbench_setting` would stop at it."""
+    return next((t for t in SEL.workbench_attempts(a, b, midpoint, main, scan, priority) if reproduces(*t[:2])), None)
+
+
+def test_closest_gamma_tries_every_seed_at_the_nearest_gamma_first():
+    reproduces = lambda gamma, seed: (gamma, seed) in {(0.30, 2), (0.33, 7)}
+    assert _first_match("closest_gamma", reproduces) == (0.30, 2, "scan")
+
+
+def test_main_seed_tries_the_main_seed_at_every_gamma_first():
+    reproduces = lambda gamma, seed: (gamma, seed) in {(0.30, 2), (0.33, 7)}
+    assert _first_match("main_seed", reproduces) == (0.33, 7, "main")
+
+
+@pytest.mark.parametrize("priority", ["closest_gamma", "main_seed"])
+def test_equidistant_candidates_go_to_the_lower_gamma_first(priority):
+    reproduces = lambda gamma, seed: gamma in {0.30, 0.31}
+    assert _first_match(priority, reproduces, midpoint=0.305)[0] == 0.30
+
+
+def test_main_seed_falls_back_to_the_scan_seeds_from_the_nearest_gamma():
+    attempts = list(SEL.workbench_attempts(0.29, 0.31, 0.30, 7, (1, 2), "main_seed"))
+    assert attempts == [(0.30, 7, "main"), (0.29, 7, "main"), (0.31, 7, "main"),
+                        (0.30, 1, "scan"), (0.30, 2, "scan"), (0.29, 1, "scan"), (0.29, 2, "scan"),
+                        (0.31, 1, "scan"), (0.31, 2, "scan")]
+    reproduces = lambda gamma, seed: (gamma, seed) in {(0.30, 2), (0.31, 1)}
+    assert _first_match("main_seed", reproduces, a=0.29, b=0.31, scan=(1, 2)) == (0.30, 2, "scan")
+
+
+def test_closest_gamma_order_is_todays():
+    attempts = list(SEL.workbench_attempts(0.29, 0.31, 0.30, 7, (1, 2), "closest_gamma"))
+    assert attempts == [(0.30, 7, "main"), (0.30, 1, "scan"), (0.30, 2, "scan"), (0.29, 7, "main"),
+                        (0.29, 1, "scan"), (0.29, 2, "scan"), (0.31, 7, "main"), (0.31, 1, "scan"), (0.31, 2, "scan")]
+
+
+def test_an_unknown_priority_is_refused():
+    with pytest.raises(ValueError, match="closest_gamma"):
+        list(SEL.workbench_attempts(0.29, 0.31, 0.30, 7, (1, 2), "seed_first"))
+
+
+TODAYS_SETTINGS_KEY_HASH = "a5014bd97ca1501835442ab7cc95820b5b99c0c40a6339af008bb17cb4084040"  # HEAD (frozen)
+
+# HEAD's `workbench` per graph on the small grid, before Workbench Seed Priority existed (frozen).
+TODAYS_WORKBENCH = {
+    "36cc95a77614": {"gamma": 1.39, "seed": 20261003, "seed_kind": "main", "flag": None, "ari": 1.0},
+    "6cdfd98d6098": {"gamma": 1.38, "seed": 20261003, "seed_kind": "main", "flag": None, "ari": 1.0},
+    "74e0335c323e": {"gamma": 1.4, "seed": 20261003, "seed_kind": "main", "flag": None, "ari": 1.0},
+}
+
+
+def test_closest_gamma_gives_todays_workbench_setting(small, small_grid):
+    assert small.workbench_seed_priority == "closest_gamma"
+    assert {h[:12]: r.workbench for h, r in small_grid.results.items()} == TODAYS_WORKBENCH
+
+
+def test_the_priority_enters_the_settings_key_only_for_main_seed(defaults, ctx):
+    key = defaults.settings_key()
+    assert "workbench_seed_priority" not in key
+    assert SEL.key_hash(key) == TODAYS_SETTINGS_KEY_HASH
+    main = defaults.with_(workbench_seed_priority="main_seed")
+    assert main.settings_key() == {**key, "workbench_seed_priority": "main_seed"}
+    assert main.settings_key()["method_version"] == "parameter-selection-1"
+    puzzle = ctx.context("puzzle")
+    assert SEL.key_hash(main.grid_key("puzzle", puzzle)) != SEL.key_hash(defaults.grid_key("puzzle", puzzle))
+
+
+def test_the_graph_task_carries_the_priority(ctx, small):
+    main = small.with_(workbench_seed_priority="main_seed")
+    _, tasks = SEL.grid_tasks(ctx.games("overall"), main, "overall", ctx.context("overall"))
+    assert tasks and {t.workbench_seed_priority for t in tasks} == {"main_seed"}
+    _, tasks = SEL.grid_tasks(ctx.games("overall"), small, "overall", ctx.context("overall"))
+    assert {t.workbench_seed_priority for t in tasks} == {"closest_gamma"}
+
+
+def test_the_priority_comes_from_the_network_table(ctx):
+    network = dataclasses.replace(ctx.network, parameter_selection=dataclasses.replace(
+        ctx.network.parameter_selection, workbench_seed_priority="main_seed"))
+    loaded = SEL.load_selection_settings(network, (t.id for t in ctx.genre_tags), ctx.build_id)
+    assert loaded.workbench_seed_priority == "main_seed"

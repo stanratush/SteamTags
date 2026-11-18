@@ -462,6 +462,15 @@ def methods_paragraph(tx: Text, values: dict[str, Any] | None = None) -> str:
         "applied. The pair was chosen on the same data, so Subsample Stability may be slightly optimistic.", **values)
 
 
+def workbench_priority_sentence(priority: str, *, tx: Text) -> str:
+    """Appended to the methods paragraph only for `main_seed`, so a default report is unchanged."""
+    if priority == "closest_gamma":
+        return ""
+    return " " + tx("The Build's Workbench Seed Priority was “Prefer the main seed”: the Workbench γ and seed that "
+                    "show each Selected Partition were searched with the main seed at every γ first, so some are "
+                    "further from the Selected Resolution; the partitions themselves are unchanged.")
+
+
 def methods_values(settings: Any, constraints: Any, *, tx: Text, top_n: str = "Top-100") -> dict[str, Any]:
     """`top_n` is the Build-output wording: "Top-100" when every List Size is 100, else "Top-N"."""
     weight = tx("Lift") if settings.clustering_weight == "lift" else tx("shared games")

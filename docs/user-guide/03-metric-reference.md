@@ -2033,7 +2033,7 @@ For a partition with Â and P̂ on a graph of total weight 2m, ω_in = Â / P̂ 
 
 Columns: `selected_low`, `selected_high`, `selected_resolution`, `clipped_high`, `workbench_gamma`, `workbench_seed`, `reproduced`, `workbench_ari`, `not_representable`, `not_reproduced`, `selection_reason` in `pairs.csv`; `selected` in `admissible_partitions.csv`; `selected_partitions.csv`.
 
-Among the Stable Partitions with at least the minimum Multi-Tag Clusters (a Selection Setting, default 3, counting only Clusters with 2 or more tags), the one with the widest domain b − a wins; equal widths go to the lower midpoint. The minimum is applied after stability, never to CHAMP's input. The Selected Resolution is the exact midpoint (a + b)/2. Without one, the pair records why: `no_edges`, `no_stable_partition` or `too_few_multi_tag_clusters`. The **Workbench γ and seed** are what Apply to Workbench enters: the two-decimal γ inside the domain nearest the midpoint at which Leiden with the main seed, or else one of the 10 scan seeds, gives exactly the Selected Partition. When no two-decimal value lies in the domain the pair is `not_representable`; when none reproduces it, `not_reproduced`, and Apply uses the rounded midpoint with the main seed.
+Among the Stable Partitions with at least the minimum Multi-Tag Clusters (a Selection Setting, default 3, counting only Clusters with 2 or more tags), the one with the widest domain b − a wins; equal widths go to the lower midpoint. The minimum is applied after stability, never to CHAMP's input. The Selected Resolution is the exact midpoint (a + b)/2. Without one, the pair records why: `no_edges`, `no_stable_partition` or `too_few_multi_tag_clusters`. The **Workbench γ and seed** are what Apply to Workbench enters: the two-decimal γ inside the domain nearest the midpoint at which Leiden with the main seed, or else one of the 10 scan seeds, gives exactly the Selected Partition, in the order the Build's [Workbench Seed Priority](#workbench-seed-priority) sets. When no two-decimal value lies in the domain the pair is `not_representable`; when none reproduces it, `not_reproduced`, and Apply uses the rounded midpoint with the main seed.
 
 *Why it matters here.* A wide domain means the partition stays optimal over a large range of γ, so it is not an artefact of one exact resolution. The width is in plain γ units; rescaling it to log γ or to Gibson and Mucha's γ-scaled area was considered and not used.
 
@@ -2044,6 +2044,26 @@ Among the Stable Partitions with at least the minimum Multi-Tag Clusters (a Sele
 *Compare with.* The other Stable Partitions in `admissible_partitions.csv`, and the Workbench's partition at the same γ and seed, which is identical when `reproduced` is true.
 
 **Exact definition:** the Stable Partition with `n_multi` ≥ the minimum and the largest domain_high − domain_low (ties within 1e-12 relative: lower midpoint, then canonical membership); `selected_resolution` = (domain_low + domain_high)/2, unrounded.
+
+### Workbench Seed Priority
+
+> **In short.** The Build setting that orders the search for each pair's Workbench γ and seed: nearest the Selected Resolution first, or the main seed first.
+>
+> **Here:** decides at which γ and seed Apply to Workbench shows a Selected Partition, never which partition.
+>
+> **Caution:** keep the default; the seed has no meaning of its own.
+
+Set as `workbench_seed_priority` in `network.toml`'s `[parameter_selection]` table, fixed when the Build is saved and shown read-only in Parameter Selection's Controls. Both orders use the same candidates: every two-decimal γ ≥ 0.01 inside the Optimality Domain, nearest the midpoint first, ties to the lower γ. **Closest γ to the midpoint** (`closest_gamma`, the default): at each γ, the main seed and then the scan seeds in stream order. **Prefer the main seed** (`main_seed`): the main seed at every γ; if none reproduces the Selected Partition, the scan seeds at every γ, again from the nearest. The first exact match wins; with none, the fallback and its flag are the same in both orders. The scan, CHAMP, the Selected Partition, the Selected Resolution, Neighbour Agreement and the chosen pair never depend on it. A `main_seed` Build adds the setting to the settings key, so its Parameter Selection results are cached and exported apart; a default Build's key is unchanged. It is recorded as `workbench_seed_priority` at the top of `parameter_selection.json` and in the `applied_from` block of a Workbench export, and `selection_report.md` names it only when it is `main_seed`.
+
+*Why it matters here.* The γ and seed set every Workbench number of the applied Network State: Q, the Connection Ratios, the Workbench's Seed-Noise Floor and Removal Sensitivity. γ nearest the midpoint is furthest from the domain's edges, where another partition takes over; every seed is an equivalent random draw, and the scan seeds are derived from the main seed, so preferring the main seed is a matter of presentation only.
+
+*Example.* On the reference Build (667 pairs with a Selected Partition), both orders reproduce the same 660 pairs. Prefer the main seed uses the main seed for 595 of them (the default: 503) and the γ nearest the midpoint for 546 (the default: 630). The 92 pairs whose γ or seed changes sit a median 41% of the way from the midpoint to the domain's edge (at most 98%), and their Q differs by −0.060 to +0.034. None of the five default chosen pairs changes.
+
+*Bounds.* Two values: `closest_gamma` and `main_seed`.
+
+*Compare with.* [Selected Partition and Selected Resolution](#selected-partition-and-selected-resolution), whose Workbench γ and seed it orders, and [Apply to Workbench](02-app-controls.md#apply-to-workbench), which enters them.
+
+**Exact definition:** the order of the (γ, seed) attempts over the candidates γ₁, γ₂, …: `closest_gamma` tries (γ₁, main), (γ₁, scan₁), …, (γ₁, scan_k), (γ₂, main), …; `main_seed` tries (γ₁, main), (γ₂, main), …, then (γ₁, scan₁), …, (γ₁, scan_k), (γ₂, scan₁), …; the first attempt whose canonical membership equals the Selected Partition's is the Workbench γ and seed.
 
 ### Neighbour Agreement
 

@@ -21,8 +21,9 @@ from dataclasses import dataclass, field, replace
 # export zip (`parameter_selection` group) and `applied_from` in export.json; 5 (the validation review) adds
 # validation_pairs.csv and the new validation_replicates.csv and validation_clusters.csv columns; 6 (Build
 # management, once for the whole effort) keys the files by Build kind and adds the Import Build files; 7 adds the
-# Cluster Comparison export zip (`cluster_comparison` group).
-SCHEMA_VERSION = 7
+# Cluster Comparison export zip (`cluster_comparison` group); 8 adds `workbench_seed_priority` to
+# parameter_selection.json and to `applied_from` in export.json (Workbench Seed Priority).
+SCHEMA_VERSION = 8
 
 # Column types and how the writer renders them:
 #   str        as is

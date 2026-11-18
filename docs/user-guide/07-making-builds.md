@@ -58,7 +58,7 @@ The Content Flags (the `[[content_flag]]` part of `exclusions.toml`: they mark g
 
 ### Network defaults {#draft-network-defaults}
 
-Every `network.toml` key, including the Parameter Grid and the Pair Constraints. Under it the step lists warnings per dataset, naming the dataset and its N: the grid's largest g above N, a default g or s above N, or `min_support` above N. These are warnings only; the draft can still be built. A grid with no pairs (its smallest s above its largest g) marks the step red and keeps Build off.
+Every `network.toml` key, including the Parameter Grid and the Pair Constraints. `workbench_seed_priority` in `[parameter_selection]` sets the Build's [Workbench Seed Priority](02-app-controls.md#apply-to-workbench): `"closest_gamma"` (the default) or `"main_seed"`; a Build without the key uses `"closest_gamma"`. Under it the step lists warnings per dataset, naming the dataset and its N: the grid's largest g above N, a default g or s above N, or `min_support` above N. These are warnings only; the draft can still be built. A grid with no pairs (its smallest s above its largest g) marks the step red and keeps Build off.
 
 ### Review {#draft-review}
 
