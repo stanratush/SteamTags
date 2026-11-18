@@ -32,4 +32,6 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "Games in both Clusters": "Игри в двата клъстера",
     "Rank in {dataset}": "Място в {dataset}",
     "Matched in {dataset}": "Съвпадащи в {dataset}",
+    # Export CSV (issue 23)
+    "Export CSV": "Експортирай CSV",
 }

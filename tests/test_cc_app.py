@@ -611,3 +611,86 @@ def test_using_a_cell_sets_it_as_the_datasets_cell_includes_the_dataset_and_swit
     assert "Selected Partition at g 16 · s 4" in _text(out["sources"][0])
     with pytest.raises(PreventUpdate):  # no Selected Partition to use
         CB.ps_use_cc(1, "puzzle", None, a, cstore, {}, include, str(ps_build))
+
+
+# ----------------------------------------------------------------------------- Export CSV (issue 23)
+
+import csv  # noqa: E402
+import datetime as dt  # noqa: E402
+import io  # noqa: E402
+import json  # noqa: E402
+import zipfile  # noqa: E402
+
+from steamstudy.app import cc_export as CE  # noqa: E402
+from steamstudy.export import schema as S  # noqa: E402
+
+NOW = dt.datetime(2026, 11, 18, 12, 0, tzinfo=dt.UTC)
+
+
+def _export(build, include=None, minimum=0.10, now=NOW):
+    ctx = load_build(build)
+    _, cstore = _store(ctx)
+    keys = [d.key for d in ctx.datasets]
+    shared = CC.shared_defaults(ctx)
+    result = CC.resolve_all(ctx, shared, keys if include is None else include, {}, cstore)
+    name, data = CE.export_comparison(ctx, shared, result, minimum, now=now)
+    return result, name, zipfile.ZipFile(io.BytesIO(data))
+
+
+def _csv(zf, name):
+    return list(csv.DictReader(io.StringIO(zf.read(name).decode("utf-8-sig"))))
+
+
+def test_the_zip_holds_the_six_tables_and_comparison_json_named_by_the_comparison_id(ps_build):
+    result, name, zf = _export(ps_build)
+    assert name == f"steamstudy_cluster-comparison_{result.comparison_id}_20261118T120000Z.zip"
+    assert sorted(zf.namelist()) == sorted([s.name for s in S.CC_TABLES] + ["comparison.json"])
+    for schema in S.CC_TABLES:
+        assert zf.read(schema.name).decode("utf-8-sig").splitlines()[0] == ",".join(schema.column_names)
+    meta = json.loads(zf.read("comparison.json"))
+    assert meta["comparison_id"] == result.comparison_id and meta["schema_version"] == S.SCHEMA_VERSION == 7
+    assert meta["caution"] == CT.CAUTION and meta["minimum_match_jaccard_on_screen"] == 0.10
+    assert set(meta["columns"]) == {s.name for s in S.CC_TABLES}
+    assert meta["datasets"]["overall"]["threshold_pair"] == [15, 3] and meta["datasets"]["puzzle"]["state_id"]
+    assert len(_csv(zf, "datasets.csv")) == 5 and len(_csv(zf, "pairs.csv")) == 10
+    overall = _csv(zf, "datasets.csv")[0]
+    assert (overall["source"], overall["seed"], overall["state_id"]) == ("pick", "", "")
+
+
+def test_two_exports_of_the_same_inputs_give_byte_identical_tables(ps_build):
+    _, _, first = _export(ps_build)
+    _, _, second = _export(ps_build, now=dt.datetime(2026, 11, 19, tzinfo=dt.UTC))
+    for schema in S.CC_TABLES:
+        assert first.read(schema.name) == second.read(schema.name)
+
+
+def test_the_export_holds_every_pair_and_every_match_whatever_is_on_screen(ps_build):
+    result, _, zf = _export(ps_build, minimum=1.0)
+    pairs = _csv(zf, "pairs.csv")
+    assert {(p["dataset_a"], p["dataset_b"]) for p in pairs} == set(result.pairs)  # not only the chosen pair
+    order = [d.key for d in load_build(ps_build).datasets]
+    assert all(order.index(p["dataset_a"]) < order.index(p["dataset_b"]) for p in pairs)  # A is the earlier
+    matches = _csv(zf, "matches.csv")
+    assert len(matches) == sum(p.n_matches for p in result.pairs.values()) and matches  # below the minimum too
+    flags = _csv(zf, "cluster_flags.csv")
+    assert {f["flag"] for f in flags} <= {"", "outside_network", "only_one_tag_clusters"}  # never below_minimum
+    games = _csv(zf, "match_games.csv")
+    assert len(games) == sum(len(m.games.rows) for p in result.pairs.values() for m in p.matches)
+    clusters = _csv(zf, "clusters.csv")
+    assert any(c["n_tags"] == "1" for c in clusters)  # One-Tag Clusters included
+
+
+def test_export_csv_is_in_the_header_with_its_help_and_needs_two_datasets(ps_build):
+    layout = build_layout(load_build(ps_build), mode="comparison")
+    button = next(c for c in _walk(layout) if getattr(c, "id", None) == "cc-export")
+    assert _text(button) == "Export CSV"
+    assert H.target("comparison.export") in _help_targets(layout)
+    ctx = load_build(ps_build)
+    d = CC.shared_defaults(ctx)
+    _, cstore = _store(ctx)
+    with pytest.raises(PreventUpdate):
+        CB.cc_export(1, d.clustering_weight, d.algorithm, d.min_months, list(d.genre_hidden), [],
+                     [["overall"]] + [[] for _ in ctx.datasets[1:]], {}, cstore, 0.1, str(ps_build))
+    download = CB.cc_export(1, d.clustering_weight, d.algorithm, d.min_months, list(d.genre_hidden), [],
+                            [[k.key] for k in ctx.datasets], {}, cstore, 0.1, str(ps_build))
+    assert download["filename"].startswith("steamstudy_cluster-comparison_")

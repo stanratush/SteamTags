@@ -574,6 +574,7 @@ body[data-form=narrow][data-sheet=open] #root.selection .ps-inspector.has-sel{gr
 .cc-genre{flex-wrap:wrap;max-width:620px}
 .cc-removed{min-width:180px}
 .cc-id{margin-left:auto;display:inline-flex;align-items:center;gap:4px}
+.cc-export{display:inline-flex;align-items:center;gap:4px}
 .cc-sidebar{width:310px}
 .cc-num{width:52px;padding:1px 4px;border:1px solid var(--line);border-radius:4px;font-variant-numeric:tabular-nums}
 .cc-notice{flex-basis:100%;color:var(--warn);background:var(--warn-bg);border-radius:4px;padding:2px 8px}

@@ -306,3 +306,21 @@ def test_an_import_build_duplicates_only_within_its_import_and_a_missing_import_
         BA.build_draft(root, draft, now=dt.datetime(2026, 11, 8, 13, 0, tzinfo=dt.UTC))
     (kept,) = [d for d in BA.list_drafts(root, import_id) if d.name == "Orphan"]
     assert kept.last_failure["kind"] == "message"
+
+
+def test_the_cluster_comparison_export_of_an_import_build_uses_id(full):
+    import io
+    import zipfile
+
+    from steamstudy.app import cc_export as CE
+    from steamstudy.app import cc_view as CC
+    from steamstudy.app.loader import load_build
+
+    ctx = load_build(full[3])
+    shared = CC.shared_defaults(ctx)
+    result = CC.resolve_all(ctx, shared, [d.key for d in ctx.datasets], {}, None)
+    _, data = CE.export_comparison(ctx, shared, result, 0.1)
+    zf = zipfile.ZipFile(io.BytesIO(data))
+    header = zf.read("match_games.csv").decode("utf-8-sig").splitlines()[0].split(",")
+    assert "id" in header and "appid" not in header
+    assert header == list(S.file("import/cluster_comparison/match_games.csv").column_names)

@@ -31,6 +31,7 @@ GROUP_LABEL = {
     "app_export": "app export zip",
     "snapshot": "Snapshot folder",
     "parameter_selection": "Parameter Selection export zip",
+    "cluster_comparison": "Cluster Comparison export zip",
 }
 
 # The appendix's fixed text per language: its title, introduction, table header and the file groups' labels, and
@@ -75,9 +76,14 @@ FIXED: dict[str, dict[str, Any]] = {
             "app_export": "експортиран zip на приложението",
             "snapshot": "папка на моментната снимка",
             "parameter_selection": "zip от избора на параметри",
+            "cluster_comparison": "zip от сравнението на клъстери",
         },
         # The schema's app panels and report sections; a report's own section names stay English, as the report does.
         "panels": {
+            "Cluster Comparison: dataset pairs": "Сравнение на клъстери: двойки набори",
+            "Cluster Comparison: dataset table": "Сравнение на клъстери: таблица с наборите",
+            "Cluster Comparison: link diagram": "Сравнение на клъстери: диаграма на връзките",
+            "Cluster Comparison: match detail": "Сравнение на клъстери: подробности за съвпадението",
             "Cluster quality tab": "раздел „Качество на клъстерите“",
             "Cluster quality tab (replicates)": "раздел „Качество на клъстерите“ (повторения)",
             "Cluster-quality row; Cluster quality tab":

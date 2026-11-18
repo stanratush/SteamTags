@@ -240,6 +240,38 @@ The zip's metadata, mirroring `export.json`: `schema_version`, the settings key 
 
 A short report: per dataset, the selection explanation with its caveats and the validation sentences, then the methods paragraph with citations. Every sentence comes from the same templates as the app.
 
+## Cluster Comparison files
+
+**Export CSV** in the Cluster Comparison mode writes one zip per Comparison State, `steamstudy_cluster-comparison_<comparison_id>_<UTC timestamp>.zip`. It holds every pair of the included datasets, whatever the mode shows: the chosen pair, ⇄, the Minimum Match Jaccard and the chosen match are view choices and change nothing in it. A is always the earlier dataset in the Build's order. The same inputs give byte-identical tables. It is a record only: no file reopens a comparison; each dataset is rebuilt from its `state_id` or from its run's settings key and Threshold Pair.
+
+### `datasets.csv`
+
+One row per included dataset: its source (`pick`, `cell`, `hand` or `no_run`), g, s and γ, the main seed off a cell, the hash of its run's settings key on a cell or its `state_id` otherwise, its games, Tags and Cluster counts, the Tags hidden in it, its Seed-Noise Floor and, on a cell, its Neighbour Agreement.
+
+### `clusters.csv` {#comparison-clusterscsv}
+
+One row is one Cluster of one included dataset's partition, One-Tag Clusters included: its label, size and Tags, so each network's whole partition is in the record.
+
+### `pairs.csv` {#comparison-pairscsv}
+
+One row per dataset pair: the Comparable Tags with their share of each network, ARI on the Comparable Tags, the games in common and the number of Cluster Matches.
+
+### `matches.csv`
+
+One row is one Cluster Match, every one whatever the minimum: both Clusters' sizes, the shared Tags, Match Jaccard, both shares, Jaccard (comparable) with each Cluster's Comparable Tags, Overlap vs. expected with E, the shared and unshared Tags, each side's unshared Tags counted by group (in another Cluster, a One-Tag Cluster, not in the network, hidden as a defining Tag) and the games in both datasets counted by Cluster.
+
+### `cluster_flags.csv`
+
+One row is one Multi-Tag Cluster of one dataset of a pair against the other: its match count, its best Match Jaccard and the flags that do not depend on the minimum (`outside_network`, `only_one_tag_clusters` or empty) with their counts. Apply any minimum with `best_jaccard`: a Cluster with matches, none at or above it, is "No match above" that minimum.
+
+### `match_games.csv`
+
+One row is one game in both Clusters of one match, every game (the app lists the first 10): its rank in each dataset, its Tags matched in each Cluster, and its Tags from either Cluster with the shared ones.
+
+### `comparison.json`
+
+The zip's metadata: `schema_version`, the `comparison_id` and the full Comparison State key, the Minimum Match Jaccard on screen at export (information only), the caution, software versions, a copy of `build.json`, each dataset's provenance (its run's settings key and Threshold Pair, or its `state_id` and seed), each file's rows and SHA-256, and the `columns` block.
+
 ## Import Builds
 
 A Build made from an Import ([Imported data](08-imported-data.md)) has the same folders and writes the files above under the same names, with three differences.

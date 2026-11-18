@@ -138,11 +138,11 @@ def test_steam_analysis_and_export_json_change_only_in_version_and_stacking_text
 
     old = json.loads((FIXTURES / "schema5_columns.json").read_text(encoding="utf-8"))
     analysis = json.loads((tagged_build / "analysis" / "analysis.json").read_text(encoding="utf-8"))
-    assert old["schema_version"] == 5 and analysis["schema_version"] == S.SCHEMA_VERSION == 6
+    assert old["schema_version"] == 5 and analysis["schema_version"] == S.SCHEMA_VERSION == 7
     ctx = load_build(tagged_build)
     _, data = export_zip(ctx, ctx.default_settings("overall"))
     export = json.loads(zipfile.ZipFile(io.BytesIO(data)).read("export.json"))
-    assert export["schema_version"] == 6
+    assert export["schema_version"] == 7
     assert _changed_descriptions(old["export_json_columns"], export["columns"]) == {}
     # The columns blocks carry column descriptions only; the stacking text is in the file description.
     assert _changed_descriptions(old["analysis_json_columns"], analysis["columns"]) == {}

@@ -1290,6 +1290,23 @@ def ps_use_cc(_n, dataset, pair, active, cstore, requests, include, build_path):
     return {**(requests or {}), dataset: {"source": "cell", "g": g, "s": s}}, include, "comparison"
 
 
+def cc_export(_n, weight, algorithm, min_months, genre, removed, include, requests, cstore, minimum, build_path):
+    """Export CSV: every pair of the included datasets, whatever is on screen, as one zip (`cc_export`)."""
+    if not _n:
+        raise PreventUpdate
+    from steamstudy.app.cc_export import export_comparison
+
+    c = load_build(build_path)
+    included = [d for values in (include or []) for d in (values or [])]
+    shared = CC.shared_of(weight, algorithm, min_months, genre, removed)
+    result = CC.resolve_all(c, shared, included, requests, cstore)
+    if result.comparison_id is None:
+        raise PreventUpdate
+    filename, data = export_comparison(c, shared, result,
+                                       CC.MINIMUM_DEFAULT if minimum is None else float(minimum))
+    return dash.dcc.send_bytes(data, filename)
+
+
 def cc_swap(_n, shown, orient):
     """⇄: the chosen pair's other dataset goes on the left (a view choice)."""
     pair = (shown or {}).get("pair")
@@ -1535,7 +1552,12 @@ def register(app: dash.Dash) -> None:
        Input("cc-s-min-months", "value"), Input("cc-s-genre", "value"), Input("cc-s-removed", "value"),
        Input({"type": "cc-include", "dataset": ALL}, "value"), Input("cc-requests", "data"),
        Input("cc-pair", "data"), State("ps-constraints", "data"), State("build-path", "data"),
-       Input("lang", "data"), running=[(Output("cc-busy", "hidden"), False, True)])(cc_render)
+       Input("lang", "data"), running=[(Output("cc-busy", "hidden"), False, True),
+                                       (Output("cc-export", "disabled"), True, False)])(cc_render)
+    cb(Output("cc-download", "data"), Input("cc-export", "n_clicks"), *[State(i, "value") for i in CC_SHARED_IDS],
+       State({"type": "cc-include", "dataset": ALL}, "value"), State("cc-requests", "data"),
+       State("ps-constraints", "data"), State("cc-minimum", "value"), State("build-path", "data"),
+       prevent_initial_call=True)(cc_export)
     cb(Output("cc-pair", "data"), Input({"type": "cc-pair", "a": ALL, "b": ALL}, "n_clicks"),
        prevent_initial_call=True)(cc_pick_pair)
     cb(*[Output(i, p) for i, p in (("cc-main-empty", "children"), ("cc-pair-view", "style"), ("cc-title", "children"),

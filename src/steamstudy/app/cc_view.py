@@ -865,7 +865,9 @@ def mode_layout(ctx: BuildContext, L: Labels) -> html.Div:
         html.Div([html.Span("comparison_id", className="term mute small", tabIndex="0",
                             **L.help("comparison.comparison_id")), " ", html.Code("—", id="cc-comparison-id")],
                  className="cc-id"),
-        html.Div(id="cc-export-slot", className="cc-export-slot"),  # Export CSV (issue 23)
+        html.Div([html.Button(L.prop("cc-export", "children", msg("Export CSV")), id="cc-export", className="btn",
+                              n_clicks=0),
+                  _static_help(L, "comparison.export"), dcc.Download(id="cc-download")], className="cc-export"),
         html.Div(id="cc-notice", className="cc-notice small", role="status"),  # a shared-setting change's notice
     ], className="cc-head")
     sidebar = html.Div([

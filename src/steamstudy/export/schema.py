@@ -20,8 +20,9 @@ from dataclasses import dataclass, field, replace
 # 1 + the one shared bump for the ticket 25, 27 and 28 overrides (spec); 3 adds the Parameter Selection
 # export zip (`parameter_selection` group) and `applied_from` in export.json; 5 (the validation review) adds
 # validation_pairs.csv and the new validation_replicates.csv and validation_clusters.csv columns; 6 (Build
-# management, once for the whole effort) keys the files by Build kind and adds the Import Build files.
-SCHEMA_VERSION = 6
+# management, once for the whole effort) keys the files by Build kind and adds the Import Build files; 7 adds the
+# Cluster Comparison export zip (`cluster_comparison` group).
+SCHEMA_VERSION = 7
 
 # Column types and how the writer renders them:
 #   str        as is
@@ -1214,3 +1215,184 @@ PS_CLUSTERS = declare(
 
 PS_TABLES = (PS_PAIRS, PS_ADMISSIBLE, PS_LINKS, PS_SELECTED, PS_SELECTION, PS_VALIDATION_PAIRS, PS_REPLICATES,
              PS_CLUSTERS)
+
+
+# ----------------------------------------------------------------------------- Cluster Comparison export zip
+
+# Every pair of the included datasets, whatever the mode shows; A is always the earlier dataset in the Build's order.
+# Each column names its chapter-3 entry and the part of the mode that shows it; the zip has no report.
+_CC_STATE, _CC_MATCH = "comparison-state-and-comparisonid", "cluster-match-and-comparable-tags"
+_CC_JACC, _CC_SHARE = "match-jaccard-and-jaccard-on-comparable-tags", "shared-share"
+_CC_OVERLAP, _CC_ARI, _CC_COVER = "overlap-vs-expected", "ari-on-comparable-tags", "comparable-tags-coverage"
+_CC_GAMES, _CC_FLAGS = "games-in-common-and-games-in-both-clusters", "no-match-flags"
+_CC_ROWS, _CC_PAIRS = "Cluster Comparison: dataset table", "Cluster Comparison: dataset pairs"
+_CC_DIAGRAM, _CC_DETAIL = "Cluster Comparison: link diagram", "Cluster Comparison: match detail"
+_CC_GROUPS = (("other_cluster", "in another Multi-Tag Cluster of the other dataset"),
+              ("one_tag", "in a One-Tag Cluster of the other dataset"),
+              ("not_in_network", "not in the other dataset's network"),
+              ("hidden", "hidden in the other dataset (its defining Tag): set aside, in no figure"))
+
+
+def _cc(name: str, type_: str, description: str, entry: str, panel: str = _CC_DETAIL) -> Column:
+    return Column(name, type_, description, guide_entry=entry, app_panel=panel, report_section="none")
+
+
+_CC_PAIR = (
+    _cc("dataset_a", "str", "Dataset A's key: the earlier dataset of the pair in the Build's order.",
+        IDENTIFIERS_ENTRY, _CC_PAIRS),
+    _cc("dataset_b", "str", "Dataset B's key: the later dataset of the pair in the Build's order.", IDENTIFIERS_ENTRY,
+        _CC_PAIRS),
+)
+_CC_MATCH_KEY = (
+    _CC_PAIR[0],
+    _cc("cluster_a", "str", "The Multi-Tag Cluster of A (C1…, labels of A's partition).", "cluster-labels-and-counts",
+        _CC_DIAGRAM),
+    _CC_PAIR[1],
+    _cc("cluster_b", "str", "The Multi-Tag Cluster of B (C1…, labels of B's partition).", "cluster-labels-and-counts",
+        _CC_DIAGRAM),
+)
+
+CC_DATASETS = declare(
+    "datasets.csv",
+    "One row per included dataset: its source and values, enough to rebuild its partition.",
+    [
+        _cc("dataset", "str", "Dataset key.", IDENTIFIERS_ENTRY, _CC_ROWS),
+        _cc("source", "str", "Where its partition comes from: pick, cell, hand or no_run.", _CC_STATE, _CC_ROWS),
+        _cc("g", "int", "Minimum games per tag.", _CC_STATE, _CC_ROWS),
+        _cc("s", "int", "Minimum shared games.", _CC_STATE, _CC_ROWS),
+        _cc("resolution", "float", "γ: the Selected Resolution on a cell; as set otherwise.", _CC_STATE, _CC_ROWS),
+        _cc("seed", "int", "The Build's main seed (hand and no_run); empty on a cell, which has no seed.", _CC_STATE,
+            _CC_ROWS),
+        _cc("selection_key", "str", "SHA-256 of the Parameter Selection settings key of its run (cell only).",
+            _CC_STATE, _CC_ROWS),
+        _cc("state_id", "str", "The Network State id of its settings (hand and no_run only).", _CC_STATE, _CC_ROWS),
+        _cc("n_games", "int", "Games of the dataset after the shared Minimum Months Filter.", "network-size",
+            _CC_ROWS),
+        _cc("n_tags", "int", "Tags in its network (nodes).", "network-size", _CC_ROWS),
+        _cc("n_multi_tag_clusters", "int", "Multi-Tag Clusters of its partition.", "cluster-labels-and-counts",
+            _CC_DIAGRAM),
+        _cc("n_one_tag_clusters", "int", "One-Tag Clusters of its partition.", "cluster-labels-and-counts",
+            _CC_DIAGRAM),
+        _cc("hidden_tag_ids", "int_list", "Tags hidden in this dataset: the hidden Genre Tags and its defining Tag.",
+            IDENTIFIERS_ENTRY, _CC_ROWS),
+        _cc("seed_noise_floor", "float", "Its Seed-Noise Floor: the run's stored floor on a cell, its own noise "
+                                         "seeds otherwise.", "adjusted-rand-index", _CC_ROWS),
+        _cc("neighbour_agreement", "float", "The cell's Neighbour Agreement; empty off a cell.", "neighbour-agreement",
+            _CC_ROWS),
+    ],
+    group="cluster_comparison",
+)
+
+CC_CLUSTERS = declare(
+    "clusters.csv",
+    "One row per included dataset and Cluster of its partition, One-Tag Clusters included.",
+    [
+        _cc("dataset", "str", "Dataset key.", IDENTIFIERS_ENTRY, _CC_DIAGRAM),
+        _cc("cluster", "str", "Cluster label (C1…, per partition).", "cluster-labels-and-counts", _CC_DIAGRAM),
+        _cc("n_tags", "int", "Tags in the Cluster.", "cluster-labels-and-counts", _CC_DIAGRAM),
+        _cc("tag_ids", "int_list", "Its Tags' ids.", IDENTIFIERS_ENTRY, _CC_DIAGRAM),
+        _cc("tags", "str_list", "Its Tags' names.", IDENTIFIERS_ENTRY, _CC_DIAGRAM),
+    ],
+    group="cluster_comparison",
+)
+
+CC_PAIRS = declare(
+    "pairs.csv",
+    "One row per dataset pair: the pair overview.",
+    [
+        *_CC_PAIR,
+        _cc("n_comparable_tags", "int", "Comparable Tags: Tags in both networks, One-Tag Clusters included.", _CC_COVER,
+            _CC_PAIRS),
+        _cc("comparable_share_a", "float", "The Comparable Tags as a share of A's network Tags.", _CC_COVER, _CC_PAIRS),
+        _cc("comparable_share_b", "float", "The Comparable Tags as a share of B's network Tags.", _CC_COVER, _CC_PAIRS),
+        _cc("ari_comparable", "float", "ARI on the Comparable Tags with an edge in either network; empty below two.",
+            _CC_ARI, _CC_PAIRS),
+        _cc("n_games_in_common", "int", "Games in both Top-N Datasets after the shared Minimum Months Filter.",
+            _CC_GAMES, _CC_PAIRS),
+        _cc("n_matches", "int", "Cluster Matches of the pair.", _CC_MATCH, _CC_PAIRS),
+    ],
+    group="cluster_comparison",
+)
+
+
+def _cc_group_counts(side: str) -> list[Column]:
+    return [_cc(f"only_{side}_{group}", "int", f"Unshared Tags of Cluster {side.upper()} {text}.", _CC_FLAGS)
+            for group, text in _CC_GROUPS]
+
+
+CC_MATCHES = declare(
+    "matches.csv",
+    "One row per Cluster Match, every one whatever the minimum, ranked by Match Jaccard within each pair.",
+    [
+        *_CC_MATCH_KEY,
+        _cc("n_tags_a", "int", "|a|: Tags of Cluster A, set-aside Tags excluded.", _CC_MATCH),
+        _cc("n_tags_b", "int", "|b|: Tags of Cluster B, set-aside Tags excluded.", _CC_MATCH),
+        _cc("n_shared", "int", "n: shared Tags (in both Clusters).", _CC_MATCH),
+        _cc("jaccard", "float", "Match Jaccard: n / (|a| + |b| − n).", _CC_JACC, _CC_DIAGRAM),
+        _cc("share_a", "float", "Shared, % of A: n / |a|.", _CC_SHARE),
+        _cc("share_b", "float", "Shared, % of B: n / |b|.", _CC_SHARE),
+        _cc("comparable_jaccard", "float", "Jaccard (comparable): n / (|a′| + |b′| − n); empty when either Cluster "
+                                           "has fewer than two Comparable Tags.", _CC_JACC),
+        _cc("n_comparable_a", "int", "|a′|: Comparable Tags of Cluster A.", _CC_JACC),
+        _cc("n_comparable_b", "int", "|b′|: Comparable Tags of Cluster B.", _CC_JACC),
+        _cc("overlap_vs_expected", "float", "Overlap vs. expected: n / E (descriptive; no p-value).", _CC_OVERLAP),
+        _cc("expected_overlap", "float", "E = |a′| · |b′| / N, N the pair's Comparable Tags.", _CC_OVERLAP),
+        _cc("shared_tag_ids", "int_list", "The shared Tags' ids.", IDENTIFIERS_ENTRY),
+        _cc("shared_tags", "str_list", "The shared Tags' names.", IDENTIFIERS_ENTRY),
+        _cc("only_a_tag_ids", "int_list", "Cluster A's unshared Tags' ids (set-aside ones included).",
+            IDENTIFIERS_ENTRY),
+        _cc("only_a_tags", "str_list", "Cluster A's unshared Tags' names.", IDENTIFIERS_ENTRY),
+        _cc("only_b_tag_ids", "int_list", "Cluster B's unshared Tags' ids (set-aside ones included).",
+            IDENTIFIERS_ENTRY),
+        _cc("only_b_tags", "str_list", "Cluster B's unshared Tags' names.", IDENTIFIERS_ENTRY),
+        *_cc_group_counts("a"),
+        *_cc_group_counts("b"),
+        _cc("n_games_both_clusters", "int", "Games in both datasets that are in both Clusters.", _CC_GAMES),
+        _cc("n_games_only_a", "int", "Games in both datasets that are in Cluster A only.", _CC_GAMES),
+        _cc("n_games_only_b", "int", "Games in both datasets that are in Cluster B only.", _CC_GAMES),
+        _cc("n_games_neither", "int", "Games in both datasets that are in neither Cluster.", _CC_GAMES),
+    ],
+    group="cluster_comparison",
+)
+
+CC_FLAGS = declare(
+    "cluster_flags.csv",
+    "One row per dataset pair, direction and Multi-Tag Cluster: each Cluster of one dataset against the other.",
+    [
+        *_CC_PAIR,
+        _cc("dataset", "str", "The dataset whose Cluster this is (dataset_a or dataset_b).", IDENTIFIERS_ENTRY,
+            _CC_DIAGRAM),
+        _cc("cluster", "str", "The Multi-Tag Cluster's label in that dataset.", "cluster-labels-and-counts",
+            _CC_DIAGRAM),
+        _cc("n_tags", "int", "Its Tags, set-aside Tags excluded.", _CC_MATCH, _CC_DIAGRAM),
+        _cc("n_matches", "int", "Its Cluster Matches in the other dataset.", _CC_MATCH, _CC_DIAGRAM),
+        _cc("best_jaccard", "float", "Its best Match Jaccard; empty without a match. Apply any minimum with it.",
+            _CC_JACC, _CC_DIAGRAM),
+        _cc("flag", "str", "outside_network or only_one_tag_clusters, or empty: only the flags that do not depend on "
+                           "the minimum.", _CC_FLAGS, _CC_DIAGRAM),
+        _cc("n_in_one_tag_clusters", "int", "Its Comparable Tags that are One-Tag Clusters in the other dataset.",
+            _CC_FLAGS, _CC_DIAGRAM),
+        _cc("n_not_in_network", "int", "Its Tags not in the other dataset's network.", _CC_FLAGS, _CC_DIAGRAM),
+    ],
+    group="cluster_comparison",
+)
+
+CC_MATCH_GAMES = declare(
+    "match_games.csv",
+    "One row per Cluster Match and game in both Clusters, every game (the app lists the first 10).",
+    [
+        *_CC_MATCH_KEY,
+        _cc("appid", "int", "Steam AppID.", IDENTIFIERS_ENTRY),
+        _cc("name", "str", "Game name.", IDENTIFIERS_ENTRY),
+        _cc("rank_a", "int", "The game's rank in dataset A.", "rank-and-ties"),
+        _cc("rank_b", "int", "The game's rank in dataset B.", "rank-and-ties"),
+        _cc("matched_a", "int", "Its Tags of Cluster A, as counted in A's network (out of n_tags_a).", _CC_GAMES),
+        _cc("matched_b", "int", "Its Tags of Cluster B, as counted in B's network (out of n_tags_b).", _CC_GAMES),
+        _cc("tag_ids", "int_list", "Its Tags from either Cluster.", IDENTIFIERS_ENTRY),
+        _cc("tags", "str_list", "Their names.", IDENTIFIERS_ENTRY),
+        _cc("shared_tag_ids", "int_list", "Of those, the match's shared Tags.", IDENTIFIERS_ENTRY),
+    ],
+    group="cluster_comparison",
+)
+
+CC_TABLES = (CC_DATASETS, CC_CLUSTERS, CC_PAIRS, CC_MATCHES, CC_FLAGS, CC_MATCH_GAMES)
