@@ -44,6 +44,7 @@ from steamstudy.network.cluster import Cluster
 from steamstudy.network.graph import filter_games
 from steamstudy.network.layout import (REFERENCE_CANVAS, Canvas, Layout, LayoutInput, lay_out, label_width,
                                       layout_input, restore, tidy)
+from steamstudy.network import comparison_text as CT
 from steamstudy.network import selection as SEL
 from steamstudy.network.model import Settings, resolution_text
 from steamstudy.network.sensitivity import removal_sensitivity
@@ -1210,6 +1211,36 @@ def cc_main(shown, minimum, weak, orient, focus, match, weight, algorithm, min_m
     return tuple(getattr(out, name) for name in CC.MAIN_OUTPUTS)
 
 
+CC_SHARED_IDS = ("cc-s-weight", "cc-s-algorithm", "cc-s-min-months", "cc-s-genre", "cc-s-removed")
+
+
+def cc_requests(gs, ss, resolutions, weight, algorithm, min_months, genre, removed, shown, requests, cstore,
+                build_path, lang=None):
+    """Each dataset's source and values (`cc-requests`) and the header's notice.
+
+    An edit in one dataset's row re-resolves that dataset only (`CC.edited`); a value the render itself wrote is no
+    edit. A shared-setting change puts every dataset back on its pick under the new settings (or no run); values set
+    by hand or a selected cell are dropped, and the notice says so."""
+    trigger = ctx.triggered_id
+    requests = dict(requests or {})
+    if trigger in CC_SHARED_IDS:
+        dropped = any((entry or {}).get("source", "pick") != "pick" for entry in requests.values())
+        return {}, text(lang_of(lang))(CT.SHARED_SETTINGS_CHANGED) if dropped else ""
+    if not isinstance(trigger, dict) or not shown or not shown.get("values"):
+        raise PreventUpdate
+    c = load_build(build_path)
+    dataset = trigger["dataset"]
+    i = [d.key for d in c.datasets].index(dataset)
+    _, default_constraints = PV.defaults_of(c)
+    shared = CC.shared_of(weight, algorithm, min_months, genre, removed)
+    entry = CC.edited(c, shared, dataset, PV.active_constraints(cstore, dataset, default_constraints),
+                      shown["values"][dataset], gs[i], ss[i], resolutions[i])
+    if entry is None:
+        raise PreventUpdate
+    requests[dataset] = entry
+    return requests, ""
+
+
 def cc_swap(_n, shown, orient):
     """⇄: the chosen pair's other dataset goes on the left (a view choice)."""
     pair = (shown or {}).get("pair")
@@ -1467,6 +1498,12 @@ def register(app: dash.Dash) -> None:
        State("cc-s-removed", "value"), State({"type": "cc-include", "dataset": ALL}, "value"),
        State("cc-requests", "data"), State("cc-pair", "data"), State("ps-constraints", "data"),
        State("build-path", "data"), Input("lang", "data"))(cc_main)
+    cb(Output("cc-requests", "data"), Output("cc-notice", "children"),
+       Input({"type": "cc-g", "dataset": ALL}, "value"), Input({"type": "cc-s", "dataset": ALL}, "value"),
+       Input({"type": "cc-resolution", "dataset": ALL}, "value"),
+       *[Input(i, "value") for i in CC_SHARED_IDS], State("cc-shown", "data"), State("cc-requests", "data"),
+       State("ps-constraints", "data"), State("build-path", "data"), State("lang", "data"),
+       prevent_initial_call=True)(cc_requests)
     cb(Output("cc-orient", "data"), Input("cc-swap", "n_clicks"), State("cc-shown", "data"), State("cc-orient", "data"),
        prevent_initial_call=True)(cc_swap)
     cb(Output("cc-weak", "data"), Input("cc-weak-btn", "n_clicks"), State("cc-weak", "data"),

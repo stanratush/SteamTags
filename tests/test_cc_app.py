@@ -430,3 +430,125 @@ def test_swap_swaps_the_detail_columns_without_recomputing(ps_build, monkeypatch
     assert swapped.index(f"{lb} {m.cluster_b}") < swapped.index(f"{la} {m.cluster_a}")
     assert f"Rank in {lb}" in swapped and swapped.index(f"Rank in {lb}") < swapped.index(f"Rank in {la}") \
         or not m.games.rows
+
+
+# ----------------------------------------------------------------------------- editing and state (issue 21)
+# The fixture's Overall run has a Selected Partition in every cell of g 15–17 × s 2–4 and picks (15, 3); the other
+# runs have none.
+
+
+def edit(build, out, dataset, g=None, s=None, gamma=None, requests=None, cstore=None, shared_id=None, **shared):
+    """`cc_requests` after an edit of one row (g, s or γ; the rest as shown) or a shared setting."""
+    ctx = load_build(build)
+    defaults = CC.shared_defaults(ctx)
+    keys = [d.key for d in ctx.datasets]
+    values = out["shown"]["values"]
+    gs, ss, rs = ([values[k][i] for k in keys] for i in range(3))
+    if dataset:
+        i = keys.index(dataset)
+        gs[i], ss[i], rs[i] = (gs[i] if g is None else g), (ss[i] if s is None else s), (rs[i] if gamma is None
+                                                                                          else gamma)
+        triggered(f'{{"dataset":"{dataset}","type":"cc-g"}}.value')
+    else:
+        triggered(f"{shared_id}.value")
+    return CB.cc_requests(gs, ss, rs, shared.get("weight", defaults.clustering_weight), defaults.algorithm,
+                          defaults.min_months, list(shared.get("genre", defaults.genre_hidden)),
+                          list(defaults.removed_tag_ids), out["shown"], requests or {}, cstore or _store(ctx)[1],
+                          str(build), None)
+
+
+def test_typing_a_cells_g_and_s_selects_that_cell_and_its_gamma_follows(ps_build):
+    out = render(ps_build)
+    requests, notice = edit(ps_build, out, "overall", g=16, s=4)
+    assert requests == {"overall": {"source": "cell", "g": 16, "s": 4}} and notice == ""
+    now = render(ps_build, requests=requests)
+    assert "Selected Partition at g 16 · s 4" in _text(now["sources"][0]) and "★" not in _text(now["sources"][0])
+    assert (now["g"][0], now["s"][0], now["resolution"][0]) == (16, 4, 1.39)  # its Selected Resolution, 1.385
+    back, _ = edit(ps_build, now, "overall", g=15, s=3, requests=requests)
+    assert back == {"overall": {"source": "pick"}}
+
+
+def test_typing_a_pair_with_no_selected_partition_or_a_gamma_sets_the_dataset_by_hand(ps_build):
+    out = render(ps_build)
+    requests, _ = edit(ps_build, out, "overall", g=10, s=5)
+    assert requests == {"overall": {"source": "hand", "g": 10, "s": 5, "resolution": out["resolution"][0]}}
+    gamma, _ = edit(ps_build, out, "overall", gamma=0.8)
+    assert gamma == {"overall": {"source": "hand", "g": 15, "s": 3, "resolution": 0.8}}
+    puzzle, _ = edit(ps_build, out, "puzzle", g=9)  # no run: any pair is by hand
+    assert puzzle["puzzle"]["source"] == "hand"
+    now = render(ps_build, requests=gamma)
+    assert "Set by hand: one Leiden run, main seed" in _text(now["sources"][0]) and now["resolution"][0] == 0.8
+    assert now["comparison_id"] != out["comparison_id"]
+
+
+@pytest.mark.parametrize("values", [{"g": 0}, {"g": 1000}, {"s": 0}, {"g": 2.5}, {"gamma": 0}, {"gamma": None}])
+def test_values_out_of_the_workbench_limits_are_refused(ps_build, values):
+    out = render(ps_build)
+    with pytest.raises(PreventUpdate):
+        edit(ps_build, out, "overall", **values)
+
+
+def test_a_value_the_render_wrote_is_no_edit(ps_build):
+    out = render(ps_build)
+    with pytest.raises(PreventUpdate):
+        edit(ps_build, out, "overall")
+
+
+def test_a_pair_constraints_change_moves_a_pick_dataset_only(ps_build):
+    ctx = load_build(ps_build)
+    _, cstore = _store(ctx)
+    strict = {**cstore, "datasets": {d: {**cstore["shared"], "max_multi_tag_clusters": 1} for d in ("overall", "rpg")}}
+    out = CB.cc_render("comparison", "lift", "leiden", CC.shared_defaults(ctx).min_months,
+                       list(CC.shared_defaults(ctx).genre_hidden), [], [[d.key] for d in ctx.datasets], {}, None,
+                       strict, str(ps_build), None)
+    sources = dict(zip(CC.RENDER_OUTPUTS, out))["sources"]
+    assert "No qualifying pair in the Automatic Parameter Selection run" in _text(sources[0])  # the pick moved
+    kept = CB.cc_render("comparison", "lift", "leiden", CC.shared_defaults(ctx).min_months,
+                        list(CC.shared_defaults(ctx).genre_hidden), [], [[d.key] for d in ctx.datasets],
+                        {"overall": {"source": "cell", "g": 16, "s": 4}}, None, strict, str(ps_build), None)
+    assert "Selected Partition at g 16 · s 4" in _text(dict(zip(CC.RENDER_OUTPUTS, kept))["sources"][0])
+
+
+def test_a_shared_setting_change_puts_every_dataset_back_on_its_pick_with_a_notice(ps_build):
+    out = render(ps_build)
+    hand = {"overall": {"source": "hand", "g": 10, "s": 5, "resolution": 1.0}, "puzzle": {"source": "pick"}}
+    requests, notice = edit(ps_build, out, None, requests=hand, shared_id="cc-s-weight", weight="shared_games")
+    assert requests == {} and notice == CT.SHARED_SETTINGS_CHANGED
+    quiet = edit(ps_build, out, None, requests={"puzzle": {"source": "pick"}}, shared_id="cc-s-genre", genre=[])
+    assert quiet == ({}, "")
+    louvain = render(ps_build, algorithm="louvain")  # no run under Louvain: every dataset with no run
+    assert all("No Automatic Parameter Selection run" in _text(s) for s in louvain["sources"])
+
+
+def test_one_datasets_edit_reuses_the_others_partitions(ps_build, monkeypatch):
+    render(ps_build)
+    resolved = []
+    real = CC.resolve
+    monkeypatch.setattr(CC, "resolve", lambda ctx, shared, request, *a, **k: resolved.append(request.dataset)
+                        or real(ctx, shared, request, *a, **k))
+    render(ps_build, requests={"overall": {"source": "hand", "g": 12, "s": 5, "resolution": 1.0}})
+    assert resolved == ["overall"]
+
+
+def test_switching_to_another_mode_and_back_keeps_the_whole_view(ps_build):
+    requests = {"overall": {"source": "cell", "g": 16, "s": 4}}
+    out = render(ps_build, include=["overall", "rpg", "strategy"], requests=requests, pair=["overall", "strategy"])
+    with pytest.raises(PreventUpdate):  # away: nothing in the mode's stores changes
+        CB.cc_render("workbench", "lift", "leiden", 0, [], [], [], requests, ["overall", "strategy"], None,
+                     str(ps_build))
+    back = render(ps_build, include=["overall", "rpg", "strategy"], requests=requests, pair=["overall", "strategy"])
+    assert back["shown"] == out["shown"] and back["comparison_id"] == out["comparison_id"]
+    # the view choices live in stores and a static slider outside the re-rendered column
+    layout = build_layout(load_build(ps_build), mode="workbench")
+    ids = {getattr(c, "id", None) for c in _walk(layout) if isinstance(getattr(c, "id", None), str)}
+    assert {"cc-requests", "cc-pair", "cc-orient", "cc-weak", "cc-focus", "cc-match", "cc-minimum"} <= ids
+
+
+def test_a_build_switch_starts_the_comparison_fresh_on_every_pick(ps_build):
+    from steamstudy.app.build_menu import build_url
+
+    layout = build_layout(load_build(ps_build), mode="comparison")
+    stores = {c.id: c for c in _walk(layout) if type(c).__name__ == "Store" and str(c.id).startswith("cc-")}
+    assert stores["cc-requests"].data == {}  # every dataset on its pick
+    assert all(getattr(stores[k], "data", None) is None for k in ("cc-pair", "cc-orient", "cc-focus", "cc-match"))
+    assert "mode=comparison" in build_url(CB.ref_of(CB.build_folder(str(ps_build))), "comparison", "overall")

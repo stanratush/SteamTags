@@ -128,6 +128,69 @@ def _on_cell(ctx: BuildContext, shared: CMP.SharedSettings, request: Request, co
                     None if na is None else na.value, None)
 
 
+# ----------------------------------------------------------------------------- editing a dataset's row
+
+
+def value_limits(ctx: BuildContext) -> tuple[int, int]:
+    """The tops of g and s in a dataset row: the Workbench's sliders' (never the Parameter Grid's); both start at 1,
+    and γ takes two decimals from 0.01 up."""
+    from steamstudy.app.layout import slider_tops  # layout imports this module
+
+    return slider_tops(ctx)
+
+
+def valid_values(ctx: BuildContext, g: Any, s: Any, gamma: Any) -> bool:
+    """Whether typed values are within the Workbench's limits (refused otherwise, as the Workbench refuses them)."""
+    try:
+        gi, si, r = int(g), int(s), float(gamma)
+    except (TypeError, ValueError):
+        return False
+    g_top, s_top = value_limits(ctx)
+    return gi == float(g) and si == float(s) and 1 <= gi <= g_top and 1 <= si <= s_top and r >= 0.01
+
+
+def shown_gamma(resolution: float) -> float:
+    """γ as a dataset row shows it: two decimals."""
+    return float(f"{resolution:.2f}")
+
+
+def cell_source(ctx: BuildContext, shared: CMP.SharedSettings, dataset: str, constraints: SEL.Constraints, g: int,
+                s: int, cache_root: Path | None = None) -> str | None:
+    """"pick" when (g, s) is the dataset's pick, "cell" when it is another cell with a Selected Partition, None when
+    the run has no Selected Partition there (or there is no run)."""
+    settings = selection_settings(ctx, shared)
+    if settings is None:
+        return None
+    view = PV.dataset_view(ctx, settings, dataset, constraints, SEL.default_constraints(ctx.network), cache_root)
+    if view.status != "complete":
+        return None
+    if view.star == (g, s):
+        return "pick"
+    result = view.result((g, s))
+    return "cell" if result is not None and result.selected is not None else None
+
+
+def edited(ctx: BuildContext, shared: CMP.SharedSettings, dataset: str, constraints: SEL.Constraints,
+           current: Sequence[Any], g: Any, s: Any, gamma: Any) -> dict[str, Any] | None:
+    """A dataset's new `cc-requests` entry after an edit in its row, or None (nothing changed, or out of limits).
+
+    `current` is the row's (g, s, γ) as shown. Editing γ makes the dataset set by hand (γ as typed); g and s that name
+    a cell with a Selected Partition select that cell (γ follows), and any other pair is set by hand."""
+    if not valid_values(ctx, g, s, gamma):
+        return None
+    g, s, gamma = int(g), int(s), round(float(gamma), 2)
+    if [g, s, gamma] == [current[0], current[1], current[2]]:
+        return None
+    if gamma != current[2]:
+        return {"source": "hand", "g": g, "s": s, "resolution": gamma}
+    source = cell_source(ctx, shared, dataset, constraints, g, s)
+    if source == "pick":
+        return {"source": "pick"}
+    if source == "cell":
+        return {"source": "cell", "g": g, "s": s}
+    return {"source": "hand", "g": g, "s": s, "resolution": gamma}
+
+
 def network_settings(ctx: BuildContext, shared: CMP.SharedSettings, dataset: str, g: int, s: int,
                      resolution: float) -> Settings:
     """A hand-set or no-run dataset's Network State settings: the shared settings, its own defining Tag hidden,
@@ -667,7 +730,7 @@ def render(ctx: BuildContext, shared: CMP.SharedSettings, included: Sequence[str
     return {
         "sources": [source_view(ctx, result.resolved[d], shared, tx) for d in order],
         "g": [v.g for v in values], "s": [v.s for v in values],
-        "resolution": [float(f"{v.resolution:.2f}") for v in values],
+        "resolution": [shown_gamma(v.resolution) for v in values],
         "pairs": (pair_rows(ctx, ranked, chosen, tx) if result.comparison_id
                   else [html.P(tx(CT.FEWER_THAN_TWO), className="cc-empty small")]),
         "comparison_id": result.comparison_id or "—",
@@ -676,7 +739,9 @@ def render(ctx: BuildContext, shared: CMP.SharedSettings, included: Sequence[str
                        if chosen else "—"),
         # what the mode shows now: the main column follows it (`render_main`), and the view stores are checked against it
         "shown": {"comparison_id": result.comparison_id,
-                  "pair": [chosen.dataset_a, chosen.dataset_b] if chosen else None},
+                  "pair": [chosen.dataset_a, chosen.dataset_b] if chosen else None,
+                  # each row's (g, s, γ) as shown: an edit is read against it (`edited`)
+                  "values": {v.dataset: [v.g, v.s, shown_gamma(v.resolution)] for v in values}},
     }
 
 
@@ -699,10 +764,10 @@ def _pill(L: Labels, pill: str, label: str, key: str, section: html.Div) -> html
     ], className="ctl-item")
 
 
-def _value_input(field: str, dataset: str, step: float) -> dcc.Input:
-    # Read-only until issue 21 (editing in the row).
-    return dcc.Input(id={"type": f"cc-{field}", "dataset": dataset}, type="number", step=step, readOnly=True,
-                     className="cc-num")
+def _value_input(field: str, dataset: str, step: float, lo: float, hi: float | None) -> dcc.Input:
+    """g, s or γ in a dataset row, within the Workbench's limits (`value_limits`)."""
+    return dcc.Input(id={"type": f"cc-{field}", "dataset": dataset}, type="number", step=step, min=lo, max=hi,
+                     debounce=True, className="cc-num")
 
 
 def dataset_rows(L: Labels, ctx: BuildContext) -> html.Div:
@@ -710,12 +775,14 @@ def dataset_rows(L: Labels, ctx: BuildContext) -> html.Div:
     head = html.Div([html.Span(), html.Span(), html.Span("g", className="n"), html.Span("s", className="n"),
                      html.Span("γ", className="n")], className="cc-row cc-row-head small mute")
     rows = [head]
+    g_top, s_top = value_limits(ctx)
     for d in ctx.datasets:
         rows.append(html.Div([
             dcc.Checklist(id={"type": "cc-include", "dataset": d.key}, options=[{"label": "", "value": d.key}],
                           value=[d.key], className="check cc-include"),
             dataset_name(ctx, d.key),
-            _value_input("g", d.key, 1), _value_input("s", d.key, 1), _value_input("resolution", d.key, 0.01),
+            _value_input("g", d.key, 1, 1, g_top), _value_input("s", d.key, 1, 1, s_top),
+            _value_input("resolution", d.key, 0.01, 0.01, None),
             html.Div(id={"type": "cc-source", "dataset": d.key}, className="cc-row-source small"),
         ], className="cc-row"))
     return html.Div(rows, className="cc-rows")
@@ -795,6 +862,7 @@ def mode_layout(ctx: BuildContext, L: Labels) -> html.Div:
                             **L.help("comparison.comparison_id")), " ", html.Code("—", id="cc-comparison-id")],
                  className="cc-id"),
         html.Div(id="cc-export-slot", className="cc-export-slot"),  # Export CSV (issue 23)
+        html.Div(id="cc-notice", className="cc-notice small", role="status"),  # a shared-setting change's notice
     ], className="cc-head")
     sidebar = html.Div([
         html.Div([html.B(L.span(msg("Cluster Comparison"))), " ", _static_help(L, "comparison.mode")],
