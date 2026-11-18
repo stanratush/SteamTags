@@ -312,3 +312,121 @@ def test_the_registered_outputs_follow_the_render_functions(ps_build):
     main_outputs = next(o for o in outputs if "<Output `cc-diagram.children`>" in o)
     assert len(render_outputs) == len(CC.RENDER_OUTPUTS) and "<Output `cc-main.children`>" not in render_outputs
     assert len(main_outputs) == len(CC.MAIN_OUTPUTS)
+
+
+# ----------------------------------------------------------------------------- the match detail (issue 20)
+
+from steamstudy.network import comparison as CMP  # noqa: E402
+from test_comparison import game, part  # noqa: E402
+
+EN = CB.text("en")
+
+
+def _read(component) -> str:
+    """The text in reading order, spaces collapsed."""
+    def walk(c):
+        if isinstance(c, (list, tuple)):
+            return " ".join(walk(x) for x in c)
+        if isinstance(c, (str, int, float)):
+            return str(c)
+        return walk(getattr(c, "children", None)) if c is not None else ""
+    return " ".join(walk(component).split())
+
+
+def _detail(A, B, a, b, names=None):
+    pair = CMP.compare_pair(A, B)
+    m = next(x for x in pair.matches if (x.cluster_a, x.cluster_b) == (a, b))
+    return m, CC.match_detail(CC.Side("Overall"), CC.Side("Puzzle"), m, pair.n_comparable, names or {}, EN)
+
+
+def _rows(detail) -> list:
+    return [r for r in _walk(detail) if type(r).__name__ == "Tr" and type(r.children[0]).__name__ == "Td"]
+
+
+def test_with_no_match_chosen_the_detail_asks_for_a_curve(ps_build):
+    out = render(ps_build)
+    assert _read(main(ps_build, out)["detail"]) == CT.CHOOSE_A_MATCH
+    assert _read(CC.match_detail(CC.Side("A"), CC.Side("B"), None, 0, {}, EN)) == CT.CHOOSE_A_MATCH
+
+
+def test_a_chosen_match_shows_its_figures_tag_groups_and_games():
+    # Overall C1 {1,2,3,4} ~ Puzzle C1 {1,2,5,9}: 3 is in Puzzle C2, 4 not in Puzzle's network, 5 in Overall C2, 9 not
+    # in Overall's network. N = 6; E = 3·3/6 = 1.5.
+    A = part("overall", {"C1": [1, 2, 3, 4], "C2": [5, 6], "C3": [7]},
+             games=[game(10, 1, 1, 5), game(11, 2, 3), game(12, 3, 7)], g=2)
+    B = part("puzzle", {"C1": [1, 2, 5, 9], "C2": [3, 10], "C3": [6], "C4": [7]},
+             games=[game(10, 4, 2, 9), game(11, 5, 3), game(12, 6, 7)], g=2)
+    names = {1: "Puzzle", 2: "Logic", 3: "Casual", 4: "Cute", 5: "Relaxing", 9: "Sokoban"}
+    m, detail = _detail(A, B, "C1", "C1", names)
+    text = _read(detail)
+    assert "Overall C1" in text and "Puzzle C1" in text
+    assert "Match Jaccard" in text and "0.33" in text  # 2 / 6
+    assert "Shared, % of Overall C1" in text and "50%" in text and "comparable: 67%" in text
+    assert "Jaccard (comparable)" in text and "0.50" in text and "Comparable Tags: 3 in Overall C1, 3 in Puzzle C1" in text
+    assert "2 shared Tags: 1.3× the 1.50 expected from the Cluster sizes (N = 6 Comparable Tags)" in text
+    assert "in Puzzle C2" in text and "not in Puzzle's network (0 games, minimum 2)" in text
+    assert "in Overall C2" in text and "not in Overall's network (0 games, minimum 2)" in text
+    # games: 10 is in both Clusters, 11 only in neither C1 (3 is in C1 of A only), 12 in neither
+    assert "Of 3 games in both datasets: 1 in both Clusters, 1 only in Overall C1, 0 only in Puzzle C1, 1 in neither." \
+        in text
+    (row,) = _rows(detail)
+    assert [_read(c) for c in row.children[:5]] == ["1", "4", "game 10", "1 / 4", "2 / 4"]
+    # its Tags from either Cluster, the shared ones (Puzzle, Logic) marked
+    assert _read(row.children[5]) == "Puzzle , Logic , Sokoban"
+    assert [_read(t) for t in row.children[5].children if type(t).__name__ == "B"] == ["Puzzle", "Logic"]
+
+
+def test_show_all_reveals_every_game_row_after_the_first_ten():
+    tags = [1, 2]
+    A = part("overall", {"C1": tags}, games=[game(i, i, 1) for i in range(1, 14)])
+    B = part("puzzle", {"C1": tags}, games=[game(i, 20 - i, 2) for i in range(1, 14)])
+    _, detail = _detail(A, B, "C1", "C1")
+    more = next(c for c in _walk(detail) if type(c).__name__ == "Details")
+    assert _read(more.children[0]) == "Show all 13"
+    assert len(_rows(detail)) == 13 and len(_rows(more)) == 3
+
+
+def test_the_two_empty_games_sentences():
+    A = part("overall", {"C1": [1, 2]}, games=[game(1, 1, 1)])
+    B = part("puzzle", {"C1": [1, 3]}, games=[game(2, 1, 1)])
+    _, none_in_common = _detail(A, B, "C1", "C1")
+    assert CT.NO_GAMES_IN_COMMON in _read(none_in_common)
+    B2 = part("puzzle", {"C1": [1, 3]}, games=[game(1, 1, 9), game(5, 2, 9)])
+    A2 = part("overall", {"C1": [1, 2]}, games=[game(1, 1, 7), game(5, 3, 7)])
+    _, neither = _detail(A2, B2, "C1", "C1")
+    assert "None of the 2 games in both datasets is in both Clusters." in _read(neither)
+
+
+def test_a_cluster_with_fewer_than_two_comparable_tags_has_no_comparable_jaccard():
+    A = part("overall", {"C1": [1, 20, 21], "C2": [2, 3]})
+    B = part("puzzle", {"C1": [1, 2], "C2": [3, 4]})
+    m, detail = _detail(A, B, "C1", "C1")
+    assert m.comparable_jaccard is None
+    fig = next(c for c in _walk(detail) if "cc-fig" == getattr(c, "className", None)
+               and "Jaccard (comparable)" in _read(c))
+    assert "—" in _read(fig)
+
+
+def test_a_set_aside_defining_tag_is_in_the_hidden_group_and_in_no_figure():
+    # Tag 9 (Puzzle's defining Tag) is hidden in Puzzle only: set aside from Overall C1.
+    A = part("overall", {"C1": [1, 2, 9]})
+    B = part("puzzle", {"C1": [1, 2, 3]}, hidden=[9])
+    m, detail = _detail(A, B, "C1", "C1", {9: "Puzzle"})
+    assert m.n_tags_a == 2 and m.jaccard == pytest.approx(2 / 3)
+    assert "Puzzle hidden in Puzzle (its defining Tag)" in _read(detail)
+
+
+def test_swap_swaps_the_detail_columns_without_recomputing(ps_build, monkeypatch):
+    out = render(ps_build)
+    pair, A, B = _chosen_pair(ps_build, out)
+    record = main(ps_build, out, minimum=0)["links"][0]["record"]
+    monkeypatch.setattr(CC.CMP, "compare_all", lambda *a, **k: pytest.fail("matched again"))
+    ctx = load_build(ps_build)
+    la, lb = ctx.dataset(A.dataset).label, ctx.dataset(B.dataset).label
+    m = pair.matches[0]
+    straight = _read(main(ps_build, out, match=record)["detail"])
+    swapped = _read(main(ps_build, out, match=record, orient=[B.dataset, A.dataset])["detail"])
+    assert straight.index(f"{la} {m.cluster_a}") < straight.index(f"{lb} {m.cluster_b}")
+    assert swapped.index(f"{lb} {m.cluster_b}") < swapped.index(f"{la} {m.cluster_a}")
+    assert f"Rank in {lb}" in swapped and swapped.index(f"Rank in {lb}") < swapped.index(f"Rank in {la}") \
+        or not m.games.rows

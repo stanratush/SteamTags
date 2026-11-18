@@ -448,6 +448,141 @@ def _boxes(ctx: BuildContext, p: CMP.Partition, flags: Sequence[CMP.ClusterFlag]
     return out
 
 
+# ----------------------------------------------------------------------------- the match detail
+
+GAMES_SHOWN = 10  # games in both Clusters listed before "Show all N" (the Cluster Inspector's length)
+
+
+@dataclass(frozen=True)
+class Side:
+    """One dataset of the pair as the detail names it: its label and colour."""
+
+    label: str
+    colour: str = "inherit"
+
+    def cluster(self, label: str) -> html.Span:
+        return html.Span(CT.cluster_name(self.label, label), className="cc-ds", style={"color": self.colour})
+
+
+def _help(key: str, tx: Text) -> html.Span:
+    return html.Span("?", className="ps-q term", tabIndex="0", **H.attrs(key, tx))
+
+
+def _figure(label: str, value: str, key: str, tx: Text, note: str = "") -> html.Div:
+    return html.Div([_term(label, key, tx, "term cc-fig-label"), html.B(value, className="cc-fig-value"),
+                     *([html.Span(note, className="small mute")] if note else [])], className="cc-fig")
+
+
+def _figures(a: Side, b: Side, m: CMP.Match, n_comparable: int, tx: Text) -> list[Any]:
+    """Match Jaccard, both shares (with their comparable forms), Jaccard (comparable) with the Comparable Tag counts,
+    and the Overlap vs. expected sentence: never a sort column, and no p-value."""
+    name_a, name_b = CT.cluster_name(a.label, m.cluster_a), CT.cluster_name(b.label, m.cluster_b)
+
+    def comparable_form(share: float | None) -> str:
+        return tx("comparable: {share}", share=_pct(share, tx))
+
+    counts = tx("Comparable Tags: {n_a} in {a}, {n_b} in {b}", n_a=m.n_comparable_a, a=name_a, n_b=m.n_comparable_b,
+                b=name_b)
+    return [
+        html.Div([
+            _figure(tx("Match Jaccard"), tx.num(m.jaccard, 2), "comparison.match_jaccard", tx),
+            _figure(tx("Shared, % of {cluster}", cluster=name_a), tx.pct(m.share_a, 0), "comparison.share", tx,
+                    comparable_form(m.comparable_share_a)),
+            _figure(tx("Shared, % of {cluster}", cluster=name_b), tx.pct(m.share_b, 0), "comparison.share", tx,
+                    comparable_form(m.comparable_share_b)),
+            _figure(tx("Jaccard (comparable)"), "—" if m.comparable_jaccard is None else tx.num(m.comparable_jaccard, 2),
+                    "comparison.comparable_jaccard", tx, counts),
+        ], className="cc-figs"),
+        html.P(_term(CT.overlap_sentence(m.n_shared, m.overlap_vs_expected, m.expected_overlap, n_comparable, tx),
+                     "comparison.overlap", tx), className="small cc-overlap"),
+    ]
+
+
+def _place(p: CMP.TagPlace, other: str, names: Mapping[int, str], tx: Text) -> html.Li:
+    group = CT.tag_group(p.group, other=other, cluster=p.cluster, n_games=p.n_games, minimum=p.minimum, tx=tx)
+    return html.Li([names.get(p.tag_id, str(p.tag_id)), " ", html.Span(group, className=f"cc-group {p.group}")])
+
+
+def _tag_columns(a: Side, b: Side, m: CMP.Match, names: Mapping[int, str], tx: Text) -> html.Div:
+    """Shared · Only in ‹A Cluster› · Only in ‹B Cluster›, each unshared Tag with where it sits in the other
+    dataset (a set-aside defining Tag shows as "hidden", in no figure)."""
+    def head(*children: Any) -> html.H5:
+        return html.H5(list(children), className="cc-tags-head")
+
+    shared = sorted((names.get(t, str(t)) for t in m.shared_tags), key=str.casefold)
+    return html.Div([
+        html.Div([head(tx("Shared"), " ", _help("comparison.tag_groups", tx)), html.Ul([html.Li(t) for t in shared])],
+                 className="cc-tags-col"),
+        html.Div([head(tx("Only in"), " ", a.cluster(m.cluster_a)),
+                  html.Ul([_place(p, b.label, names, tx) for p in m.only_a])], className="cc-tags-col"),
+        html.Div([head(tx("Only in"), " ", b.cluster(m.cluster_b)),
+                  html.Ul([_place(p, a.label, names, tx) for p in m.only_b])], className="cc-tags-col"),
+    ], className="cc-tags")
+
+
+def _games_rows(rows: Sequence[CMP.GameRow], m: CMP.Match, names: Mapping[int, str], tx: Text) -> list[html.Tr]:
+    out = []
+    for r in rows:
+        tags: list[Any] = []  # the shared Tags in bold
+        for t in r.tags:
+            name = names.get(t, str(t))
+            tags += [", "] if tags else []
+            tags.append(html.B(name) if t in r.shared else name)
+        out.append(html.Tr([html.Td(r.rank_a, className="r mute"), html.Td(r.rank_b, className="r mute"),
+                            html.Td(r.name, className="name"),
+                            html.Td(tx("{matched} / {size}", matched=len(r.matched_a), size=m.n_tags_a), className="r"),
+                            html.Td(tx("{matched} / {size}", matched=len(r.matched_b), size=m.n_tags_b), className="r"),
+                            html.Td(tags, className="tags")]))
+    return out
+
+
+def _games_table(a: Side, b: Side, rows: Sequence[CMP.GameRow], m: CMP.Match, names: Mapping[int, str],
+                 tx: Text) -> html.Table:
+    head = html.Tr([html.Th(tx("Rank in {dataset}", dataset=a.label), className="r"),
+                    html.Th(tx("Rank in {dataset}", dataset=b.label), className="r"), html.Th(tx("Name")),
+                    html.Th(tx("Matched in {dataset}", dataset=a.label), className="r"),
+                    html.Th(tx("Matched in {dataset}", dataset=b.label), className="r"), html.Th(tx("Tags"))])
+    return html.Table([html.Thead(head), html.Tbody(_games_rows(rows, m, names, tx))], className="cc-games")
+
+
+def _games(a: Side, b: Side, m: CMP.Match, names: Mapping[int, str], tx: Text) -> list[Any]:
+    """Games in both Clusters: the count line, then the first `GAMES_SHOWN` rows and "Show all N" (both datasets'
+    games only; shown, never scored)."""
+    g = m.games
+    heading = html.H4([_term(tx("Games in both Clusters"), "comparison.games", tx)], className="cc-detail-h")
+    if not g.rows:
+        return [heading, html.P(PV.render([CT.no_games_line(g.n_in_common, tx)])[0].children, className="small")]
+    counts = {"in_common": g.n_in_common, "both": len(g.rows), "only_a": g.n_only_a, "only_b": g.n_only_b,
+              "neither": g.n_neither}
+    line = PV.render([CT.games_count_line(counts, CT.cluster_name(a.label, m.cluster_a),
+                                          CT.cluster_name(b.label, m.cluster_b), tx)])[0]
+    out: list[Any] = [heading, html.P(line.children, className="small"),
+                      _games_table(a, b, g.rows[:GAMES_SHOWN], m, names, tx)]
+    if len(g.rows) > GAMES_SHOWN:
+        out.append(html.Details([html.Summary(CT.show_all(len(g.rows), tx), className="more"),
+                                 _games_table(a, b, g.rows[GAMES_SHOWN:], m, names, tx)], className="cc-more"))
+    return out
+
+
+def match_detail(a: Side, b: Side, m: CMP.Match | None, n_comparable: int, names: Mapping[int, str],
+                 tx: Text) -> list[Any]:
+    """The chosen Cluster Match as shown (A on the left), or the request to click a curve."""
+    if m is None:
+        return [html.P(tx(CT.CHOOSE_A_MATCH), className="cc-empty small")]
+    heading = html.H3([a.cluster(m.cluster_a), " ~ ", b.cluster(m.cluster_b), " ", _help("comparison.detail", tx)],
+                      className="cc-detail-title")
+    return [heading, *_figures(a, b, m, n_comparable, tx), _tag_columns(a, b, m, names, tx),
+            *_games(a, b, m, names, tx)]
+
+
+def shown_match(shown: CMP.PairResult, chosen: tuple[str, str] | None, swapped: bool) -> CMP.Match | None:
+    """The chosen match (Build order) among the matches as shown."""
+    if chosen is None:
+        return None
+    want = (chosen[1], chosen[0]) if swapped else chosen
+    return next((m for m in shown.matches if (m.cluster_a, m.cluster_b) == want), None)
+
+
 @dataclass(frozen=True)
 class MainView:
     """What the main column shows, by `MAIN_OUTPUTS` name."""
@@ -459,6 +594,7 @@ class MainView:
     links: list[dict[str, Any]]
     one_tag: str
     weak_label: str
+    detail: Any  # the chosen match's detail, or the request to click a curve
 
 
 MAIN_OUTPUTS = tuple(f.name for f in dataclasses.fields(MainView))
@@ -471,7 +607,7 @@ def main_view(ctx: BuildContext, result: ComparisonResult, chosen: CMP.PairResul
     weak_label = tx("hide weaker") if view.weak else tx("show weaker")
     cid = result.comparison_id
     if cid is None or chosen is None:
-        return MainView(tx(CT.FEWER_THAN_TWO) if cid is None else "", _HIDDEN, [], [], [], "", weak_label)
+        return MainView(tx(CT.FEWER_THAN_TWO) if cid is None else "", _HIDDEN, [], [], [], "", weak_label, [])
     shown = oriented(chosen, view.orient)
     A, B = result.resolved[shown.dataset_a].partition, result.resolved[shown.dataset_b].partition
     name_a, name_b = ctx.dataset(A.dataset).label, ctx.dataset(B.dataset).label
@@ -479,14 +615,18 @@ def main_view(ctx: BuildContext, result: ComparisonResult, chosen: CMP.PairResul
     one_tag = CT.one_tag_line(name_a, sum(c.size == 1 for c in A.clusters), name_b,
                               sum(c.size == 1 for c in B.clusters), tx)
     if not shown.matches:
-        return MainView("", {}, title, html.P(tx(CT.NO_MATCH), className="cc-empty"), [], one_tag, weak_label)
+        return MainView("", {}, title, html.P(tx(CT.NO_MATCH), className="cc-empty"), [], one_tag, weak_label, [])
     drawn = links(ctx, cid, chosen, view, tx)
     focus = focus_of(view, cid, chosen)
+    names = PV.tag_names(ctx)
+    side_a = Side(name_a, colour_of(ctx, A.dataset))
+    side_b = Side(name_b, colour_of(ctx, B.dataset))
+    match = shown_match(shown, match_of(view, cid, chosen), shown is not chosen)
+    detail = match_detail(side_a, side_b, match, shown.n_comparable, names, tx)
     related_a = related_b = None
     if focus:  # the clicked box and the Clusters its drawn curves reach
         related_a = {x["a"] for x in drawn} | ({focus[1]} if focus[0] == A.dataset else set())
         related_b = {x["b"] for x in drawn} | ({focus[1]} if focus[0] == B.dataset else set())
-    names = PV.tag_names(ctx)
 
     def column(p: CMP.Partition, flags: Sequence[CMP.ClusterFlag], other: str, side: str,
                related: set[str] | None) -> html.Div:
@@ -501,7 +641,7 @@ def main_view(ctx: BuildContext, result: ComparisonResult, chosen: CMP.PairResul
         html.Div(html.Div(className="cc-links"), className="cc-link-col"),
         column(B, shown.flags_b, name_a, "b", related_b),
     ], className="cc-diagram-grid")
-    return MainView("", {}, title, diagram, drawn, one_tag, weak_label)
+    return MainView("", {}, title, diagram, drawn, one_tag, weak_label, detail)
 
 
 def render_main(ctx: BuildContext, shared: CMP.SharedSettings, included: Sequence[str],

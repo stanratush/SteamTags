@@ -21,4 +21,15 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "{a} ~ {b}: Match Jaccard {j}, {n} shared Tag": {
         "one": "{a} ~ {b}: индекс на Jaccard на съвпадението {j}, {n} общ таг",
         "other": "{a} ~ {b}: индекс на Jaccard на съвпадението {j}, {n} общи тага"},
+    # the match detail (issue 20)
+    "Match Jaccard": "Индекс на Jaccard на съвпадението",
+    "Shared, % of {cluster}": "Общ дял от {cluster}",
+    "comparable: {share}": "сравними: {share}",
+    "Jaccard (comparable)": "Jaccard (сравними)",
+    "Comparable Tags: {n_a} in {a}, {n_b} in {b}": "Сравними тагове: {n_a} в {a}, {n_b} в {b}",
+    "Shared": "Общи",
+    "Only in": "Само в",
+    "Games in both Clusters": "Игри в двата клъстера",
+    "Rank in {dataset}": "Място в {dataset}",
+    "Matched in {dataset}": "Съвпадащи в {dataset}",
 }

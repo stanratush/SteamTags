@@ -1460,7 +1460,7 @@ def register(app: dash.Dash) -> None:
        prevent_initial_call=True)(cc_pick_pair)
     cb(*[Output(i, p) for i, p in (("cc-main-empty", "children"), ("cc-pair-view", "style"), ("cc-title", "children"),
                                    ("cc-diagram", "children"), ("cc-links", "data"), ("cc-one-tag", "children"),
-                                   ("cc-weak-btn", "children"))],
+                                   ("cc-weak-btn", "children"), ("cc-detail", "children"))],
        Input("cc-shown", "data"), Input("cc-minimum", "value"), Input("cc-weak", "data"), Input("cc-orient", "data"),
        Input("cc-focus", "data"), Input("cc-match", "data"), State("cc-s-weight", "value"),
        State("cc-s-algorithm", "value"), State("cc-s-min-months", "value"), State("cc-s-genre", "value"),
