@@ -190,4 +190,5 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "Pair Inspector": "Инспектор на двойката",
     "Apply to Workbench": "Приложи в работното място",
     "Validate this pair": "Валидирай тази двойка",
+    "Use in Cluster Comparison": "Използвай в сравнението на клъстери",
 }

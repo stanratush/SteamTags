@@ -1034,7 +1034,12 @@ def mode_layout(ctx: BuildContext, L: Labels) -> html.Div:
                  className="insp-title"),
         html.Div([html.Button(L.prop("ps-apply", "children", msg("Apply to Workbench")), id="ps-apply",
                               className="btn primary"),
-                  _static_help(L, "selection.apply")], className="row-inline"),
+                  _static_help(L, "selection.apply"),
+                  # Always shown; enabled under Apply to Workbench's rule and only when these settings are the
+                  # comparison's shared settings (callbacks.py `ps_use_cc_state`).
+                  html.Button(L.prop("ps-use-cc", "children", msg("Use in Cluster Comparison")), id="ps-use-cc",
+                              className="btn", disabled=True),
+                  _static_help(L, "selection.use_in_comparison")], className="row-inline"),
         html.Div(id="ps-apply-line", className="small"),
         html.Div(id="ps-inspector-body"),
         # The Validation section at the Inspector's bottom: its content is rendered, and the Validate this pair button

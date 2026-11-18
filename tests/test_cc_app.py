@@ -12,6 +12,7 @@ from dash.exceptions import PreventUpdate
 from steamstudy.app import callbacks as CB
 from steamstudy.app import cc_view as CC
 from steamstudy.app import help as H
+from steamstudy.app import ps_view as PV
 from steamstudy.app.layout import build_layout, root_class
 from steamstudy.app.loader import load_build
 from steamstudy.network import comparison_text as CT
@@ -552,3 +553,61 @@ def test_a_build_switch_starts_the_comparison_fresh_on_every_pick(ps_build):
     assert stores["cc-requests"].data == {}  # every dataset on its pick
     assert all(getattr(stores[k], "data", None) is None for k in ("cc-pair", "cc-orient", "cc-focus", "cc-match"))
     assert "mode=comparison" in build_url(CB.ref_of(CB.build_folder(str(ps_build))), "comparison", "overall")
+
+
+# ----------------------------------------------------------------------------- routes to and from Parameter Selection (issue 22)
+
+
+def _open_ps(out, dataset):
+    triggered(f'{{"dataset":"{dataset}","type":"cc-open-ps"}}.n_clicks')
+    return CB.cc_open_ps([1], out["shown"])
+
+
+def test_the_row_link_opens_parameter_selection_on_the_dataset_and_its_cell(ps_build):
+    out = render(ps_build, requests={"rpg": {"source": "hand", "g": 9, "s": 4, "resolution": 1.0}})
+    assert any(type(c).__name__ == "Button" and _text(c) == "Open Parameter Selection" for c in _walk(out["sources"][0]))
+    assert _open_ps(out, "overall") == ("overall", [15, 3], "selection")  # on its pick
+    assert _open_ps(out, "puzzle") == ("puzzle", None, "selection")  # no run: nothing highlighted
+    assert _open_ps(out, "rpg") == ("rpg", None, "selection")  # set by hand
+    cell = render(ps_build, requests={"overall": {"source": "cell", "g": 17, "s": 2}})
+    assert _open_ps(cell, "overall") == ("overall", [17, 2], "selection")
+    with pytest.raises(PreventUpdate):
+        CB.cc_open_ps([0], out["shown"])
+
+
+def _use_state(build, dataset="overall", pair=None, active=None, **shared):
+    ctx = load_build(build)
+    a, cstore = _store(ctx)
+    d = CC.shared_defaults(ctx)
+    return CB.ps_use_cc_state("selection", dataset, pair, active or a, cstore,
+                              shared.get("weight", d.clustering_weight), d.algorithm, d.min_months,
+                              list(d.genre_hidden), list(d.removed_tag_ids), str(build), None)
+
+
+def test_use_in_cluster_comparison_is_enabled_only_for_a_selected_partition_under_the_same_settings(ps_build):
+    assert _use_state(ps_build) == (False, "")  # Overall's ★ pair, same settings
+    assert _use_state(ps_build, pair=[16, 4]) == (False, "")
+    assert _use_state(ps_build, dataset="puzzle")[0] is True  # no Selected Partition
+    disabled, tip = _use_state(ps_build, weight="shared_games")  # the comparison's weight differs
+    assert disabled and tip == CT.USE_DISABLED
+    ctx = load_build(ps_build)
+    shown = PV.settings_data(PV.defaults_of(ctx)[0].with_(hide_defining_tag=False))
+    assert _use_state(ps_build, active=shown) == (True, CT.USE_DISABLED)  # a shown defining Tag
+    layout = build_layout(ctx, mode="selection")
+    button = next(c for c in _walk(layout) if getattr(c, "id", None) == "ps-use-cc")
+    assert _text(button) == "Use in Cluster Comparison"
+    assert H.target("selection.use_in_comparison") in _help_targets(layout)
+
+
+def test_using_a_cell_sets_it_as_the_datasets_cell_includes_the_dataset_and_switches(ps_build):
+    ctx = load_build(ps_build)
+    a, cstore = _store(ctx)
+    include = [[d.key] if d.key != "overall" else [] for d in ctx.datasets]  # Overall excluded
+    requests, include2, mode = CB.ps_use_cc(1, "overall", [16, 4], a, cstore, {"rpg": {"source": "pick"}}, include,
+                                            str(ps_build))
+    assert requests == {"rpg": {"source": "pick"}, "overall": {"source": "cell", "g": 16, "s": 4}}
+    assert include2[0] == ["overall"] and mode == "comparison"
+    out = render(ps_build, requests=requests)
+    assert "Selected Partition at g 16 · s 4" in _text(out["sources"][0])
+    with pytest.raises(PreventUpdate):  # no Selected Partition to use
+        CB.ps_use_cc(1, "puzzle", None, a, cstore, {}, include, str(ps_build))

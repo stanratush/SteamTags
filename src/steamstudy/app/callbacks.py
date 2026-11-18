@@ -1241,6 +1241,55 @@ def cc_requests(gs, ss, resolutions, weight, algorithm, min_months, genre, remov
     return requests, ""
 
 
+def cc_open_ps(_clicks, shown):
+    """A dataset row's link: Parameter Selection on that dataset, its cell highlighted (pick or selected cell); a
+    hand-set or no-run dataset opens with no cell highlighted, so on its pick."""
+    trigger = ctx.triggered_id
+    if not isinstance(trigger, dict) or not any(_clicks or []) or not shown:
+        raise PreventUpdate
+    dataset = trigger["dataset"]
+    g, s, _, source = (shown.get("values") or {}).get(dataset, [None, None, None, "no_run"])
+    return dataset, [g, s] if source in ("pick", "cell") else None, "selection"
+
+
+def _use_cc_target(c, settings, cstore, dataset, pair, default_constraints):
+    """The highlighted cell (or the ★ pair) when it has a Selected Partition: Apply to Workbench's rule."""
+    view = _shown_view(c, settings, cstore, dataset, default_constraints)
+    target = tuple(pair) if pair else view.star
+    result = view.result(target) if target else None
+    return target if result is not None and result.selected is not None else None
+
+
+def ps_use_cc_state(mode, dataset, pair, active, cstore, weight, algorithm, min_months, genre, removed, build_path,
+                    lang=None):
+    """Use in Cluster Comparison: enabled for a cell with a Selected Partition, and only while Parameter
+    Selection's settings are the comparison's shared settings (a shown defining Tag differs); the tooltip says
+    why it is disabled then."""
+    if mode != "selection":
+        raise PreventUpdate
+    c, settings, _, default_constraints = _ps_context(build_path, active)
+    comparison = CC.selection_settings(c, CC.shared_of(weight, algorithm, min_months, genre, removed))
+    same = comparison is not None and comparison.settings_key() == settings.settings_key()
+    has_cell = _use_cc_target(c, settings, cstore, dataset, pair, default_constraints) is not None
+    return not (same and has_cell), "" if same else text(lang_of(lang))(CT.USE_DISABLED)
+
+
+def ps_use_cc(_n, dataset, pair, active, cstore, requests, include, build_path):
+    """Put the highlighted cell into the comparison as that dataset's values (source `cell`; the dataset is
+    included if it was not), then switch to the Cluster Comparison, which resolves on entry."""
+    if not _n:
+        raise PreventUpdate
+    c, settings, _, default_constraints = _ps_context(build_path, active)
+    target = _use_cc_target(c, settings, cstore, dataset, pair, default_constraints)
+    if target is None:
+        raise PreventUpdate
+    g, s = target
+    keys = [d.key for d in c.datasets]
+    include = list(include or [[] for _ in keys])
+    include[keys.index(dataset)] = [dataset]
+    return {**(requests or {}), dataset: {"source": "cell", "g": g, "s": s}}, include, "comparison"
+
+
 def cc_swap(_n, shown, orient):
     """⇄: the chosen pair's other dataset goes on the left (a view choice)."""
     pair = (shown or {}).get("pair")
@@ -1504,6 +1553,20 @@ def register(app: dash.Dash) -> None:
        *[Input(i, "value") for i in CC_SHARED_IDS], State("cc-shown", "data"), State("cc-requests", "data"),
        State("ps-constraints", "data"), State("build-path", "data"), State("lang", "data"),
        prevent_initial_call=True)(cc_requests)
+    # ---- routes between Parameter Selection and the Cluster Comparison (never the Workbench)
+    cb(Output("ps-dataset", "data", allow_duplicate=True), Output("ps-pair", "data", allow_duplicate=True),
+       Output("mode", "value", allow_duplicate=True), Input({"type": "cc-open-ps", "dataset": ALL}, "n_clicks"),
+       State("cc-shown", "data"), prevent_initial_call=True)(cc_open_ps)
+    cb(Output("ps-use-cc", "disabled"), Output("ps-use-cc", "title"), Input("mode", "value"),
+       Input("ps-dataset", "data"), Input("ps-pair", "data"), Input("ps-active", "data"),
+       Input("ps-constraints", "data"), *[State(i, "value") for i in CC_SHARED_IDS], State("build-path", "data"),
+       Input("lang", "data"))(ps_use_cc_state)
+    cb(Output("cc-requests", "data", allow_duplicate=True),
+       Output({"type": "cc-include", "dataset": ALL}, "value"), Output("mode", "value", allow_duplicate=True),
+       Input("ps-use-cc", "n_clicks"), State("ps-dataset", "data"), State("ps-pair", "data"),
+       State("ps-active", "data"), State("ps-constraints", "data"), State("cc-requests", "data"),
+       State({"type": "cc-include", "dataset": ALL}, "value"), State("build-path", "data"),
+       prevent_initial_call=True)(ps_use_cc)
     cb(Output("cc-orient", "data"), Input("cc-swap", "n_clicks"), State("cc-shown", "data"), State("cc-orient", "data"),
        prevent_initial_call=True)(cc_swap)
     cb(Output("cc-weak", "data"), Input("cc-weak-btn", "n_clicks"), State("cc-weak", "data"),

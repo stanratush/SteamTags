@@ -363,7 +363,10 @@ def source_view(ctx: BuildContext, r: Resolved, shared: CMP.SharedSettings, tx: 
     aria: dict[str, Any] = {"aria-label": tip}
     note = [html.Span(" ⓘ", className="mute", title=tip, tabIndex="0", **aria)] if v.on_cell else []
     floor, na = CT.figures_parts(r.seed_noise_floor, r.neighbour_agreement, tx)
-    return [html.Div([_term(line, f"comparison.source.{v.source}", tx, "term cc-source"), *note]),
+    # The row's route to Parameter Selection on this dataset (callbacks.py `cc_open_ps`).
+    link = html.Button(CT.open_parameter_selection(tx), id={"type": "cc-open-ps", "dataset": v.dataset}, n_clicks=0,
+                       className="link small")
+    return [html.Div([_term(line, f"comparison.source.{v.source}", tx, "term cc-source"), *note, " · ", link]),
             html.Div([_term(floor, "comparison.seed_noise", tx), " · ", _term(na, "comparison.neighbour_agreement", tx)],
                      className="cc-figures mute")]
 
@@ -740,8 +743,9 @@ def render(ctx: BuildContext, shared: CMP.SharedSettings, included: Sequence[str
         # what the mode shows now: the main column follows it (`render_main`), and the view stores are checked against it
         "shown": {"comparison_id": result.comparison_id,
                   "pair": [chosen.dataset_a, chosen.dataset_b] if chosen else None,
-                  # each row's (g, s, γ) as shown: an edit is read against it (`edited`)
-                  "values": {v.dataset: [v.g, v.s, shown_gamma(v.resolution)] for v in values}},
+                  # each row's (g, s, γ, source) as shown: an edit is read against it (`edited`), the row link
+                  # opens Parameter Selection on its cell
+                  "values": {v.dataset: [v.g, v.s, shown_gamma(v.resolution), v.source] for v in values}},
     }
 
 
