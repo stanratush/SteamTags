@@ -1184,6 +1184,11 @@ def ps_export(_n, active, cstore, build_path):
 # ----------------------------------------------------------------------------- 9. Cluster Comparison mode
 
 
+def _cc_included(include):
+    """The included datasets from the rows' include checklists (ALL, in the Build's order)."""
+    return [d for values in (include or []) for d in (values or [])]
+
+
 def cc_render(mode, weight, algorithm, min_months, genre, removed, include, requests, pair, cstore, build_path,
               lang=None):
     """Everything the Cluster Comparison mode shows: it resolves the datasets (memoised) and matches the included
@@ -1191,7 +1196,7 @@ def cc_render(mode, weight, algorithm, min_months, genre, removed, include, requ
     if mode != "comparison":
         raise PreventUpdate
     c = load_build(build_path)
-    included = [d for values in (include or []) for d in (values or [])]
+    included = _cc_included(include)
     shared = CC.shared_of(weight, algorithm, min_months, genre, removed)
     out = CC.render(c, shared, included, requests, pair, cstore, tx=text(lang_of(lang)))
     return tuple(out[name] for name in CC.RENDER_OUTPUTS)
@@ -1204,7 +1209,7 @@ def cc_main(shown, minimum, weak, orient, focus, match, weight, algorithm, min_m
     if not shown:
         raise PreventUpdate
     c = load_build(build_path)
-    included = [d for values in (include or []) for d in (values or [])]
+    included = _cc_included(include)
     shared = CC.shared_of(weight, algorithm, min_months, genre, removed)
     view = CC.DiagramView(CC.MINIMUM_DEFAULT if minimum is None else float(minimum), bool(weak), orient, focus, match)
     out = CC.render_main(c, shared, included, requests, pair, cstore, view, tx=text(lang_of(lang)))
@@ -1241,15 +1246,19 @@ def cc_requests(gs, ss, resolutions, weight, algorithm, min_months, genre, remov
     return requests, ""
 
 
-def cc_open_ps(_clicks, shown):
+def cc_open_ps(_clicks, shown, active, weight, algorithm, min_months, genre, removed, build_path):
     """A dataset row's link: Parameter Selection on that dataset, its cell highlighted (pick or selected cell); a
-    hand-set or no-run dataset opens with no cell highlighted, so on its pick."""
+    hand-set or no-run dataset opens with no cell highlighted, so on its pick. A cell is highlighted only while
+    Parameter Selection's settings are the comparison's: otherwise the same g and s would name another run's cell."""
     trigger = ctx.triggered_id
     if not isinstance(trigger, dict) or not any(_clicks or []) or not shown:
         raise PreventUpdate
     dataset = trigger["dataset"]
-    g, s, _, source = (shown.get("values") or {}).get(dataset, [None, None, None, "no_run"])
-    return dataset, [g, s] if source in ("pick", "cell") else None, "selection"
+    g, s, _, source, *_ = (shown.get("values") or {}).get(dataset, [None, None, None, "no_run"])
+    c, settings, _, _ = _ps_context(build_path, active)
+    comparison = CC.selection_settings(c, CC.shared_of(weight, algorithm, min_months, genre, removed))
+    same = comparison is not None and comparison.settings_key() == settings.settings_key()
+    return dataset, [g, s] if source in ("pick", "cell") and same else None, "selection"
 
 
 def _use_cc_target(c, settings, cstore, dataset, pair, default_constraints):
@@ -1275,19 +1284,22 @@ def ps_use_cc_state(mode, dataset, pair, active, cstore, weight, algorithm, min_
 
 
 def ps_use_cc(_n, dataset, pair, active, cstore, requests, include, build_path):
-    """Put the highlighted cell into the comparison as that dataset's values (source `cell`; the dataset is
-    included if it was not), then switch to the Cluster Comparison, which resolves on entry."""
+    """Put the highlighted cell into the comparison as that dataset's values (source `cell`, or `pick` for the ★
+    cell; the dataset is included if it was not), then switch to the Cluster Comparison, which resolves on entry."""
     if not _n:
         raise PreventUpdate
     c, settings, _, default_constraints = _ps_context(build_path, active)
     target = _use_cc_target(c, settings, cstore, dataset, pair, default_constraints)
     if target is None:
         raise PreventUpdate
+    star = _shown_view(c, settings, cstore, dataset, default_constraints).star
     g, s = target
     keys = [d.key for d in c.datasets]
     include = list(include or [[] for _ in keys])
     include[keys.index(dataset)] = [dataset]
-    return {**(requests or {}), dataset: {"source": "cell", "g": g, "s": s}}, include, "comparison"
+    # The ★ pair goes in as the pick, so it follows the Pair Constraints as a row edit to it does (`CC.edited`).
+    entry = {"source": "pick"} if target == star else {"source": "cell", "g": g, "s": s}
+    return {**(requests or {}), dataset: entry}, include, "comparison"
 
 
 def cc_export(_n, weight, algorithm, min_months, genre, removed, include, requests, cstore, minimum, build_path):
@@ -1297,7 +1309,7 @@ def cc_export(_n, weight, algorithm, min_months, genre, removed, include, reques
     from steamstudy.app.cc_export import export_comparison
 
     c = load_build(build_path)
-    included = [d for values in (include or []) for d in (values or [])]
+    included = _cc_included(include)
     shared = CC.shared_of(weight, algorithm, min_months, genre, removed)
     result = CC.resolve_all(c, shared, included, requests, cstore)
     if result.comparison_id is None:
@@ -1305,6 +1317,11 @@ def cc_export(_n, weight, algorithm, min_months, genre, removed, include, reques
     filename, data = export_comparison(c, shared, result,
                                        CC.MINIMUM_DEFAULT if minimum is None else float(minimum))
     return dash.dcc.send_bytes(data, filename)
+
+
+def cc_export_disabled(shown):
+    """Export CSV needs a comparison: at least two included datasets (it is also disabled while the mode resolves)."""
+    return not (shown or {}).get("comparison_id")
 
 
 def cc_swap(_n, shown, orient):
@@ -1578,7 +1595,10 @@ def register(app: dash.Dash) -> None:
     # ---- routes between Parameter Selection and the Cluster Comparison (never the Workbench)
     cb(Output("ps-dataset", "data", allow_duplicate=True), Output("ps-pair", "data", allow_duplicate=True),
        Output("mode", "value", allow_duplicate=True), Input({"type": "cc-open-ps", "dataset": ALL}, "n_clicks"),
-       State("cc-shown", "data"), prevent_initial_call=True)(cc_open_ps)
+       State("cc-shown", "data"), State("ps-active", "data"), *[State(i, "value") for i in CC_SHARED_IDS],
+       State("build-path", "data"), prevent_initial_call=True)(cc_open_ps)
+    cb(Output("cc-export", "disabled", allow_duplicate=True), Input("cc-shown", "data"),
+       prevent_initial_call=True)(cc_export_disabled)
     cb(Output("ps-use-cc", "disabled"), Output("ps-use-cc", "title"), Input("mode", "value"),
        Input("ps-dataset", "data"), Input("ps-pair", "data"), Input("ps-active", "data"),
        Input("ps-constraints", "data"), *[State(i, "value") for i in CC_SHARED_IDS], State("build-path", "data"),

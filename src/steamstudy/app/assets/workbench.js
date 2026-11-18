@@ -352,7 +352,11 @@
     const host = document.querySelector("#cc-diagram .cc-links");
     if (!host) return;
     const grid = host.closest(".cc-diagram-grid");
-    if (ccObserver && grid && !grid.dataset.observed) { grid.dataset.observed = "1"; ccObserver.observe(grid); }
+    if (ccObserver && grid && !grid.dataset.observed) {  // watch only the diagram on screen
+      ccObserver.disconnect();
+      grid.dataset.observed = "1";
+      ccObserver.observe(grid);
+    }
     const box = host.getBoundingClientRect();
     const middle = (side, label) => {
       const el = document.querySelector(`#cc-diagram [data-side="${side}"][data-cluster="${CSS.escape(label)}"]`);

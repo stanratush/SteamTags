@@ -174,8 +174,9 @@ def edited(ctx: BuildContext, shared: CMP.SharedSettings, dataset: str, constrai
            current: Sequence[Any], g: Any, s: Any, gamma: Any) -> dict[str, Any] | None:
     """A dataset's new `cc-requests` entry after an edit in its row, or None (nothing changed, or out of limits).
 
-    `current` is the row's (g, s, γ) as shown. Editing γ makes the dataset set by hand (γ as typed); g and s that name
-    a cell with a Selected Partition select that cell (γ follows), and any other pair is set by hand."""
+    `current` is the row's (g, s, γ as shown[, source, γ unrounded]). Editing γ makes the dataset set by hand (γ as
+    typed); g and s that name a cell with a Selected Partition select that cell (γ follows), and any other pair is set
+    by hand with the dataset's γ as it was (not its two-decimal display)."""
     if not valid_values(ctx, g, s, gamma):
         return None
     g, s, gamma = int(g), int(s), round(float(gamma), 2)
@@ -188,7 +189,7 @@ def edited(ctx: BuildContext, shared: CMP.SharedSettings, dataset: str, constrai
         return {"source": "pick"}
     if source == "cell":
         return {"source": "cell", "g": g, "s": s}
-    return {"source": "hand", "g": g, "s": s, "resolution": gamma}
+    return {"source": "hand", "g": g, "s": s, "resolution": current[4] if len(current) > 4 else gamma}
 
 
 def network_settings(ctx: BuildContext, shared: CMP.SharedSettings, dataset: str, g: int, s: int,
@@ -743,9 +744,10 @@ def render(ctx: BuildContext, shared: CMP.SharedSettings, included: Sequence[str
         # what the mode shows now: the main column follows it (`render_main`), and the view stores are checked against it
         "shown": {"comparison_id": result.comparison_id,
                   "pair": [chosen.dataset_a, chosen.dataset_b] if chosen else None,
-                  # each row's (g, s, γ, source) as shown: an edit is read against it (`edited`), the row link
+                  # each row's (g, s, γ as shown, source, γ): an edit is read against it (`edited`), the row link
                   # opens Parameter Selection on its cell
-                  "values": {v.dataset: [v.g, v.s, shown_gamma(v.resolution), v.source] for v in values}},
+                  "values": {v.dataset: [v.g, v.s, shown_gamma(v.resolution), v.source, v.resolution]
+                             for v in values}},
     }
 
 
@@ -840,7 +842,9 @@ def pair_block(L: Labels) -> html.Div:
                 html.Span(L.prop("cc-minimum-label", "children", msg("Minimum Jaccard")), id="cc-minimum-label",
                           className="term small", tabIndex="0", **{"data-tip": minimum_tip}),
                 html.Div(dcc.Slider(id="cc-minimum", min=0, max=1, step=0.01, value=MINIMUM_DEFAULT,
-                                    marks={0: "0", 0.1: "0.1", 0.25: "0.25", 0.5: "0.5", 1: "1"},
+                                    marks=L.prop("cc-minimum", "marks", lambda tx: {
+                                        0: "0", 0.1: tx.num(0.1, 1), 0.25: tx.num(0.25, 2), 0.5: tx.num(0.5, 1),
+                                        1: "1"}),
                                     tooltip={"placement": "bottom", "always_visible": False}),
                          className="cc-slider"),
                 html.Button(id="cc-weak-btn", className="link small", n_clicks=0),

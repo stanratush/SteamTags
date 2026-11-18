@@ -472,7 +472,10 @@ def test_typing_a_cells_g_and_s_selects_that_cell_and_its_gamma_follows(ps_build
 def test_typing_a_pair_with_no_selected_partition_or_a_gamma_sets_the_dataset_by_hand(ps_build):
     out = render(ps_build)
     requests, _ = edit(ps_build, out, "overall", g=10, s=5)
-    assert requests == {"overall": {"source": "hand", "g": 10, "s": 5, "resolution": out["resolution"][0]}}
+    # γ stays the dataset's own (the cell's Selected Resolution), not its two-decimal display
+    gamma_now = out["shown"]["values"]["overall"][4]
+    assert requests == {"overall": {"source": "hand", "g": 10, "s": 5, "resolution": gamma_now}}
+    assert gamma_now != out["resolution"][0]
     gamma, _ = edit(ps_build, out, "overall", gamma=0.8)
     assert gamma == {"overall": {"source": "hand", "g": 15, "s": 3, "resolution": 0.8}}
     puzzle, _ = edit(ps_build, out, "puzzle", g=9)  # no run: any pair is by hand
@@ -558,21 +561,26 @@ def test_a_build_switch_starts_the_comparison_fresh_on_every_pick(ps_build):
 # ----------------------------------------------------------------------------- routes to and from Parameter Selection (issue 22)
 
 
-def _open_ps(out, dataset):
+def _open_ps(out, dataset, build=None, weight="lift"):
     triggered(f'{{"dataset":"{dataset}","type":"cc-open-ps"}}.n_clicks')
-    return CB.cc_open_ps([1], out["shown"])
+    ctx = load_build(build)
+    d = CC.shared_defaults(ctx)
+    return CB.cc_open_ps([1], out["shown"], _store(ctx)[0], weight, d.algorithm, d.min_months, list(d.genre_hidden),
+                         list(d.removed_tag_ids), str(build))
 
 
 def test_the_row_link_opens_parameter_selection_on_the_dataset_and_its_cell(ps_build):
     out = render(ps_build, requests={"rpg": {"source": "hand", "g": 9, "s": 4, "resolution": 1.0}})
     assert any(type(c).__name__ == "Button" and _text(c) == "Open Parameter Selection" for c in _walk(out["sources"][0]))
-    assert _open_ps(out, "overall") == ("overall", [15, 3], "selection")  # on its pick
-    assert _open_ps(out, "puzzle") == ("puzzle", None, "selection")  # no run: nothing highlighted
-    assert _open_ps(out, "rpg") == ("rpg", None, "selection")  # set by hand
+    assert _open_ps(out, "overall", ps_build) == ("overall", [15, 3], "selection")  # on its pick
+    assert _open_ps(out, "puzzle", ps_build) == ("puzzle", None, "selection")  # no run: nothing highlighted
+    assert _open_ps(out, "rpg", ps_build) == ("rpg", None, "selection")  # set by hand
     cell = render(ps_build, requests={"overall": {"source": "cell", "g": 17, "s": 2}})
-    assert _open_ps(cell, "overall") == ("overall", [17, 2], "selection")
+    assert _open_ps(cell, "overall", ps_build) == ("overall", [17, 2], "selection")
+    # Parameter Selection on other settings than the comparison's: the same g and s would be another run's cell
+    assert _open_ps(cell, "overall", ps_build, weight="shared_games") == ("overall", None, "selection")
     with pytest.raises(PreventUpdate):
-        CB.cc_open_ps([0], out["shown"])
+        CB.cc_open_ps([0], out["shown"], None, "lift", "leiden", 0, [], [], str(ps_build))
 
 
 def _use_state(build, dataset="overall", pair=None, active=None, **shared):
@@ -611,6 +619,8 @@ def test_using_a_cell_sets_it_as_the_datasets_cell_includes_the_dataset_and_swit
     assert "Selected Partition at g 16 · s 4" in _text(out["sources"][0])
     with pytest.raises(PreventUpdate):  # no Selected Partition to use
         CB.ps_use_cc(1, "puzzle", None, a, cstore, {}, include, str(ps_build))
+    star, _, _ = CB.ps_use_cc(1, "overall", None, a, cstore, {}, include, str(ps_build))  # the ★ pair
+    assert star == {"overall": {"source": "pick"}}  # it follows the Pair Constraints like any pick
 
 
 # ----------------------------------------------------------------------------- Export CSV (issue 23)
@@ -691,6 +701,8 @@ def test_export_csv_is_in_the_header_with_its_help_and_needs_two_datasets(ps_bui
     with pytest.raises(PreventUpdate):
         CB.cc_export(1, d.clustering_weight, d.algorithm, d.min_months, list(d.genre_hidden), [],
                      [["overall"]] + [[] for _ in ctx.datasets[1:]], {}, cstore, 0.1, str(ps_build))
+    assert CB.cc_export_disabled({"comparison_id": None, "pair": None}) is True
+    assert CB.cc_export_disabled({"comparison_id": "abc", "pair": ["a", "b"]}) is False
     download = CB.cc_export(1, d.clustering_weight, d.algorithm, d.min_months, list(d.genre_hidden), [],
                             [[k.key] for k in ctx.datasets], {}, cstore, 0.1, str(ps_build))
     assert download["filename"].startswith("steamstudy_cluster-comparison_")
