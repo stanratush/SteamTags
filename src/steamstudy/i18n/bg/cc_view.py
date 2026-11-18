@@ -9,4 +9,16 @@ MESSAGES: dict[str, str | dict[str, str]] = {
         "one": "{n} сравним таг: {share_a} от тези на {a}, {share_b} от тези на {b}",
         "other": "{n} сравними тага: {share_a} от тези на {a}, {share_b} от тези на {b}"},
     "{n} game in common": {"one": "{n} обща игра", "other": "{n} общи игри"},
+    # the link diagram (issue 19)
+    "Minimum Jaccard": "Минимален Jaccard",
+    "show weaker": "покажи по-слабите",
+    "hide weaker": "скрий по-слабите",
+    "Line width = Match Jaccard. Click a curve for its match, a Cluster to show only its curves.":
+        "Дебелина на линията = индекс на Jaccard на съвпадението. Щракнете върху крива за съвпадението ѝ, върху "
+        "клъстер — за да видите само неговите криви.",
+    "{n} Tag": {"one": "{n} таг", "other": "{n} тага"},
+    "{n} Multi-Tag Cluster": {"one": "{n} многотагов клъстер", "other": "{n} многотагови клъстера"},
+    "{a} ~ {b}: Match Jaccard {j}, {n} shared Tag": {
+        "one": "{a} ~ {b}: индекс на Jaccard на съвпадението {j}, {n} общ таг",
+        "other": "{a} ~ {b}: индекс на Jaccard на съвпадението {j}, {n} общи тага"},
 }

@@ -1196,6 +1196,47 @@ def cc_render(mode, weight, algorithm, min_months, genre, removed, include, requ
     return tuple(out[name] for name in CC.RENDER_OUTPUTS)
 
 
+def cc_main(shown, minimum, weak, orient, focus, match, weight, algorithm, min_months, genre, removed, include,
+            requests, pair, cstore, build_path, lang=None):
+    """The main column for the view choices (minimum, "show weaker", ⇄, the clicked box, the chosen match): it
+    follows `cc-shown`, which `cc_render` writes, and reads the memos warm; nothing is recomputed."""
+    if not shown:
+        raise PreventUpdate
+    c = load_build(build_path)
+    included = [d for values in (include or []) for d in (values or [])]
+    shared = CC.shared_of(weight, algorithm, min_months, genre, removed)
+    view = CC.DiagramView(CC.MINIMUM_DEFAULT if minimum is None else float(minimum), bool(weak), orient, focus, match)
+    out = CC.render_main(c, shared, included, requests, pair, cstore, view, tx=text(lang_of(lang)))
+    return tuple(getattr(out, name) for name in CC.MAIN_OUTPUTS)
+
+
+def cc_swap(_n, shown, orient):
+    """⇄: the chosen pair's other dataset goes on the left (a view choice)."""
+    pair = (shown or {}).get("pair")
+    if not _n or not pair:
+        raise PreventUpdate
+    current = orient if orient and set(orient) == set(pair) else pair
+    return [current[1], current[0]]
+
+
+def cc_toggle_weak(_n, weak):
+    """"show weaker": the matches below the minimum are drawn dashed, or hidden again."""
+    if not _n:
+        raise PreventUpdate
+    return not weak
+
+
+def cc_focus(_clicks, shown, focus):
+    """A Cluster box shows only its curves; a second click on it shows all again."""
+    trigger = ctx.triggered_id
+    pair = (shown or {}).get("pair")
+    if not isinstance(trigger, dict) or not any(_clicks or []) or not pair:
+        raise PreventUpdate
+    record = {"comparison_id": shown["comparison_id"], "pair": pair, "dataset": trigger["dataset"],
+              "cluster": trigger["cluster"]}
+    return None if focus == record else record
+
+
 def cc_pick_pair(_clicks):
     """A Dataset pairs row chooses its pair."""
     trigger = ctx.triggered_id
@@ -1408,8 +1449,7 @@ def register(app: dash.Dash) -> None:
     cc_outputs = [Output({"type": "cc-source", "dataset": ALL}, "children"),
                   Output({"type": "cc-g", "dataset": ALL}, "value"), Output({"type": "cc-s", "dataset": ALL}, "value"),
                   Output({"type": "cc-resolution", "dataset": ALL}, "value"), Output("cc-pairs", "children"),
-                  Output("cc-comparison-id", "children"), Output("cc-main", "children"),
-                  Output("cc-pill-datasets", "children"), Output("cc-pill-pairs", "children"),
+                  Output("cc-comparison-id", "children"), Output("cc-pill-datasets", "children"), Output("cc-pill-pairs", "children"),
                   Output("cc-shown", "data")]
     cb(*cc_outputs, Input("mode", "value"), Input("cc-s-weight", "value"), Input("cc-s-algorithm", "value"),
        Input("cc-s-min-months", "value"), Input("cc-s-genre", "value"), Input("cc-s-removed", "value"),
@@ -1418,3 +1458,21 @@ def register(app: dash.Dash) -> None:
        Input("lang", "data"), running=[(Output("cc-busy", "hidden"), False, True)])(cc_render)
     cb(Output("cc-pair", "data"), Input({"type": "cc-pair", "a": ALL, "b": ALL}, "n_clicks"),
        prevent_initial_call=True)(cc_pick_pair)
+    cb(*[Output(i, p) for i, p in (("cc-main-empty", "children"), ("cc-pair-view", "style"), ("cc-title", "children"),
+                                   ("cc-diagram", "children"), ("cc-links", "data"), ("cc-one-tag", "children"),
+                                   ("cc-weak-btn", "children"))],
+       Input("cc-shown", "data"), Input("cc-minimum", "value"), Input("cc-weak", "data"), Input("cc-orient", "data"),
+       Input("cc-focus", "data"), Input("cc-match", "data"), State("cc-s-weight", "value"),
+       State("cc-s-algorithm", "value"), State("cc-s-min-months", "value"), State("cc-s-genre", "value"),
+       State("cc-s-removed", "value"), State({"type": "cc-include", "dataset": ALL}, "value"),
+       State("cc-requests", "data"), State("cc-pair", "data"), State("ps-constraints", "data"),
+       State("build-path", "data"), Input("lang", "data"))(cc_main)
+    cb(Output("cc-orient", "data"), Input("cc-swap", "n_clicks"), State("cc-shown", "data"), State("cc-orient", "data"),
+       prevent_initial_call=True)(cc_swap)
+    cb(Output("cc-weak", "data"), Input("cc-weak-btn", "n_clicks"), State("cc-weak", "data"),
+       prevent_initial_call=True)(cc_toggle_weak)
+    cb(Output("cc-focus", "data"), Input({"type": "cc-box", "dataset": ALL, "cluster": ALL}, "n_clicks"),
+       State("cc-shown", "data"), State("cc-focus", "data"), prevent_initial_call=True)(cc_focus)
+    # The curves: drawn in the browser between the measured boxes; a click on one sets `cc-match`.
+    app.clientside_callback(ClientsideFunction(namespace="workbench", function_name="ccLinks"),
+                            Output("cc-links-drawn", "data"), Input("cc-links", "data"))

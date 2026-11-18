@@ -339,6 +339,56 @@
     return ["app-body", "ps-body", ...off.map((p) => "no-" + p)].join(" ");
   }
 
+  // ------------------------------------------------------------------ Cluster Comparison: the link diagram's curves
+
+  // cc_view.links gives the curves; the boxes are server-rendered, so each curve runs between the measured middles
+  // of its two boxes (data-side, data-cluster) across the diagram's middle column. Width and strength follow Match
+  // Jaccard, its value is written on the curve, and a click records the match in `cc-match`. A resize or a box whose
+  // Tags wrap differently redraws them.
+  let ccCurves = [];
+  let ccObserver = null;
+
+  function ccDraw() {
+    const host = document.querySelector("#cc-diagram .cc-links");
+    if (!host) return;
+    const grid = host.closest(".cc-diagram-grid");
+    if (ccObserver && grid && !grid.dataset.observed) { grid.dataset.observed = "1"; ccObserver.observe(grid); }
+    const box = host.getBoundingClientRect();
+    const middle = (side, label) => {
+      const el = document.querySelector(`#cc-diagram [data-side="${side}"][data-cluster="${CSS.escape(label)}"]`);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return r.top + r.height / 2 - box.top;
+    };
+    const w = box.width;
+    let out = "";
+    ccCurves.forEach((c, i) => {
+      const y1 = middle("a", c.a), y2 = middle("b", c.b);
+      if (y1 === null || y2 === null) return;
+      const width = 1 + c.j * 22, opacity = c.chosen ? 1 : Math.min(1, 0.25 + c.j);
+      out += `<path d="M0,${y1} C${w / 2},${y1} ${w / 2},${y2} ${w},${y2}" data-i="${i}" fill="none"` +
+        ` class="cc-curve${c.chosen ? " chosen" : ""}" stroke-width="${width}" stroke-opacity="${opacity}"` +
+        `${c.dashed ? ' stroke-dasharray="4 3"' : ""}><title>${escapeHtml(c.title)}</title></path>` +
+        `<text x="${w / 2}" y="${(y1 + y2) / 2 - 3}" class="cc-curve-label" text-anchor="middle">` +
+        `${escapeHtml(c.label)}</text>`;
+    });
+    host.innerHTML = `<svg class="cc-svg" width="${w}" height="${box.height}">${out}</svg>`;
+  }
+
+  function ccLinks(curves) {
+    ccCurves = curves || [];
+    if (!ccObserver && window.ResizeObserver) ccObserver = new ResizeObserver(() => ccDraw());
+    requestAnimationFrame(() => requestAnimationFrame(ccDraw));  // once React has put the boxes in place
+    return window.dash_clientside.no_update;
+  }
+
+  document.addEventListener("click", (ev) => {
+    const path = within(ev, "#cc-diagram .cc-curve");
+    if (!path) return;
+    const curve = ccCurves[Number(path.dataset.i)];
+    if (curve) window.dash_clientside.set_props("cc-match", {data: curve.record});
+  });
+
   // ------------------------------------------------------------------ Interface Language
 
   // The EN | BG switch: the choice is kept per browser in a cookie (i18n.COOKIE), which ignores the port, so it
@@ -387,6 +437,7 @@
   }
 
   window.dash_clientside = Object.assign({}, window.dash_clientside,
-                                         {workbench: {pills, language, uiWords, psPanels, switchBuild, runningJobs}});
+                                         {workbench: {pills, language, uiWords, psPanels, switchBuild, runningJobs,
+                                                     ccLinks}});
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();

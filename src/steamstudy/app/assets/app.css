@@ -594,8 +594,36 @@ body[data-form=narrow][data-sheet=open] #root.selection .ps-inspector.has-sel{gr
 .cc-pair-ari{display:flex;align-items:center;gap:4px;font-variant-numeric:tabular-nums}
 .cc-bar{display:inline-block;height:8px;background:var(--acc);border-radius:2px}
 .cc-main{grid-area:main;overflow:auto;padding:10px 14px 40px}
-.cc-title{margin:0 0 8px;font-size:15px}
+.cc-title{margin:0;font-size:15px;display:flex;align-items:center;gap:6px}
+.cc-swap{padding:1px 8px}
 .cc-empty{color:var(--mute);margin:24px 0}
+.cc-empty:empty{display:none}
+.cc-pair-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 14px}
+.cc-minimum{display:flex;align-items:center;gap:6px}
+.cc-slider{width:220px;max-width:50vw}
+.cc-slider .dash-slider-container,.cc-slider .rc-slider{margin:0}
+button.link{border:0;background:none;padding:0;color:var(--acc);cursor:pointer;text-decoration:underline}
+.cc-hint{margin:4px 0 8px}
+.cc-diagram-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(70px,160px) minmax(0,1fr)}
+.cc-col-head{margin:0 0 6px;font-size:12.5px;font-weight:600}
+.cc-link-col{position:relative}
+.cc-links{position:absolute;inset:0}
+.cc-svg{overflow:visible;display:block}
+.cc-curve{stroke:var(--acc);cursor:pointer}
+.cc-curve.chosen{stroke:var(--ink)}
+.cc-curve-label{font-size:10px;fill:var(--ink2);pointer-events:none}
+.cc-box{border:1px solid var(--line);border-left:4px solid var(--ink2);border-radius:6px;padding:4px 8px;
+ margin-bottom:8px;background:var(--panel);cursor:pointer;font-size:12px}
+.cc-box.dim{opacity:.35}
+.cc-box.hl{box-shadow:0 0 0 2px var(--acc)}
+.cc-box-head{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px}
+.cc-box-tags{color:var(--mute);font-size:11px;line-height:1.3;max-height:2.6em;overflow:hidden;
+ display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.cc-flag{font-size:10.5px;border-radius:9px;padding:0 6px;background:var(--warn-bg);color:var(--warn);
+ border:1px solid #f0d9a8}
+.cc-flag.below_minimum{background:var(--bg);color:var(--ink2);border-color:var(--line)}
+.cc-one-tag{margin:6px 0 12px}
+.cc-one-tag:empty{display:none}
 .cc-busy{grid-area:1/1/-1/-1}
 body[data-form=medium] #root.comparison #cc-body,
 body[data-form=narrow] #root.comparison #cc-body{grid-template-columns:minmax(0,1fr);

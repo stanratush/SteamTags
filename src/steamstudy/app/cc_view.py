@@ -335,20 +335,185 @@ def pair_rows(ctx: BuildContext, ranked: Sequence[CMP.PairResult], chosen: CMP.P
     return rows
 
 
-def main_view(ctx: BuildContext, result: ComparisonResult, chosen: CMP.PairResult | None, tx: Text) -> list[Any]:
-    """The main column: the chosen pair's title, or the empty state. The diagram and the match detail follow (issues
-    19 and 20)."""
-    if result.comparison_id is None:
-        return [html.P(tx(CT.FEWER_THAN_TWO), className="cc-empty")]
-    if chosen is None:
+# ----------------------------------------------------------------------------- the link diagram
+
+MINIMUM_DEFAULT = 0.10  # the Minimum Match Jaccard when the mode first opens
+
+
+@dataclass(frozen=True)
+class DiagramView:
+    """The main column's view choices: never in the Comparison State key, and nothing is recomputed for them.
+
+    `orient` is the chosen pair as shown, A first (⇄). `focus` (the clicked Cluster box) and `match` (the chosen
+    Cluster Match) are recorded with the `comparison_id` and the pair, in the Build's order, they were made on, and
+    are ignored once either changes; a match is kept in the Build's order of the pair, so ⇄ keeps it."""
+
+    minimum: float = MINIMUM_DEFAULT
+    weak: bool = False
+    orient: Sequence[str] | None = None
+    focus: Mapping[str, Any] | None = None
+    match: Mapping[str, Any] | None = None
+
+
+def oriented(pair: CMP.PairResult, orient: Sequence[str] | None) -> CMP.PairResult:
+    """The pair as shown: swapped when ⇄ put its later dataset on the left; the earlier dataset is A by default."""
+    return pair.swapped() if orient and list(orient) == [pair.dataset_b, pair.dataset_a] else pair
+
+
+def _made_on(record: Mapping[str, Any] | None, cid: str, pair: CMP.PairResult) -> bool:
+    if not record:
+        return False
+    return record.get("comparison_id") == cid and record.get("pair") == [pair.dataset_a, pair.dataset_b]
+
+
+def focus_of(view: DiagramView, cid: str, pair: CMP.PairResult) -> tuple[str, str] | None:
+    """The clicked Cluster box as (dataset, label) on this comparison's pair (`pair` in the Build's order)."""
+    f = view.focus
+    return (f["dataset"], f["cluster"]) if f and _made_on(f, cid, pair) else None
+
+
+def match_of(view: DiagramView, cid: str, pair: CMP.PairResult) -> tuple[str, str] | None:
+    """The chosen Cluster Match as (Cluster of the earlier dataset, Cluster of the later) on this pair."""
+    m = view.match
+    return (m["a"], m["b"]) if m and _made_on(m, cid, pair) else None
+
+
+def match_record(cid: str, pair: CMP.PairResult, m: CMP.Match, swapped: bool) -> dict[str, Any]:
+    """What a curve click records in `cc-match`: the match in the Build's order of `pair` (`m` as shown)."""
+    a, b = (m.cluster_b, m.cluster_a) if swapped else (m.cluster_a, m.cluster_b)
+    return {"comparison_id": cid, "pair": [pair.dataset_a, pair.dataset_b], "a": a, "b": b}
+
+
+def links(ctx: BuildContext, cid: str, pair: CMP.PairResult, view: DiagramView, tx: Text) -> list[dict[str, Any]]:
+    """The curves to draw for the pair as shown: one per Cluster Match at or above the minimum and, with "show
+    weaker", the weaker ones dashed; with a Cluster box clicked, only that Cluster's. `a` and `b` are the shown
+    sides' labels; workbench.js `ccLinks` draws them and a click records `record`."""
+    shown = oriented(pair, view.orient)
+    swapped = shown is not pair
+    focus = focus_of(view, cid, pair)
+    chosen = match_of(view, cid, pair)
+    name_a, name_b = ctx.dataset(shown.dataset_a).label, ctx.dataset(shown.dataset_b).label
+    out = []
+    for m in shown.matches:
+        strong = m.jaccard >= view.minimum
+        if not strong and not view.weak:
+            continue
+        if focus and focus not in ((shown.dataset_a, m.cluster_a), (shown.dataset_b, m.cluster_b)):
+            continue
+        record = match_record(cid, pair, m, swapped)
+        title = tx.n(m.n_shared, one="{a} ~ {b}: Match Jaccard {j}, {n} shared Tag",
+                     other="{a} ~ {b}: Match Jaccard {j}, {n} shared Tags",
+                     a=CT.cluster_name(name_a, m.cluster_a), b=CT.cluster_name(name_b, m.cluster_b),
+                     j=tx.num(m.jaccard, 2))
+        out.append({"a": m.cluster_a, "b": m.cluster_b, "j": m.jaccard, "label": tx.num(m.jaccard, 2),
+                    "dashed": not strong, "chosen": chosen == (record["a"], record["b"]), "title": title,
+                    "record": record})
+    return out
+
+
+def _badge(flag: CMP.ClusterFlag, other: str, minimum: float, tx: Text) -> list[Any]:
+    code = flag.flag_at(minimum)
+    if not code:
         return []
-    return [html.H3([dataset_name(ctx, chosen.dataset_a), " × ", dataset_name(ctx, chosen.dataset_b)],
-                    className="cc-title"),
-            html.Div(id="cc-diagram", className="cc-diagram")]
+    now = (CT.one_tag_counts(flag.n_in_one_tag_clusters, flag.n_not_in_network, other=other, tx=tx)
+           if code == "only_one_tag_clusters" else None)
+    # The tooltip only: a click on the badge is a click on its box (data-help would open the guide instead).
+    tip: dict[str, Any] = {"data-tip": H.tip(f"comparison.flag.{code}", tx, now)}
+    return [html.Span(CT.flag_label(code, other=other, minimum=minimum, tx=tx), className=f"cc-flag {code}",
+                      tabIndex="0", **tip)]
 
 
-RENDER_OUTPUTS = ("sources", "g", "s", "resolution", "pairs", "comparison_id", "main", "pill_datasets", "pill_pairs",
-                  "shown")
+def _boxes(ctx: BuildContext, p: CMP.Partition, flags: Sequence[CMP.ClusterFlag], other: str, side: str,
+           related: set[str] | None, focus: tuple[str, str] | None, minimum: float, names: Mapping[int, str],
+           tx: Text) -> list[Any]:
+    """One box per Multi-Tag Cluster of one side: label, Tag count, flag badge and Tags, in the dataset's colour."""
+    by_label = {c.label: c for c in p.multi}
+    out = []
+    for f in flags:
+        c = by_label[f.cluster]
+        classes = ["cc-box"]
+        if related is not None and f.cluster not in related:
+            classes.append("dim")
+        if focus == (p.dataset, f.cluster):
+            classes.append("hl")
+        tags = ", ".join(sorted((names.get(t, str(t)) for t in c.members), key=str.casefold))
+        where: dict[str, Any] = {"data-side": side, "data-cluster": f.cluster}  # workbench.js `ccLinks` measures it
+        out.append(html.Div([
+            html.Div([html.B(c.label), " ", html.Span(tx.n(c.size, one="{n} Tag", other="{n} Tags"), className="mute"),
+                      *_badge(f, other, minimum, tx)], className="cc-box-head"),
+            html.Div(tags, className="cc-box-tags", title=tags),
+        ], id={"type": "cc-box", "dataset": p.dataset, "cluster": f.cluster}, n_clicks=0, role="button", tabIndex="0",
+            className=" ".join(classes), style={"borderLeftColor": colour_of(ctx, p.dataset)},
+            **where))
+    return out
+
+
+@dataclass(frozen=True)
+class MainView:
+    """What the main column shows, by `MAIN_OUTPUTS` name."""
+
+    empty: str  # the fewer-than-two empty state, else ""
+    pair_style: dict[str, str]  # hides the pair's block when no pair is chosen
+    title: Any
+    diagram: Any  # the two columns, or the no-match empty state
+    links: list[dict[str, Any]]
+    one_tag: str
+    weak_label: str
+
+
+MAIN_OUTPUTS = tuple(f.name for f in dataclasses.fields(MainView))
+_HIDDEN = {"display": "none"}
+
+
+def main_view(ctx: BuildContext, result: ComparisonResult, chosen: CMP.PairResult | None, view: DiagramView,
+              tx: Text) -> MainView:
+    """The main column: the chosen pair's title, the link diagram and the One-Tag line, or an empty state."""
+    weak_label = tx("hide weaker") if view.weak else tx("show weaker")
+    cid = result.comparison_id
+    if cid is None or chosen is None:
+        return MainView(tx(CT.FEWER_THAN_TWO) if cid is None else "", _HIDDEN, [], [], [], "", weak_label)
+    shown = oriented(chosen, view.orient)
+    A, B = result.resolved[shown.dataset_a].partition, result.resolved[shown.dataset_b].partition
+    name_a, name_b = ctx.dataset(A.dataset).label, ctx.dataset(B.dataset).label
+    title = [dataset_name(ctx, A.dataset), " × ", dataset_name(ctx, B.dataset)]
+    one_tag = CT.one_tag_line(name_a, sum(c.size == 1 for c in A.clusters), name_b,
+                              sum(c.size == 1 for c in B.clusters), tx)
+    if not shown.matches:
+        return MainView("", {}, title, html.P(tx(CT.NO_MATCH), className="cc-empty"), [], one_tag, weak_label)
+    drawn = links(ctx, cid, chosen, view, tx)
+    focus = focus_of(view, cid, chosen)
+    related_a = related_b = None
+    if focus:  # the clicked box and the Clusters its drawn curves reach
+        related_a = {x["a"] for x in drawn} | ({focus[1]} if focus[0] == A.dataset else set())
+        related_b = {x["b"] for x in drawn} | ({focus[1]} if focus[0] == B.dataset else set())
+    names = PV.tag_names(ctx)
+
+    def column(p: CMP.Partition, flags: Sequence[CMP.ClusterFlag], other: str, side: str,
+               related: set[str] | None) -> html.Div:
+        head = html.H4([dataset_name(ctx, p.dataset), " · ",
+                        tx.n(len(p.multi), one="{n} Multi-Tag Cluster", other="{n} Multi-Tag Clusters")],
+                       className="cc-col-head")
+        return html.Div([head, *_boxes(ctx, p, flags, other, side, related, focus, view.minimum, names, tx)],
+                        className=f"cc-col cc-col-{side}")
+
+    diagram = html.Div([
+        column(A, shown.flags_a, name_b, "a", related_a),
+        html.Div(html.Div(className="cc-links"), className="cc-link-col"),
+        column(B, shown.flags_b, name_a, "b", related_b),
+    ], className="cc-diagram-grid")
+    return MainView("", {}, title, diagram, drawn, one_tag, weak_label)
+
+
+def render_main(ctx: BuildContext, shared: CMP.SharedSettings, included: Sequence[str],
+                requests: Mapping[str, Any] | None, clicked: Sequence[str] | None, cstore: Mapping[str, Any] | None,
+                view: DiagramView, *, tx: Text) -> MainView:
+    """The main column for the view choices, read from the two memos `render` filled: nothing is recomputed."""
+    result = resolve_all(ctx, shared, included, requests, cstore)
+    chosen = chosen_pair(ranked_pairs(result.pairs, [d.key for d in ctx.datasets]), clicked)
+    return main_view(ctx, result, chosen, view, tx)
+
+
+RENDER_OUTPUTS = ("sources", "g", "s", "resolution", "pairs", "comparison_id", "pill_datasets", "pill_pairs", "shown")
 
 
 def render(ctx: BuildContext, shared: CMP.SharedSettings, included: Sequence[str], requests: Mapping[str, Any] | None,
@@ -366,11 +531,10 @@ def render(ctx: BuildContext, shared: CMP.SharedSettings, included: Sequence[str
         "pairs": (pair_rows(ctx, ranked, chosen, tx) if result.comparison_id
                   else [html.P(tx(CT.FEWER_THAN_TWO), className="cc-empty small")]),
         "comparison_id": result.comparison_id or "—",
-        "main": main_view(ctx, result, chosen, tx),
         "pill_datasets": tx("{n} of {total}", n=len(result.included), total=len(order)),
         "pill_pairs": ([dataset_name(ctx, chosen.dataset_a), " × ", dataset_name(ctx, chosen.dataset_b)]
                        if chosen else "—"),
-        # what the mode shows now, for the issues that follow (diagram, export): the id and the chosen pair
+        # what the mode shows now: the main column follows it (`render_main`), and the view stores are checked against it
         "shown": {"comparison_id": result.comparison_id,
                   "pair": [chosen.dataset_a, chosen.dataset_b] if chosen else None},
     }
@@ -450,6 +614,37 @@ def shared_row(L: Labels, ctx: BuildContext, shared: CMP.SharedSettings) -> html
     ], className="cc-shared")
 
 
+def pair_block(L: Labels) -> html.Div:
+    """The chosen pair's block of the main column: title with ⇄, the Minimum Match Jaccard slider with "show
+    weaker", the link diagram, the One-Tag line and the match detail (issue 20). Its controls are static, so the
+    slider keeps its value while the diagram re-renders."""
+    swap_tip = L.prop("cc-swap", "data-tip", lambda tx: H.tip("comparison.swap", tx))
+    minimum_tip = L.prop("cc-minimum-label", "data-tip", lambda tx: H.tip("comparison.minimum", tx))
+    return html.Div([
+        html.Div([
+            html.H3([html.Span(id="cc-title"), " ",
+                     html.Button("⇄", id="cc-swap", className="btn cc-swap", n_clicks=0,
+                                 **{"data-tip": swap_tip, "aria-label": swap_tip})], className="cc-title"),
+            html.Div([
+                html.Span(L.prop("cc-minimum-label", "children", msg("Minimum Jaccard")), id="cc-minimum-label",
+                          className="term small", tabIndex="0", **{"data-tip": minimum_tip}),
+                html.Div(dcc.Slider(id="cc-minimum", min=0, max=1, step=0.01, value=MINIMUM_DEFAULT,
+                                    marks={0: "0", 0.1: "0.1", 0.25: "0.25", 0.5: "0.5", 1: "1"},
+                                    tooltip={"placement": "bottom", "always_visible": False}),
+                         className="cc-slider"),
+                html.Button(id="cc-weak-btn", className="link small", n_clicks=0),
+                _static_help(L, "comparison.minimum"),
+            ], className="cc-minimum"),
+        ], className="cc-pair-head"),
+        html.Div([L.span(msg("Line width = Match Jaccard. Click a curve for its match, a Cluster to show only its "
+                             "curves.")), " ", _static_help(L, "comparison.diagram")],
+                 className="small mute cc-hint"),
+        html.Div(id="cc-diagram", className="cc-diagram"),
+        html.P(id="cc-one-tag", className="small mute cc-one-tag"),
+        html.Div(id="cc-detail", className="cc-detail"),
+    ], id="cc-pair-view", style=_HIDDEN)
+
+
 def mode_layout(ctx: BuildContext, L: Labels) -> html.Div:
     shared = shared_defaults(ctx)
     head = html.Div([
@@ -471,9 +666,13 @@ def mode_layout(ctx: BuildContext, L: Labels) -> html.Div:
             html.H4([L.span(msg("Dataset pairs")), " ", _static_help(L, "comparison.pairs")], className="ctl-h"),
             html.Div(id="cc-pairs", className="cc-pairs")], className="ctl-section")),
     ], id="cc-sidebar", className="controls cc-sidebar")
-    main = html.Div(id="cc-main", className="main cc-main")
+    main = html.Div([html.P(id="cc-main-empty", className="cc-empty"), pair_block(L)], id="cc-main",
+                    className="main cc-main")
     # Over the whole mode while the comparison resolves (callbacks.py `running`): the previous view dims under it.
     busy = html.Div(html.Div(html.Span(L.prop("cc-busy", "children", msg("Comparing Clusters…")), id="cc-busy",
                                        hidden=True), className="busy", role="status"), className="ps-busy cc-busy")
-    stores = [dcc.Store(id="cc-requests", data={}), dcc.Store(id="cc-pair"), dcc.Store(id="cc-shown")]
+    stores = [dcc.Store(id="cc-requests", data={}), dcc.Store(id="cc-pair"), dcc.Store(id="cc-shown"),
+              # the view choices (`DiagramView`) and the curves workbench.js `ccLinks` draws
+              dcc.Store(id="cc-orient"), dcc.Store(id="cc-weak", data=False), dcc.Store(id="cc-focus"),
+              dcc.Store(id="cc-match"), dcc.Store(id="cc-links", data=[]), dcc.Store(id="cc-links-drawn")]
     return html.Div([*stores, head, sidebar, main, busy], id="cc-body", className="cc-body")
