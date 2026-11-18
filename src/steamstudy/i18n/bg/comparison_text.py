@@ -78,7 +78,8 @@ MESSAGES: dict[str, str | dict[str, str]] = {
         ("Няма изпълнение на автоматичния избор на параметри: стойности по подразбиране на мрежата, едно изпълнение "
          "на {algorithm}, основно начално число"),
     "Open Parameter Selection": "Отвори избора на параметри",
-    "Seed-Noise Floor {floor} · NA {na}": "Праг на шума {floor} · NA {na}",
+    "Seed-Noise Floor {floor}": "Праг на шума {floor}",
+    "NA {na}": "NA {na}",
     # Flags and Tag groups
     "No match: outside {dataset}'s network": "Няма съвпадение: извън мрежата на {dataset}",
     "No match: only One-Tag Clusters in {dataset}": "Няма съвпадение: само еднотагови клъстери в {dataset}",

@@ -23,8 +23,8 @@ DEFAULT = "en"
 COOKIE = "steamstudy_lang"  # written client-side (assets/workbench.js), read when the layout is served
 
 # One Bulgarian catalogue module per area under `steamstudy/i18n/bg/`.
-AREAS = ("layout", "callbacks", "view", "ps_view", "ps_run", "selection_text", "comparison_text", "refusals",
-         "schema_tips", "ui_words", "build_menu")
+AREAS = ("layout", "callbacks", "view", "ps_view", "ps_run", "selection_text", "comparison_text", "cc_view",
+         "refusals", "schema_tips", "ui_words", "build_menu")
 
 Entry = str | dict[str, str]
 

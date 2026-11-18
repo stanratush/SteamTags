@@ -31,6 +31,7 @@ from steamstudy.app.relabel import RELABEL, Labels, Message, PerBuild, message_v
 from steamstudy.app import build_menu as BM
 from steamstudy.app import draft_dialog as DD
 from steamstudy.app.ps_view import mode_layout
+from steamstudy.app import cc_view as CC
 from steamstudy.app.renderer import graph_component, thickness_key
 from steamstudy.app.view import column_defs, metric_header
 from steamstudy.i18n import LANGS, Text, text
@@ -373,7 +374,7 @@ def brand_build(tx: Text, ctx: BuildContext) -> str:
     return tx("Build {build_id}", build_id=ctx.build_id)
 
 
-MODES = ("workbench", "report", "selection")
+MODES = ("workbench", "report", "selection", "comparison")
 
 
 def build_layout(ctx: BuildContext, lang: str = "en", *, mode: str = "workbench", dataset: str | None = None,
@@ -508,7 +509,8 @@ def build_layout(ctx: BuildContext, lang: str = "en", *, mode: str = "workbench"
                                                 id="brand-build", className="mute"))],
                  className="brand"),
         _seg("mode", L.options("mode", [("workbench", msg("Workbench")), ("report", msg("Analysis Report mode")),
-                                        ("selection", msg("Parameter Selection"))]), mode),
+                                        ("selection", msg("Parameter Selection")),
+                                        ("comparison", msg("Cluster Comparison"))]), mode),
         language,
         html.Div(dcc.Dropdown(id="tag-search", options=[], searchable=True, clearable=False, className="tag-search",
                               placeholder=L.prop("tag-search", "placeholder", msg("Find a tag…")),
@@ -538,6 +540,7 @@ def build_layout(ctx: BuildContext, lang: str = "en", *, mode: str = "workbench"
         *stores, html.Div(id="banners"), header, *BM.layout(L), DD.layout(),
         html.Div([_controls(L, ctx, first), main, inspector], id="app-body", className="app-body"),
         mode_layout(ctx, L),
+        CC.mode_layout(ctx, L),
         help_modal,
     ], id="root", className="workbench controls-on inspector-on tables-on")
 
@@ -578,7 +581,8 @@ def block_styles(mode: str, tab: str, panels: list[str]) -> dict[str, dict[str, 
 
 def root_class(mode: str, panels: list[str], graph_only: bool) -> str:
     """The root's classes: the mode, which panels are open, and "Graph only" (read by app.css and workbench.js)."""
-    classes = [{"report": "report", "selection": "workbench selection"}.get(mode, "workbench")]
+    classes = [{"report": "report", "selection": "workbench selection",
+                "comparison": "workbench comparison"}.get(mode, "workbench")]
     classes += [f"{p}-on" for p in ("controls", "inspector", "tables") if p in panels]
     if graph_only:
         classes.append("graph-only")

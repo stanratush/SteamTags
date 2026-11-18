@@ -98,9 +98,15 @@ def open_parameter_selection(tx: Text) -> str:
     return tx("Open Parameter Selection")
 
 
+def figures_parts(floor: float | None, na: float | None, tx: Text) -> tuple[str, str]:
+    """The row's two figures, each its own label (each with its tooltip): the run's floor and the cell's NA, or
+    "—"."""
+    return tx("Seed-Noise Floor {floor}", floor=_num(floor, tx)), tx("NA {na}", na=_num(na, tx))
+
+
 def figures_line(floor: float | None, na: float | None, tx: Text) -> str:
-    """"Seed-Noise Floor 0.52 · NA 0.81": the run's floor and the cell's NA, or "—"."""
-    return tx("Seed-Noise Floor {floor} · NA {na}", floor=_num(floor, tx), na=_num(na, tx))
+    """"Seed-Noise Floor 0.52 · NA 0.81"."""
+    return " · ".join(figures_parts(floor, na, tx))
 
 
 def _num(value: float | None, tx: Text) -> str:

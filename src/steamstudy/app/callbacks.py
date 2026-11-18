@@ -28,6 +28,7 @@ from dash.exceptions import PreventUpdate
 from steamstudy.app import help as H
 from steamstudy.app import app_cache, job_registry, ps_run, rs_cache
 from steamstudy.app import ps_view as PV
+from steamstudy.app import cc_view as CC
 from steamstudy.app import view as V
 from steamstudy.app.export import REFUSALS, BuildNotFound, OpenRefused, export_zip, open_export
 from steamstudy.app.guide import PANEL_SECTIONS, help_markdown_at
@@ -1179,6 +1180,30 @@ def ps_export(_n, active, cstore, build_path):
     return dash.dcc.send_bytes(data, filename)
 
 
+# ----------------------------------------------------------------------------- 9. Cluster Comparison mode
+
+
+def cc_render(mode, weight, algorithm, min_months, genre, removed, include, requests, pair, cstore, build_path,
+              lang=None):
+    """Everything the Cluster Comparison mode shows: it resolves the datasets (memoised) and matches the included
+    ones. Nothing is computed outside the mode; a mode switch back finds the memos warm."""
+    if mode != "comparison":
+        raise PreventUpdate
+    c = load_build(build_path)
+    included = [d for values in (include or []) for d in (values or [])]
+    shared = CC.shared_of(weight, algorithm, min_months, genre, removed)
+    out = CC.render(c, shared, included, requests, pair, cstore, tx=text(lang_of(lang)))
+    return tuple(out[name] for name in CC.RENDER_OUTPUTS)
+
+
+def cc_pick_pair(_clicks):
+    """A Dataset pairs row chooses its pair."""
+    trigger = ctx.triggered_id
+    if not isinstance(trigger, dict) or not any(_clicks or []):
+        raise PreventUpdate
+    return [trigger["a"], trigger["b"]]
+
+
 def register(app: dash.Dash) -> None:
     cb = app.callback
     # ---- Interface Language: the switch writes the store and the cookie; the tab title follows the words
@@ -1379,3 +1404,17 @@ def register(app: dash.Dash) -> None:
        State("build-path", "data"), State("ps-constraints", "data"), prevent_initial_call=True)(ps_apply)
     cb(Output("ps-download", "data"), Input("ps-export", "n_clicks"), State("ps-active", "data"),
        State("ps-constraints", "data"), State("build-path", "data"), prevent_initial_call=True)(ps_export)
+    # ---- Cluster Comparison mode
+    cc_outputs = [Output({"type": "cc-source", "dataset": ALL}, "children"),
+                  Output({"type": "cc-g", "dataset": ALL}, "value"), Output({"type": "cc-s", "dataset": ALL}, "value"),
+                  Output({"type": "cc-resolution", "dataset": ALL}, "value"), Output("cc-pairs", "children"),
+                  Output("cc-comparison-id", "children"), Output("cc-main", "children"),
+                  Output("cc-pill-datasets", "children"), Output("cc-pill-pairs", "children"),
+                  Output("cc-shown", "data")]
+    cb(*cc_outputs, Input("mode", "value"), Input("cc-s-weight", "value"), Input("cc-s-algorithm", "value"),
+       Input("cc-s-min-months", "value"), Input("cc-s-genre", "value"), Input("cc-s-removed", "value"),
+       Input({"type": "cc-include", "dataset": ALL}, "value"), Input("cc-requests", "data"),
+       Input("cc-pair", "data"), State("ps-constraints", "data"), State("build-path", "data"),
+       Input("lang", "data"), running=[(Output("cc-busy", "hidden"), False, True)])(cc_render)
+    cb(Output("cc-pair", "data"), Input({"type": "cc-pair", "a": ALL, "b": ALL}, "n_clicks"),
+       prevent_initial_call=True)(cc_pick_pair)

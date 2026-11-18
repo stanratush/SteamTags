@@ -458,7 +458,7 @@ body[data-form=narrow] #root.workbench .ov-bl{bottom:54px}
 .ps-busy{--busy-show:.2s;--busy-hide:.05s;--busy-fade:.12s;position:absolute;inset:0;z-index:40;display:grid;
  place-items:center;background:#f5f6f8e6;opacity:0;visibility:hidden;
  transition:opacity var(--busy-fade) ease var(--busy-hide),visibility 0s linear calc(var(--busy-hide) + var(--busy-fade))}
-.ps-busy:has(#ps-busy:not([hidden])){opacity:1;visibility:visible;
+.ps-busy:has(#ps-busy:not([hidden])),.cc-busy:has(#cc-busy:not([hidden])){opacity:1;visibility:visible;
  transition:opacity var(--busy-fade) ease var(--busy-show),visibility 0s linear var(--busy-show)}
 .ps-busy>.busy{font-size:13px;padding:6px 14px 6px 10px}
 #ps-body:has(#ps-loading:not(:empty)) .ps-busy{display:none}
@@ -555,6 +555,58 @@ body[data-form=medium] #root.selection .ps-inspector.has-sel,
 body[data-form=narrow] #root.selection .ps-inspector.has-sel,
 body[data-form=narrow][data-sheet=open] #root.selection .ps-inspector.has-sel{grid-area:main;top:12px;bottom:12px;
  width:380px}
+
+/* ------------------------------------------------------------------ Cluster Comparison mode (cc_view.py) */
+/* Its own grid: the shared settings across the top, the sidebar (a Controls column of two sections) on the left and
+   the main column. The root keeps the workbench class, so at medium and narrow the sidebar becomes the pill bar. */
+#cc-body{display:none}
+#root.comparison #app-body{display:none}
+#root.comparison #cc-body{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr);
+ grid-template-rows:auto minmax(0,1fr);grid-template-areas:"head head" "ctl main";min-height:0}
+#root.comparison .search-slot,#root.comparison #panels,#root.comparison #graph-only{display:none}
+#root.comparison:not(.controls-on) .cc-sidebar{display:block}
+.cc-head{grid-area:head;display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:6px 14px;
+ background:var(--panel);border-bottom:1px solid var(--line)}
+.cc-head-title{display:inline-flex;align-items:center;gap:4px;font-size:12px}
+.cc-shared{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}
+.cc-field{display:inline-flex;align-items:center;gap:6px}
+.cc-field label.l{margin:0;font-size:12px;color:var(--ink2)}
+.cc-genre{flex-wrap:wrap;max-width:620px}
+.cc-removed{min-width:180px}
+.cc-id{margin-left:auto;display:inline-flex;align-items:center;gap:4px}
+.cc-sidebar{width:310px}
+.cc-num{width:52px;padding:1px 4px;border:1px solid var(--line);border-radius:4px;font-variant-numeric:tabular-nums}
+.cc-num[readonly]{background:var(--bg);color:var(--ink2)}
+.cc-rows{display:flex;flex-direction:column;gap:2px}
+.cc-row{display:grid;grid-template-columns:22px minmax(0,1fr) 52px 52px 52px;gap:2px 4px;align-items:center;
+ padding:4px 0;border-bottom:1px solid var(--line2)}
+.cc-row-head{border-bottom:0;padding:0}
+.cc-row .n{text-align:center}
+.cc-include .dash-options-list-option{margin:0}
+.cc-row-source{grid-column:2/-1;line-height:1.35}
+.cc-ds{font-weight:600}
+.cc-figures{font-size:11.5px}
+.cc-pairs{display:flex;flex-direction:column;gap:6px}
+.cc-pair{display:block;width:100%;text-align:left;border:1px solid var(--line);border-radius:6px;background:var(--panel);
+ padding:6px 8px;cursor:pointer;font:inherit;color:inherit}
+.cc-pair:hover{background:#f4f7ff}
+.cc-pair.on{border-color:var(--acc);background:var(--acc-bg)}
+.cc-pair-ari{display:flex;align-items:center;gap:4px;font-variant-numeric:tabular-nums}
+.cc-bar{display:inline-block;height:8px;background:var(--acc);border-radius:2px}
+.cc-main{grid-area:main;overflow:auto;padding:10px 14px 40px}
+.cc-title{margin:0 0 8px;font-size:15px}
+.cc-empty{color:var(--mute);margin:24px 0}
+.cc-busy{grid-area:1/1/-1/-1}
+body[data-form=medium] #root.comparison #cc-body,
+body[data-form=narrow] #root.comparison #cc-body{grid-template-columns:minmax(0,1fr);
+ grid-template-rows:auto auto minmax(0,1fr);grid-template-areas:"head" "ctl" "main"}
+body[data-form=medium] #root.comparison:not(.controls-on) .cc-sidebar,
+body[data-form=narrow] #root.comparison:not(.controls-on) .cc-sidebar{display:flex}
+body[data-form=medium] #root.comparison .cc-sidebar .pill-pop,
+body[data-form=narrow] #root.comparison .cc-sidebar .pill-pop{width:360px;max-width:calc(100vw - 28px);
+ max-height:calc(100vh - 160px);overflow:auto}
+body[data-form=medium] #root.comparison .cc-sidebar .pill-pop .ctl-h,
+body[data-form=narrow] #root.comparison .cc-sidebar .pill-pop .ctl-h{display:block;margin-top:0}
 
 /* ---- The Build menu (build_menu.py), the draft dialog (draft_dialog.py) and the Build run strip */
 .bm-btn{padding:2px 6px;font-size:inherit}

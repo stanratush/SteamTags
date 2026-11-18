@@ -108,7 +108,8 @@ def test_the_mode_is_the_third_option_and_carries_every_selection_help_key(ps_bu
 
     layout = build_layout(load_build(ps_build))
     mode = next(c for c in _walk(layout) if getattr(c, "id", None) == "mode")
-    assert [o["label"] for o in mode.options] == ["Workbench", "Analysis Report mode", "Parameter Selection"]
+    assert [o["label"] for o in mode.options] == ["Workbench", "Analysis Report mode", "Parameter Selection",
+                                                  "Cluster Comparison"]
     assert "selection" in root_class("selection", ["controls"], False).split()
     shown = render(ps_build)
     targets = set(_help_targets([layout, list(shown.values())]))

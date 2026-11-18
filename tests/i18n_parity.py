@@ -29,6 +29,7 @@ AREA_OF = {
     "app/callbacks.py": "callbacks",
     "app/view.py": "view",
     "app/ps_view.py": "ps_view",
+    "app/cc_view.py": "cc_view",
     "app/ps_run.py": "ps_run",
     "network/selection_text.py": "selection_text",
     "network/comparison_text.py": "comparison_text",
