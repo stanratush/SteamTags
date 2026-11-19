@@ -278,6 +278,60 @@ def test_panels_collapse_independently_and_graph_only_is_a_form():
     assert CB.inspector_form([], False, None) == "inspector"
 
 
+def test_the_header_holds_only_the_brand_the_modes_the_search_and_the_language(build_folder):
+    from steamstudy.app.layout import build_layout
+
+    layout = build_layout(load_build(build_folder))
+    header = next(c for c in _walk(layout) if getattr(c, "className", "") == "app-header")
+    kids = [getattr(c, "id", None) or getattr(c, "className", None) for c in header.children]
+    assert kids == ["brand", "mode", "search-slot", "lang-box", "hdr-right"]
+    inside = {getattr(c, "id", None) for c in _walk(header)}
+    assert not inside & {"panels", "ps-panels", "graph-only"}
+    toolbar = next(c for c in _walk(layout) if "ov-tr" in (getattr(c, "className", "") or ""))
+    assert "graph-only" in {getattr(c, "id", None) for c in toolbar.children}
+
+
+def test_each_workbench_panel_has_its_collapse_button_and_rail(build_folder):
+    from steamstudy.app.layout import build_layout
+
+    layout = build_layout(load_build(build_folder))
+    found = {(c.id["panel"], c.id["opens"]) for c in _walk(layout)
+             if isinstance(getattr(c, "id", None), dict) and c.id.get("type") == "panel-btn" and c.id["group"] == "wb"}
+    assert found == {(p, o) for p in ("controls", "inspector", "tables") for o in (0, 1)}
+    state = next(c for c in _walk(layout) if getattr(c, "id", None) == "panels")
+    assert state.value == ["controls", "inspector", "tables"]
+
+
+@pytest.mark.parametrize("value, panel, opens, expected", [
+    (["controls", "inspector", "tables"], "inspector", 0, ["controls", "tables"]),
+    (["controls", "tables"], "inspector", 1, ["controls", "tables", "inspector"]),
+    (["controls"], "controls", 1, ["controls"]),  # a second click on a rail adds it once
+    (None, "tables", 1, ["tables"]),
+])
+def test_a_collapse_button_or_a_rail_turns_its_panel_off_or_on(value, panel, opens, expected):
+    triggered(json.dumps({"group": "wb", "opens": opens, "panel": panel, "type": "panel-btn"},
+                         separators=(",", ":")) + ".n_clicks")
+    assert CB.toggle_panel([1], value) == expected
+    # and what that value arranges is today's: the root classes follow it
+    assert CB.arrange("workbench", "quality", expected, False)[-1].split()[1:] == [f"{p}-on" for p in
+        ("controls", "inspector", "tables") if p in expected]
+
+
+def test_the_cluster_map_card_has_its_close_button_and_the_words_of_its_key_and_note(build_folder):
+    from steamstudy.app.layout import build_layout, ui_words
+    from steamstudy.i18n import text
+
+    layout = build_layout(load_build(build_folder))
+    card = next(c for c in _walk(layout) if getattr(c, "id", None) == "cluster-map")
+    assert "map-close" in {getattr(c, "id", None) for c in _walk(card)}
+    for lang, one, many in (("en", "+ 1 one-tag cluster", "+ 13 one-tag clusters"),
+                            ("bg", "+ 1 еднотагов клъстер", "+ 13 еднотагови клъстера")):
+        words = ui_words(text(lang))["map"]
+        assert {"top", "weakest", "strongest", "one_tag"} <= set(words)
+        assert [w.replace("{n}", str(n)) for w, n in zip(words["one_tag"], (1, 13))] == [one, many]
+        assert "{value}" in words["weakest"] and "{value}" in words["strongest"] and "{tags}" in words["top"]
+
+
 def test_a_selection_does_not_re_arrange_the_page(build_folder):
     """Only the Inspector's form follows the selection: re-sending every block's style made React re-render
     the tables under them on every click."""

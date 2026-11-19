@@ -23,6 +23,7 @@ from dash import dcc, html
 
 from steamstudy.app import help as H
 from steamstudy.app import ps_cache
+from steamstudy.app import panels as P
 from steamstudy.app import ps_view as PV
 from steamstudy.app.loader import BuildContext
 from steamstudy.app.relabel import Labels, msg
@@ -298,14 +299,41 @@ def ranked_pairs(pairs: Mapping[tuple[str, str], CMP.PairResult], order: Sequenc
                                                   rank[p.dataset_b]))
 
 
-def chosen_pair(ranked: Sequence[CMP.PairResult], clicked: Sequence[str] | None) -> CMP.PairResult | None:
-    """The pair the user clicked while both its datasets are included, else the top pair."""
-    if clicked:
-        wanted = set(clicked)
+def chosen_sides(ranked: Sequence[CMP.PairResult],
+                 wanted: Sequence[str] | None) -> tuple[CMP.PairResult | None, list[str] | None]:
+    """The pair shown and its sides, [left, right], from the wanted sides (`cc-pair`).
+
+    Both wanted datasets included: those sides. One of them unticked: the other keeps its side, and the free side
+    takes the included dataset with the highest ARI against it (`ranked` is by ARI, highest first). Neither, or
+    nothing wanted yet: the top pair, its earlier dataset on the left."""
+    if not ranked:
+        return None, None
+    if wanted and len(wanted) == 2 and wanted[0] != wanted[1]:
+        left, right = wanted
         for p in ranked:
-            if {p.dataset_a, p.dataset_b} == wanted:
-                return p
-    return ranked[0] if ranked else None
+            if {p.dataset_a, p.dataset_b} == {left, right}:
+                return p, [left, right]
+        for kept, on_left in ((left, True), (right, False)):
+            for p in ranked:
+                if kept in (p.dataset_a, p.dataset_b):
+                    other = p.dataset_b if p.dataset_a == kept else p.dataset_a
+                    return p, [kept, other] if on_left else [other, kept]
+    top = ranked[0]
+    return top, [top.dataset_a, top.dataset_b]
+
+
+def picked(side: str, value: str, old: Sequence[str]) -> list[str]:
+    """The sides after `value` is picked on `side` ("left" or "right"): the dataset already on the other side
+    swaps over."""
+    left, right = old
+    if side == "left":
+        return [value, left if value == right else right]
+    return [right if value == left else left, value]
+
+
+def side_options(ctx: BuildContext, included: Sequence[str]) -> list[dict[str, Any]]:
+    """The Left and Right dropdowns' options: the included datasets, each name in its colour."""
+    return [{"label": dataset_name(ctx, d), "value": d} for d in included]
 
 
 @dataclass(frozen=True)
@@ -411,7 +439,7 @@ MINIMUM_DEFAULT = 0.10  # the Minimum Match Jaccard when the mode first opens
 class DiagramView:
     """The main column's view choices: never in the Comparison State key, and nothing is recomputed for them.
 
-    `orient` is the chosen pair as shown, A first (⇄). `focus` (the clicked Cluster box) and `match` (the chosen
+    `orient` is the chosen pair as shown, [left, right] (`shown["sides"]`). `focus` (the clicked Cluster box) and `match` (the chosen
     Cluster Match) are recorded with the `comparison_id` and the pair, in the Build's order, they were made on, and
     are ignored once either changes; a match is kept in the Build's order of the pair, so ⇄ keeps it."""
 
@@ -656,7 +684,6 @@ class MainView:
 
     empty: str  # the fewer-than-two empty state, else ""
     pair_style: dict[str, str]  # hides the pair's block when no pair is chosen
-    title: Any
     diagram: Any  # the two columns, or the no-match empty state
     links: list[dict[str, Any]]
     one_tag: str
@@ -670,19 +697,18 @@ _HIDDEN = {"display": "none"}
 
 def main_view(ctx: BuildContext, result: ComparisonResult, chosen: CMP.PairResult | None, view: DiagramView,
               tx: Text) -> MainView:
-    """The main column: the chosen pair's title, the link diagram and the One-Tag line, or an empty state."""
+    """The main column: the chosen pair's link diagram and the One-Tag line, or an empty state."""
     weak_label = tx("hide weaker") if view.weak else tx("show weaker")
     cid = result.comparison_id
     if cid is None or chosen is None:
-        return MainView(tx(CT.FEWER_THAN_TWO) if cid is None else "", _HIDDEN, [], [], [], "", weak_label, [])
+        return MainView(tx(CT.FEWER_THAN_TWO) if cid is None else "", _HIDDEN, [], [], "", weak_label, [])
     shown = oriented(chosen, view.orient)
     A, B = result.resolved[shown.dataset_a].partition, result.resolved[shown.dataset_b].partition
     name_a, name_b = ctx.dataset(A.dataset).label, ctx.dataset(B.dataset).label
-    title = [dataset_name(ctx, A.dataset), " × ", dataset_name(ctx, B.dataset)]
     one_tag = CT.one_tag_line(name_a, sum(c.size == 1 for c in A.clusters), name_b,
                               sum(c.size == 1 for c in B.clusters), tx)
     if not shown.matches:
-        return MainView("", {}, title, html.P(tx(CT.NO_MATCH), className="cc-empty"), [], one_tag, weak_label, [])
+        return MainView("", {}, html.P(tx(CT.NO_MATCH), className="cc-empty"), [], one_tag, weak_label, [])
     drawn = links(ctx, cid, chosen, view, tx)
     focus = focus_of(view, cid, chosen)
     names = PV.tag_names(ctx)
@@ -708,29 +734,32 @@ def main_view(ctx: BuildContext, result: ComparisonResult, chosen: CMP.PairResul
         html.Div(html.Div(className="cc-links"), className="cc-link-col"),
         column(B, shown.flags_b, name_a, "b", related_b),
     ], className="cc-diagram-grid")
-    return MainView("", {}, title, diagram, drawn, one_tag, weak_label, detail)
+    return MainView("", {}, diagram, drawn, one_tag, weak_label, detail)
 
 
 def render_main(ctx: BuildContext, shared: CMP.SharedSettings, included: Sequence[str],
-                requests: Mapping[str, Any] | None, clicked: Sequence[str] | None, cstore: Mapping[str, Any] | None,
+                requests: Mapping[str, Any] | None, wanted: Sequence[str] | None, cstore: Mapping[str, Any] | None,
                 view: DiagramView, *, tx: Text) -> MainView:
     """The main column for the view choices, read from the two memos `render` filled: nothing is recomputed."""
     result = resolve_all(ctx, shared, included, requests, cstore)
-    chosen = chosen_pair(ranked_pairs(result.pairs, [d.key for d in ctx.datasets]), clicked)
+    chosen, _ = chosen_sides(ranked_pairs(result.pairs, [d.key for d in ctx.datasets]), wanted)
     return main_view(ctx, result, chosen, view, tx)
 
 
-RENDER_OUTPUTS = ("sources", "g", "s", "resolution", "pairs", "comparison_id", "pill_datasets", "pill_pairs", "shown")
+RENDER_OUTPUTS = ("sources", "g", "s", "resolution", "pairs", "comparison_id", "pill_datasets", "pill_pairs",
+                  "left_options", "right_options", "shown")
 
 
 def render(ctx: BuildContext, shared: CMP.SharedSettings, included: Sequence[str], requests: Mapping[str, Any] | None,
-           clicked: Sequence[str] | None, cstore: Mapping[str, Any] | None, *, tx: Text) -> dict[str, Any]:
-    """Everything the mode shows, by `RENDER_OUTPUTS` name; the per-dataset lists are in the Build's order."""
+           wanted: Sequence[str] | None, cstore: Mapping[str, Any] | None, *, tx: Text) -> dict[str, Any]:
+    """Everything the mode shows, by `RENDER_OUTPUTS` name; the per-dataset lists are in the Build's order.
+    `wanted` is the sides asked for, [left, right] (`cc-pair`); `shown["sides"]` is what is shown (`chosen_sides`)."""
     result = resolve_all(ctx, shared, included, requests, cstore)
     order = [d.key for d in ctx.datasets]
     ranked = ranked_pairs(result.pairs, order)
-    chosen = chosen_pair(ranked, clicked)
+    chosen, sides = chosen_sides(ranked, wanted)
     values = [result.resolved[d].values for d in order]
+    options = side_options(ctx, result.included) if result.comparison_id else []
     return {
         "sources": [source_view(ctx, result.resolved[d], shared, tx) for d in order],
         "g": [v.g for v in values], "s": [v.s for v in values],
@@ -739,11 +768,12 @@ def render(ctx: BuildContext, shared: CMP.SharedSettings, included: Sequence[str
                   else [html.P(tx(CT.FEWER_THAN_TWO), className="cc-empty small")]),
         "comparison_id": result.comparison_id or "—",
         "pill_datasets": tx("{n} of {total}", n=len(result.included), total=len(order)),
-        "pill_pairs": ([dataset_name(ctx, chosen.dataset_a), " × ", dataset_name(ctx, chosen.dataset_b)]
-                       if chosen else "—"),
+        "pill_pairs": [dataset_name(ctx, sides[0]), " × ", dataset_name(ctx, sides[1])] if sides else "—",
+        "left_options": options, "right_options": options,
         # what the mode shows now: the main column follows it (`render_main`), and the view stores are checked against it
         "shown": {"comparison_id": result.comparison_id,
-                  "pair": [chosen.dataset_a, chosen.dataset_b] if chosen else None,
+                  "pair": [chosen.dataset_a, chosen.dataset_b] if chosen else None,  # in the Build's order
+                  "sides": sides,  # as shown: [left, right]
                   # each row's (g, s, γ as shown, source, γ): an edit is read against it (`edited`), the row link
                   # opens Parameter Selection on its cell
                   "values": {v.dataset: [v.g, v.s, shown_gamma(v.resolution), v.source, v.resolution]
@@ -828,16 +858,23 @@ def shared_row(L: Labels, ctx: BuildContext, shared: CMP.SharedSettings) -> html
 
 
 def pair_block(L: Labels) -> html.Div:
-    """The chosen pair's block of the main column: title with ⇄, the Minimum Match Jaccard slider with "show
-    weaker", the link diagram, the One-Tag line and the match detail (issue 20). Its controls are static, so the
-    slider keeps its value while the diagram re-renders."""
+    """The chosen pair's block of the main column: the Left and Right dropdowns with ⇄ between them, the Minimum
+    Match Jaccard slider with "show weaker", Export CSV, the link diagram, the One-Tag line and the match detail
+    (issue 20). Its controls are static, so the slider keeps its value while the diagram re-renders."""
     swap_tip = L.prop("cc-swap", "data-tip", lambda tx: H.tip("comparison.swap", tx))
     minimum_tip = L.prop("cc-minimum-label", "data-tip", lambda tx: H.tip("comparison.minimum", tx))
+
+    def side(id_: str, name: str) -> html.Div:
+        # which side the dropdown chooses (callbacks.py `cc_sides`); `cc_render` fills its options
+        return html.Div(dcc.Dropdown(id=id_, options=[], clearable=False, searchable=False, className="cc-side-dd"),
+                        title=L.prop(f"{id_}-box", "title", name), id=f"{id_}-box", className="cc-side")
+
     return html.Div([
         html.Div([
-            html.H3([html.Span(id="cc-title"), " ",
-                     html.Button("⇄", id="cc-swap", className="btn cc-swap", n_clicks=0,
-                                 **{"data-tip": swap_tip, "aria-label": swap_tip})], className="cc-title"),
+            html.Div([side("cc-left", msg("Dataset on the left")),
+                      html.Button("⇄", id="cc-swap", className="btn cc-swap", n_clicks=0,
+                                  **{"data-tip": swap_tip, "aria-label": swap_tip}),
+                      side("cc-right", msg("Dataset on the right"))], className="cc-title cc-sides"),
             html.Div([
                 html.Span(L.prop("cc-minimum-label", "children", msg("Minimum Jaccard")), id="cc-minimum-label",
                           className="term small", tabIndex="0", **{"data-tip": minimum_tip}),
@@ -850,6 +887,9 @@ def pair_block(L: Labels) -> html.Div:
                 html.Button(id="cc-weak-btn", className="link small", n_clicks=0),
                 _static_help(L, "comparison.minimum"),
             ], className="cc-minimum"),
+            html.Div([html.Button(L.prop("cc-export", "children", msg("Export CSV")), id="cc-export", className="btn",
+                                  n_clicks=0),
+                      _static_help(L, "comparison.export"), dcc.Download(id="cc-download")], className="cc-export"),
         ], className="cc-pair-head"),
         html.Div([L.span(msg("Line width = Match Jaccard. Click a curve for its match, a Cluster to show only its "
                              "curves.")), " ", _static_help(L, "comparison.diagram")],
@@ -862,21 +902,18 @@ def pair_block(L: Labels) -> html.Div:
 
 def mode_layout(ctx: BuildContext, L: Labels) -> html.Div:
     shared = shared_defaults(ctx)
-    head = html.Div([
-        html.Div([html.B(L.span(msg("Shared settings"))), " ", _static_help(L, "comparison.shared_settings")],
-                 className="cc-head-title"),
-        shared_row(L, ctx, shared),
-        html.Div([html.Span("comparison_id", className="term mute small", tabIndex="0",
-                            **L.help("comparison.comparison_id")), " ", html.Code("—", id="cc-comparison-id")],
-                 className="cc-id"),
-        html.Div([html.Button(L.prop("cc-export", "children", msg("Export CSV")), id="cc-export", className="btn",
-                              n_clicks=0),
-                  _static_help(L, "comparison.export"), dcc.Download(id="cc-download")], className="cc-export"),
-        html.Div(id="cc-notice", className="cc-notice small", role="status"),  # a shared-setting change's notice
-    ], className="cc-head")
+    # The sidebar is a drawer (issue ui-declutter 02): the shared settings, the datasets and the pairs; its collapse
+    # button leaves a rail on the left edge (panels.py), and `cc-panels` keeps open/closed for the browser session.
     sidebar = html.Div([
-        html.Div([html.B(L.span(msg("Cluster Comparison"))), " ", _static_help(L, "comparison.mode")],
-                 className="ctl-title"),
+        html.Div([html.B(L.span(msg("Cluster Comparison"))), " ", _static_help(L, "comparison.mode"),
+                  P.collapse_button(L, "cc", "controls")], className="ctl-title"),
+        _pill(L, "shared", msg("Shared settings"), "comparison.shared_settings", html.Div([
+            html.H4([L.span(msg("Shared settings")), " ", _static_help(L, "comparison.shared_settings")],
+                    className="ctl-h"),
+            shared_row(L, ctx, shared),
+            html.Div([html.Span("comparison_id", className="term mute small", tabIndex="0",
+                                **L.help("comparison.comparison_id")), " ", html.Code("—", id="cc-comparison-id")],
+                     className="cc-id")], className="ctl-section")),
         _pill(L, "datasets", msg("Datasets"), "comparison.datasets", html.Div([
             html.H4([L.span(msg("Datasets")), " ", _static_help(L, "comparison.datasets")], className="ctl-h"),
             dataset_rows(L, ctx)], className="ctl-section")),
@@ -884,13 +921,20 @@ def mode_layout(ctx: BuildContext, L: Labels) -> html.Div:
             html.H4([L.span(msg("Dataset pairs")), " ", _static_help(L, "comparison.pairs")], className="ctl-h"),
             html.Div(id="cc-pairs", className="cc-pairs")], className="ctl-section")),
     ], id="cc-sidebar", className="controls cc-sidebar")
-    main = html.Div([html.P(id="cc-main-empty", className="cc-empty"), pair_block(L)], id="cc-main",
+    # A shared-setting change's notice heads the main column, so it is seen with the drawer closed.
+    main = html.Div([html.Div(id="cc-notice", className="cc-notice small", role="status"),
+                     html.P(id="cc-main-empty", className="cc-empty"), pair_block(L)], id="cc-main",
                     className="main cc-main")
     # Over the whole mode while the comparison resolves (callbacks.py `running`): the previous view dims under it.
     busy = html.Div(html.Div(html.Span(L.prop("cc-busy", "children", msg("Comparing Clusters…")), id="cc-busy",
                                        hidden=True), className="busy", role="status"), className="ps-busy cc-busy")
-    stores = [dcc.Store(id="cc-requests", data={}), dcc.Store(id="cc-pair"), dcc.Store(id="cc-shown"),
+    stores = [dcc.Store(id="cc-requests", data={}),
+              dcc.Store(id="cc-pair"),  # the sides asked for, [left, right] (`chosen_sides` shows them or falls back)
+              dcc.Store(id="cc-shown"),
               # the view choices (`DiagramView`) and the curves workbench.js `ccLinks` draws
-              dcc.Store(id="cc-orient"), dcc.Store(id="cc-weak", data=False), dcc.Store(id="cc-focus"),
-              dcc.Store(id="cc-match"), dcc.Store(id="cc-links", data=[]), dcc.Store(id="cc-links-drawn")]
-    return html.Div([*stores, head, sidebar, main, busy], id="cc-body", className="cc-body")
+              dcc.Store(id="cc-weak", data=False), dcc.Store(id="cc-focus"),
+              dcc.Store(id="cc-match"), dcc.Store(id="cc-links", data=[]), dcc.Store(id="cc-links-drawn"),
+              # the drawer (panels.py `STATE`): None until a click; workbench.js `ccPanels` keeps it in sessionStorage,
+              # so it opens on the first visit of a browser session and then as left
+              dcc.Store(id="cc-panels", data=None)]
+    return html.Div([*stores, sidebar, P.rail(L, "cc", "controls"), main, busy], id="cc-body", className="cc-body")

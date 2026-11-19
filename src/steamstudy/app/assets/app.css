@@ -72,15 +72,62 @@ input[type=text],input:not([type]),.dash-input-element{border-radius:6px}
 
 /* ------------------------------------------------------------------ frame */
 #root.workbench{display:flex;flex-direction:column;height:100vh;overflow:hidden}
-.app-header{display:flex;align-items:center;gap:16px;padding:8px 16px;background:var(--panel);
- border-bottom:1px solid var(--line);flex-wrap:wrap;position:relative;z-index:30}
+/* One line at 1280 px and wider (issue ui-declutter 01): brand + Build, the modes, Find a tag, EN | BG. */
+.app-header{display:flex;align-items:center;gap:14px;padding:6px 16px;background:var(--panel);
+ border-bottom:1px solid var(--line);flex-wrap:nowrap;position:relative;z-index:30}
+.app-header .bm-btn{white-space:nowrap}
+.app-header #brand-build{display:inline-block;max-width:220px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
+.app-header #mode{flex:none}
+@media (max-width:1279px){.app-header{flex-wrap:wrap;row-gap:6px}}
 .brand{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
 .brand .title{font-weight:650;font-size:14px}
 .search-slot{flex:1 1 240px;max-width:420px;margin:0 auto}
 .search-slot:empty{visibility:hidden}
-.lang-box{display:inline-flex;align-items:center}
-.hdr-right{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
+.lang-box{display:inline-flex;align-items:center;gap:4px;flex:none;margin-left:auto}
+.hdr-right{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hdr-right:not(:has(:not(:empty))){display:none}
 .graph-only #graph-only{background:var(--ink);border-color:var(--ink);color:#fff}
+
+/* Each panel's collapse button, in its own title bar, and the rail a collapsed panel leaves (panels.py). */
+.pcoll{margin-left:auto;flex:none;border:0;background:none;color:var(--mute);font-size:14px;line-height:1;
+ padding:3px 7px;border-radius:5px;cursor:pointer}
+.pcoll:hover,.pcoll:focus-visible{background:var(--line2);color:var(--ink)}
+.insp-title .pcoll+.x{margin-left:0}
+.inspector:not(.docked) .pcoll-inspector{display:none}
+.ps-cbar-h .pcoll{margin-left:4px}
+/* the tab strip's display is set by block_styles (block, not flex), so its ▾ sits at the strip's right edge */
+.tables-area>#blk-tabs{position:relative;padding-right:40px}
+#blk-tabs>.pcoll{position:absolute;right:8px;top:50%;transform:translateY(-50%)}
+.rail{display:none;align-items:flex-start;justify-content:center;border:0;background:var(--panel);color:var(--mute);
+ font:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:12px 0;width:28px}
+.rail:hover,.rail:focus-visible{background:var(--line2);color:var(--ink)}
+.rail-name{writing-mode:vertical-rl}
+.rail-controls{grid-area:ctl;border-right:1px solid var(--line)}
+.rail-controls .rail-name{transform:rotate(180deg)}
+.rail-inspector{grid-area:insp;border-left:1px solid var(--line)}
+/* Tables and Pair Constraints: a horizontal bar where the pane was. */
+.rail-tables,.rail-constraints{width:auto;padding:6px 14px;justify-content:flex-start;flex:none}
+.rail-tables{order:3;border-top:1px solid var(--line)}
+.rail-constraints{border:1px dashed var(--line);border-radius:6px}
+.rail-tables .rail-name,.rail-constraints .rail-name{writing-mode:horizontal-tb}
+.rail-tables::before,.rail-constraints::before{content:"▴";margin-right:6px}
+#root:not(.controls-on) #app-body>.rail-controls,#root:not(.inspector-on) #app-body>.rail-inspector,
+#root:not(.tables-on) .rail-tables,#ps-body.no-controls>.rail-controls,#ps-body.no-inspector>.rail-inspector,
+#ps-body.no-constraints .rail-constraints{display:flex}
+/* medium and narrow: the Controls are the pill bar, whose last item is its collapse button, and its rail is a bar
+   across the top; the Inspector floats, so it has neither a collapse button nor a rail. */
+body[data-form=medium] #root.workbench .ctl-title:has(.pcoll),
+body[data-form=narrow] #root.workbench .ctl-title:has(.pcoll){display:contents}
+body[data-form=medium] #root.workbench .ctl-title:has(.pcoll)>:not(.pcoll),
+body[data-form=narrow] #root.workbench .ctl-title:has(.pcoll)>:not(.pcoll){display:none}
+body[data-form=medium] #root.workbench .ctl-title .pcoll,body[data-form=narrow] #root.workbench .ctl-title .pcoll{order:99}
+body[data-form=medium] .rail-controls,body[data-form=narrow] .rail-controls{width:auto;padding:6px 14px;
+ justify-content:flex-start;border-right:0;border-bottom:1px solid var(--line)}
+body[data-form=medium] .rail-controls .rail-name,body[data-form=narrow] .rail-controls .rail-name{writing-mode:horizontal-tb;
+ transform:none}
+body[data-form=medium] .rail-controls::before,body[data-form=narrow] .rail-controls::before{content:"▾";margin-right:6px}
+body[data-form=medium] .pcoll-inspector,body[data-form=narrow] .pcoll-inspector,
+body[data-form=medium] .rail.rail-inspector,body[data-form=narrow] .rail.rail-inspector{display:none}
 
 .app-body{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"ctl main insp";
  flex:1 1 auto;min-height:0}
@@ -157,8 +204,14 @@ tr.hidden-link td{color:var(--mute)}
 #blk-quality.cm-table-view .cm-scroll,#blk-quality.cm-table-view .cm-key{display:none}
 #blk-quality:not(.cm-table-view) #connections-grid{display:none}
 /* The Cluster map card (graph.js drawMap): a transient overlay under the top-right controls. */
-.cluster-map{right:10px;top:52px;display:none;background:#fffffff2;border:1px solid var(--line);border-radius:10px;
- box-shadow:0 2px 10px #0002;padding:6px 8px;font-size:12px}
+.cluster-map{right:10px;top:52px;width:360px;max-width:calc(100% - 20px);display:none;background:#fffffff2;
+ border:1px solid var(--line);border-radius:10px;box-shadow:0 2px 10px #0002;padding:6px 8px;font-size:12px}
+.map-head{display:flex;align-items:center;justify-content:space-between}
+.map-label{fill:#1b2130;paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round}
+.map-key{display:flex;flex-wrap:wrap;gap:2px 14px;font-size:11px;color:var(--ink2);margin-top:2px}
+.map-key span{display:inline-flex;align-items:center;gap:4px}
+.map-key svg{display:block}
+.map-note{font-size:11px;margin-top:2px}
 .cluster-map.open{display:block}
 .map-svg{display:block}
 .map-bubble,.map-link{cursor:pointer}
@@ -396,10 +449,8 @@ body[data-form=narrow] #root.workbench .ov-bl{bottom:54px}
 #root.selection #app-body{display:none}
 #root.selection #ps-body{display:grid}
 #root.selection .search-slot{visibility:hidden}
-/* The mode's own panel toggles take the place of the Workbench's (and of Graph only); a panel turned off is a
-   "no-…" class on #ps-body (workbench.js psPanels), and the heatmap takes its room. */
-#ps-panels,#root.selection #panels,#root.selection #graph-only{display:none}
-#root.selection #ps-panels{display:inline-flex}
+/* The mode's own panels: one turned off (its collapse button, panels.py) is a "no-…" class on #ps-body
+   (workbench.js psPanels), and the heatmap takes its room. */
 #root.selection #ps-body.no-controls .ps-controls,#root.selection #ps-body.no-constraints #ps-cbar,
 #root.selection #ps-body.no-inspector .ps-inspector{display:none}
 .ps-main{overflow:auto;padding:8px 12px 40px;gap:10px}
@@ -557,27 +608,28 @@ body[data-form=narrow][data-sheet=open] #root.selection .ps-inspector.has-sel{gr
  width:380px}
 
 /* ------------------------------------------------------------------ Cluster Comparison mode (cc_view.py) */
-/* Its own grid: the shared settings across the top, the sidebar (a Controls column of two sections) on the left and
-   the main column. The root keeps the workbench class, so at medium and narrow the sidebar becomes the pill bar. */
+/* Its own grid: the sidebar on the left (a drawer of three sections: the shared settings, the datasets and the pairs;
+   collapsed, a rail on the left edge, panels.py) and the main column. The root keeps the workbench class, so at
+   medium and narrow the sidebar becomes the pill bar. */
 #cc-body{display:none}
 #root.comparison #app-body{display:none}
 #root.comparison #cc-body{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr);
- grid-template-rows:auto minmax(0,1fr);grid-template-areas:"head head" "ctl main";min-height:0}
-#root.comparison .search-slot,#root.comparison #panels,#root.comparison #graph-only{display:none}
+ grid-template-rows:minmax(0,1fr);grid-template-areas:"ctl main";flex:1 1 auto;min-height:0}
+#root.comparison #cc-body.no-controls>.cc-sidebar{display:none}
+#root.comparison #cc-body.no-controls>.rail-controls{display:flex}
+#root.comparison .search-slot{display:none}
 #root.comparison:not(.controls-on) .cc-sidebar{display:block}
-.cc-head{grid-area:head;display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:6px 14px;
- background:var(--panel);border-bottom:1px solid var(--line)}
-.cc-head-title{display:inline-flex;align-items:center;gap:4px;font-size:12px}
-.cc-shared{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}
-.cc-field{display:inline-flex;align-items:center;gap:6px}
-.cc-field label.l{margin:0;font-size:12px;color:var(--ink2)}
-.cc-genre{flex-wrap:wrap;max-width:620px}
-.cc-removed{min-width:180px}
-.cc-id{margin-left:auto;display:inline-flex;align-items:center;gap:4px}
+/* the shared settings, stacked to the sidebar's width */
+.cc-shared{display:flex;flex-direction:column;gap:8px}
+.cc-field{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px}
+.cc-field label.l{margin:0;font-size:12px;color:var(--ink2);flex-basis:100%}
+.cc-genre .chips{display:flex;flex-wrap:wrap;gap:4px}
+.cc-removed,.cc-field>div:has(.cc-removed){width:100%;flex:1 1 100%}
+.cc-id{display:flex;align-items:center;gap:4px;margin-top:8px;word-break:break-all}
 .cc-export{display:inline-flex;align-items:center;gap:4px}
-.cc-sidebar{width:310px}
+.cc-sidebar{width:320px}
 .cc-num{width:52px;padding:1px 4px;border:1px solid var(--line);border-radius:4px;font-variant-numeric:tabular-nums}
-.cc-notice{flex-basis:100%;color:var(--warn);background:var(--warn-bg);border-radius:4px;padding:2px 8px}
+.cc-notice{color:var(--warn);background:var(--warn-bg);border-radius:4px;padding:4px 8px;margin-bottom:8px}
 .cc-notice:empty{display:none}
 .cc-rows{display:flex;flex-direction:column;gap:2px}
 .cc-row{display:grid;grid-template-columns:22px minmax(0,1fr) 52px 52px 52px;gap:2px 4px;align-items:center;
@@ -598,9 +650,13 @@ body[data-form=narrow][data-sheet=open] #root.selection .ps-inspector.has-sel{gr
 .cc-main{grid-area:main;overflow:auto;padding:10px 14px 40px}
 .cc-title{margin:0;font-size:15px;display:flex;align-items:center;gap:6px}
 .cc-swap{padding:1px 8px}
+/* Left ⇄ Right: the pair's title (cc_view.pair_block) */
+.cc-sides{gap:8px}
+.cc-side{width:200px;font-weight:400}
 .cc-empty{color:var(--mute);margin:24px 0}
 .cc-empty:empty{display:none}
-.cc-pair-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 14px}
+.cc-pair-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}
+.cc-pair-head .cc-title{margin-right:auto}
 .cc-minimum{display:flex;align-items:center;gap:6px}
 .cc-slider{width:220px;max-width:50vw}
 .cc-slider .dash-slider-container,.cc-slider .rc-slider{margin:0}
@@ -647,7 +703,7 @@ body[data-form=narrow] .cc-tags{grid-template-columns:minmax(0,1fr)}
 .cc-busy{grid-area:1/1/-1/-1}
 body[data-form=medium] #root.comparison #cc-body,
 body[data-form=narrow] #root.comparison #cc-body{grid-template-columns:minmax(0,1fr);
- grid-template-rows:auto auto minmax(0,1fr);grid-template-areas:"head" "ctl" "main"}
+ grid-template-rows:auto minmax(0,1fr);grid-template-areas:"ctl" "main"}
 body[data-form=medium] #root.comparison:not(.controls-on) .cc-sidebar,
 body[data-form=narrow] #root.comparison:not(.controls-on) .cc-sidebar{display:flex}
 body[data-form=medium] #root.comparison .cc-sidebar .pill-pop,

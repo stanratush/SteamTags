@@ -158,9 +158,10 @@ def test_the_switch_sits_in_the_header_beside_the_mode_switch(tagged_build):
 
     header = next(c for c in _walk(build_layout(load_build(tagged_build))) if getattr(c, "className", "") == "app-header")
     ids = [getattr(c, "id", None) for c in header.children]
-    assert ids.index("lang-box") == ids.index("mode") + 1
+    assert ids.index("lang-box") == ids.index("search-slot") + 1  # the switch at the header's right, after the search
     box = {getattr(c, "id", None): c for c in _walk(header.children[ids.index("lang-box")])}
     assert [o["value"] for o in box["lang-switch"].options] == ["en", "bg"]
+    assert box["lang-term"].children == "?" and getattr(box["lang-term"], "aria-label") == "Language"
     assert getattr(box["lang-term"], "data-help") == "02-app-controls.md#interface-language"
     assert json.loads(getattr(box["lang-term"], "data-tip"))[0][0] == "in_short"
 
@@ -181,7 +182,7 @@ def test_a_language_switch_relabels_every_registered_prop_and_recomputes_nothing
     CB.relabel("bg", str(tagged_build))
     assert set(set_) == {str(id_) for id_, _, _ in L.RELABEL.values()}
     assert next(iter(L.RELABEL.values()))[:2] == ("lang-term", "data-tip")  # the switch's tooltip comes first
-    assert set_["lang-term"]["children"] == "Език" and json.loads(set_["lang-term"]["data-tip"])[0][0] == "in_short"
+    assert set_["lang-term"]["aria-label"] == "Език" and json.loads(set_["lang-term"]["data-tip"])[0][0] == "in_short"
     assert set_["ui-words"]["data"]["title"] == "Мрежа от тагове"
 
 

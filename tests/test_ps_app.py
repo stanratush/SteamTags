@@ -108,7 +108,7 @@ def test_the_mode_is_the_third_option_and_carries_every_selection_help_key(ps_bu
 
     layout = build_layout(load_build(ps_build))
     mode = next(c for c in _walk(layout) if getattr(c, "id", None) == "mode")
-    assert [o["label"] for o in mode.options] == ["Workbench", "Analysis Report mode", "Parameter Selection",
+    assert [o["label"] for o in mode.options] == ["Workbench", "Analysis Report", "Parameter Selection",
                                                   "Cluster Comparison"]
     assert "selection" in root_class("selection", ["controls"], False).split()
     shown = render(ps_build)
@@ -218,6 +218,16 @@ def test_the_mode_has_its_own_panel_toggles_all_on_at_first(ps_build):
     assert toggles.value == ["controls", "constraints", "inspector"]
 
 
+def test_each_of_the_modes_panels_has_its_collapse_button_and_rail(ps_build):
+    ctx = load_build(ps_build)
+    layout = PV.mode_layout(ctx, Labels(EN, build=ctx))
+    ids = [c.id for c in _walk(layout) if isinstance(getattr(c, "id", None), dict) and c.id["type"] == "panel-btn"]
+    assert {(i["panel"], i["opens"]) for i in ids if i["group"] == "ps"} == {
+        (p, o) for p in ("controls", "constraints", "inspector") for o in (0, 1)}
+    rails = [getattr(c, "className", "") for c in layout.children]  # layout is #ps-body
+    assert "rail rail-controls" in rails and "rail rail-inspector" in rails  # grid children: beside their panes
+
+
 def test_the_pair_constraints_are_pills_under_the_dataset_strip(ps_build):
     ctx = load_build(ps_build)
     layout = PV.mode_layout(ctx, Labels(EN, build=ctx))
@@ -233,7 +243,7 @@ def test_the_pair_constraints_are_pills_under_the_dataset_strip(ps_build):
     assert all(f"ps-c-{p.children[0].id.removeprefix('ps-pill-btn-c-')}" in {getattr(c, "id", None) for c in _walk(p)}
                for r in rows for p in r.children)
     controls = next(c for c in _walk(layout) if getattr(c, "id", None) == "ps-controls")
-    assert not {"ps-c-confirm", "ps-c-min_retention"} & {getattr(c, "id", None) for c in _walk(controls)}
+    assert not {"ps-c-confirm", "ps-c-min_retention"} & {str(getattr(c, "id", None)) for c in _walk(controls)}
     assert CB.ps_constraint_pills(0.5, 0.1, 0.9, 2, None, 0.05, "en") == ["0.5", "0.1", "0.9", "2", "off", "0.05"]
     bg = CB.ps_constraint_pills(0.5, 0.1, 0.9, 2, 4, 0.05, "bg")
     assert bg[0] == "0,5" and bg[4] == "4"

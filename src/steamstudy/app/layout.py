@@ -32,6 +32,7 @@ from steamstudy.app import build_menu as BM
 from steamstudy.app import draft_dialog as DD
 from steamstudy.app.ps_view import mode_layout
 from steamstudy.app import cc_view as CC
+from steamstudy.app import panels as P
 from steamstudy.app.renderer import graph_component, thickness_key
 from steamstudy.app.view import column_defs, metric_header
 from steamstudy.i18n import LANGS, Text, text
@@ -67,6 +68,11 @@ def ui_words(tx: Text) -> dict[str, Any]:
                                     tx.n(2, one="one-tag clusters · {n} tag", other="one-tag clusters · {n} tags",
                                          n="{n}")],
                     "empty": tx("No links between clusters."),
+                    "top": tx("top tags: {tags}", tags="{tags}"),
+                    "weakest": tx("weakest link · ratio {value}", value="{value}"),
+                    "strongest": tx("strongest link · ratio {value}", value="{value}"),
+                    "one_tag": [tx.n(1, one="+ {n} one-tag cluster", other="+ {n} one-tag clusters", n="{n}"),
+                                tx.n(2, one="+ {n} one-tag cluster", other="+ {n} one-tag clusters", n="{n}")],
                     "help": {"tip": H.tip("graph.cluster_map", tx), "help": H.target("graph.cluster_map")}}}
 
 
@@ -143,13 +149,15 @@ GRIDS: dict[str, Callable[..., list[dict[str, Any]]]] = {
 
 
 def _language(L: Labels, lang: str) -> html.Div:
-    """The EN | BG switch: writes the `lang` store and the cookie (workbench.js `language`). Its dotted label carries
-    both help layers, like an analytical control's; its tooltip is the registry's first entry."""
+    """The EN | BG switch: writes the `lang` store and the cookie (workbench.js `language`). No visible word: its `?`
+    carries both help layers and the name "Language" for assistive technology; its tooltip is the registry's first
+    entry."""
     tip = L.prop("lang-term", "data-tip", lambda tx: H.tip("header.lang", tx))
+    name = L.prop("lang-term", "aria-label", msg("Language"))
     return html.Div([
-        html.Span(L.prop("lang-term", "children", msg("Language")), id="lang-term", className="term", tabIndex="0",
-                  **{"data-tip": tip, "data-help": H.target("header.lang")}),
         _seg("lang-switch", [{"label": code.upper(), "value": code} for code in LANGS], lang),
+        html.Span("?", id="lang-term", className="ps-q term", tabIndex="0", role="button",
+                  **{"data-tip": tip, "data-help": H.target("header.lang"), "aria-label": name}),
     ], id="lang-box", className="lang-box")
 
 
@@ -325,7 +333,8 @@ def _controls(L: Labels, ctx: BuildContext, first: str) -> html.Div:
         ]),
     ])
     return html.Div([
-        html.Div([html.B(L.span(msg("Controls"))), _help(L, "controls")], className="ctl-title"),
+        html.Div([html.B(L.span(msg("Controls"))), _help(L, "controls"), P.collapse_button(L, "wb", "controls")],
+                 className="ctl-title"),
         data, filters, clustering, state,
     ], id="controls-panel", className="controls")
 
@@ -401,10 +410,13 @@ def build_layout(ctx: BuildContext, lang: str = "en", *, mode: str = "workbench"
                                                                 msg("A map of the clusters and how they connect")),
                                   **MAP_ARIA),
                       html.Button("⤢", id="fit-btn", className="btn",
-                                  title=L.prop("fit-btn", "title", msg("Fit the graph to the view")))],
+                                  title=L.prop("fit-btn", "title", msg("Fit the graph to the view"))),
+                      _button(L, "graph-only", msg("Graph only"), title=msg("The narrowest form at any width"))],
                      className="ov ov-tr", **_data(graph_overlay="top")),
             # The Cluster map card (graph.js `drawMap`): a transient overlay, like the Edge appearance card.
-            html.Div([html.Div([html.B(L.term(msg("Cluster map"), "graph.cluster_map"))], className="map-head"),
+            html.Div([html.Div([html.B(L.term(msg("Cluster map"), "graph.cluster_map")),
+                                html.Button("×", id="map-close", className="x",
+                                            title=L.prop("map-close", "title", msg("Close")))], className="map-head"),
                       html.Div(id="cluster-map-body")],
                      id="cluster-map", className="ov cluster-map", role="dialog",
                      **_data(graph_overlay="top", graph_transient="yes")),
@@ -442,7 +454,8 @@ def build_layout(ctx: BuildContext, lang: str = "en", *, mode: str = "workbench"
         html.Div([html.Span(id="sheet-grip", className="grip",
                             title=L.prop("sheet-grip", "title", msg("Open or close the tables"))),
                   dcc.RadioItems(id="wb-tab", options=L.options("wb-tab", WB_TABS), value="quality", inline=True,
-                                 className="tabs-nav")],
+                                 className="tabs-nav"),
+                  P.collapse_button(L, "wb", "tables")],
                  id="blk-tabs", className="panel"),
         _block(L, "blk-filters", msg("2 Filters"), [html.Div(id="filters-summary"), _grid(L, "nin-grid")],
                help_panel="filters"),
@@ -465,6 +478,7 @@ def build_layout(ctx: BuildContext, lang: str = "en", *, mode: str = "workbench"
         html.Div(id="tables-handle", className="tables-handle",
                  title=L.prop("tables-handle", "title", msg("Drag to resize the tables"))),
         tables,
+        P.rail(L, "wb", "tables"),
         _block(L, "blk-export", msg("7 Export"), [_button(L, "export-btn-report", msg("Export this state"), "btn primary"),
                                             html.Div(id="export-summary")], help_panel="export"),
     ], id="main", className="main")
@@ -477,6 +491,7 @@ def build_layout(ctx: BuildContext, lang: str = "en", *, mode: str = "workbench"
                                       hidden=True),
                             html.Span(L.prop("busy-inspector", "children", msg("Loading…")), id="busy-inspector",
                                       hidden=True)], className="busy insp-busy", role="status"),
+                  P.collapse_button(L, "wb", "inspector"),
                   html.Button("×", id="inspector-close", className="x",
                               title=L.prop("inspector-close", "title", msg("Close")))], className="insp-title"),
         html.Div(id="inspector-body"),
@@ -508,28 +523,27 @@ def build_layout(ctx: BuildContext, lang: str = "en", *, mode: str = "workbench"
                   BM.header_button(L, html.Span(L.prop("brand-build", "children", PerBuild(brand_build)),
                                                 id="brand-build", className="mute"))],
                  className="brand"),
-        _seg("mode", L.options("mode", [("workbench", msg("Workbench")), ("report", msg("Analysis Report mode")),
+        _seg("mode", L.options("mode", [("workbench", msg("Workbench")), ("report", msg("Analysis Report")),
                                         ("selection", msg("Parameter Selection")),
                                         ("comparison", msg("Cluster Comparison"))]), mode),
-        language,
         html.Div(dcc.Dropdown(id="tag-search", options=[], searchable=True, clearable=False, className="tag-search",
                               placeholder=L.prop("tag-search", "placeholder", msg("Find a tag…")),
                               labels=L.prop("tag-search", "labels", dropdown_labels)),
                  id="search-slot", className="search-slot"),
+        language,
         html.Div([
             html.Span(id="verify-result", className="small"),
             html.Span(id="error-message", className="error small"),
-            dcc.Checklist(id="panels", options=L.options("panels", [
-                ("controls", msg("Controls")), ("inspector", msg("Inspector")), ("tables", msg("Tables"))]),
-                          value=["controls", "inspector", "tables"], inline=True, className="seg toggles"),
-            # Parameter Selection's own panels (shown in that mode only): off gives the heatmap the room.
-            dcc.Checklist(id="ps-panels", options=L.options("ps-panels", [
-                ("controls", msg("Controls")), ("constraints", msg("Pair Constraints")),
-                ("inspector", msg("Inspector"))]),
-                          value=["controls", "constraints", "inspector"], inline=True, className="seg toggles"),
-            _button(L, "graph-only", msg("Graph only"), title=msg("The narrowest form at any width")),
         ], className="hdr-right"),
     ], className="app-header")
+    # The panels' state (panels.py): never shown; each panel's collapse button and rail change it.
+    panel_state = html.Div([
+        dcc.Checklist(id="panels", options=[{"label": p, "value": p} for p in ("controls", "inspector", "tables")],
+                      value=["controls", "inspector", "tables"]),
+        # Parameter Selection's own panels: off gives the heatmap the room.
+        dcc.Checklist(id="ps-panels", options=[{"label": p, "value": p} for p in ("controls", "constraints", "inspector")],
+                      value=["controls", "constraints", "inspector"]),
+    ], hidden=True)
     # ← Back and × sit in a header that never scrolls; only the entry below it does.
     help_modal = html.Div([html.Div([_button(L, "help-back", msg("← Back"), "btn back", style={"display": "none"}),
                                      html.Button("×", id="help-close", className="x",
@@ -537,8 +551,9 @@ def build_layout(ctx: BuildContext, lang: str = "en", *, mode: str = "workbench"
                            html.Div(dcc.Markdown(id="help-body", link_target="_blank"), className="help-scroll")],
                           id="help-modal", className="help-modal", style={"display": "none"})
     return html.Div([
-        *stores, html.Div(id="banners"), header, *BM.layout(L), DD.layout(),
-        html.Div([_controls(L, ctx, first), main, inspector], id="app-body", className="app-body"),
+        *stores, panel_state, html.Div(id="banners"), header, *BM.layout(L), DD.layout(),
+        html.Div([_controls(L, ctx, first), P.rail(L, "wb", "controls"), main, inspector, P.rail(L, "wb", "inspector")],
+                 id="app-body", className="app-body"),
         mode_layout(ctx, L),
         CC.mode_layout(ctx, L),
         help_modal,

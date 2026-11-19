@@ -339,6 +339,21 @@
     return ["app-body", "ps-body", ...off.map((p) => "no-" + p)].join(" ");
   }
 
+  // Cluster Comparison's drawer (cc_view `cc-panels`): closed is "no-controls" on the mode's body, and the link
+  // diagram redraws its curves at the new width. The store is null until the first click, so the page takes the
+  // browser session's last state from sessionStorage; storage that cannot be read leaves the drawer open.
+  function ccPanels(on) {
+    let open;
+    if (Array.isArray(on)) {
+      open = on.includes("controls");
+      try { window.sessionStorage.setItem("steamstudy_cc_drawer", open ? "1" : "0"); } catch (e) { /* view only */ }
+    } else {
+      try { open = window.sessionStorage.getItem("steamstudy_cc_drawer") !== "0"; } catch (e) { open = true; }
+    }
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
+    return "cc-body" + (open ? "" : " no-controls");
+  }
+
   // ------------------------------------------------------------------ Cluster Comparison: the link diagram's curves
 
   // cc_view.links gives the curves; the boxes are server-rendered, so each curve runs between the measured middles
@@ -441,7 +456,7 @@
   }
 
   window.dash_clientside = Object.assign({}, window.dash_clientside,
-                                         {workbench: {pills, language, uiWords, psPanels, switchBuild, runningJobs,
+                                         {workbench: {pills, language, uiWords, psPanels, ccPanels, switchBuild, runningJobs,
                                                      ccLinks}});
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();

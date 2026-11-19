@@ -33,15 +33,25 @@ def render(build, include=None, requests=None, pair=None, lang=None, **shared):
     return dict(zip(CC.RENDER_OUTPUTS, out))
 
 
+@pytest.fixture(autouse=True)
+def side_props(monkeypatch):
+    """What `cc_render` sets on the Left and Right dropdowns (set_props needs a running callback)."""
+    sent = {}
+    monkeypatch.setattr(CB, "set_props", lambda id_, props: sent.setdefault(id_, {}).update(props))
+    return sent
+
+
 def main(build, out, include=None, pair=None, lang=None, minimum=None, weak=False, orient=None, focus=None,
          match=None):
-    """The main column (`cc_main`) for the view choices, after `render` gave `out`."""
+    """The main column (`cc_main`) for the view choices, after `render` gave `out`; `orient` stands for the sides
+    shown ([left, right], as `cc_render` would give them)."""
     ctx = load_build(build)
     defaults = CC.shared_defaults(ctx)
     keys = [d.key for d in ctx.datasets]
     include = keys if include is None else include
     _, cstore = _store(ctx)
-    got = CB.cc_main(out["shown"], minimum, weak, orient, focus, match, defaults.clustering_weight,
+    shown = dict(out["shown"], sides=orient) if orient else out["shown"]
+    got = CB.cc_main(shown, minimum, weak, focus, match, defaults.clustering_weight,
                      defaults.algorithm, defaults.min_months, list(defaults.genre_hidden),
                      list(defaults.removed_tag_ids), [[k] if k in include else [] for k in keys], {}, pair, cstore,
                      str(build), lang)
@@ -131,14 +141,65 @@ def test_including_and_excluding_datasets_changes_the_pairs_and_the_comparison_i
     assert len(one["sources"]) == 5  # an excluded dataset's row still shows its source
 
 
-def test_a_clicked_pair_is_chosen_while_both_its_datasets_are_included(ps_build):
+def test_a_pair_row_sets_both_sides_its_earlier_dataset_on_the_left(ps_build):
+    shown = {"sides": ["overall", "rpg"]}
     triggered('{"a":"puzzle","b":"rpg","type":"cc-pair"}.n_clicks')
-    assert CB.cc_pick_pair([0, 1]) == ["puzzle", "rpg"]
+    assert CB.cc_sides("overall", "rpg", 0, [0, 1], shown) == (["puzzle", "rpg"], "puzzle", "rpg")
+    triggered('{"a":"puzzle","b":"rpg","type":"cc-pair"}.n_clicks', 0)
     with pytest.raises(PreventUpdate):
-        CB.cc_pick_pair([0, 0])  # a re-rendered list, nothing clicked
-    assert render(ps_build, pair=["puzzle", "rpg"])["shown"]["pair"] == ["puzzle", "rpg"]
-    gone = render(ps_build, include=["overall", "puzzle", "strategy"], pair=["puzzle", "rpg"])
-    assert gone["shown"]["pair"] != ["puzzle", "rpg"]
+        CB.cc_sides("overall", "rpg", 0, [0, 0], shown)  # a re-rendered list, nothing clicked
+    out = render(ps_build, pair=["rpg", "puzzle"])
+    assert out["shown"]["pair"] == ["puzzle", "rpg"] and out["shown"]["sides"] == ["rpg", "puzzle"]
+    on = [c for c in out["pairs"] if "on" in c.className.split()]
+    assert [c.id for c in on] == [{"type": "cc-pair", "a": "puzzle", "b": "rpg"}]  # either way round
+
+
+def test_left_and_right_pick_the_sides_and_a_pick_of_the_other_sides_dataset_swaps_them(ps_build):
+    shown = {"sides": ["overall", "rpg"]}
+    triggered("cc-left.value", "puzzle")
+    assert CB.cc_sides("puzzle", "rpg", 0, [], shown) == (["puzzle", "rpg"], "puzzle", "rpg")
+    triggered("cc-left.value", "rpg")
+    assert CB.cc_sides("rpg", "rpg", 0, [], shown) == (["rpg", "overall"], "rpg", "overall")
+    triggered("cc-right.value", "overall")
+    assert CB.cc_sides("overall", "overall", 0, [], shown) == (["rpg", "overall"], "rpg", "overall")
+    triggered("cc-swap.n_clicks", 1)
+    assert CB.cc_sides("overall", "rpg", 1, [], shown) == (["rpg", "overall"], "rpg", "overall")
+    # a render sets both dropdowns and re-renders the rows in one go: the dropdowns are recorded
+    from dash._callback_context import context_value
+    from dash._utils import AttributeDict
+
+    context_value.set(AttributeDict(triggered_inputs=[
+        {"prop_id": '{"a":"overall","b":"rpg","type":"cc-pair"}.n_clicks', "value": 0},
+        {"prop_id": "cc-left.value", "value": "strategy"}, {"prop_id": "cc-right.value", "value": "rpg"}]))
+    assert CB.cc_sides("strategy", "rpg", 0, [0, 0], shown) == (["strategy", "rpg"], "strategy", "rpg")
+    assert CC.picked("right", "puzzle", ["overall", "rpg"]) == ["overall", "puzzle"]
+
+
+def test_the_dropdowns_list_the_included_datasets_and_follow_the_sides_shown(ps_build, side_props):
+    out = render(ps_build, include=["overall", "rpg", "strategy"])
+    assert [o["value"] for o in out["left_options"]] == ["overall", "rpg", "strategy"]
+    assert out["right_options"] == out["left_options"]
+    # nothing asked for yet: the top pair, its earlier dataset on the left, and the dropdowns are set to it
+    assert side_props == {"cc-left": {"options": out["left_options"], "value": out["shown"]["sides"][0]},
+                          "cc-right": {"options": out["right_options"], "value": out["shown"]["sides"][1]}}
+    side_props.clear()
+    render(ps_build, pair=out["shown"]["sides"], include=["overall", "rpg", "strategy"])
+    assert side_props == {}  # shown as asked: the dropdowns already say so
+    assert render(ps_build, include=["overall"])["left_options"] == []
+
+
+def test_unticking_a_sides_dataset_moves_that_side_to_the_highest_ari_against_the_other(ps_build):
+    ctx = load_build(ps_build)
+    _, cstore = _store(ctx)
+    keys = [d.key for d in ctx.datasets]
+    rest = [k for k in keys if k != "puzzle"]
+    result = CC.resolve_all(ctx, CC.shared_defaults(ctx), rest, {}, cstore)
+    ari = {frozenset((p.dataset_a, p.dataset_b)): (p.ari if p.ari is not None else -1) for p in result.pairs.values()}
+    best = max((k for k in rest if k != "rpg"), key=lambda k: (ari[frozenset(("rpg", k))], -keys.index(k)))
+    out = render(ps_build, include=rest, pair=["puzzle", "rpg"])
+    assert out["shown"]["sides"] == [best, "rpg"]  # RPG keeps the right; the left takes its highest-ARI partner
+    out = render(ps_build, include=rest, pair=["rpg", "puzzle"])
+    assert out["shown"]["sides"] == ["rpg", best]
 
 
 def test_the_mode_never_renders_outside_its_mode(ps_build):
@@ -223,11 +284,12 @@ def test_show_weaker_adds_the_hidden_matches_dashed(ps_build):
 def test_swap_puts_the_other_dataset_on_the_left_with_its_flags_against_the_first(ps_build):
     out = render(ps_build)
     pair, A, B = _chosen_pair(ps_build, out)
-    orient = CB.cc_swap(1, out["shown"], None)
+    assert out["shown"]["sides"] == [A.dataset, B.dataset]
+    triggered("cc-swap.n_clicks", 1)
+    orient, *_ = CB.cc_sides(A.dataset, B.dataset, 1, [], out["shown"])
     assert orient == [B.dataset, A.dataset]
-    assert CB.cc_swap(2, out["shown"], orient) == [A.dataset, B.dataset]
+    assert render(ps_build, pair=orient)["shown"]["sides"] == orient
     swapped = main(ps_build, out, orient=orient, minimum=0)
-    assert _text(swapped["title"]).index(load_build(ps_build).dataset(B.dataset).label) == 0
     sides = {b.id["dataset"]: getattr(b, "data-side") for b in _boxes(swapped)}
     assert (sides[B.dataset], sides[A.dataset]) == ("a", "b")
     assert sorted((x["b"], x["a"]) for x in swapped["links"]) == sorted(
@@ -545,7 +607,7 @@ def test_switching_to_another_mode_and_back_keeps_the_whole_view(ps_build):
     # the view choices live in stores and a static slider outside the re-rendered column
     layout = build_layout(load_build(ps_build), mode="workbench")
     ids = {getattr(c, "id", None) for c in _walk(layout) if isinstance(getattr(c, "id", None), str)}
-    assert {"cc-requests", "cc-pair", "cc-orient", "cc-weak", "cc-focus", "cc-match", "cc-minimum"} <= ids
+    assert {"cc-requests", "cc-pair", "cc-left", "cc-right", "cc-weak", "cc-focus", "cc-match", "cc-minimum"} <= ids
 
 
 def test_a_build_switch_starts_the_comparison_fresh_on_every_pick(ps_build):
@@ -554,7 +616,7 @@ def test_a_build_switch_starts_the_comparison_fresh_on_every_pick(ps_build):
     layout = build_layout(load_build(ps_build), mode="comparison")
     stores = {c.id: c for c in _walk(layout) if type(c).__name__ == "Store" and str(c.id).startswith("cc-")}
     assert stores["cc-requests"].data == {}  # every dataset on its pick
-    assert all(getattr(stores[k], "data", None) is None for k in ("cc-pair", "cc-orient", "cc-focus", "cc-match"))
+    assert all(getattr(stores[k], "data", None) is None for k in ("cc-pair", "cc-focus", "cc-match"))
     assert "mode=comparison" in build_url(CB.ref_of(CB.build_folder(str(ps_build))), "comparison", "overall")
 
 
@@ -690,8 +752,36 @@ def test_the_export_holds_every_pair_and_every_match_whatever_is_on_screen(ps_bu
     assert any(c["n_tags"] == "1" for c in clusters)  # One-Tag Clusters included
 
 
-def test_export_csv_is_in_the_header_with_its_help_and_needs_two_datasets(ps_build):
+def test_the_shared_settings_sit_in_the_sidebar_drawer_and_the_notice_heads_the_main_column(ps_build):
     layout = build_layout(load_build(ps_build), mode="comparison")
+    by_id = {c.id: c for c in _walk(layout) if isinstance(getattr(c, "id", None), str)}
+    in_sidebar = {getattr(c, "id", None) for c in _walk(by_id["cc-sidebar"]) if isinstance(getattr(c, "id", None), str)}
+    assert {"cc-s-weight", "cc-s-algorithm", "cc-s-min-months", "cc-s-genre", "cc-s-removed", "cc-comparison-id",
+            "cc-pairs"} <= in_sidebar
+    assert by_id["cc-main"].children[0].id == "cc-notice"
+    assert not any(getattr(c, "className", None) == "cc-head" for c in _walk(layout))
+    # the drawer: a collapse button in its title and a rail beside it; its state is None until a click (workbench.js
+    # `ccPanels` reads and keeps the browser session's state)
+    btns = {(c.id["panel"], c.id["opens"]) for c in _walk(by_id["cc-body"])
+            if isinstance(getattr(c, "id", None), dict) and c.id.get("type") == "panel-btn" and c.id["group"] == "cc"}
+    assert btns == {("controls", 0), ("controls", 1)}
+    assert by_id["cc-panels"].data is None and getattr(by_id["cc-panels"], "storage_type", "memory") == "memory"
+
+
+def test_the_drawer_button_and_rail_close_and_open_it(ps_build):
+    from test_app import triggered
+
+    triggered('{"group":"cc","opens":0,"panel":"controls","type":"panel-btn"}.n_clicks')
+    assert CB.toggle_panel([1], ["controls"]) == []
+    assert CB.toggle_panel([1], None) == []  # the first click, the store still None
+    triggered('{"group":"cc","opens":1,"panel":"controls","type":"panel-btn"}.n_clicks')
+    assert CB.toggle_panel([0, 1], []) == ["controls"]
+
+
+def test_export_csv_is_in_the_pair_header_with_its_help_and_needs_two_datasets(ps_build):
+    layout = build_layout(load_build(ps_build), mode="comparison")
+    pair_view = next(c for c in _walk(layout) if getattr(c, "id", None) == "cc-pair-view")
+    assert "cc-export" in {getattr(c, "id", None) for c in _walk(pair_view)}
     button = next(c for c in _walk(layout) if getattr(c, "id", None) == "cc-export")
     assert _text(button) == "Export CSV"
     assert H.target("comparison.export") in _help_targets(layout)

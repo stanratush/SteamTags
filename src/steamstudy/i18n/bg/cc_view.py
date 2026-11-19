@@ -34,4 +34,6 @@ MESSAGES: dict[str, str | dict[str, str]] = {
     "Matched in {dataset}": "Съвпадащи в {dataset}",
     # Export CSV (issue 23)
     "Export CSV": "Експортирай CSV",
+    "Dataset on the left": "Набор отляво",
+    "Dataset on the right": "Набор отдясно",
 }

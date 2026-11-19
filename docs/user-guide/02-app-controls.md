@@ -22,8 +22,8 @@ Each control below either sets a field of the Network State key (and so changes 
 | [Tidy](#tidy) | Settles the Global layout from the current positions, keeping the nodes you dragged where you dropped them; kept until the dataset, filter, weight, seed or the visible tags change | none | none (`layout_source` in exports) | Positions only |
 | Mode | Workbench, Analysis Report mode or [Parameter Selection](#parameter-selection-mode) | Workbench | none | none |
 | [EN / BG](#interface-language) (header) | Shows the interface and this guide in English or Bulgarian; remembered per browser | English | none | none |
-| Controls / Inspector / Tables | Collapse each panel independently | all shown | none | none |
-| Graph only | Switches to the narrowest form (pill bar, floating Inspector, bottom sheet) at any width; press again to leave it | off | none | none |
+| « Controls / » Inspector / ▾ Tables (each panel's title bar) | Collapses that panel; the thin rail it leaves on its edge reopens it | all shown | none | none |
+| Graph only (top right of the graph) | Switches to the narrowest form (pill bar, floating Inspector, bottom sheet) at any width; press again to leave it | off | none | none |
 | Find a tag… (header) | Finds any tag of the dataset: a tag in the network is selected, centred and opened in the Inspector; a missing tag opens a "Not in the network" card | none | none (Restore / Unhide on the card change `removed_tag_ids` / `hidden_tag_ids`) | none until you press the card's button |
 | Fit (⤢, top right of the graph) | Fits the whole graph back into view after you zoom or pan | none | none | Positions only |
 | Run, Continue, Cancel, Run for this tag | Removal Sensitivity, as a background job | not run | none (results are cached per `state_id`) | `removal_sensitivity.csv` only |
@@ -43,7 +43,7 @@ The Controls panel is split into four sections: **Data** (dataset, Minimum Month
 >
 > **Caution:** exports, tag names, game titles and dataset labels stay English in both languages.
 
-The EN | BG switch in the header, beside the mode switch, in all three modes. Default English. Not part of the Network State.
+The EN | BG switch at the right of the header, in every mode; its `?` opens this entry. Default English. Not part of the Network State.
 
 Switching relabels every label, message, tooltip and generated sentence at once, and opens this guide in the chosen language; nothing is recomputed and a running job carries on. Numbers on screen follow the language: Bulgarian writes 0,42 and 42%. Where a Bulgarian text is not written yet, the English one is shown in its place.
 
@@ -387,15 +387,15 @@ The card always says how many links are hidden from the drawing. A hidden link i
 
 ### Cluster map
 
-> **In short.** A small map of the clusters: a bubble per cluster, sized by its tags; a line per linked pair.
+> **In short.** A small map of the clusters: a bubble per Multi-Tag Cluster, sized by its tags; a curve per linked pair.
 >
-> **Higher →** a thicker line: a higher [Connection Ratio](03-metric-reference.md#connection-ratio), up to γ.
+> **Higher →** a thicker line: a higher [Connection Ratio](03-metric-reference.md#connection-ratio).
 >
 > **Here:** which clusters of the most-played games' tags connect, and how much for their sizes.
 >
-> **Caution:** where a bubble sits follows the drawing; distance on the map is not a metric.
+> **Caution:** the ring only orders the clusters by their links; distance on the map is not a metric.
 
-Press **Cluster map** at the top right of the graph to open a card over it; press again to close it. It stays open while the app runs and opens closed the next time. Each Multi-Tag Cluster is a bubble in its colour, with an area by its number of tags, placed where its tags are drawn (their centre in Global, its region in Cluster-separated) and nudged apart; the pool of One-Tag Clusters is a grey bubble labelled with its number of tags. Only pairs with at least one link get a line, from 0.6 to 7.6 pixels by ratio / γ. Click a bubble to select its cluster, or a line to select the pair; any selection lights up on the map, with the ratio written on the selected pair and on the selected cluster's lines. The card never moves or re-draws the graph.
+Press **Cluster map** at the top right of the graph to open a card over it; press it again, or the card's ×, to close it. It stays open while the app runs and opens closed the next time. Each Multi-Tag Cluster is a bubble in its colour, with an area by its number of tags (never too small to click), placed evenly on a ring and labelled outside the bubble ("C1 · 15 tags"); hover over a bubble for its top tags. The ring does not copy the graph: it starts from the cluster with the most link weight and puts each next to the one it is most strongly linked to, so the same network always gives the same map. Only pairs with at least one link get a curve, drawn inside the ring so it never passes under a bubble. Its width is its ratio against the strongest link on this map, which the key under the map names together with the weakest; the weakest third of the links is drawn thin and faint. The One-Tag Clusters are a note under the map ("+ 13 one-tag clusters"). Click a bubble to select its cluster, or a curve to select the pair; any selection lights up on the map, with the ratio written on the selected pair and on the selected cluster's curves. The card never moves or re-draws the graph.
 
 *Why it matters here.* The full graph shows every tag; the map shows the same clusters of the most-played games' characteristics as a handful of groups, so their connections can be read at once, then explored pair by pair in the Inspector.
 
@@ -459,10 +459,12 @@ The search box in the middle of the header works in every mode and form, includi
 The Workbench rearranges itself as the window narrows. Nothing is lost in a narrower form; every control is still one or two clicks away.
 
 - **Wide (1280 px and more)**: three panes. Controls on the left, the graph in the centre, the Inspector on the right, the tables below the graph. Drag the bar between the graph and the tables to give either more room.
-- **Medium (1024–1279 px)**: the Controls panel becomes a **pill bar** under the header. Each pill shows the current value ("Min games 8", "γ 1.00"); click it to open a small panel holding that control, and click anywhere else (or press Esc) to close it. The Inspector becomes a **floating card** over the right of the graph: it opens when you click a node, an edge or a cluster, and closes with ×. The graph refits so that nothing hides under the card.
+- **Medium (1024–1279 px)**: the Controls panel becomes a **pill bar** under the header. Each pill shows the current value ("Min games 8", "γ 1.00"); click it to open a small panel holding that control, and click anywhere else (or press Esc) to close it. The bar's last button, «, collapses it, and the bar it leaves under the header reopens it. The Inspector becomes a **floating card** over the right of the graph: it opens when you click a node, an edge or a cluster, and closes with ×. The graph refits so that nothing hides under the card.
 - **Narrow (under 1024 px)**: as medium, and the tables become a **bottom sheet**: a strip of tabs along the bottom of the graph. Click a tab or the grip on the left to open the sheet, and the grip again to close it.
 
-**Graph only** gives the narrow form at any width. Collapsing the Inspector in the wide form also makes it a floating card. The legend sits at the bottom left of the graph; the Global / Cluster-separated switch, Tidy and Fit sit at the top right.
+**Graph only** gives the narrow form at any width. Collapsing the Inspector in the wide form also makes it a floating card. The legend sits at the bottom left of the graph; the Global / Cluster-separated switch, Tidy, Cluster map, Fit and Graph only sit at the top right.
+
+Each panel collapses from its own title bar: « on the Controls, » on the Inspector, ▾ on the tables' tab strip. A collapsed panel leaves a thin rail on its edge with its name; click the rail to bring the panel back. The graph refits into the room either way.
 
 ## Task recipes
 
@@ -496,14 +498,14 @@ Open the **Not in network** tab (section 2 in Analysis Report mode). Every tag o
 ### Compare the Clusters of two datasets
 
 1. Run Automatic Parameter Selection for the datasets you want to compare (**Run all datasets** in the Parameter Selection mode), so each starts on its chosen pair.
-2. Switch to **Cluster Comparison**. Every dataset is included; the pair with the highest ARI is chosen. Click another row under **Dataset pairs** to change the pair.
+2. Switch to **Cluster Comparison**. Every dataset is included; the pair with the highest ARI is chosen. Choose the dataset for each side in the two dropdowns above the diagram, or click a row under **Dataset pairs**.
 3. Read the diagram: one curve per Cluster Match at or above the **Minimum Match Jaccard**, a badge on each Cluster with no such match. Click a curve to open the match, with its shared and unshared Tags and the games in both Clusters.
 4. Before quoting a match, check each dataset's Seed-Noise Floor and NA in its row, and see whether the match survives another Threshold Pair ("Use in Cluster Comparison" on a neighbouring cell).
 5. **Export CSV** records every pair; quote the `comparison_id` with every number you use.
 
 ## Parameter Selection mode
 
-The third mode runs [Automatic Parameter Selection](03-metric-reference.md#how-automatic-parameter-selection-works) and shows its results. It has the Workbench's three panes: Controls on the left (Run, Selection settings), the dataset strip with the Pair Constraints under it, heatmap, "Why this pair" and validation card in the middle, and the Pair Inspector on the right. At medium and narrow widths the Controls become a pill bar and the Inspector a floating card, as in the Workbench; the Pair Constraints stay under the dataset strip at every width. In this mode the header's **Controls**, **Pair Constraints** and **Inspector** toggles hide or show those panels; the heatmap widens into the room they leave.
+The third mode runs [Automatic Parameter Selection](03-metric-reference.md#how-automatic-parameter-selection-works) and shows its results. It has the Workbench's three panes: Controls on the left (Run, Selection settings), the dataset strip with the Pair Constraints under it, heatmap, "Why this pair" and validation card in the middle, and the Pair Inspector on the right. At medium and narrow widths the Controls become a pill bar and the Inspector a floating card, as in the Workbench; the Pair Constraints stay under the dataset strip at every width. In this mode the Controls (« in their title bar), the Pair Constraints (▴ beside their heading) and the Pair Inspector (») collapse the same way, each leaving a rail that reopens it; the heatmap widens into the room they leave.
 
 ### Run
 
@@ -681,7 +683,7 @@ The zip is named `steamstudy_parameter-selection_<settings key>_<UTC>.zip`. Inco
 
 > **Caution.** A Cluster Match says that two Clusters, each found at its dataset's settings, share Tags. It is not evidence that the Clusters are real or that the datasets share a genre structure. A match can appear, vanish or change its Match Jaccard with the seed, with g and s, and with the resolution. Read it against each dataset's Seed-Noise Floor and Neighbour Agreement.
 
-The fourth mode has a header, a sidebar and a main column. The header holds the shared settings, the `comparison_id` and **Export CSV**; the sidebar lists the datasets and the dataset pairs; the main column shows the chosen pair as a link diagram with the match detail under it. At medium and narrow widths the sidebar collapses above the diagram as a pill bar, as the Workbench's Controls do, and the diagram keeps its two columns and scrolls. The comparison keeps everything you set (the included datasets and their values, the chosen pair and match, the minimum) across every mode switch; switching Build starts it afresh, every dataset on its pick. How the figures are computed is in [How a Cluster Comparison works](03-metric-reference.md#how-a-cluster-comparison-works).
+The fourth mode has a sidebar and a main column. The sidebar holds the shared settings with the `comparison_id`, then the datasets, then the dataset pairs; the main column shows the chosen pair as a link diagram with the match detail under it, and **Export CSV** beside the Minimum Jaccard slider. The sidebar is a drawer: « in its title collapses it to a thin rail on the left edge, and a click on the rail opens it again. It is open the first time you open the mode in a browser session and stays as you left it until the session ends. A notice from a shared-setting change shows at the top of the main column, so you see it with the drawer closed. At medium and narrow widths the sidebar collapses above the diagram as a pill bar, as the Workbench's Controls do, and the diagram keeps its two columns and scrolls. The comparison keeps everything you set (the included datasets and their values, the chosen pair and match, the minimum) across every mode switch; switching Build starts it afresh, every dataset on its pick. How the figures are computed is in [How a Cluster Comparison works](03-metric-reference.md#how-a-cluster-comparison-works).
 
 *Why it matters here.* Each dataset is clustered on its own, from its own games, so the same genre combination may appear as a Cluster in several datasets. The mode lines them up by their Tags without merging the datasets.
 
@@ -693,7 +695,7 @@ The fourth mode has a header, a sidebar and a main column. The header holds the 
 >
 > **Caution:** a change resolves every dataset again and drops values set by hand.
 
-One row of controls in the header. They start from the Parameter Selection settings (Leiden, Lift, its Minimum Months Filter, its hidden Genre Tags and its removed tags), never from the Workbench's. Hidden Genre Tags is the same chip checklist as in Selection settings. There is no defining-tag control: each dataset's own defining tag is always hidden in that dataset, so a Parameter Selection run made with the defining tag shown never feeds the mode. Changing a shared setting resolves every dataset against the run for the new settings, on its pick if that run exists and with no run if not, and a notice says that values set by hand were dropped.
+The first section of the sidebar, with the `comparison_id` under it. They start from the Parameter Selection settings (Leiden, Lift, its Minimum Months Filter, its hidden Genre Tags and its removed tags), never from the Workbench's. Hidden Genre Tags is the same chip checklist as in Selection settings. There is no defining-tag control: each dataset's own defining tag is always hidden in that dataset, so a Parameter Selection run made with the defining tag shown never feeds the mode. Changing a shared setting resolves every dataset against the run for the new settings, on its pick if that run exists and with no run if not, and a notice says that values set by hand were dropped.
 
 *Why it matters here.* A Selected Partition belongs to one set of Selection Settings; the comparison can only show it under the same settings.
 
@@ -732,7 +734,7 @@ A dataset on a cell shows the cell's stored Selected Partition: it is read from 
 >
 > **Caution:** ARI compares two partitions; it says nothing about any one match.
 
-Each row shows ARI (comparable Tags) with a small bar, the number of Comparable Tags with their share of each network ("38 Comparable Tags: 76% of Overall's, 54% of Puzzle's") and the games in common. Clicking a row chooses the pair; on first open the top pair is chosen. With fewer than two datasets included, the list and the diagram say "Include at least two datasets to compare". See [ARI on Comparable Tags](03-metric-reference.md#ari-on-comparable-tags) and [Comparable Tags coverage](03-metric-reference.md#comparable-tags-coverage).
+Each row shows ARI (comparable Tags) with a small bar, the number of Comparable Tags with their share of each network ("38 Comparable Tags: 76% of Overall's, 54% of Puzzle's") and the games in common. Clicking a row chooses the pair, its earlier dataset on the left; on first open the top pair is chosen. The two dropdowns above the diagram, Left ⇄ Right, choose each side directly from the included datasets: picking on one side the dataset already on the other swaps the two, and ⇄ swaps them too. Untick the dataset on one side and that side moves to the included dataset with the highest ARI against the other side, which stays put. With fewer than two datasets included, the list and the diagram say "Include at least two datasets to compare". See [ARI on Comparable Tags](03-metric-reference.md#ari-on-comparable-tags) and [Comparable Tags coverage](03-metric-reference.md#comparable-tags-coverage).
 
 *Why it matters here.* A pair compared on a small share of either network can show few matches only because few Tags are in both.
 
@@ -748,7 +750,7 @@ Each row shows ARI (comparable Tags) with a small bar, the number of Comparable 
 >
 > **Caution:** a curve's width is Match Jaccard, not a measure of how alike the two genres are.
 
-A's Multi-Tag Clusters stand in the left column and B's in the right, under headings naming each dataset; A is the earlier dataset in the Build's order until ⇄ swaps the sides. Each box shows its label, its Tag count, its Tags (clipped to two lines), its flag as a badge, and a left border in the dataset's colour; a Cluster alone is always written with its dataset ("Overall C3"), since `C1…` labels mean nothing across datasets. Each curve's width and strength follow its Match Jaccard, written on it. Clicking a box shows only its curves and dims the Clusters it does not match; clicking it again shows all. Clicking a curve chooses the match. A line under the diagram counts each side's One-Tag Clusters, which are never matched. A pair with no Cluster Match says so.
+A's Multi-Tag Clusters stand in the left column and B's in the right, under headings naming each dataset; A is the dataset in the Left dropdown, B the one in the Right. Each box shows its label, its Tag count, its Tags (clipped to two lines), its flag as a badge, and a left border in the dataset's colour; a Cluster alone is always written with its dataset ("Overall C3"), since `C1…` labels mean nothing across datasets. Each curve's width and strength follow its Match Jaccard, written on it. Clicking a box shows only its curves and dims the Clusters it does not match; clicking it again shows all. Clicking a curve chooses the match. A line under the diagram counts each side's One-Tag Clusters, which are never matched. A pair with no Cluster Match says so.
 
 *Why it matters here.* One Cluster can match several, and a split or merge between datasets shows as one box with curves to two.
 

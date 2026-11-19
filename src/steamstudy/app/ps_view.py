@@ -26,6 +26,7 @@ from steamstudy.app import ps_cache, ps_run
 from steamstudy.app.ps_export import constraints_for, tag_names
 from steamstudy.app.loader import BuildContext
 from steamstudy.app.relabel import Labels, PerBuild, msg
+from steamstudy.app import panels as P
 from steamstudy.network import selection as SEL
 from steamstudy.network import selection_text as T
 from steamstudy.network import validation as V
@@ -280,8 +281,8 @@ def constraints_bar(L: Labels, constraints: SEL.Constraints) -> html.Div:
     where they apply, Confirm, Reset and the constraints label."""
     pills = _constraint_pills(L, constraints)
     return html.Div([
-        html.Span([L.span(msg("Pair Constraints")), " ", _static_help(L, "selection.constraints")],
-                  className="ps-cbar-h"),
+        html.Span([L.span(msg("Pair Constraints")), " ", _static_help(L, "selection.constraints"),
+                   P.collapse_button(L, "ps", "constraints")], className="ps-cbar-h"),
         *[html.Div([pills[name] for name in row], className="ps-cbar-row") for row in CONSTRAINT_ROWS],
         html.Div([
             dcc.RadioItems(id="ps-c-scope", options=L.options("ps-c-scope", [("all", msg("All five datasets")),
@@ -398,7 +399,8 @@ def controls(L: Labels, ctx: BuildContext, defaults: SEL.SelectionSettings) -> h
                  className="mute small ps-readonly"),
         html.Div(id="ps-s-label", className="mute small"),
     ], className="ctl-section")
-    return html.Div([html.Div([html.B(L.span(msg("Parameter Selection")))], className="ctl-title"),
+    return html.Div([html.Div([html.B(L.span(msg("Parameter Selection"))), P.collapse_button(L, "ps", "controls")],
+                              className="ctl-title"),
                      _pill(L, "run", msg("Run"), "selection.run", run),
                      _pill(L, "settings", msg("Selection settings"), "selection.settings", settings)],
                     id="ps-controls", className="controls ps-controls")
@@ -1018,6 +1020,7 @@ def mode_layout(ctx: BuildContext, L: Labels) -> html.Div:
     main = html.Div([
         html.Div(id="ps-strip", className="ps-strip"),
         constraints_bar(L, constraints),
+        P.rail(L, "ps", "constraints"),
         metric_picker(L),
         # Responsive: it follows the main column's width when a panel is turned off. The height stays 460 px: app.css
         # gives it `flex: 0 0 460px` in the scrolling main column, so a long validation card cannot shrink it.
@@ -1034,7 +1037,7 @@ def mode_layout(ctx: BuildContext, L: Labels) -> html.Div:
                                        id="ps-busy", hidden=True), className="busy", role="status"),
                     className="ps-busy")
     inspector_panel = html.Div([
-        html.Div([html.B(L.span(msg("Pair Inspector"))),
+        html.Div([html.B(L.span(msg("Pair Inspector"))), P.collapse_button(L, "ps", "inspector"),
                   html.Button("×", id="ps-inspector-close", className="x",
                               title=L.prop("ps-inspector-close", "title", msg("Close")))],
                  className="insp-title"),
@@ -1061,5 +1064,6 @@ def mode_layout(ctx: BuildContext, L: Labels) -> html.Div:
               dcc.Store(id="ps-running", data=False),
               dcc.Store(id="ps-validate-request"), dcc.Store(id="ps-validate-done"), dcc.Store(id="ps-applied"),
               dcc.Download(id="ps-download")]
-    return html.Div([*stores, controls(L, ctx, defaults), main, job, inspector_panel, busy],
+    return html.Div([*stores, controls(L, ctx, defaults), P.rail(L, "ps", "controls"), main, job, inspector_panel,
+                     P.rail(L, "ps", "inspector"), busy],
                     id="ps-body", className="app-body ps-body")

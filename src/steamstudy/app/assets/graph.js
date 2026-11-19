@@ -587,11 +587,13 @@
 
   // ------------------------------------------------------------------ the Cluster map card
 
-  // One bubble per Cluster (area by tag count) where its tags are drawn now (their centroid in Global, the region's
-  // centre in Cluster-separated), nudged apart; the pool as a grey bubble; a line for each pair with a link, 0.6-7.6
-  // px by ratio / γ. From the `cluster-connections` store and the positions this file already holds: redrawn in the
-  // browser, never a request. A bubble selects its Cluster, a line its pair; any selection lights up here.
-  const MAP = {w: 280, h: 190, pad: 18};
+  // One bubble per Multi-Tag Cluster (area by tag count, never below a readable size) on a ring, its label outside
+  // it; strongly linked Clusters sit next to each other, and each linked pair is a curve inside the ring, so no line
+  // runs under a bubble. Line width is scaled to the strongest link on this map, with a two-line key; the bottom
+  // third of the links by ratio is faded. The One-Tag Clusters are a note under the map, not a bubble. From the
+  // `cluster-connections` store and the tags this file already holds: redrawn in the browser, never a request. A
+  // bubble selects its Cluster, a curve its pair; any selection lights up here. The ring never follows the canvas.
+  const MAP = {w: 344, h: 268, label: 38};
   const M = {data: null, open: false};
   try { M.open = window.sessionStorage.getItem("steamstudy_map") === "1"; } catch (e) { M.open = false; }
 
@@ -602,47 +604,66 @@
     return Date.now();
   }
 
-  // Where each group sits on the canvas now, mapped into the card and nudged apart.
-  function mapPlaces(groups) {
-    const raw = {};
-    for (const g of groups) {
-      const r = region(g.cluster), nodes = members(g.cluster);
-      let p = null;
-      if (r.nonempty()) p = r.position();
-      else if (nodes.nonempty()) {
-        const xs = nodes.map((n) => n.position("x")), ys = nodes.map((n) => n.position("y"));
-        p = {x: xs.reduce((a, b) => a + b, 0) / xs.length, y: ys.reduce((a, b) => a + b, 0) / ys.length};
-      }
-      if (p) raw[g.cluster] = {x: p.x, y: p.y};
+  // The ring's order: from the Cluster with the most link weight, each next one the unplaced Cluster most strongly
+  // linked to the last placed (ties and unlinked Clusters in label order), so the same data always gives the same ring.
+  function ringOrder(ids, rows) {
+    const w = {};
+    for (const r of rows) {
+      if (!r.edge_count || r.cluster_a === r.cluster_b) continue;
+      const v = Math.max(r.ratio || 0, 0);
+      (w[r.cluster_a] = w[r.cluster_a] || {})[r.cluster_b] = v;
+      (w[r.cluster_b] = w[r.cluster_b] || {})[r.cluster_a] = v;
     }
-    const ids = Object.keys(raw);
-    if (!ids.length) return {};
-    const xs = ids.map((k) => raw[k].x), ys = ids.map((k) => raw[k].y);
-    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-    const sx = (MAP.w - 2 * MAP.pad) / ((x1 - x0) || 1), sy = (MAP.h - 2 * MAP.pad) / ((y1 - y0) || 1), s = Math.min(sx, sy);
+    const total = (c) => Object.values(w[c] || {}).reduce((a, b) => a + b, 0);
+    const byLabel = (a, b) => a.localeCompare(b, undefined, {numeric: true});
+    const left = ids.slice().sort(byLabel);
+    if (!left.length) return [];
+    left.sort((a, b) => total(b) - total(a) || byLabel(a, b));
+    const order = [left.shift()];
+    left.sort(byLabel);
+    while (left.length) {
+      const last = order[order.length - 1];
+      let best = 0;
+      for (let i = 1; i < left.length; i++) {
+        if (((w[last] || {})[left[i]] || 0) > ((w[last] || {})[left[best]] || 0)) best = i;
+      }
+      order.push(left.splice(best, 1)[0]);
+    }
+    return order;
+  }
+
+  // Where each Cluster sits on the ring, its bubble's radius and its label's anchor.
+  function ringPlaces(groups, rows) {
+    const order = ringOrder(groups.map((g) => g.cluster), rows);
+    const n = order.length, cx = MAP.w / 2, cy = MAP.h / 2;
+    const R = Math.min(MAP.w, MAP.h) / 2 - MAP.label + (n <= 2 ? 0 : 8);
+    // a bubble never reaches its neighbour: at most 40% of the gap between two places on the ring
+    const room = n <= 1 ? 40 : Math.max(8, 0.4 * 2 * R * Math.sin(Math.PI / n));
+    const size = Object.fromEntries(groups.map((g) => [g.cluster, g.size]));
     const out = {};
-    for (const k of ids) {
-      out[k] = {x: MAP.pad + (raw[k].x - x0) * s + ((MAP.w - 2 * MAP.pad) - (x1 - x0) * s) / 2,
-                y: MAP.pad + (raw[k].y - y0) * s + ((MAP.h - 2 * MAP.pad) - (y1 - y0) * s) / 2};
-    }
-    const radius = Object.fromEntries(groups.map((g) => [g.cluster, g.r]));
-    for (let it = 0; it < 40; it++) {  // nudge overlapping bubbles apart
-      let moved = false;
-      for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) {
-        const a = out[ids[i]], b = out[ids[j]], need = radius[ids[i]] + radius[ids[j]] + 3;
-        const dx = b.x - a.x || 0.01, dy = b.y - a.y, d = Math.hypot(dx, dy);
-        if (d < need) {
-          const push = (need - d) / 2, ux = dx / d, uy = dy / d;
-          a.x -= ux * push; a.y -= uy * push; b.x += ux * push; b.y += uy * push; moved = true;
-        }
-      }
-      if (!moved) break;
-    }
-    for (const k of ids) {
-      out[k].x = Math.max(radius[k], Math.min(MAP.w - radius[k], out[k].x));
-      out[k].y = Math.max(radius[k], Math.min(MAP.h - radius[k], out[k].y));
-    }
+    order.forEach((c, i) => {
+      const a = n === 1 ? -Math.PI / 2 : -Math.PI / 2 + (2 * Math.PI * i) / n;
+      const r = Math.min(room, Math.max(7, 2.6 * Math.sqrt(size[c])));
+      const x = n === 1 ? cx : cx + R * Math.cos(a), y = n === 1 ? cy : cy + R * Math.sin(a);
+      const cos = Math.cos(a), sin = Math.sin(a);
+      out[c] = {x, y, r, lx: x + (r + 5) * cos, ly: y + (r + 5) * sin + 4 + (sin > 0.3 ? 6 : sin < -0.3 ? -4 : 0),
+                anchor: n === 1 || Math.abs(cos) < 0.3 ? "middle" : cos > 0 ? "start" : "end"};
+    });
     return out;
+  }
+
+  // A curve between two places, bowed towards the ring's centre; its middle carries the ratio when lit.
+  function chord(a, b) {
+    const cx = MAP.w / 2, cy = MAP.h / 2, mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    const qx = cx + (mx - cx) * 0.35, qy = cy + (my - cy) * 0.35;
+    return {d: `M${a.x.toFixed(1)},${a.y.toFixed(1)} Q${qx.toFixed(1)},${qy.toFixed(1)} ${b.x.toFixed(1)},${b.y.toFixed(1)}`,
+            mx: 0.25 * a.x + 0.5 * qx + 0.25 * b.x, my: 0.25 * a.y + 0.5 * qy + 0.25 * b.y};
+  }
+
+  // A Cluster's top tags for its tooltip: the centre tag first, then by games (the renderer's `prio`).
+  function topTags(cluster, k) {
+    return members(cluster).toArray().sort((p, q) => p.data("prio") - q.data("prio")).slice(0, k)
+      .map((n) => n.data("full") || n.data("label"));
   }
 
   // `current`: the selection being drawn (applySelection passes it before it is recorded); else the recorded one.
@@ -652,55 +673,68 @@
     if (card) card.classList.toggle("open", M.open);
     if (toggle) toggle.setAttribute("aria-expanded", String(M.open));
     if (!body || !M.open || !M.data || !G.cy || !A.ui) return;
-    const w = A.ui.map, gamma = M.data.gamma || 1;
+    const w = A.ui.map;
     const multi = M.data.clusters.filter((c) => c.kind === "multi_tag");
     const poolSize = M.data.clusters.filter((c) => c.kind !== "multi_tag").length;
-    const radius = (n) => 3.4 * Math.sqrt(n);  // area by tag count
-    const groups = multi.map((c) => ({cluster: c.cluster, size: c.size, r: radius(c.size)}));
-    if (poolSize) groups.push({cluster: "one_tag_pool", size: poolSize, r: radius(poolSize)});
-    const at = mapPlaces(groups);
+    const groups = multi.map((c) => ({cluster: c.cluster, size: c.size}));
+    const at = ringPlaces(groups, M.data.rows);
     const sel = current !== undefined ? current : (G.selected ? JSON.parse(G.selected) : null);
     const selPair = sel && sel.kind === "pair" ? sel.id : null, selCluster = sel && sel.kind === "cluster" ? sel.id : null;
     const color = (c) => { const n = members(c).first(); return n.nonempty() ? n.data("color") : "#b8b8b8"; };
-    let lines = "", labels = "", any = false;
-    for (const r of M.data.rows) {
-      const a = at[r.cluster_a], b = at[r.cluster_b];
-      if (!r.edge_count || !a || !b || r.cluster_a === r.cluster_b) continue;
-      any = true;
+    const tagsOf = (n) => fill(w.tags[n === 1 ? 0 : 1], {n});
+    const ratio = (v) => decimal((v || 0).toFixed(2));
+    const drawn = M.data.rows.filter((r) => r.edge_count && at[r.cluster_a] && at[r.cluster_b] && r.cluster_a !== r.cluster_b);
+    const values = drawn.map((r) => Math.max(r.ratio || 0, 0)).sort((a, b) => a - b);
+    const top = values.length ? values[values.length - 1] : 0;
+    const faint = values.length >= 3 ? values[Math.floor(values.length / 3) - 1] : -1;  // the bottom third's ceiling
+    const width = (v) => 1 + 6 * (top > 0 ? Math.max(v, 0) / top : 1);
+    let lines = "", labels = "";
+    for (const r of drawn) {
+      const a = at[r.cluster_a], b = at[r.cluster_b], v = Math.max(r.ratio || 0, 0), c = chord(a, b);
       const id = `${r.cluster_a}|${r.cluster_b}`, on = id === selPair;
       const lit = on || (selCluster && (r.cluster_a === selCluster || r.cluster_b === selCluster));
-      const width = 0.6 + 7 * Math.min(Math.max((r.ratio || 0) / gamma, 0), 1);
-      lines += `<line class="map-link" data-pair="${esc(id)}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" ` +
-               `stroke="${on ? "#2457d6" : "#3b2f6b"}" stroke-width="${width.toFixed(2)}" ` +
-               `stroke-opacity="${lit || !sel ? 0.85 : 0.25}"><title>${esc(fill(w.ratio, {value: decimal((r.ratio || 0).toFixed(2))}))}</title></line>`;
+      const weak = v <= faint;  // the bottom third: faint and thin, so the stronger links read through a dense ring
+      const opacity = sel ? (lit ? 0.9 : 0.12) : weak ? 0.18 : 0.85;
+      const stroke = weak && !lit ? Math.min(width(v), 0.8) : width(v);
+      lines += `<path class="map-link" data-pair="${esc(id)}" d="${c.d}" fill="none" ` +
+               `stroke="${on ? "#2457d6" : "#3b2f6b"}" stroke-width="${stroke.toFixed(2)}" stroke-linecap="round" ` +
+               `stroke-opacity="${opacity}"><title>${esc(`${r.cluster_a} – ${r.cluster_b}: ${fill(w.ratio, {value: ratio(r.ratio)})}`)}</title></path>`;
       if (lit && r.ratio !== null) {
-        labels += `<text x="${(a.x + b.x) / 2}" y="${(a.y + b.y) / 2 - 3}" font-size="10" text-anchor="middle" ` +
-                  `class="map-ratio">${esc(decimal(r.ratio.toFixed(2)))}</text>`;
+        labels += `<text x="${c.mx.toFixed(1)}" y="${(c.my - 3).toFixed(1)}" font-size="10" text-anchor="middle" ` +
+                  `class="map-ratio">${esc(ratio(r.ratio))}</text>`;
       }
     }
     let bubbles = "";
     for (const g of groups) {
       const p = at[g.cluster];
       if (!p) continue;
-      const pool = g.cluster === "one_tag_pool";
       const on = g.cluster === selCluster || (selPair && selPair.split("|").includes(g.cluster));
-      const label = pool ? String(g.size) : g.cluster;
-      const title = pool ? `${w.pool}: ${fill(w.tags[g.size === 1 ? 0 : 1], {n: g.size})}`
-                         : `${g.cluster}: ${fill(w.tags[g.size === 1 ? 0 : 1], {n: g.size})}`;
-      bubbles += `<g class="${pool ? "map-pool" : "map-bubble"}"${pool ? "" : ` data-cluster="${esc(g.cluster)}"`}>` +
-                 `<circle cx="${p.x}" cy="${p.y}" r="${g.r}" fill="${pool ? "#b8b8b8" : color(g.cluster)}" ` +
-                 `stroke="${on ? "#2457d6" : "#fff"}" stroke-width="${on ? 2.5 : 1}"><title>${esc(title)}</title></circle>` +
-                 `<text x="${p.x}" y="${p.y + 3}" font-size="9.5" text-anchor="middle" fill="#1b2130">${esc(label)}</text></g>`;
+      const tags = topTags(g.cluster, 5);
+      const title = `${g.cluster}: ${tagsOf(g.size)}` + (tags.length ? ` · ${fill(w.top, {tags: tags.join(", ")})}` : "");
+      bubbles += `<g class="map-bubble" data-cluster="${esc(g.cluster)}"><title>${esc(title)}</title>` +
+                 `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${p.r.toFixed(1)}" fill="${color(g.cluster)}" ` +
+                 `stroke="${on ? "#2457d6" : "#fff"}" stroke-width="${on ? 2.5 : 1.2}"></circle>` +
+                 `<text x="${p.lx.toFixed(1)}" y="${p.ly.toFixed(1)}" font-size="11" text-anchor="${p.anchor}" ` +
+                 `class="map-label"><tspan font-weight="650">${esc(g.cluster)}</tspan> · ${esc(tagsOf(g.size))}</text></g>`;
     }
+    let key = "";
+    if (values.length) {
+      const low = values[0], sample = (v) => `<svg width="34" height="10"><line x1="2" y1="5" x2="32" y2="5" ` +
+        `stroke="#3b2f6b" stroke-width="${width(v).toFixed(2)}" stroke-linecap="round" stroke-opacity="0.85"/></svg>`;
+      key = `<div class="map-key">` +
+            (values.length > 1 ? `<span>${sample(low)}${esc(fill(w.weakest, {value: ratio(low)}))}</span>` : "") +
+            `<span>${sample(top)}${esc(fill(w.strongest, {value: ratio(top)}))}</span></div>`;
+    }
+    const note = poolSize ? `<div class="map-note mute">${esc(fill(w.one_tag[poolSize === 1 ? 0 : 1], {n: poolSize}))}</div>` : "";
     body.innerHTML = `<svg width="${MAP.w}" height="${MAP.h}" class="map-svg">${lines}${bubbles}${labels}</svg>` +
-                     (any ? "" : `<div class="mute small">${esc(w.empty)}</div>`);
+                     (values.length ? key : `<div class="mute small">${esc(w.empty)}</div>`) + note;
   }
 
   document.addEventListener("click", (ev) => {
     const t = ev.target instanceof Element ? ev.target : null;
     if (!t) return;
-    if (t.closest("#map-toggle")) {
-      M.open = !M.open;
+    if (t.closest("#map-toggle") || t.closest("#map-close")) {
+      M.open = t.closest("#map-close") ? false : !M.open;
       try { window.sessionStorage.setItem("steamstudy_map", M.open ? "1" : "0"); } catch (e) { /* session only */ }
       drawMap();
       return;

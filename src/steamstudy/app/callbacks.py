@@ -29,6 +29,7 @@ from steamstudy.app import help as H
 from steamstudy.app import app_cache, job_registry, ps_run, rs_cache
 from steamstudy.app import ps_view as PV
 from steamstudy.app import cc_view as CC
+from steamstudy.app import panels as P
 from steamstudy.app import view as V
 from steamstudy.app.export import REFUSALS, BuildNotFound, OpenRefused, export_zip, open_export
 from steamstudy.app.guide import PANEL_SECTIONS, help_markdown_at
@@ -650,6 +651,14 @@ def arrange(mode, tab, panels, graph_only):
     return [styles[b] for b in BLOCKS] + [root_class(mode, panels, bool(graph_only))]
 
 
+def toggle_panel(_clicks, value):
+    """A panel's collapse button or rail (panels.py) turns its panel off or on in the group's checklist."""
+    trigger = ctx.triggered_id
+    if not trigger or not (ctx.triggered and ctx.triggered[0].get("value")):
+        return no_update
+    return P.toggled(value, trigger["panel"], bool(trigger["opens"]))
+
+
 def inspector_form(panels, floating_open, selection):
     """The Inspector's form: docked as a pane, or (with a selection to show) a floating card."""
     return ("inspector" + (" docked" if "inspector" in (panels or []) else "")
@@ -1200,19 +1209,27 @@ def cc_render(mode, weight, algorithm, min_months, genre, removed, include, requ
     included = _cc_included(include)
     shared = CC.shared_of(weight, algorithm, min_months, genre, removed)
     out = CC.render(c, shared, included, requests, pair, cstore, tx=text(lang_of(lang)))
+    sides = out["shown"]["sides"]
+    if sides and sides != list(pair or []):
+        # the sides shown are not the ones asked for (the first render, or a side's dataset unticked): the dropdowns
+        # follow, and `cc_sides` records them. Not declared Outputs: the dropdowns feed `cc-pair`, which this reads.
+        # The options travel with the value: a dropdown clears a value its options do not hold yet.
+        set_props("cc-left", {"options": out["left_options"], "value": sides[0]})
+        set_props("cc-right", {"options": out["right_options"], "value": sides[1]})
     return tuple(out[name] for name in CC.RENDER_OUTPUTS)
 
 
-def cc_main(shown, minimum, weak, orient, focus, match, weight, algorithm, min_months, genre, removed, include,
+def cc_main(shown, minimum, weak, focus, match, weight, algorithm, min_months, genre, removed, include,
             requests, pair, cstore, build_path, lang=None):
-    """The main column for the view choices (minimum, "show weaker", ⇄, the clicked box, the chosen match): it
-    follows `cc-shown`, which `cc_render` writes, and reads the memos warm; nothing is recomputed."""
+    """The main column for the view choices (minimum, "show weaker", the clicked box, the chosen match) and the
+    sides shown: it follows `cc-shown`, which `cc_render` writes, and reads the memos warm; nothing is recomputed."""
     if not shown:
         raise PreventUpdate
     c = load_build(build_path)
     included = _cc_included(include)
     shared = CC.shared_of(weight, algorithm, min_months, genre, removed)
-    view = CC.DiagramView(CC.MINIMUM_DEFAULT if minimum is None else float(minimum), bool(weak), orient, focus, match)
+    view = CC.DiagramView(CC.MINIMUM_DEFAULT if minimum is None else float(minimum), bool(weak), shown.get("sides"),
+                          focus, match)
     out = CC.render_main(c, shared, included, requests, pair, cstore, view, tx=text(lang_of(lang)))
     return tuple(getattr(out, name) for name in CC.MAIN_OUTPUTS)
 
@@ -1325,15 +1342,6 @@ def cc_export_disabled(shown):
     return not (shown or {}).get("comparison_id")
 
 
-def cc_swap(_n, shown, orient):
-    """⇄: the chosen pair's other dataset goes on the left (a view choice)."""
-    pair = (shown or {}).get("pair")
-    if not _n or not pair:
-        raise PreventUpdate
-    current = orient if orient and set(orient) == set(pair) else pair
-    return [current[1], current[0]]
-
-
 def cc_toggle_weak(_n, weak):
     """"show weaker": the matches below the minimum are drawn dashed, or hidden again."""
     if not _n:
@@ -1352,12 +1360,29 @@ def cc_focus(_clicks, shown, focus):
     return None if focus == record else record
 
 
-def cc_pick_pair(_clicks):
-    """A Dataset pairs row chooses its pair."""
-    trigger = ctx.triggered_id
-    if not isinstance(trigger, dict) or not any(_clicks or []):
+def cc_sides(left, right, swap, rows, shown):
+    """The sides asked for (`cc-pair`) and the two dropdowns, from a pick on Left or Right, ⇄ or a Dataset pairs
+    row (its earlier dataset on the left). A pick of the dataset already on the other side swaps the two; when
+    `cc_render` sets both dropdowns to the sides it shows, they are recorded as asked for."""
+    old = (shown or {}).get("sides")
+    # every prop that changed, with its value: a render can change the dropdowns and re-render the rows at once
+    changed = {t["prop_id"]: t.get("value") for t in ctx.triggered or []}
+    clicked = [json.loads(k.rsplit(".", 1)[0]) for k, v in changed.items() if k.startswith("{") and v]
+    if "cc-swap.n_clicks" in changed:
+        if not swap or not old:
+            raise PreventUpdate
+        new = [old[1], old[0]]
+    elif clicked:
+        new = [clicked[0]["a"], clicked[0]["b"]]
+    elif not {"cc-left.value", "cc-right.value"} & set(changed):
+        raise PreventUpdate  # a re-rendered list, nothing clicked
+    elif left and right and left != right:
+        new = [left, right]
+    elif left and old:  # the same dataset on both sides: the pick swaps them
+        new = CC.picked("left" if "cc-left.value" in changed else "right", left, old)
+    else:
         raise PreventUpdate
-    return [trigger["a"], trigger["b"]]
+    return new, new[0], new[1]
 
 
 def register(app: dash.Dash) -> None:
@@ -1434,6 +1459,9 @@ def register(app: dash.Dash) -> None:
     cb(*[Output(b, "style") for b in BLOCKS], Output("root", "className"),
        Input("mode", "value"), Input("wb-tab", "value"), Input("panels", "value"),
        Input("graph-only-on", "data"))(arrange)
+    for group, (state, prop) in P.STATE.items():
+        cb(Output(state, prop), Input({"type": "panel-btn", "group": group, "panel": ALL, "opens": ALL}, "n_clicks"),
+           State(state, prop), prevent_initial_call=True)(toggle_panel)
     cb(Output("inspector-panel", "className"), Input("panels", "value"), Input("floating-open", "data"),
        Input("selection", "data"))(inspector_form)
     cb(Output("graph-only-on", "data"), Input("graph-only", "n_clicks"), State("graph-only-on", "data"),
@@ -1492,6 +1520,8 @@ def register(app: dash.Dash) -> None:
     # ---- Parameter Selection mode
     app.clientside_callback(ClientsideFunction(namespace="workbench", function_name="psPanels"),
                             Output("ps-body", "className"), Input("ps-panels", "value"))
+    app.clientside_callback(ClientsideFunction(namespace="workbench", function_name="ccPanels"),
+                            Output("cc-body", "className"), Input("cc-panels", "data"))
     ps_outputs = [Output("ps-rows", "children"), Output("ps-cache-line", "children"),
                   Output("ps-provenance", "children"), Output("ps-banner", "children"), Output("ps-banner", "style"),
                   Output("ps-continue", "style"), Output("ps-continue", "children"), Output("ps-export", "disabled"),
@@ -1565,7 +1595,7 @@ def register(app: dash.Dash) -> None:
                   Output({"type": "cc-g", "dataset": ALL}, "value"), Output({"type": "cc-s", "dataset": ALL}, "value"),
                   Output({"type": "cc-resolution", "dataset": ALL}, "value"), Output("cc-pairs", "children"),
                   Output("cc-comparison-id", "children"), Output("cc-pill-datasets", "children"), Output("cc-pill-pairs", "children"),
-                  Output("cc-shown", "data")]
+                  Output("cc-left", "options"), Output("cc-right", "options"), Output("cc-shown", "data")]
     cb(*cc_outputs, Input("mode", "value"), Input("cc-s-weight", "value"), Input("cc-s-algorithm", "value"),
        Input("cc-s-min-months", "value"), Input("cc-s-genre", "value"), Input("cc-s-removed", "value"),
        Input({"type": "cc-include", "dataset": ALL}, "value"), Input("cc-requests", "data"),
@@ -1576,12 +1606,15 @@ def register(app: dash.Dash) -> None:
        State({"type": "cc-include", "dataset": ALL}, "value"), State("cc-requests", "data"),
        State("ps-constraints", "data"), State("cc-minimum", "value"), State("build-path", "data"),
        prevent_initial_call=True)(cc_export)
-    cb(Output("cc-pair", "data"), Input({"type": "cc-pair", "a": ALL, "b": ALL}, "n_clicks"),
-       prevent_initial_call=True)(cc_pick_pair)
-    cb(*[Output(i, p) for i, p in (("cc-main-empty", "children"), ("cc-pair-view", "style"), ("cc-title", "children"),
+    # Left, Right, ⇄ and the Dataset pairs rows: one callback, the dropdowns both its inputs and its outputs.
+    cb(Output("cc-pair", "data"), Output("cc-left", "value"), Output("cc-right", "value"),
+       Input("cc-left", "value"), Input("cc-right", "value"), Input("cc-swap", "n_clicks"),
+       Input({"type": "cc-pair", "a": ALL, "b": ALL}, "n_clicks"), State("cc-shown", "data"),
+       prevent_initial_call=True)(cc_sides)
+    cb(*[Output(i, p) for i, p in (("cc-main-empty", "children"), ("cc-pair-view", "style"),
                                    ("cc-diagram", "children"), ("cc-links", "data"), ("cc-one-tag", "children"),
                                    ("cc-weak-btn", "children"), ("cc-detail", "children"))],
-       Input("cc-shown", "data"), Input("cc-minimum", "value"), Input("cc-weak", "data"), Input("cc-orient", "data"),
+       Input("cc-shown", "data"), Input("cc-minimum", "value"), Input("cc-weak", "data"),
        Input("cc-focus", "data"), Input("cc-match", "data"), State("cc-s-weight", "value"),
        State("cc-s-algorithm", "value"), State("cc-s-min-months", "value"), State("cc-s-genre", "value"),
        State("cc-s-removed", "value"), State({"type": "cc-include", "dataset": ALL}, "value"),
@@ -1610,8 +1643,6 @@ def register(app: dash.Dash) -> None:
        State("ps-active", "data"), State("ps-constraints", "data"), State("cc-requests", "data"),
        State({"type": "cc-include", "dataset": ALL}, "value"), State("build-path", "data"),
        prevent_initial_call=True)(ps_use_cc)
-    cb(Output("cc-orient", "data"), Input("cc-swap", "n_clicks"), State("cc-shown", "data"), State("cc-orient", "data"),
-       prevent_initial_call=True)(cc_swap)
     cb(Output("cc-weak", "data"), Input("cc-weak-btn", "n_clicks"), State("cc-weak", "data"),
        prevent_initial_call=True)(cc_toggle_weak)
     cb(Output("cc-focus", "data"), Input({"type": "cc-box", "dataset": ALL, "cluster": ALL}, "n_clicks"),

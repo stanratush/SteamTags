@@ -167,7 +167,7 @@ This file sits outside `docs/user-guide/`, so the guide parser never reads it. T
 |---|---|
 | Tag Network (browser tab title) | Мрежа от тагове |
 | Workbench | Работно място |
-| Analysis Report mode | режим „Аналитичен доклад“ (avoid *доклад* on its own) |
+| Analysis Report mode | режим „Аналитичен доклад“ (avoid *доклад* on its own; the mode button, "Analysis Report", is „Аналитичен доклад“ in quotes) |
 | Parameter Selection | Избор на параметри |
 | Global / Cluster-separated | Общо / По клъстери |
 | Controls / Inspector / Tables | Настройки / Инспектор / Таблици |
